@@ -20,41 +20,20 @@ export function BlocoKpisEquipe({
   atendimentos,
   ticket,
   pa,
-  premiacao,
-  desafios,
-  metaAtiva,
 }: {
   faturamento: EquipeView["kpiFaturamento"];
   atendimentos: EquipeView["kpiAtendimentos"];
   ticket: EquipeView["kpiTicket"];
   pa: EquipeView["kpiPA"];
-  premiacao: EquipeView["kpiPremiacao"];
-  desafios: EquipeView["desafios"];
-  metaAtiva: boolean;
 }) {
-  // Verba única (decisão do usuário): a escada de metas é paga como
-  // premiação, junto com os prêmios dos desafios — um KPI só.
-  const foraDoRitmo = desafios?.filter((d) => !d.fechaNoRitmo && !d.semEngajamento).length ?? 0;
+  // Sempre 4 KPIs em 2×2 — premiação e desafios ficam na faixa/tabela e no
+  // bloco de desafios, não no topo (decisão do usuário).
   return (
-    // Sempre 2 por linha (decisão do usuário): 4 KPIs sem meta (2×2) e 6 com
-    // meta ativa (3 linhas × 2). 3+ na mesma linha ficou feio no celular.
     <div className="grid grid-cols-2 gap-4">
       <KpiTile label="Faturamento" value={faturamento.valor} icon="dollar" tint="acc" delta={faturamento.delta} />
       <KpiTile label="Atendimentos" value={atendimentos.valor} icon="users" tint="info" delta={atendimentos.delta} />
       <KpiTile label="Ticket médio" value={ticket.valor} icon="card" tint="ok" delta={ticket.delta} />
       <KpiTile label="P.A." value={pa.valor} icon="layers" tint="warn" delta={pa.delta} />
-      {metaAtiva && premiacao && (
-        <KpiTile label="Premiação projetada" value={premiacao.valor} icon="award" tint="acc" sub="metas + desafios" />
-      )}
-      {metaAtiva && desafios && (
-        <KpiTile
-          label="Desafios fora do ritmo"
-          value={num(foraDoRitmo, 0)}
-          icon="target"
-          tint={foraDoRitmo > 0 ? "bad" : "ok"}
-          sub={`${desafios.length} ativos`}
-        />
-      )}
     </div>
   );
 }

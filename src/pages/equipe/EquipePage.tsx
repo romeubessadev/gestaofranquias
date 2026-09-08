@@ -30,9 +30,6 @@ export function EquipePage() {
           atendimentos={v.kpiAtendimentos}
           ticket={v.kpiTicket}
           pa={v.kpiPA}
-          premiacao={v.kpiPremiacao}
-          desafios={v.desafios}
-          metaAtiva={v.metaAtiva}
         />
 
         {v.visao === "rede" && v.metaGlobal && <FaixaMetaGlobal meta={v.metaGlobal} />}
