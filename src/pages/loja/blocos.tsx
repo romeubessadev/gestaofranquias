@@ -1,12 +1,40 @@
-import { useState } from "react";
-import { Accordion, Badge, Card, CardHeader, CardTitle, DataTable, Modal, ProgressBar, Switch, type AccordionItemData, type DataTableColumn } from "@/components/ui";
+import { useState, type ReactNode } from "react";
+import { Accordion, Badge, Card, CardHeader, CardTitle, DataTable, EmptyState, Modal, ProgressBar, Skeleton, Switch, type AccordionItemData, type DataTableColumn } from "@/components/ui";
 import { AreaLineChart, BarChart, StackedBarChart } from "@/components/charts";
 import { ICONS, TINT, type IconKey, type TintKey } from "@/pages/dashboards/icons";
 import { KpiSubtitulo, KpiTile } from "@/pages/dashboards/KpiTile";
 import { cn } from "@/lib/cn";
 import { brl } from "@/lib/formato";
-import { brlK, type AlertaSistema, type CategoriaLinha, type ChecklistDia, type ComparacaoView, type GraficoEvolucao, type GraficoHora, type GraficoHoraRede, type ItemLucro, type KpiValor, type LinhaRegua, type PontoAtencao, type RitmoCard, type TileMetaProjecao, type TurnoLinha } from "@/data/gestao/loja";
+import { brlK, type AlertaSistema, type CategoriaLinha, type ChecklistDia, type ComparacaoView, type EstadoBloco as EstadoBlocoTipo, type GraficoEvolucao, type GraficoHora, type GraficoHoraRede, type ItemLucro, type KpiValor, type LinhaRegua, type PontoAtencao, type RitmoCard, type TileMetaProjecao, type TurnoLinha } from "@/data/gestao/loja";
 import { produtosDaCategoria, type ProdutoResumo } from "@/data/gestao/produtos";
+
+/* ---------- Estados de leitura (LOJA-07): carregando → Skeleton; sem dados → EmptyState ---------- */
+
+const ROTULO_ESTADO: Record<Exclude<EstadoBlocoTipo, "disponivel">, string> = {
+  carregando: "Carregando dados…",
+  sem_dados: "Sem dados para o período selecionado",
+  indisponivel: "Bloco indisponível no momento",
+};
+
+export function EstadoBloco({ estado, children }: { estado: EstadoBlocoTipo; children: ReactNode }) {
+  if (estado === "disponivel") return <>{children}</>;
+  if (estado === "carregando") {
+    return (
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-10 w-40" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    );
+  }
+  return (
+    <EmptyState
+      icon="📭"
+      title={ROTULO_ESTADO[estado]}
+      description={estado === "sem_dados" ? "Não existem vendas para o período selecionado." : "Tente outro período ou consulte a equipe de TI."}
+    />
+  );
+}
 
 /* ---------- Comparação: datas exatas, não um rótulo vago ---------- */
 

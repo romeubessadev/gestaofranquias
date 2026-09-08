@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { useSessaoAtiva } from "@/session/SessionProvider";
 import { DashboardShell } from "./DashboardShell";
 import { useEscopo } from "./useEscopo";
-import { BlocoAlertas, BlocoCategorias, BlocoChecklist, BlocoComparacao, BlocoEvolucao, BlocoKpis, BlocoLucroBruto, BlocoPorHora, BlocoPorHoraRede, BlocoRegua, BlocoRitmo } from "./blocos";
+import { BlocoAlertas, BlocoCategorias, BlocoChecklist, BlocoComparacao, BlocoEvolucao, BlocoKpis, BlocoLucroBruto, BlocoPorHora, BlocoPorHoraRede, BlocoRegua, BlocoRitmo, EstadoBloco } from "./blocos";
 
 /**
  * Loja: mesmo conjunto de 4 tiles no topo em qualquer visão. Abaixo, um par
@@ -46,7 +46,9 @@ export function LojaPage() {
 
       <div className="flex flex-col gap-5">
         {v.comparacao && <BlocoComparacao comparacao={v.comparacao} />}
-        <BlocoKpis faturamento={v.kpiFaturamento} tileMeta={v.tileMeta} ticket={v.kpiTicket} pa={v.kpiPA} />
+        <EstadoBloco estado={v.estados.kpis}>
+          <BlocoKpis faturamento={v.kpiFaturamento} tileMeta={v.tileMeta} ticket={v.kpiTicket} pa={v.kpiPA} />
+        </EstadoBloco>
 
         {principal && (
           <div className={cn("grid grid-cols-1 gap-5", lateral && "lg:grid-cols-3")}>

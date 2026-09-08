@@ -270,7 +270,7 @@ T8 -> T9
 
 ---
 
-### T7: Implementar estados de leitura e deltas na UI (LOJA-07 + LOJA-06 AC 3)
+### T7: Implementar estados de leitura e deltas na UI (LOJA-07 + LOJA-06 AC 3) ✅
 
 **What**: Estados por bloco na página (`Skeleton`/`EmptyState`) e renderização dos deltas derivados da comparação única.
 **Where**: `src/pages/loja/LojaPage.tsx`
