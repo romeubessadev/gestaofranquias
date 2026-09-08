@@ -311,9 +311,10 @@ export function BlocoRitmo({ ritmo }: { ritmo: RitmoCard }) {
   );
 }
 
-/* ---------- Régua de lojas: no padrão "Sessions by device" do Vela — % à direita, barra própria, clique abre a loja ---------- */
+/* ---------- Régua de lojas: no padrão "Sessions by device" do Vela — hero com ícone e cor da loja, % à direita, barra, clique abre a loja ---------- */
 
 export function BlocoRegua({ regua, modoMarca, onEscolher }: { regua: LinhaRegua[]; modoMarca: boolean; onEscolher: (filialId: string) => void }) {
+  const IconeLoja = ICONS.cart;
   return (
     <Card className="flex flex-col">
       <CardTitle>Desempenho das lojas</CardTitle>
@@ -325,13 +326,18 @@ export function BlocoRegua({ regua, modoMarca, onEscolher }: { regua: LinhaRegua
         {regua.map((l) => (
           <button key={l.filialId} onClick={() => onEscolher(l.filialId)} className="text-left">
             <div className="mb-2 flex items-center gap-3">
-              <span className="h-2.5 w-2.5 shrink-0 rounded-[4px]" style={{ background: TINT[l.tint].fg }} />
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]"
+                style={{ background: TINT[l.tint].bg, color: TINT[l.tint].fg }}
+              >
+                <IconeLoja size={16} />
+              </span>
               <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-t1">{l.nome}</span>
               <span className="flex shrink-0 items-center gap-2">
                 <span className="font-mono text-[13px] font-bold text-t0">{l.faturamento}</span>
-                {l.variacaoDia && (
-                  <Badge variant={l.variacaoDia.value === "=" ? "neutral" : l.variacaoDia.positive ? "success" : "danger"}>
-                    {l.variacaoDia.value === "=" ? l.variacaoDia.value : `${l.variacaoDia.positive ? "↗" : "↘"} ${l.variacaoDia.value}`}
+                {l.variacaoDia && l.variacaoDia.value !== "=" && (
+                  <Badge variant={l.variacaoDia.positive ? "success" : "danger"}>
+                    {l.variacaoDia.positive ? "↗" : "↘"} {l.variacaoDia.value}
                   </Badge>
                 )}
               </span>
