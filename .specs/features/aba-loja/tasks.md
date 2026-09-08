@@ -165,7 +165,7 @@ T8 -> T9
 
 ---
 
-### T3: Implementar motor de trilho — status + venda necessária hoje (LOJA-01, LOJA-02)
+### T3: Implementar motor de trilho — status + venda necessária hoje (LOJA-01, LOJA-02) ✅
 
 **What**: Contrato de view para o herói (status/pct/competência) e a venda necessária hoje, com a curva ponderada por dia da semana, janela da competência e fórmula única da venda necessária.
 **Where**: `src/data/gestao/loja.ts`

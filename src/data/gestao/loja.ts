@@ -14,7 +14,7 @@
 import { categorias, filiais, filialPorId, tarefas, turnos, type Divisao, type Filial } from "./filiais";
 import { metaDaFilial } from "./metas";
 import { AGORA, ATUALIZADO_AS, HOJE_ISO, HORA_ATUAL, INTERVALO_SYNC_MIN, ULTIMO_SYNC } from "./relogio";
-import { agregadoDoDia, diaVendas, diasVendas, intervaloHoras, lojaAberta, somarAgregados, type Agregado } from "./vendas";
+import { agregadoDoDia, diaVendas, diasVendas, intervaloHoras, lojaAberta, pesoDia, somarAgregados, type Agregado } from "./vendas";
 import { brl, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, inicioDoMes, intervaloDias, mesAno, num, pct, somarDias } from "@/lib/formato";
 import type { TintKey } from "@/pages/dashboards/icons";
 import { montarLeituraLoja } from "./leitura";
@@ -57,6 +57,41 @@ export const rotulosPeriodo: Record<PeriodoTipo, string> = {
   mesPassado: "Mês passado",
   personalizado: "Personalizado",
 };
+
+/* ---------- Tipos do motor de trilho ---------- */
+
+export type EstadoBloco = "disponivel" | "carregando" | "sem_dados" | "indisponivel";
+
+export interface EstadosLojaView {
+  kpis: EstadoBloco;
+  trilho: EstadoBloco;
+  vendaNecessaria: EstadoBloco;
+  projecao: EstadoBloco;
+  diagnostico: EstadoBloco;
+  mix: EstadoBloco;
+  lojas: EstadoBloco;
+}
+
+export type StatusTrilho = "no_trilho" | "atencao" | "abaixo" | "meta_batida" | "meta_nao_batida";
+
+export interface TrilhoView {
+  status: StatusTrilho;
+  /** Percentual do trilho (realizado ÷ meta × fração acumulada da curva), null em competência encerrada. */
+  pctTrilho: number | null;
+  competencia: string;
+}
+
+export interface VendaNecessariaView {
+  /** (faltaRestante × pesoHoje ÷ Σ pesosRestantes) − realizadoHoje */
+  valor: number | null;
+  realizadoHoje: number;
+  faltaRestante: number;
+  diasRestantes: number;
+  diaReferencia: string;
+  cumpridaHoje: boolean;
+  metaMesAtingida: boolean;
+  semMeta: boolean;
+}
 
 const DIAS_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
@@ -222,6 +257,12 @@ export interface ChecklistDia {
   turnos: TurnoLinha[];
 }
 
+export interface ProjecaoView {
+  valor: number | null;
+  disponivel: boolean;
+  encerrada: boolean;
+}
+
 export interface LojaView {
   escopo: Escopo;
   periodo: PeriodoResolvido;
@@ -232,6 +273,10 @@ export interface LojaView {
   leitura: string | null;
   avisos: string[];
   comparacao: { atual: string; anterior: string } | null;
+  trilho: TrilhoView | null;
+  vendaNecessaria: VendaNecessariaView | null;
+  projecao: ProjecaoView | null;
+  estados: EstadosLojaView;
   kpiFaturamento: KpiValor;
   kpiTicket: KpiValor;
   kpiPA: KpiValor;
@@ -493,7 +538,138 @@ function montarAlertas(fs: Filial[]): AlertaSistema[] {
   return alertas;
 }
 
-/* ---------- Montagem ---------- */
+/* ---------- Motor de trilho ---------- */
+
+/** Curva de pesos normalizados: `peso(iso)` soma 1 nos dias abertos; `pesoBruto` é o valor pré-normalização. */
+export interface CurvaReceita {
+  peso: (iso: string) => number;
+  pesoBruto: (iso: string) => number;
+  soma: number;
+}
+
+/**
+ * curvaReceita (AD-034): pesos diários normalizados (soma = 1 nos dias abertos)
+ * derivados do histórico real de faturamento — média simples das quatro
+ * ocorrências equivalentes anteriores do mesmo dia da semana; menos ocorrências
+ * usa o que houver; nenhuma usa `pesoDia` como base.
+ */
+export function curvaReceita(fs: Filial[], competencia: string): CurvaReceita {
+  const primeiroDia = `${competencia}-01`;
+  const ultimoDia = fimDoMes(primeiroDia);
+  const pesos = new Map<string, number>();
+  let soma = 0;
+  for (const iso of intervaloDias(primeiroDia, ultimoDia)) {
+    let bruto = 0;
+    let abertas = 0;
+    for (const f of fs) {
+      if (!lojaAberta(f, iso)) continue;
+      const ocas = ocorrenciasAnteriores(f, iso, 4);
+      bruto += ocas.length > 0 ? ocas.reduce((s, d) => s + d.total.faturamento, 0) / ocas.length : pesoDia(f, iso);
+      abertas++;
+    }
+    if (abertas === 0) continue; // nenhuma loja abre nesse dia
+    pesos.set(iso, bruto);
+    soma += bruto;
+  }
+  return {
+    soma,
+    peso: (iso: string) => (soma > 0 ? (pesos.get(iso) ?? 0) / soma : 0),
+    pesoBruto: (iso: string) => pesos.get(iso) ?? 0,
+  };
+}
+
+/** As últimas `n` ocorrências anteriores do mesmo dia da semana, com loja aberta (AD-034). */
+function ocorrenciasAnteriores(f: Filial, iso: string, n: number): DiaVendasVendas[] {
+  const out: DiaVendasVendas[] = [];
+  for (let i = 7; out.length < n && i <= 28; i += 7) {
+    const ref = somarDias(iso, -i);
+    const d = diaVendas(f.id, ref);
+    // Só contam ocorrências com loja aberta e registro no histórico (undefined antes do início).
+    if (d && lojaAberta(f, ref)) out.push(d);
+  }
+  return out;
+}
+
+/** Tipo mínimo de DiaVendas usado pelas curvas. */
+interface DiaVendasVendas {
+  data: string;
+  total: { faturamento: number };
+}
+
+/** Meta acumulada esperada até hoje: meta mensal × fração acumulada da curvaReceita (LOJA-01 AC 2-7). */
+function metaAcumuladaAteHoje(fs: Filial[], competencia: string, metaValor: number, hojeIso: string): number {
+  const curva = curvaReceita(fs, competencia);
+  const primeiroDia = `${competencia}-01`;
+  let fração = 0;
+  for (const iso of intervaloDias(primeiroDia, hojeIso)) fração += curva.peso(iso);
+  return metaValor * fração;
+}
+
+/** Status do trilho do mês (LOJA-01). */
+function calcularTrilho(fs: Filial[], competencia: string): TrilhoView | null {
+  const metasFs = fs.map((f) => metaDaFilial(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+  if (metasFs.length === 0) return null;
+  const valor = metasFs.reduce((s, m) => s + m.valorLoja, 0);
+
+  const primeiroDia = `${competencia}-01`;
+  const ultimoDia = fimDoMes(primeiroDia);
+  const fechada = ultimoDia < HOJE_ISO;
+  const fimReal = fechada ? ultimoDia : HOJE_ISO;
+  const realizado = fs.reduce((s, f) => s + agregadoPeriodo(f, primeiroDia, fimReal, null).faturamento, 0);
+
+  const metaAcum = metaAcumuladaAteHoje(fs, competencia, valor, fimReal);
+
+  let status: StatusTrilho;
+  let pctTrilho: number | null;
+  if (fechada) {
+    status = realizado >= valor ? "meta_batida" : "meta_nao_batida";
+    pctTrilho = null;
+  } else {
+    const pct = metaAcum > 0 ? (realizado / metaAcum) * 100 : 0;
+    pctTrilho = pct;
+    status = pct >= 98 ? "no_trilho" : pct >= 90 ? "atencao" : "abaixo";
+  }
+  return { status, pctTrilho, competencia };
+}
+
+/** Venda necessária hoje (LOJA-02): (falta × pesoHoje ÷ Σ pesos restantes) − realizadoHoje. */
+function vendaNecessariaHoje(fs: Filial[], competencia: string): VendaNecessariaView | null {
+  const metasFs = fs.map((f) => metaDaFilial(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+  if (metasFs.length === 0) return { valor: null, realizadoHoje: 0, faltaRestante: 0, diasRestantes: 0, diaReferencia: HOJE_ISO, cumpridaHoje: false, metaMesAtingida: false, semMeta: true };
+
+  const valor = metasFs.reduce((s, m) => s + m.valorLoja, 0);
+  const primeiroDia = `${competencia}-01`;
+  const ultimoDia = fimDoMes(primeiroDia);
+  const fechada = ultimoDia < HOJE_ISO;
+  const fimReal = fechada ? ultimoDia : HOJE_ISO;
+  const realizado = fs.reduce((s, f) => s + agregadoPeriodo(f, primeiroDia, fimReal, null).faturamento, 0);
+  if (fechada) return null;
+
+  const realizadoHoje = fs.reduce((s, f) => s + (diaVendas(f.id, HOJE_ISO) ? agregadoDoDia(diaVendas(f.id, HOJE_ISO)!, null).faturamento : 0), 0);
+  const faltaRestante = valor - realizado;
+  const curva = curvaReceita(fs, competencia);
+  const abertosRestantes = intervaloDias(HOJE_ISO, ultimoDia).filter((iso) => fs.some((f) => lojaAberta(f, iso)));
+  if (abertosRestantes.length === 0) return null;
+
+  // Dia de referência: hoje se aberto, senão o próximo dia aberto (LOJA-02 AC 5).
+  const diaRef = fs.some((f) => lojaAberta(f, HOJE_ISO)) ? HOJE_ISO : abertosRestantes[0];
+  const pesoHoje = curva.peso(diaRef);
+  const somaPesosRest = abertosRestantes.reduce((s, iso) => s + curva.peso(iso), 0);
+  const faltaRestanteRef = valor - realizado; // gap absoluto no mês (sem descontar a projeção futura)
+  const necessarioBruto = somaPesosRest > 0 ? (faltaRestanteRef * pesoHoje) / somaPesosRest : 0;
+  const valorHoje = Math.max(0, necessarioBruto - (diaRef === HOJE_ISO ? realizadoHoje : 0));
+
+  return {
+    valor: valorHoje,
+    realizadoHoje,
+    faltaRestante,
+    diasRestantes: abertosRestantes.length,
+    diaReferencia: diaRef,
+    cumpridaHoje: valorHoje === 0 && realizado > 0,
+    metaMesAtingida: realizado >= valor,
+    semMeta: false,
+  };
+}
 
 export function montarLojaView(escopo: Escopo): LojaView {
   const periodo = resolverPeriodo(escopo.periodo);
@@ -825,6 +1001,11 @@ export function montarLojaView(escopo: Escopo): LojaView {
     }));
   }
 
+  // Motor de trilho: sempre da competência do período (AD-023).
+  const competenciaTrilho = periodo.granularidade === "mes" ? periodo.inicio.slice(0, 7) : HOJE_ISO.slice(0, 7);
+  const trilho = calcularTrilho(fs, competenciaTrilho);
+  const vendaNecessaria = trilho ? vendaNecessariaHoje(fs, competenciaTrilho) : null;
+
   const view: LojaView = {
     escopo,
     periodo,
@@ -835,6 +1016,18 @@ export function montarLojaView(escopo: Escopo): LojaView {
     leitura: null,
     avisos,
     comparacao: temComparacao ? { atual: formatarIntervalo(periodo.inicio, periodo.fim), anterior: formatarIntervalo(ant.inicio, ant.fim) } : null,
+    trilho,
+    vendaNecessaria,
+    projecao: null, // implementado na T4
+    estados: {
+      kpis: "disponivel",
+      trilho: trilho ? "disponivel" : "sem_dados",
+      vendaNecessaria: vendaNecessaria ? "disponivel" : "sem_dados",
+      projecao: "sem_dados",
+      diagnostico: "sem_dados",
+      mix: "sem_dados",
+      lojas: "disponivel",
+    },
     kpiFaturamento,
     kpiTicket,
     kpiPA,
