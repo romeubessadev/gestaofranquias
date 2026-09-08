@@ -15,7 +15,7 @@ const ICONE = {
 };
 
 const navGestor: NavEntry[] = [
-  { label: "Dashboard", icon: ICONE.dashboard, to: paths.loja, activePaths: [paths.equipe] },
+  { label: "Dashboard", icon: ICONE.dashboard, to: paths.dashboard, activePaths: [paths.equipe] },
   {
     label: "Configurações",
     icon: ICONE.config,
@@ -35,7 +35,7 @@ const navGestor: NavEntry[] = [
 ];
 
 const navGerente: NavEntry[] = [
-  { label: "Dashboard", icon: ICONE.dashboard, to: paths.loja, activePaths: [paths.equipe] },
+  { label: "Dashboard", icon: ICONE.dashboard, to: paths.dashboard, activePaths: [paths.equipe] },
   {
     label: "Configurações",
     icon: ICONE.config,

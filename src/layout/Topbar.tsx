@@ -30,7 +30,7 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
 
   // No Dashboard, a loja é o filtro mais importante da tela: ocupa o lugar
   // do "Buscar telas" em vez de dividir espaço lá embaixo, escondida numa modal.
-  const noDashboard = location.pathname === paths.loja || location.pathname === paths.equipe;
+  const noDashboard = location.pathname === paths.dashboard || location.pathname === paths.equipe;
   const minhas = filiais.filter((f) => sessao.filiais.includes(f.id));
 
   return (

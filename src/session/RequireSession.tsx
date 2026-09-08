@@ -15,7 +15,7 @@ export function RequireSession({ modo = "app" }: { modo?: "app" | "onboarding" }
 
   const pendente = sessao.onboardingEtapa !== null;
   if (modo === "app" && pendente) return <Navigate to={paths.onboarding} replace />;
-  if (modo === "onboarding" && !pendente) return <Navigate to={paths.loja} replace />;
+  if (modo === "onboarding" && !pendente) return <Navigate to={paths.dashboard} replace />;
 
   return <Outlet />;
 }
@@ -29,5 +29,5 @@ export function RequirePapel({ papeis }: { papeis: Papel[] }) {
 }
 
 export function inicioDoPapel(papel: Papel): string {
-  return papel === "VENDEDOR" ? paths.vendedora.minhaMeta : paths.loja;
+  return papel === "VENDEDOR" ? paths.vendedora.minhaMeta : paths.dashboard;
 }

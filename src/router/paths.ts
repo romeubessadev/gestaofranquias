@@ -25,7 +25,10 @@ export const paths = {
     instalar: "/instalar",
   },
   onboarding: "/onboarding",
-  loja: "/loja",
+  /** Página principal do produto: o Dashboard (visão geral). Subpáginas: /equipe etc. */
+  dashboard: "/dashboard",
+  /** Legado: a página principal já foi /loja; quem tiver link antigo cai no Dashboard. */
+  lojaLegado: "/loja",
   equipe: "/equipe",
   analise: "/analise",
   configuracoes: {

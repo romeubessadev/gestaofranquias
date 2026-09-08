@@ -116,7 +116,7 @@ export function Convite() {
     const sessao = entrar(resposta.usuario);
     if (sessao.papel === "GESTOR" && sessao.proprietario && sessao.onboardingEtapa !== null) navigate(paths.onboarding, { replace: true });
     else if (sessao.papel === "VENDEDOR") navigate(paths.acesso.instalar, { replace: true });
-    else navigate(paths.loja, { replace: true });
+    else navigate(paths.dashboard, { replace: true });
   }
 
   return (

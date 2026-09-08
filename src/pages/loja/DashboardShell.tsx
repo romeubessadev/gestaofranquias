@@ -7,7 +7,7 @@ import { SeletorEscopo } from "./SeletorEscopo";
 
 /** Subtítulo por aba: o que ela mostra, não repete "Dashboard" nem status de sync. */
 const SUBTITULO: Record<"loja" | "equipe", string> = {
-  loja: "Acompanhe faturamento, metas e desempenho das lojas do grupo.",
+  loja: "Visão geral do desempenho das suas lojas.",
   equipe: "Quem precisa de atenção, por quê, e quanto vai custar.",
 };
 
@@ -42,7 +42,7 @@ export function DashboardShell({
 
       <TabNav
         items={[
-          { label: "Loja", to: `${paths.loja}${suffix}`, end: true },
+          { label: "Visão geral", to: `${paths.dashboard}${suffix}`, end: true },
           { label: "Equipe", to: `${paths.equipe}${suffix}` },
         ]}
       />

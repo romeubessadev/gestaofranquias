@@ -246,8 +246,8 @@ export function BlocoLeitura({ texto }: { texto: string }) {
 
 /* ---------- Indicadores do topo, um KpiTile por métrica ---------- */
 
-const ICONE_KPI: Record<"ticket" | "pa", IconKey> = { ticket: "card", pa: "layers" };
-const TINT_KPI: Record<"ticket" | "pa", TintKey> = { ticket: "info", pa: "ok" };
+const ICONE_KPI: Record<"ticket" | "pa" | "atendimentos", IconKey> = { ticket: "card", pa: "layers", atendimentos: "users" };
+const TINT_KPI: Record<"ticket" | "pa" | "atendimentos", TintKey> = { ticket: "info", pa: "ok", atendimentos: "warn" };
 const SUB_KPI: Record<"ticket" | "pa", string> = { ticket: "por atendimento", pa: "itens por atendimento" };
 
 /** Segundo tile: Meta do mês, Projeção ou Participação da marca — mesmo lugar da fileira, papel que muda por contexto. Não é um KpiTile puro porque leva uma barra de progresso embutida, que o componente não suporta. */
@@ -270,11 +270,11 @@ export function KpiMetaTile({ tile }: { tile: TileMetaProjecao }) {
   );
 }
 
-export function BlocoKpis({ faturamento, tileMeta, ticket, pa }: { faturamento: KpiValor; tileMeta: TileMetaProjecao | null; ticket: KpiValor; pa: KpiValor }) {
+export function BlocoKpis({ faturamento, ticket, pa, atendimentos }: { faturamento: KpiValor; ticket: KpiValor; pa: KpiValor; atendimentos: KpiValor }) {
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <KpiTile label={faturamento.rotulo ?? "Faturamento"} value={faturamento.valor} icon="dollar" tint="acc" delta={faturamento.delta} sub={faturamento.sub} subDuasLinhas />
-      {tileMeta && <KpiMetaTile tile={tileMeta} />}
+      <KpiTile label="Atendimentos" value={atendimentos.valor} icon={ICONE_KPI.atendimentos} tint={TINT_KPI.atendimentos} delta={atendimentos.delta} subDuasLinhas />
       <KpiTile label="Ticket médio" value={ticket.valor} icon={ICONE_KPI.ticket} tint={TINT_KPI.ticket} delta={ticket.delta} sub={SUB_KPI.ticket} subDuasLinhas />
       <KpiTile label="P.A." value={pa.valor} icon={ICONE_KPI.pa} tint={TINT_KPI.pa} delta={pa.delta} sub={SUB_KPI.pa} subDuasLinhas />
     </div>

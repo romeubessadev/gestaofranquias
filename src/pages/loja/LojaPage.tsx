@@ -1,43 +1,26 @@
 import { useMemo } from "react";
 import { montarLojaView } from "@/data/gestao/loja";
 import { Avisos } from "@/components/gestao/Avisos";
-import { cn } from "@/lib/cn";
-import { useSessaoAtiva } from "@/session/SessionProvider";
 import { DashboardShell } from "./DashboardShell";
 import { useEscopo } from "./useEscopo";
-import { BlocoAlertas, BlocoCategorias, BlocoComparacao, BlocoDiagnostico, BlocoEvolucao, BlocoKpis, BlocoLucroBruto, BlocoMix, BlocoPorHora, BlocoPorHoraRede, BlocoProjecao, BlocoRegua, BlocoRitmo, BlocoTrilho, BlocoVendaNecessaria, EstadoBloco } from "./blocos";
+import { BlocoComparacao, BlocoEvolucao, BlocoKpis, BlocoPorHora, BlocoPorHoraRede, BlocoRegua, EstadoBloco } from "./blocos";
 
 /**
- * Loja: mesmo conjunto de 4 tiles no topo em qualquer visão. Abaixo, um par
- * de blocos (principal + lateral) que muda conforme a visão, e por fim a
- * régua de lojas e categorias. "Desempenho das lojas" fica isolado numa linha
- * própria: com muitas filiais, a lista cresce e não cabe dividindo espaço com
- * outro card.
+ * Visão geral do Dashboard: o resumo que funciona com qualquer filtro.
+ * KPIs no topo (2x2 no celular, 4 em linha no desktop), o gráfico da
+ * evolução/faturamento por hora conforme o período, a régua de lojas e a
+ * comparação de período. Análises de meta (trilho, venda necessária,
+ * projeção, diagnóstico) pertencem a telas próprias e não entram aqui.
  */
 export function LojaPage() {
-  const sessao = useSessaoAtiva();
   const { escopo, mudar } = useEscopo();
   const v = useMemo(() => montarLojaView(escopo), [escopo]);
-  const podeVerCusto = sessao.papel === "GESTOR" || sessao.papel === "ADMIN_GLOBAL" || sessao.papel === "GERENTE";
 
-  // Bloco principal (2/3) e lateral (1/3): o que existir para a visão atual.
-  // Ritmo da meta aparece em qualquer visão, então na loja ele empilha junto
-  // do Turno/Lucro Bruto em vez de disputar o mesmo espaço.
+  // Gráfico principal: por hora (dia, empilhado na rede) ou evolução diária.
   const principal = v.graficoHoraRede ? <BlocoPorHoraRede g={v.graficoHoraRede} /> : v.graficoHora ? <BlocoPorHora g={v.graficoHora} /> : v.evolucao ? <BlocoEvolucao g={v.evolucao} /> : null;
-  const ladoRitmo = v.ritmo ? <BlocoRitmo ritmo={v.ritmo} /> : v.ritmoAviso ? <p className="text-[13px] text-t2">{v.ritmoAviso}</p> : null;
-  const ladoContexto = podeVerCusto && v.lucroBruto ? <BlocoLucroBruto itens={v.lucroBruto.itens} aviso={v.lucroBruto.aviso} divisaoLinha={v.lucroBruto.divisaoLinha} /> : null;
-  const lateral =
-    ladoRitmo || ladoContexto ? (
-      <div className="flex flex-col gap-5">
-        {ladoRitmo}
-        {ladoContexto}
-      </div>
-    ) : null;
 
   return (
     <DashboardShell tab="loja" escopo={escopo} onChange={mudar}>
-      <BlocoAlertas alertas={v.alertas} />
-
       {v.avisos.length > 0 && (
         <div className="mb-5">
           <Avisos itens={v.avisos} />
@@ -47,54 +30,34 @@ export function LojaPage() {
       <div className="flex flex-col gap-5">
         {v.comparacao && <BlocoComparacao comparacao={v.comparacao} />}
 
-        {(v.trilho || v.vendaNecessaria || v.projecao) && (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {v.trilho && (
-              <EstadoBloco estado={v.estados.trilho}>
-                <BlocoTrilho trilho={v.trilho} />
-              </EstadoBloco>
-            )}
-            {v.vendaNecessaria && (
-              <EstadoBloco estado={v.estados.vendaNecessaria}>
-                <BlocoVendaNecessaria venda={v.vendaNecessaria} />
-              </EstadoBloco>
-            )}
-            {v.projecao && (
-              <EstadoBloco estado={v.estados.projecao}>
-                <BlocoProjecao projecao={v.projecao} metaValor={v.projecao.metaValor} />
-              </EstadoBloco>
-            )}
-          </div>
-        )}
-
-        {v.diagnostico && v.diagnostico.exibir && (
-          <EstadoBloco estado={v.estados.diagnostico}>
-            <BlocoDiagnostico diagnostico={v.diagnostico} />
-          </EstadoBloco>
-        )}
-
         <EstadoBloco estado={v.estados.kpis}>
-          <BlocoKpis faturamento={v.kpiFaturamento} tileMeta={v.tileMeta} ticket={v.kpiTicket} pa={v.kpiPA} />
+          <BlocoKpis faturamento={v.kpiFaturamento} ticket={v.kpiTicket} pa={v.kpiPA} atendimentos={v.kpiAtendimentos} />
         </EstadoBloco>
 
         {principal && (
-          <div className={cn("grid grid-cols-1 gap-5", lateral && "lg:grid-cols-3")}>
-            <div className={lateral ? "lg:col-span-2" : ""}>{principal}</div>
-            {lateral && <div>{lateral}</div>}
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+            <div className="lg:col-span-2">{principal}</div>
+            {v.regua && (
+              <BlocoRegua
+                regua={v.regua}
+                modoMarca={Boolean(escopo.divisao)}
+                onEscolher={(id) => mudar({ ...escopo, filialId: id, divisao: null })}
+              />
+            )}
           </div>
         )}
 
-        {!principal && lateral}
-
-        {v.regua && <BlocoRegua regua={v.regua} modoMarca={Boolean(escopo.divisao)} onEscolher={(id) => mudar({ ...escopo, filialId: id, divisao: null })} />}
-
-        {v.mix && (
-          <EstadoBloco estado={v.estados.mix}>
-            <BlocoMix mix={v.mix} />
-          </EstadoBloco>
+        {/* Sem gráfico (ex.: sem dados), a régua ocupa a linha inteira. */}
+        {!principal && v.regua && (
+          <BlocoRegua
+            regua={v.regua}
+            modoMarca={Boolean(escopo.divisao)}
+            onEscolher={(id) => mudar({ ...escopo, filialId: id, divisao: null })}
+          />
         )}
 
-        {podeVerCusto && v.categorias && v.categorias.length > 0 && <BlocoCategorias categorias={v.categorias} escopoId={escopo.filialId} />}
+        {/* Direto das outras abas: sinais de Financeiro/Equipe/Produtos entram aqui
+            quando essas telas existirem (cada aba fornece o próprio resumo). */}
       </div>
     </DashboardShell>
   );
