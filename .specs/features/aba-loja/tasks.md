@@ -91,7 +91,7 @@ T8 -> T9
 
 ## Task Breakdown
 
-### T0: Commitar baseline
+### T0: Commitar baseline ✅
 
 **What**: Baseline do repositório `git init` antes de qualquer código da feature.
 **Where**: `repo root (git)`
@@ -114,7 +114,7 @@ T8 -> T9
 
 ---
 
-### T1: Adicionar Vitest + script de teste
+### T1: Adicionar Vitest + script de teste ✅
 
 **What**: Introduzir `vitest` como devDependency, `vitest.config.ts` reutilizando o alias `@` e o script `test` em `package.json`.
 **Where**: `package.json`
