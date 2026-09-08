@@ -243,7 +243,7 @@ T8 -> T9
 
 ---
 
-### T6: Implementar visão de grupo (todas as lojas) com drill-in (LOJA-05)
+### T6: Implementar visão de grupo (todas as lojas) com drill-in (LOJA-05) ✅
 
 **What**: Lista de lojas na visão "todas" com status do trilho por loja e interação de drill-in preservando período e marca.
 **Where**: `src/data/gestao/loja.ts`

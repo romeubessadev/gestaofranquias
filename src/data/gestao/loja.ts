@@ -107,6 +107,15 @@ export interface MixView {
   periodo: string;
 }
 
+/** Linha da visão de grupo (LOJA-05): status do trilho por loja + se tem meta. */
+export interface LojaResumoView {
+  filialId: string;
+  nome: string;
+  pctTrilho: number | null;
+  status: StatusTrilho;
+  temMeta: boolean;
+}
+
 const DIAS_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
 export function resolverPeriodo(p: Periodo): PeriodoResolvido {
@@ -310,6 +319,7 @@ export interface LojaView {
   projecao: ProjecaoView | null;
   diagnostico: LacunaView | null;
   mix: MixView | null;
+  lojas: LojaResumoView[];
   estados: EstadosLojaView;
   kpiFaturamento: KpiValor;
   kpiTicket: KpiValor;
@@ -839,6 +849,20 @@ function montarMix(fs: Filial[], inicio: string, fim: string, divisao: Divisao |
   return { itens, periodo: rotuloPeriodo };
 }
 
+/** Visão de grupo (LOJA-05): status do trilho por loja na competência. */
+function montarLojasGrupo(fs: Filial[], competencia: string): LojaResumoView[] {
+  return fs.map((f) => {
+    const trilho = calcularTrilho([f], competencia);
+    return {
+      filialId: f.id,
+      nome: f.fantasia,
+      pctTrilho: trilho?.pctTrilho ?? null,
+      status: trilho?.status ?? "abaixo",
+      temMeta: Boolean(metaDaFilial(f.id, competencia)),
+    };
+  });
+}
+
 export function montarLojaView(escopo: Escopo): LojaView {
   const periodo = resolverPeriodo(escopo.periodo);
   const fs = filiaisDoEscopo(escopo);
@@ -1196,6 +1220,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
     projecao: calcularProjecao(fs, competenciaTrilho),
     diagnostico: calcularLacuna(fs, competenciaTrilho, trilho?.pctTrilho ?? null),
     mix: visao === "periodo" ? montarMix(fs, periodo.inicio, periodo.fim, divisao, periodo.rotulo) : null,
+    lojas: todas && periodo.granularidade === "mes" ? montarLojasGrupo(fs, competenciaTrilho) : [],
     estados: {
       kpis: "disponivel",
       trilho: trilho ? "disponivel" : "sem_dados",
@@ -1203,7 +1228,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
       projecao: trilho && vendaNecessaria ? "disponivel" : trilho ? "sem_dados" : "indisponivel",
       diagnostico: trilho?.status === "abaixo" ? "disponivel" : "sem_dados",
       mix: visao === "periodo" ? "disponivel" : "sem_dados",
-      lojas: "disponivel",
+      lojas: todas && periodo.granularidade === "mes" ? "disponivel" : "sem_dados",
     },
     kpiFaturamento,
     kpiTicket,

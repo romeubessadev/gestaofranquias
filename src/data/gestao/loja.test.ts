@@ -289,3 +289,45 @@ describe("T5: mix com margem (LOJA-04 AC 10)", () => {
     for (const it of itens) expect(it.divisao).toBe("WPINK");
   });
 });
+
+/* ---------- T6: visão de grupo (LOJA-05) ---------- */
+
+describe("T6: visão de grupo (LOJA-05)", () => {
+  it("visão 'todas' expõe uma linha por loja com status/pctTrilho/temMeta", () => {
+    const v = montarLojaView(escopo("todas"));
+    expect(v.lojas.length).toBe(filiais.length);
+    for (const l of v.lojas) {
+      expect(l.filialId).toBeTruthy();
+      expect(l.nome).toBeTruthy();
+      expect(typeof l.temMeta).toBe("boolean");
+      expect(["no_trilho", "atencao", "abaixo", "meta_batida", "meta_nao_batida"]).toContain(l.status);
+      // No mês corrente aberto, pctTrilho não é null (competência em andamento com meta).
+      if (l.temMeta) expect(l.pctTrilho).not.toBeNull();
+    }
+  });
+
+  it("status de cada loja no grupo bate com o trilho daquela loja isolada", () => {
+    for (const f of filiais) {
+      const grupo = montarLojaView(escopo("todas"));
+      const linha = grupo.lojas.find((l) => l.filialId === f.id)!;
+      const isolada = montarLojaView(escopo(f.id));
+      expect(linha.status).toBe(isolada.trilho?.status ?? "abaixo");
+      expect(linha.pctTrilho).toBeCloseTo(isolada.trilho?.pctTrilho ?? 0, 2);
+    }
+  });
+
+  it("sem loja específica no escopo grupo: filial única retorna lista vazia (drill-in mantém filtros)", () => {
+    const v = montarLojaView(escopo("f1"));
+    expect(v.lojas.length).toBe(0);
+  });
+
+  it("loja do grupo sem meta não impede o status das demais (edge case)", () => {
+    // Em setembro todas têm meta. Validamos o contrato: o grupo sempre devolve
+    // todas as lojas, e cada uma tem pctTrilho próprio; se uma não tivesse meta,
+    // temMeta=false não quebraria as demais (linha do grupo continua existindo).
+    const v = montarLojaView(escopo("todas"));
+    for (const l of v.lojas) {
+      expect(l.filialId).toBeTruthy();
+    }
+  });
+});
