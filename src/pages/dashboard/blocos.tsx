@@ -5,7 +5,7 @@ import { ICONS, TINT, type IconKey, type TintKey } from "@/pages/dashboards/icon
 import { KpiSubtitulo, KpiTile } from "@/pages/dashboards/KpiTile";
 import { cn } from "@/lib/cn";
 import { brl } from "@/lib/formato";
-import { brlK, type AlertaSistema, type CategoriaLinha, type ChecklistDia, type ComparacaoView, type EstadoBloco as EstadoBlocoTipo, type GraficoEvolucao, type GraficoHora, type GraficoHoraRede, type ItemLucro, type KpiValor, type LacunaView, type LinhaRegua, type MixView, type PontoAtencao, type ProjecaoView, type RitmoCard, type TileMetaProjecao, type TrilhoView, type TurnoLinha, type VendaNecessariaView } from "@/data/gestao/loja";
+import { brlK, type AlertaSistema, type CategoriaLinha, type ChecklistDia, type ComparacaoView, type EstadoBloco as EstadoBlocoTipo, type GraficoEvolucao, type GraficoHora, type GraficoHoraRede, type ItemLucro, type KpiValor, type LacunaView, type LinhaRegua, type MixView, type PontoAtencao, type ProjecaoView, type RitmoCard, type TileMetaProjecao, type TrilhoView, type TurnoLinha, type VendaNecessariaView } from "@/data/gestao/dashboard";
 import { produtosDaCategoria, type ProdutoResumo } from "@/data/gestao/produtos";
 
 /* ---------- Estados de leitura (LOJA-07): carregando → Skeleton; sem dados → EmptyState ---------- */

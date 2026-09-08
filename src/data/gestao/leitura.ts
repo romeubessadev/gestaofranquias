@@ -11,7 +11,7 @@
  * desempenho, porque os dois respondem à mesma pergunta de quem abre a tela:
  * "o que eu preciso saber agora?".
  */
-import type { LojaView } from "./loja";
+import type { LojaView } from "./dashboard";
 
 export function montarLeituraLoja(v: LojaView): string | null {
   const partes = v.alertas.map((a) => a.texto);

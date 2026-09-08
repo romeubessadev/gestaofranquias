@@ -1,6 +1,6 @@
 import { Select } from "@/components/ui";
 import type { Filial } from "@/data/gestao/filiais";
-import type { Escopo } from "@/data/gestao/loja";
+import type { Escopo } from "@/data/gestao/dashboard";
 
 /**
  * Select de loja, isolado do resto do filtro (Período/Divisão) porque mora

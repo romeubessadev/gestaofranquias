@@ -9,7 +9,7 @@ import { useSessao } from "@/session/SessionProvider";
 /* Produto */
 import { acessoRoutes } from "@/pages/acesso/routes";
 import { onboardingRoutes } from "@/pages/onboarding/routes";
-import { lojaRoutes } from "@/pages/loja/routes";
+import { dashboardRoutes } from "@/pages/dashboard/routes";
 import { equipeRoutes } from "@/pages/equipe/routes";
 import { emBreveRoutes } from "@/pages/embreve/routes";
 
@@ -59,7 +59,7 @@ const routeTree: RouteObject[] = [
       {
         element: <AppShell />,
         children: [
-          ...lojaRoutes,
+          ...dashboardRoutes,
           ...equipeRoutes,
           ...emBreveRoutes,
           ...dashboardsRoutes,

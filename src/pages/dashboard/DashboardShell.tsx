@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader, TabNav } from "@/components/ui";
 import { paths } from "@/router/paths";
-import type { Escopo } from "@/data/gestao/loja";
+import type { Escopo } from "@/data/gestao/dashboard";
 import { SeletorEscopo } from "./SeletorEscopo";
 
 /** Subtítulo por aba: o que ela mostra, não repete "Dashboard" nem status de sync. */

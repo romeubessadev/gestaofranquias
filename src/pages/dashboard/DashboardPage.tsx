@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { montarLojaView } from "@/data/gestao/loja";
+import { montarLojaView } from "@/data/gestao/dashboard";
 import { Avisos } from "@/components/gestao/Avisos";
 import { DashboardShell } from "./DashboardShell";
 import { useEscopo } from "./useEscopo";
@@ -12,7 +12,7 @@ import { BlocoComparacao, BlocoEvolucao, BlocoKpis, BlocoPorHora, BlocoPorHoraRe
  * comparação de período. Análises de meta (trilho, venda necessária,
  * projeção, diagnóstico) pertencem a telas próprias e não entram aqui.
  */
-export function LojaPage() {
+export function DashboardPage() {
   const { escopo, mudar } = useEscopo();
   const v = useMemo(() => montarLojaView(escopo), [escopo]);
 

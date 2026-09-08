@@ -1,6 +1,6 @@
 import { Card, EmptyState } from "@/components/ui";
-import { DashboardShell } from "@/pages/loja/DashboardShell";
-import { useEscopo } from "@/pages/loja/useEscopo";
+import { DashboardShell } from "@/pages/dashboard/DashboardShell";
+import { useEscopo } from "@/pages/dashboard/useEscopo";
 
 const ITENS = [
   "Quatro indicadores: faturamento, ticket, PA e comissão projetada, com variação contra o mês anterior",

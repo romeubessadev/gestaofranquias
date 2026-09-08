@@ -5,8 +5,8 @@ import { Avatar, Dropdown } from "@/components/ui";
 import { paths } from "@/router/paths";
 import { rotuloPapel, useSessao, useSessaoAtiva } from "@/session/SessionProvider";
 import { filiais } from "@/data/gestao/filiais";
-import { SeletorLoja } from "@/pages/loja/SeletorLoja";
-import { useEscopo } from "@/pages/loja/useEscopo";
+import { SeletorLoja } from "@/pages/dashboard/SeletorLoja";
+import { useEscopo } from "@/pages/dashboard/useEscopo";
 
 const notificacoesGestor = [
   { id: 1, titulo: "Três Lagoas fora do ritmo: projeta 86% da meta", tempo: "há 2 h" },

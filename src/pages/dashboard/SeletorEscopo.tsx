@@ -1,7 +1,7 @@
 import { Button, Dropdown } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { filiais, type Divisao } from "@/data/gestao/filiais";
-import { rotulosPeriodo, type Escopo, type PeriodoTipo } from "@/data/gestao/loja";
+import { rotulosPeriodo, type Escopo, type PeriodoTipo } from "@/data/gestao/dashboard";
 import { HOJE_ISO } from "@/data/gestao/relogio";
 import { somarDias } from "@/lib/formato";
 import { ICONS } from "@/pages/dashboards/icons";

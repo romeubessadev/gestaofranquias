@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { montarLojaView, curvaReceita, type ComparacaoView, type Escopo, type StatusTrilho } from "./loja";
+import { montarLojaView, curvaReceita, type ComparacaoView, type Escopo, type StatusTrilho } from "./dashboard";
 import { metaDaFilial } from "./metas";
 import { filiais, filialPorId } from "./filiais";
 import { HOJE_ISO } from "./relogio";

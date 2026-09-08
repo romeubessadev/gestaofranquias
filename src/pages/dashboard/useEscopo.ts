@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Divisao } from "@/data/gestao/filiais";
-import type { Escopo, PeriodoTipo } from "@/data/gestao/loja";
+import type { Escopo, PeriodoTipo } from "@/data/gestao/dashboard";
 import { useSessaoAtiva } from "@/session/SessionProvider";
 
 const PERIODOS: PeriodoTipo[] = ["hoje", "ontem", "7dias", "esteMes", "mesPassado", "personalizado"];
