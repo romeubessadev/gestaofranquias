@@ -72,93 +72,147 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[];
       header: "Vendedora",
       render: (l) => (
         <div className="flex min-w-0 items-center gap-3">
-          <Avatar name={l.nome} size="sm" />
+          <Avatar name={l.nome} size="md" />
           <div className="min-w-0">
             <p className="truncate text-[13px] font-bold text-t0">{l.nome}</p>
             <p className="text-[11px] text-t2">
-              {l.diasTrabalhados} {l.diasTrabalhados === 1 ? "dia" : "dias"} · <Badge variant={ROTULO_TENDENCIA[l.tendencia].variant}>{ROTULO_TENDENCIA[l.tendencia].texto}</Badge>
+              {l.diasTrabalhados} {l.diasTrabalhados === 1 ? "dia" : "dias"}
+              {metaAtiva && !l.semMeta && l.metaProporcional && <span> · meta proporcional · {l.diasElegiveis} dias</span>}
+            </p>
+            <p className="mt-0.5">
+              <Badge variant={ROTULO_TENDENCIA[l.tendencia].variant}>{ROTULO_TENDENCIA[l.tendencia].texto}</Badge>
             </p>
           </div>
         </div>
       ),
     },
-    { key: "faturamento", header: "Faturamento", align: "right", render: (l) => <span className="font-mono text-[12.5px] font-bold text-t0">{l.faturamento}</span> },
-    { key: "ticket", header: "Ticket", align: "right", hideBelow: "sm", render: (l) => <span className="font-mono text-[12.5px] text-t1">{l.ticket}</span> },
-    {
-      key: "pa",
-      header: "P.A.",
-      align: "right",
-      hideBelow: "sm",
-      render: (l) => (
-        <span className="flex items-center justify-end gap-1.5 font-mono text-[12.5px] text-t1">
-          {l.paAbaixoPct !== null && <span title={`P.A. ${num(Math.abs(l.paAbaixoPct), 0)}% abaixo da média da loja`}>⚠</span>}
-          {l.pa}
-        </span>
-      ),
-    },
+    // Faturamento/ticket/P.A. só entram SEM meta ativa — com meta a tabela
+    // segue o mockup: realizado aparece na linha da barra de avanço.
+    ...(metaAtiva
+      ? []
+      : ([
+          { key: "faturamento", header: "Faturamento", align: "right", render: (l: VendedoraLinha) => <span className="font-mono text-[12.5px] font-bold text-t0">{l.faturamento}</span> },
+          { key: "ticket", header: "Ticket", align: "right", hideBelow: "sm", render: (l: VendedoraLinha) => <span className="font-mono text-[12.5px] text-t1">{l.ticket}</span> },
+          {
+            key: "pa",
+            header: "P.A.",
+            align: "right",
+            hideBelow: "sm",
+            render: (l: VendedoraLinha) => <span className="font-mono text-[12.5px] text-t1">{l.pa}</span>,
+          },
+        ] as DataTableColumn<VendedoraLinha>[])),
     ...(metaAtiva
       ? [
           {
-            key: "meta",
-            header: "Meta individual",
-            align: "right",
-            hideBelow: "md",
+            key: "escada",
+            header: "Avanço na escada",
+            width: "230px",
             render: (l: VendedoraLinha) =>
               l.semMeta ? (
                 <span className="text-t2">—</span>
               ) : (
-                <div>
-                  <span className="font-mono text-[12.5px] text-t1">{brl(l.metaIndividualValor)}</span>
-                  {l.metaProporcional && <span className="block text-[10.5px] text-t2">proporcional · {l.diasElegiveis} dias</span>}
+                <div className="w-[210px]">
+                  <BarraEscada linha={l} />
+                  <p className="mt-1.5 text-[11px] text-t2">
+                    <span className="font-semibold text-t1">{num(l.atingimentoPct, 1)}%</span> · {l.faturamento} de {brl(l.metaIndividualValor)}
+                  </p>
+                  {l.degrauAtual && <p className="text-[11px] font-semibold text-ok">{l.degrauAtual}</p>}
                 </div>
               ),
           } as DataTableColumn<VendedoraLinha>,
           {
-            key: "atingimento",
-            header: "Escada",
-            align: "right",
-            hideBelow: "md",
-            width: "140px",
+            key: "atencao",
+            header: "Ponto de atenção",
+            hideBelow: "lg",
             render: (l: VendedoraLinha) =>
-              l.semMeta ? (
-                <span className="text-t2">—</span>
-              ) : (
-                <div className="ml-auto w-[110px]">
-                  <ProgressBar value={l.barraPct} height={6} color={l.atingimentoPct >= 100 ? "var(--ok)" : "var(--acc)"} />
-                  <p className="mt-0.5 text-right text-[11px] font-semibold text-t2">{num(l.atingimentoPct, 0)}%</p>
+              l.atencao ? (
+                <div>
+                  <p className={`text-[12.5px] font-bold ${l.atencao.tipo === "ritmo" ? "text-warn" : "text-bad"}`}>{l.atencao.texto}</p>
+                  <p className="text-[11px] text-t2">{l.atencao.detalhe}</p>
                 </div>
+              ) : (
+                <span className="text-t2">—</span>
               ),
           } as DataTableColumn<VendedoraLinha>,
           {
             key: "premiacao",
             header: "Premiação",
             align: "right",
-            render: (l: VendedoraLinha) =>
-              l.premiacaoAcumulada > 0 ? (
-                <span className="font-mono text-[12.5px] font-bold text-ok">{brl(l.premiacaoAcumulada)}</span>
-              ) : (
-                <span className="text-[12px] text-t2">sem degrau</span>
-              ),
-          } as DataTableColumn<VendedoraLinha>,
-          {
-            key: "proximo",
-            header: "Próximo degrau",
-            align: "right",
-            hideBelow: "md",
-            render: (l: VendedoraLinha) =>
-              l.proximoDegrau ? (
-                <span className="text-[12px] text-t1">
-                  {l.proximoDegrau.nome} · faltam <span className="font-mono font-semibold text-t0">{brl(l.proximoDegrau.faltaValor)}</span>
-                </span>
-              ) : (
-                <span className="text-[12px] text-t2">topo da escada</span>
-              ),
+            render: (l: VendedoraLinha) => <PremiacaoCelula linha={l} />,
           } as DataTableColumn<VendedoraLinha>,
         ]
       : []),
   ];
 
   return <DataTable columns={colunas} data={lista} rowKey={(l) => l.colaboradorId} emptyMessage="Sem vendedoras elegíveis no período." />;
+}
+
+/** Barra segmentada da escada: preenchida até o realizado, marcos nos degraus. */
+function BarraEscada({ linha }: { linha: VendedoraLinha }) {
+  const toMax = Math.max(100, ...linha.marcosEscada.map((m) => m.pct));
+  const fillPct = Math.min(100, (linha.atingimentoPct / toMax) * 100);
+  const cor = linha.atingimentoPct >= 100 ? "var(--ok)" : linha.atingimentoProjetadoPct !== null && linha.atingimentoProjetadoPct >= 100 ? "var(--acc)" : "var(--bad)";
+  return (
+    <div className="relative h-2 w-full rounded-full" style={{ background: "var(--bg-3)" }}>
+      <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${fillPct}%`, background: cor }} />
+      {linha.marcosEscada.map((m) => (
+        <div
+          key={m.nome}
+          title={`${m.nome} · ${m.pct}% · paga ${num(m.pctPremiacao, 1)}% + ${brl(m.bonus)}`}
+          className="absolute top-[-2px] bottom-[-2px] w-0.5 rounded-full"
+          style={{ left: `${(m.pct / toMax) * 100}%`, background: linha.atingimentoPct >= m.pct ? "var(--t0)" : "var(--t2)", opacity: 0.55 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Célula de premiação do mockup: valor garantido em cima, "+R$ X" do gancho
+ * do próximo degrau embaixo e veredito ("cruza no ritmo" / "precisa acelerar"
+ * / "Faixa máxima" no topo da escada).
+ */
+function PremiacaoCelula({ linha }: { linha: VendedoraLinha }) {
+  if (linha.semMeta) return <span className="text-t2">—</span>;
+  const proximo = linha.proximoDegrau;
+  // Premiação projetada pelo ritmo (fonte do número de cima quando > garantido).
+  const projetada = linha.premiacaoProjetadaIndividual ?? linha.premiacaoAcumulada;
+  const garantida = linha.premiacaoAcumulada + linha.bonusAlcancado;
+  // Gancho: o que passa a receber se fechar no próximo degrau (mockup "+R$ X").
+  const gancho = proximo
+    ? ((proximo.atingMinPct / 100) * linha.metaIndividualValor * proximo.pctPremiacao) / 100 + proximo.bonus - garantida
+    : 0;
+
+  // Veredito: topo da escada → "Faixa máxima"; projeção alcança o próximo →
+  // "cruza no ritmo"; projeta algum degrau mas não o próximo → "precisa
+  // acelerar"; abaixo da meta → "fecha sem premiação".
+  let veredito: string;
+  let corVeredito: string;
+  if (!proximo) {
+    veredito = "Faixa máxima";
+    corVeredito = "text-ok";
+  } else if (linha.atingimentoProjetadoPct !== null && linha.atingimentoProjetadoPct >= proximo.atingMinPct) {
+    veredito = "cruza no ritmo";
+    corVeredito = "text-ok";
+  } else if (linha.atingimentoProjetadoPct !== null && linha.atingimentoProjetadoPct >= 100) {
+    veredito = "precisa acelerar";
+    corVeredito = "text-warn";
+  } else {
+    veredito = "fecha sem premiação";
+    corVeredito = "text-bad";
+  }
+
+  return (
+    <div className="text-right">
+      <p className="font-mono text-[13px] font-bold text-t0">{brl(Math.max(projetada, garantida))}</p>
+      {proximo && gancho > 0 ? (
+        <p className="text-[12px] font-bold text-ok">+ {brl(gancho)}</p>
+      ) : !proximo ? (
+        <p className="text-[11.5px] font-bold text-ok">Faixa máxima</p>
+      ) : null}
+      <p className={`text-[11px] ${corVeredito}`}>{veredito}</p>
+    </div>
+  );
 }
 
 /** Card inteiro da lista (título + descrição + estados + tabela). */
@@ -171,7 +225,7 @@ export function CardVendedoras({ estado, lista, metaAtiva, competenciaTexto }: {
           <p className="mt-1 text-[12.5px] text-t2">
             {metaAtiva
               ? `Ordenado pelo atingimento da meta individual — competência ${competenciaTexto}.`
-              : "Desempenho do período filtrado; metas e comissão são do mês e não entram aqui."}
+              : "Desempenho do período filtrado; metas e premiação são do mês e não entram aqui."}
           </p>
         </div>
       </CardHeader>

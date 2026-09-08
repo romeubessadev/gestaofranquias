@@ -129,8 +129,8 @@ export interface EscadaLinha {
   premiacao: number;
   /** Bônus do degrau — só entra quando o degrau é alcançado. */
   bonus: number;
-  /** Próximo degrau e quanto falta em R$; null no último degrau. */
-  proximo: { nome: string; faltaValor: number } | null;
+  /** Próximo degrau, quanto falta e o que ele passa a pagar; null no último. */
+  proximo: { nome: string; faltaValor: number; pctPremiacao: number; bonus: number; atingMinPct: number } | null;
 }
 
 /** Escada de degraus da Meta customizada da filial (não a padrão global). */
@@ -161,7 +161,13 @@ export function escadaVendedora(
   const bonus = degrau ? degrau.bonus : 0;
   const seguinte = idx + 1 < degraus.length ? degraus[idx + 1] : null;
   const proximo = seguinte
-    ? { nome: seguinte.nome, faltaValor: Math.max(0, (metaInd.valor * seguinte.atingimentoMinPct) / 100 - realizado) }
+    ? {
+        nome: seguinte.nome,
+        faltaValor: Math.max(0, (metaInd.valor * seguinte.atingimentoMinPct) / 100 - realizado),
+        pctPremiacao: seguinte.comissaoPct,
+        bonus: seguinte.bonus,
+        atingMinPct: seguinte.atingimentoMinPct,
+      }
     : null;
   return { degrau, premiacao, bonus, proximo };
 }
@@ -191,13 +197,19 @@ export interface VendedoraLinha {
   diasElegiveis: number;
   atingimentoPct: number;
   barraPct: number;
+  /** Marcos da escada p/ barra segmentada: { nome, pct, bonus, pctPremiacao }. */
+  marcosEscada: { nome: string; pct: number; pctPremiacao: number; bonus: number }[];
   degrauAtual: string | null;
-  proximoDegrau: { nome: string; faltaValor: number } | null;
+  proximoDegrau: { nome: string; faltaValor: number; pctPremiacao: number; bonus: number; atingMinPct: number } | null;
   /** Premiação acumulada da escada de metas (realizado × pct do degrau). */
   premiacaoAcumulada: number;
+  /** Premiação projetada pelo ritmo: realizado escalado × pct do degrau projetado. */
+  premiacaoProjetadaIndividual: number | null;
+  /** Atingimento projetado pelo ritmo da competência (100 = fecha a meta). */
+  atingimentoProjetadoPct: number | null;
   bonusAlcancado: number;
-  // Atenção
-  paAbaixoPct: number | null;
+  // Atenção — um ponto por vendedora, na ordem de prioridade do mockup.
+  atencao: { tipo: "pa" | "ritmo" | "preco"; texto: string; detalhe: string } | null;
   semMeta: boolean;
 }
 
@@ -294,6 +306,7 @@ function tendenciaVendedora(c: Colaborador, filialId: string, fimIso: string): V
 
 /** Lista de vendedoras da loja com desempenho do período + meta quando ativa. */
 function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva: boolean, competencia: string): VendedoraLinha[] {
+  const filial = filialPorId(filialId);
   const agLoja = agregadoLoja(filialId, periodo.inicio, periodo.fim);
   const paMedioLoja = divSeguro(agLoja.itens, agLoja.atendimentos);
   const degraus = degrausDaFilial(filialId, competencia);
@@ -305,8 +318,54 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
     const pa = divSeguro(ag.itens, ag.atendimentos);
     const metaInd = metaAtiva ? metaIndividual(c, filialId, competencia) : null;
     const escada = metaInd ? escadaVendedora(ag.faturamento, metaInd, degraus) : null;
-    // P.A. ≥5% abaixo da média da loja: ponto de atenção (context.md).
-    const paAbaixoPct = paMedioLoja > 0 && pa > 0 && pa < paMedioLoja * 0.95 ? (pa / paMedioLoja - 1) * 100 : null;
+    const tendencia = tendenciaVendedora(c, filialId, periodo.fim);
+
+    // Projeção do fechamento individual: realizado escalado pela fração da
+    // curva de receita já decorrida da competência (mesma base do Dashboard).
+    const fechado = fimDoMes(`${competencia}-01`) < HOJE_ISO;
+    let projecaoFinal = 0;
+    if (metaInd && metaInd.valor > 0 && !fechado) {
+      const curva = curvaReceita([filial], competencia);
+      let fracaoAcum = 0;
+      for (const iso of intervaloDias(`${competencia}-01`, HOJE_ISO)) fracaoAcum += curva.peso(iso);
+      if (fracaoAcum > 0) projecaoFinal = ag.faturamento / fracaoAcum;
+    }
+    const atingProjPct = metaInd && metaInd.valor > 0 ? (projecaoFinal / metaInd.valor) * 100 : 0;
+    const degrauProjetado = (() => {
+      let d: Degrau | null = null;
+      for (const g of degraus) {
+        if (atingProjPct >= g.atingimentoMinPct) d = g;
+        else break;
+      }
+      return d;
+    })();
+
+    // Premiação projetada individual (EQUIP-04): projeção × pct do degrau
+    // projetado + bônus já garantido. Mês fechado: o que de fato veio.
+    const premiacaoProjetadaIndividual =
+      metaInd && metaInd.valor > 0
+        ? fechado
+          ? (escada?.premiacao ?? 0) + (escada?.bonus ?? 0)
+          : projecaoFinal > 0
+            ? (projecaoFinal * (degrauProjetado?.comissaoPct ?? 0)) / 100 + (escada?.bonus ?? 0)
+            : null
+        : null;
+
+    // Ponto de atenção — um por vendedora, prioridade do mockup: P.A. ≥5%
+    // abaixo da média da loja → tendência caindo (com leitura de ritmo).
+    let atencao: VendedoraLinha["atencao"] = null;
+    if (metaInd && metaInd.valor > 0) {
+      const paAbaixoPct = paMedioLoja > 0 && pa > 0 && pa < paMedioLoja * 0.95 ? (pa / paMedioLoja - 1) * 100 : null;
+      if (paAbaixoPct !== null) {
+        atencao = { tipo: "pa", texto: `P.A. ${num(pa, 2)}`, detalhe: `${num(Math.abs(paAbaixoPct), 0)}% abaixo` };
+      } else if (tendencia === "caindo") {
+        atencao =
+          atingProjPct < 100
+            ? { tipo: "ritmo", texto: "Ritmo", detalhe: `projeta ${num(atingProjPct, 0)}% da meta` }
+            : { tipo: "ritmo", texto: "Ritmo", detalhe: "caindo, mas fecha no ritmo" };
+      }
+    }
+
     return {
       colaboradorId: c.id,
       nome: c.nome,
@@ -318,17 +377,23 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
       paValor: pa,
       pa: num(pa, 2),
       diasTrabalhados: ag.diasTrabalhados,
-      tendencia: tendenciaVendedora(c, filialId, periodo.fim),
+      tendencia,
       metaIndividualValor: metaInd?.valor ?? 0,
       metaProporcional: metaInd?.proporcional ?? false,
       diasElegiveis: metaInd?.diasElegiveis ?? 0,
       atingimentoPct: metaInd && metaInd.valor > 0 ? (ag.faturamento / metaInd.valor) * 100 : 0,
       barraPct: metaInd && metaInd.valor > 0 ? Math.min(100, (ag.faturamento / metaInd.valor) * 100) : 0,
+      // Marcos da escada para a barra segmentada do mockup (posição % de cada
+      // degrau + % de premiação que ele paga acima dele).
+      marcosEscada: degraus.map((d) => ({ nome: d.nome, pct: d.atingimentoMinPct, pctPremiacao: d.comissaoPct, bonus: d.bonus })),
       degrauAtual: escada?.degrau?.nome ?? null,
       proximoDegrau: escada?.proximo ?? null,
       premiacaoAcumulada: escada?.premiacao ?? 0,
+      premiacaoProjetadaIndividual,
+      /** Atingimento projetado pelo ritmo da competência (100 = fecha). */
+      atingimentoProjetadoPct: metaInd && metaInd.valor > 0 && !fechado && projecaoFinal > 0 ? atingProjPct : null,
       bonusAlcancado: escada?.bonus ?? 0,
-      paAbaixoPct,
+      atencao,
       semMeta: !metaInd || metaInd.valor <= 0,
     };
     })

@@ -271,16 +271,29 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
     }
   });
 
-  it("P.A. de atenção: quando presente, é negativo e < −5%", () => {
+  it("ponto de atenção: um por vendedora, sempre que P.A. cai ≥5% abaixo da média", () => {
     const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
-    const alertas = v.vendedoras!.filter((l) => l.paAbaixoPct !== null);
+    const alertas = v.vendedoras!.filter((l) => l.atencao?.tipo === "pa");
     for (const l of alertas) {
-      expect(l.paAbaixoPct!).toBeLessThanOrEqual(-5);
+      // Detalhe do mockup: "P.A. X,XX · Y% abaixo".
+      expect(l.atencao!.texto).toContain("P.A.");
+      expect(l.atencao!.detalhe).toContain("abaixo");
     }
     // E a média da loja fica entre o melhor e o pior P.A. individual.
     const pas = v.vendedoras!.filter((l) => l.paValor > 0).map((l) => l.paValor);
     if (pas.length > 1) {
       expect(Math.max(...pas)).toBeGreaterThanOrEqual(Math.min(...pas));
+    }
+  });
+
+  it("premiação projetada individual: coerente com projeção × degrau (não-nula com meta)", () => {
+    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    for (const l of v.vendedoras!) {
+      if (l.semMeta) continue;
+      // Com meta ativa e mês em curso, toda vendedora tem projeção calculada.
+      expect(l.premiacaoProjetadaIndividual, l.nome).not.toBeNull();
+      expect(l.atingimentoProjetadoPct, l.nome).not.toBeNull();
+      expect(l.atingimentoProjetadoPct!, l.nome).toBeGreaterThan(0);
     }
   });
 
