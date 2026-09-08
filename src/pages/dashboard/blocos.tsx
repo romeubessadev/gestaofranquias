@@ -325,7 +325,7 @@ export function BlocoRegua({
   modoMarca: boolean;
   onEscolher: (filialId: string) => void;
 }) {
-  const IconeLoja = ICONS.cart;
+  const IconeLoja = ICONS.store;
   const unicaLoja = regua.length === 1;
   return (
     <Card className="flex flex-col">

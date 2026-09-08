@@ -50,6 +50,15 @@ export const CartIcon = (p: IconProps) => (
   </Base>
 );
 
+/** Fachada de loja (storefront): o ícone de "loja" do tema. */
+export const StoreIcon = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2" />
+    <path d="M3 7h18l-1.5 5.5A3 3 0 0 1 16.6 13a3 3 0 0 1-2.9-2 3 3 0 0 1-5.4 0 3 3 0 0 1-2.9 2 3 3 0 0 1-2.9-1.5L3 7Z" />
+    <path d="M4 12v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8" />
+  </Base>
+);
+
 export const TrendingUpIcon = (p: IconProps) => (
   <Base {...p}>
     <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
@@ -227,6 +236,7 @@ export type IconKey =
   | "dollar"
   | "users"
   | "cart"
+  | "store"
   | "trending"
   | "target"
   | "award"
@@ -248,6 +258,7 @@ export const ICONS: Record<IconKey, (p: IconProps) => React.ReactElement> = {
   dollar: DollarSignIcon,
   users: UsersIcon,
   cart: CartIcon,
+  store: StoreIcon,
   trending: TrendingUpIcon,
   target: TargetIcon,
   award: AwardIcon,
