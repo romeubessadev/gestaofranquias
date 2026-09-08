@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { useSessaoAtiva } from "@/session/SessionProvider";
 import { DashboardShell } from "./DashboardShell";
 import { useEscopo } from "./useEscopo";
-import { BlocoAlertas, BlocoCategorias, BlocoChecklist, BlocoComparacao, BlocoEvolucao, BlocoKpis, BlocoLucroBruto, BlocoMix, BlocoPorHora, BlocoPorHoraRede, BlocoRegua, BlocoRitmo, EstadoBloco } from "./blocos";
+import { BlocoAlertas, BlocoCategorias, BlocoChecklist, BlocoComparacao, BlocoDiagnostico, BlocoEvolucao, BlocoKpis, BlocoLucroBruto, BlocoMix, BlocoPorHora, BlocoPorHoraRede, BlocoProjecao, BlocoRegua, BlocoRitmo, BlocoTrilho, BlocoVendaNecessaria, EstadoBloco } from "./blocos";
 
 /**
  * Loja: mesmo conjunto de 4 tiles no topo em qualquer visão. Abaixo, um par
@@ -46,6 +46,33 @@ export function LojaPage() {
 
       <div className="flex flex-col gap-5">
         {v.comparacao && <BlocoComparacao comparacao={v.comparacao} />}
+
+        {(v.trilho || v.vendaNecessaria || v.projecao) && (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {v.trilho && (
+              <EstadoBloco estado={v.estados.trilho}>
+                <BlocoTrilho trilho={v.trilho} />
+              </EstadoBloco>
+            )}
+            {v.vendaNecessaria && (
+              <EstadoBloco estado={v.estados.vendaNecessaria}>
+                <BlocoVendaNecessaria venda={v.vendaNecessaria} />
+              </EstadoBloco>
+            )}
+            {v.projecao && (
+              <EstadoBloco estado={v.estados.projecao}>
+                <BlocoProjecao projecao={v.projecao} metaValor={v.projecao.metaValor} />
+              </EstadoBloco>
+            )}
+          </div>
+        )}
+
+        {v.diagnostico && v.diagnostico.exibir && (
+          <EstadoBloco estado={v.estados.diagnostico}>
+            <BlocoDiagnostico diagnostico={v.diagnostico} />
+          </EstadoBloco>
+        )}
+
         <EstadoBloco estado={v.estados.kpis}>
           <BlocoKpis faturamento={v.kpiFaturamento} tileMeta={v.tileMeta} ticket={v.kpiTicket} pa={v.kpiPA} />
         </EstadoBloco>

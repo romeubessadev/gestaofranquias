@@ -319,7 +319,7 @@ T8 -> T9
 
 ---
 
-### T9: Integração — build/lint limpos e revisão do novo layut
+### T9: Integração — build/lint limpos e revisão do novo layut ✅
 
 **What**: Fechamento da integração: `npm run lint; npm run build` sem erros, revisão do novo layut operacional e ajustes finos.
 **Where**: `src/pages/loja/LojaPage.tsx`

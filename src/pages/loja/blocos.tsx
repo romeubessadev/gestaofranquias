@@ -1,11 +1,11 @@
 import { useState, type ReactNode } from "react";
 import { Accordion, Badge, Card, CardHeader, CardTitle, DataTable, EmptyState, Modal, ProgressBar, Skeleton, Switch, type AccordionItemData, type DataTableColumn } from "@/components/ui";
-import { AreaLineChart, BarChart, DonutChart, StackedBarChart } from "@/components/charts";
+import { AreaLineChart, BarChart, DonutChart, Gauge, StackedBarChart } from "@/components/charts";
 import { ICONS, TINT, type IconKey, type TintKey } from "@/pages/dashboards/icons";
 import { KpiSubtitulo, KpiTile } from "@/pages/dashboards/KpiTile";
 import { cn } from "@/lib/cn";
 import { brl } from "@/lib/formato";
-import { brlK, type AlertaSistema, type CategoriaLinha, type ChecklistDia, type ComparacaoView, type EstadoBloco as EstadoBlocoTipo, type GraficoEvolucao, type GraficoHora, type GraficoHoraRede, type ItemLucro, type KpiValor, type LinhaRegua, type MixView, type PontoAtencao, type RitmoCard, type TileMetaProjecao, type TurnoLinha } from "@/data/gestao/loja";
+import { brlK, type AlertaSistema, type CategoriaLinha, type ChecklistDia, type ComparacaoView, type EstadoBloco as EstadoBlocoTipo, type GraficoEvolucao, type GraficoHora, type GraficoHoraRede, type ItemLucro, type KpiValor, type LacunaView, type LinhaRegua, type MixView, type PontoAtencao, type ProjecaoView, type RitmoCard, type TileMetaProjecao, type TrilhoView, type TurnoLinha, type VendaNecessariaView } from "@/data/gestao/loja";
 import { produtosDaCategoria, type ProdutoResumo } from "@/data/gestao/produtos";
 
 /* ---------- Estados de leitura (LOJA-07): carregando → Skeleton; sem dados → EmptyState ---------- */
@@ -71,6 +71,110 @@ export function BlocoMix({ mix }: { mix: MixView }) {
             </div>
           ))}
         </div>
+      </div>
+    </Card>
+  );
+}
+
+/* ---------- Blocos operacionais novos (T9): trilho, venda, projeção, diagnóstico ---------- */
+
+const STATUS_TRILHA_META: Record<TrilhoView["status"], { rotulo: string; variant: "success" | "warning" | "danger" | "info" | "neutral" }> = {
+  no_trilho: { rotulo: "No trilho", variant: "success" },
+  atencao: { rotulo: "Atenção", variant: "warning" },
+  abaixo: { rotulo: "Abaixo do trilho", variant: "danger" },
+  meta_batida: { rotulo: "Meta batida", variant: "success" },
+  meta_nao_batida: { rotulo: "Meta não batida", variant: "danger" },
+};
+
+export function BlocoTrilho({ trilho }: { trilho: TrilhoView }) {
+  const m = STATUS_TRILHA_META[trilho.status];
+  const pct = trilho.pctTrilho ?? 0;
+  return (
+    <Card className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+      <p className="text-[11px] font-bold uppercase tracking-widest text-t2">Status do mês</p>
+      <Gauge value={pct} max={100} size={150} color={m.variant === "danger" ? "var(--bad)" : m.variant === "warning" ? "var(--warn)" : "var(--ok)"} label={trilho.competencia} />
+      <Badge variant={m.variant} dot>
+        {m.rotulo}
+      </Badge>
+      {trilho.pctTrilho !== null && <p className="text-[13px] font-bold text-t0">{Math.round(trilho.pctTrilho)}% da meta acumulada</p>}
+    </Card>
+  );
+}
+
+export function BlocoVendaNecessaria({ venda }: { venda: VendaNecessariaView }) {
+  if (venda.semMeta) return <EmptyState icon="🎯" title="Sem meta para a competência" description="Defina a meta do mês para ver a venda necessária." />;
+  const feitoHojePct = venda.realizadoHoje > 0 && venda.valor !== null ? Math.min(100, Math.round((venda.realizadoHoje / (venda.realizadoHoje + venda.valor)) * 100)) : 0;
+  return (
+    <Card className="flex h-full flex-col gap-3">
+      <CardTitle>Venda necessária hoje</CardTitle>
+      <p className="text-3xl font-extrabold text-t0">{venda.valor !== null ? brl(venda.valor) : "—"}</p>
+      <p className="text-[12.5px] text-t2">
+        {venda.valor !== null && venda.valor <= 0 ? "Cumprida ✓" : `Faltam ${brl(venda.faltaRestante)} em ${venda.diasRestantes} dias abertos`}
+      </p>
+      {venda.realizadoHoje > 0 && (
+        <ProgressBar value={feitoHojePct} color="var(--acc)" label="Realizado hoje" />
+      )}
+      {venda.metaMesAtingida && <Badge variant="success">Meta do mês atingida</Badge>}
+    </Card>
+  );
+}
+
+export function BlocoProjecao({ projecao, metaValor }: { projecao: ProjecaoView; metaValor: number }) {
+  if (projecao.encerrada) {
+    return (
+      <Card className="flex h-full flex-col gap-2">
+        <CardTitle>Competência encerrada</CardTitle>
+        <p className="text-2xl font-extrabold text-t0">{projecao.valor !== null ? brl(projecao.valor) : "—"}</p>
+        <p className="text-[12.5px] text-t2">Realizado fechado do período.</p>
+      </Card>
+    );
+  }
+  if (!projecao.disponivel) {
+    return (
+      <Card className="flex h-full flex-col gap-2">
+        <CardTitle>Projeção de fechamento</CardTitle>
+        <p className="text-[13px] text-t2">Projeção disponível a partir do dia 7.</p>
+      </Card>
+    );
+  }
+  const pct = metaValor > 0 ? ((projecao.valor ?? 0) / metaValor) * 100 : 0;
+  return (
+    <Card className="flex h-full flex-col gap-2">
+      <CardTitle>Projeção de fechamento</CardTitle>
+      <p className="text-2xl font-extrabold text-t0">{projecao.valor !== null ? brl(projecao.valor) : "—"}</p>
+      <ProgressBar value={pct} color={pct >= 100 ? "var(--ok)" : "var(--warn)"} label={`vs meta ${metaValor > 0 ? brl(metaValor) : ""}`} />
+      {projecao.indice !== null && <p className="text-[12px] text-t2">Índice {projecao.indice.toFixed(3)} na curva restante</p>}
+    </Card>
+  );
+}
+
+export function BlocoDiagnostico({ diagnostico }: { diagnostico: LacunaView }) {
+  if (diagnostico.semMeta) return null;
+  if (!diagnostico.exibir) return null;
+  const maior = Math.max(diagnostico.efeitoFluxo, diagnostico.efeitoTicket, 0);
+  return (
+    <Card className="flex flex-col gap-3">
+      <CardTitle>Onde agir: fluxo ou ticket?</CardTitle>
+      <div className="flex flex-col gap-2">
+        <div>
+          <div className="mb-1 flex items-center justify-between text-[12.5px]">
+            <span className="text-t1">Fluxo (atendimentos)</span>
+            <span className="font-bold text-t0">{diagnostico.efeitoFluxo > 0 ? `−${brl(Math.abs(diagnostico.efeitoFluxo))}` : brl(diagnostico.efeitoFluxo)}</span>
+          </div>
+          <ProgressBar value={maior > 0 ? Math.max(0, (diagnostico.efeitoFluxo / maior) * 100) : 0} color="var(--info)" />
+        </div>
+        <div>
+          <div className="mb-1 flex items-center justify-between text-[12.5px]">
+            <span className="text-t1">Ticket médio</span>
+            <span className="font-bold text-t0">{diagnostico.efeitoTicket > 0 ? `+${brl(Math.abs(diagnostico.efeitoTicket))}` : brl(diagnostico.efeitoTicket)}</span>
+          </div>
+          <ProgressBar value={maior > 0 ? Math.max(0, (diagnostico.efeitoTicket / maior) * 100) : 0} color="var(--warn)" />
+        </div>
+        {diagnostico.alavancaDominante && (
+          <Badge variant="info" dot>
+            Alavanca dominante: {diagnostico.alavancaDominante === "fluxo" ? "fluxo" : "ticket"}
+          </Badge>
+        )}
       </div>
     </Card>
   );

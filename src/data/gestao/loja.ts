@@ -286,6 +286,8 @@ export interface ProjecaoView {
   encerrada: boolean;
   /** Índice de desempenho da competência (realizado ÷ meta acumulada), usado para escalar a curva restante. */
   indice: number | null;
+  /** Meta mensal em R$ — para a UI desenhar a barra sem duplicar o pct (AD-029). */
+  metaValor: number;
 }
 
 /** Período com agregados consolidados para a comparação única (LOJA-06 AC 1-3). */
@@ -718,25 +720,25 @@ function vendaNecessariaHoje(fs: Filial[], competencia: string): VendaNecessaria
 /** Projeção de fechamento (LOJA-03): índice da competência × curva restante, com gate do dia 7. */
 function calcularProjecao(fs: Filial[], competencia: string): ProjecaoView {
   const metasFs = fs.map((f) => metaDaFilial(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
-  if (metasFs.length === 0) return { valor: null, disponivel: false, encerrada: false, indice: null };
-
   const valor = metasFs.reduce((s, m) => s + m.valorLoja, 0);
+  if (metasFs.length === 0) return { valor: null, disponivel: false, encerrada: false, indice: null, metaValor: 0 };
+
   const primeiroDia = `${competencia}-01`;
   const ultimoDia = fimDoMes(primeiroDia);
   const fechada = ultimoDia < HOJE_ISO;
   const fimReal = fechada ? ultimoDia : HOJE_ISO;
   const realizado = fs.reduce((s, f) => s + agregadoPeriodo(f, primeiroDia, fimReal, null).faturamento, 0);
 
-  if (fechada) return { valor: realizado, disponivel: false, encerrada: true, indice: null };
+  if (fechada) return { valor: realizado, disponivel: false, encerrada: true, indice: null, metaValor: valor };
 
   const diaDoMes = deIso(fimReal).getDate();
-  if (diaDoMes < 7) return { valor: null, disponivel: false, encerrada: false, indice: null };
+  if (diaDoMes < 7) return { valor: null, disponivel: false, encerrada: false, indice: null, metaValor: valor };
 
   const metaAcum = metaAcumuladaAteHoje(fs, competencia, valor, fimReal);
   const indice = metaAcum > 0 ? realizado / metaAcum : 0;
   const fracaoRestante = 1 - metaAcumuladaAteHoje(fs, competencia, 1, fimReal);
   const projecao = realizado + valor * fracaoRestante * indice;
-  return { valor: projecao, disponivel: true, encerrada: false, indice };
+  return { valor: projecao, disponivel: true, encerrada: false, indice, metaValor: valor };
 }
 
 /** curvaAtendimentos (AD-034): pesos diários normalizados a partir do histórico de atendimentos. */
