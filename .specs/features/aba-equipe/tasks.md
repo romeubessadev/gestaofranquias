@@ -201,7 +201,7 @@ T6 -> T7 -> T8
 
 ---
 
-### T5: Desafios na visão, comissão projetada e leitura da IA
+### T5: Desafios na visão, comissão projetada e leitura da IA ✅
 
 **What**: Mapear desafios para `DesafioView` (progresso agregado, engajadas, veredito de ritmo), calcular o KPI comissão projetada e gerar a leitura da IA (`montarLeituraEquipe`).
 **Where**: `src/data/gestao/equipe.ts`

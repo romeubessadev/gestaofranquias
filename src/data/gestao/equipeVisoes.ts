@@ -213,6 +213,8 @@ export interface DesafioView {
   progressoPct: number;
   /** Projeção linear até o fim do período alcança o alvo agregado. */
   fechaNoRitmo: boolean;
+  /** Ninguém fez progresso ainda: estado "sem engajamento" (EQUIP-05 AC 3). */
+  semEngajamento: boolean;
   /** Rótulo curto do tipo pro filtro visual da tabela. */
   tipoTexto: string;
 }
@@ -341,6 +343,7 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number): De
   const progressoAgregado = progressos.reduce((s, p) => s + p, 0);
   const alvoAgregado = d.alvoIndividual * d.participantes.length;
   const projetado = diasDecorridos > 0 ? (progressoAgregado / diasDecorridos) * diasTotais : 0;
+  const semEngajamento = progressoAgregado <= 0;
   return {
     id: d.id,
     nome: d.nome,
@@ -353,7 +356,8 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number): De
     progressoAgregado,
     alvoAgregado,
     progressoPct: alvoAgregado > 0 ? (progressoAgregado / alvoAgregado) * 100 : 0,
-    fechaNoRitmo: projetado >= alvoAgregado,
+    fechaNoRitmo: semEngajamento ? false : projetado >= alvoAgregado,
+    semEngajamento,
     tipoTexto: TIPO_TEXTO[d.tipo],
   };
 }
@@ -369,9 +373,11 @@ function diasAbertosDaCompetencia(competencia: string, filiaisIds: string[]): { 
 /* ------------------------- Comissão projetada (EQUIP-04) ------------------------- */
 
 /**
- * Comissão projetada do mês: soma por vendedora de (comissão acumulada +
- * comissão estimada sobre o realizado projetado pelo índice de desempenho da
- * loja). Bônus entra uma única vez, só de degrau já alcançado (risco D4).
+ * Comissão projetada do mês (EQUIP-04 AC 3): realizado de cada vendedora
+ * escalado pelo ritmo da loja até o fim do mês (fração acumulada da curva —
+ * equivale a "realizado + restante × índice de desempenho"), comissionado pelo
+ * degrau que a projeção alcança. Bônus entra uma única vez, só de degrau já
+ * alcançado (risco D4). Competência encerrada: comissão final do mês.
  */
 function comissaoProjetada(filialId: string, competencia: string, vendedoras: VendedoraLinha[]): number | null {
   const meta = metaDaFilial(filialId, competencia);
@@ -380,28 +386,31 @@ function comissaoProjetada(filialId: string, competencia: string, vendedoras: Ve
   const primeiro = `${competencia}-01`;
   const ultimo = fimDoMes(primeiro);
   const fechada = ultimo < HOJE_ISO;
-  const fimReal = fechada ? ultimo : HOJE_ISO;
 
   let total = 0;
   if (fechada) {
-    // Competência encerrada: comissão final do mês (sem projeção).
     for (const l of vendedoras) total += l.comissaoAcumulada + l.bonusAlcancado;
     return total;
   }
 
   const curva = curvaReceita([filial], competencia);
-  const realizadoLoja = agregadoLoja(filialId, primeiro, fimReal).faturamento;
-  let metaAcum = 0;
-  for (const iso of intervaloDias(primeiro, fimReal)) metaAcum += curva.peso(iso) * meta.valorLoja;
-  const indice = metaAcum > 0 ? realizadoLoja / metaAcum : 0;
-  if (indice <= 0) return null;
+  let fracaoAcum = 0;
+  for (const iso of intervaloDias(primeiro, HOJE_ISO)) fracaoAcum += curva.peso(iso);
+  if (fracaoAcum <= 0) return null;
 
   for (const l of vendedoras) {
-    if (l.semMeta) continue;
-    const degrau = l.degrauAtual ? meta.degraus.find((d) => d.nome === l.degrauAtual) ?? null : null;
+    if (l.semMeta || l.metaIndividualValor <= 0) continue;
+    // Realizado escalado: hoje está em fracaoAcum do mês → projeção linear
+    // pelo mesmo índice de desempenho acumulado do Dashboard (LOJA-03).
+    const projecaoFinal = l.faturamentoValor / fracaoAcum;
+    const atingPct = (projecaoFinal / l.metaIndividualValor) * 100;
+    let degrau: Degrau | null = null;
+    for (const d of meta.degraus) {
+      if (atingPct >= d.atingimentoMinPct) degrau = d;
+      else break;
+    }
     const pctComissao = degrau?.comissaoPct ?? 0;
-    const realizadoFuturo = l.faturamentoValor * indice;
-    total += ((l.faturamentoValor + realizadoFuturo) * pctComissao) / 100 + l.bonusAlcancado;
+    total += (projecaoFinal * pctComissao) / 100 + l.bonusAlcancado;
   }
   return total;
 }
@@ -410,21 +419,32 @@ function comissaoProjetada(filialId: string, competencia: string, vendedoras: Ve
 
 /**
  * Leitura da aba: no produto o LLM redige a partir dos números; aqui a frase
- * é montada por regra. Só diz o que os números da tela não dizem: quem está
- * abaixo da meta e caindo (ação), e o desafio que não fecha no ritmo.
+ * é montada por regra, com o padrão do leitura.ts do Dashboard. Até 2 linhas:
+ * (a) efeito de ticket/P.A. da equipe no período e (b) destaque de quem está
+ * abaixo da meta e caindo. Só diz o que os números da tela não dizem.
  */
 function montarLeituraEquipe(v: EquipeView): string | null {
   const partes: string[] = [];
   const linhas = v.vendedoras ?? [];
-  const emRisco = linhas.filter((l) => l.atingimentoPct < 100 && l.tendencia === "caindo");
-  if (emRisco.length > 0) {
-    const nomes = emRisco.map((l) => primeiroNome(l.nome)).join(", ");
-    const acao = emRisco.length === 1 ? `Vale uma conversa hoje com ${emRisco[0].nome.split(" ")[0]}` : `Vale conversar com cada uma hoje`;
-    partes.push(`${nomes} ${emRisco.length === 1 ? "está" : "estão"} abaixo da meta individual e caindo. ${acao}.`);
+
+  // Linha (a): efeito de ticket/P.A. — só quando o delta diz algo.
+  const pa = v.kpiPA.delta;
+  const ticket = v.kpiTicket.delta;
+  if (pa && !pa.positive && ticket && !ticket.positive) {
+    partes.push(`A equipe está vendendo menos peças por atendimento (P.A. ${pa.value}): o segundo produto está ficando na prateleira — reforçar a oferta de segunda peça e kit no caixa.`);
+  } else if (pa && !pa.positive) {
+    partes.push(`P.A. da equipe caiu ${pa.value} contra o período anterior: menos peças por venda, mesmo com o ticket segurando.`);
   }
-  const desafiosFora = (v.desafios ?? []).filter((d) => !d.fechaNoRitmo && d.engajadas > 0);
-  if (desafiosFora.length > 0) {
-    partes.push(`${desafiosFora.map((d) => d.nome).join(" e ")} ${desafiosFora.length === 1 ? "não fecha" : "não fecham"} no ritmo atual — vale reforçar o alvo na equipe.`);
+
+  // Linha (b): quem está abaixo da meta e caindo (omitida quando ninguém).
+  // Só com meta ativa: sem meta no período não existe "abaixo da meta".
+  if (v.metaAtiva) {
+    const emRisco = linhas.filter((l) => l.atingimentoPct < 100 && l.tendencia === "caindo");
+    if (emRisco.length > 0) {
+      const nomes = emRisco.map((l) => primeiroNome(l.nome)).join(", ");
+      const acao = emRisco.length === 1 ? `Vale uma conversa hoje com ${primeiroNome(emRisco[0].nome)}` : "Vale conversar com cada uma hoje";
+      partes.push(`${nomes} ${emRisco.length === 1 ? "está" : "estão"} abaixo da meta individual e caindo. ${acao}.`);
+    }
   }
   return partes.length > 0 ? partes.join(" ") : null;
 }
