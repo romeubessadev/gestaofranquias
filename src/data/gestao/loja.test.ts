@@ -331,3 +331,29 @@ describe("T6: visão de grupo (LOJA-05)", () => {
     }
   });
 });
+
+/* ---------- Régua: rede, loja única e dia ---------- */
+
+describe("régua: rede, loja única e dia", () => {
+  it("rede: título plural, uma linha por loja, ordenada do pior atingimento", () => {
+    const v = montarLojaView(escopo("todas"));
+    expect(v.reguaTitulo).toBe("Desempenho das lojas");
+    expect(v.regua!.length).toBe(filiais.length);
+    const pcts = v.regua!.map((l) => l.atingimentoPct);
+    expect([...pcts].sort((a, b) => a - b)).toEqual(pcts);
+  });
+
+  it("uma loja, período: título no singular e painel do mês (realizado da meta, não do período)", () => {
+    const v = montarLojaView(escopo("f1", { tipo: "7dias" }));
+    expect(v.reguaTitulo).toBe("Desempenho da loja");
+    expect(v.regua!.length).toBe(1);
+    const realizadoMes = realizadoAcumulado("f1", "2026-09", fimDoMes(HOJE_ISO));
+    expect(v.regua![0].faturamentoValor).toBeCloseTo(realizadoMes, 0);
+    expect(v.regua![0].atingimentoTexto).toContain("da meta");
+  });
+
+  it("dia: sem régua (o gráfico por hora já cobre)", () => {
+    const v = montarLojaView(escopo("f1", { tipo: "hoje" }));
+    expect(v.regua).toBeNull();
+  });
+});

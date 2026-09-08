@@ -40,6 +40,7 @@ export function LojaPage() {
             {v.regua && (
               <BlocoRegua
                 regua={v.regua}
+                titulo={v.reguaTitulo}
                 modoMarca={Boolean(escopo.divisao)}
                 onEscolher={(id) => mudar({ ...escopo, filialId: id, divisao: null })}
               />
@@ -51,6 +52,7 @@ export function LojaPage() {
         {!principal && v.regua && (
           <BlocoRegua
             regua={v.regua}
+            titulo={v.reguaTitulo}
             modoMarca={Boolean(escopo.divisao)}
             onEscolher={(id) => mudar({ ...escopo, filialId: id, divisao: null })}
           />

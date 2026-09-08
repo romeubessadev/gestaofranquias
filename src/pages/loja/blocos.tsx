@@ -313,13 +313,25 @@ export function BlocoRitmo({ ritmo }: { ritmo: RitmoCard }) {
 
 /* ---------- Régua de lojas: no padrão "Sessions by device" do Vela — hero com ícone e cor da loja, % à direita, barra, clique abre a loja ---------- */
 
-export function BlocoRegua({ regua, modoMarca, onEscolher }: { regua: LinhaRegua[]; modoMarca: boolean; onEscolher: (filialId: string) => void }) {
+export function BlocoRegua({
+  regua,
+  titulo = "Desempenho das lojas",
+  modoMarca,
+  onEscolher,
+}: {
+  regua: LinhaRegua[];
+  /** Rede mostra a lista; uma loja só mostra o painel de meta dela (sem repetir o nome). */
+  titulo?: string;
+  modoMarca: boolean;
+  onEscolher: (filialId: string) => void;
+}) {
   const IconeLoja = ICONS.cart;
+  const unicaLoja = regua.length === 1;
   return (
     <Card className="flex flex-col">
-      <CardTitle>Desempenho das lojas</CardTitle>
+      <CardTitle>{titulo}</CardTitle>
       <p className="mt-1 mb-5 text-[12.5px] text-t2">
-        {modoMarca ? "Participação de cada loja no faturamento da marca." : "Progresso da meta do mês, da loja que mais precisa de atenção para a que menos precisa."}
+        {modoMarca ? "Participação de cada loja na marca." : "Progresso da meta do mês."}
       </p>
 
       <div className="flex flex-col gap-5">
@@ -332,7 +344,8 @@ export function BlocoRegua({ regua, modoMarca, onEscolher }: { regua: LinhaRegua
               >
                 <IconeLoja size={16} />
               </span>
-              <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-t1">{l.nome}</span>
+              {/* Uma loja só: o nome já está no filtro; sem repetir aqui. */}
+              {!unicaLoja && <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-t1">{l.nome}</span>}
               <span className="flex shrink-0 items-center gap-2">
                 <span className="font-mono text-[13px] font-bold text-t0">{l.faturamento}</span>
                 {l.variacaoDia && l.variacaoDia.value !== "=" && (

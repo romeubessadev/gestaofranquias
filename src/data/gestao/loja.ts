@@ -331,6 +331,8 @@ export interface LojaView {
   ritmo: RitmoCard | null;
   ritmoAviso: string | null;
   regua: LinhaRegua[] | null;
+  /** Título da régua: "Desempenho das lojas" (rede) ou "Desempenho da loja" (uma loja). */
+  reguaTitulo: string;
   pontosAtencao: PontoAtencao[] | null;
   graficoHora: GraficoHora | null;
   graficoHoraRede: GraficoHoraRede | null;
@@ -446,11 +448,6 @@ export function brlK(v: number): string {
   return brl(v);
 }
 
-/** Rótulo curto e maiúsculo pro tile de faturamento: "HOJE", "SETEMBRO", "7 DIAS". */
-function rotuloPeriodoTile(periodo: PeriodoResolvido): string {
-  if (periodo.granularidade === "mes") return mesAno(periodo.inicio).split(" de ")[0].toUpperCase();
-  return rotulosPeriodo[periodo.tipo].toUpperCase();
-}
 
 interface MetaCalculada {
   valor: number;
@@ -908,7 +905,9 @@ export function montarLojaView(escopo: Escopo): LojaView {
     valor: brlK(atual.faturamento),
     delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento) : undefined,
     serie: series.faturamento,
-    rotulo: `FATURAMENTO${divisao ? ` ${divisao}` : ""} · ${rotuloPeriodoTile(periodo)}`,
+    // O período já está no filtro logo acima do card; sem sufixo "· HOJE".
+    // A marca selecionada continua no rótulo porque muda o dado.
+    rotulo: `FATURAMENTO${divisao ? ` ${divisao}` : ""}`,
     sub: subFaturamento,
   };
 
@@ -982,10 +981,15 @@ export function montarLojaView(escopo: Escopo): LojaView {
   if (semMetaPeriodo) avisos.push("Meta e lucro bruto são mensais e não aparecem neste período.");
   if (divisao) avisos.push(`Marca ${divisao} selecionada. Meta e projeção são da loja inteira e não aparecem no recorte por marca.`);
 
-  /* --- Régua de lojas e pontos de atenção: só na rede --- */
+  /* --- Régua de lojas e pontos de atenção --- */
   let regua: LinhaRegua[] | null = null;
   let pontosAtencao: PontoAtencao[] | null = null;
-  if (visao === "rede") {
+  let reguaTitulo: string = "Desempenho das lojas";
+  // Rede: uma linha por loja. Uma loja só (períodos): a régua vira o painel de
+  // meta da própria loja — "Desempenho da loja". Dia: não repete o que o
+  // gráfico por hora e o título do filtro já mostram. Com marca selecionada a
+  // meta é da loja inteira, então o painel de meta não entra.
+  if (visao === "rede" || (visao === "periodo" && unica && !divisao)) {
     const variacaoBadge = (v: number | null): { value: string; positive: boolean } | null => {
       if (v === null) return null;
       if (Math.abs(v) < 0.5) return { value: "=", positive: true };
@@ -1024,6 +1028,9 @@ export function montarLojaView(escopo: Escopo): LojaView {
         }));
       pontosAtencao = null;
     } else {
+      // Título no singular quando o escopo tem uma loja só (painel de meta dela);
+      // plural na rede. Não há variação de hoje nem ordenação na loja única.
+      reguaTitulo = fs.length > 1 ? "Desempenho das lojas" : "Desempenho da loja";
       const base = fs.map((f) => {
         const m = calcularMeta([f], competencia);
         const atingimento = m?.atingimentoPct ?? 0;
@@ -1240,6 +1247,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
     ritmo,
     ritmoAviso,
     regua,
+    reguaTitulo,
     pontosAtencao,
     graficoHora,
     graficoHoraRede,
