@@ -3,9 +3,13 @@
    antigo faz o app inteiro voltar a uma versão anterior, porque o HTML velho
    aponta para pacotes que não existem mais. O cache serve só para abrir
    offline e para os arquivos com hash no nome. */
-const VERSAO = "v3";
+const VERSAO = "v4";
 const CACHE = `gestao-${VERSAO}`;
-const OFFLINE = ["/index.html", "/manifest.webmanifest", "/favicon.svg", "/icons/icon-192.png", "/icons/icon-512.png"];
+// O Pages publica o app em um subpath (/gestaofranquias/). Derivar os URLs
+// do escopo impede que o PWA procure arquivos na raiz do dominio.
+const BASE = self.registration.scope;
+const INDEX = new URL("index.html", BASE).href;
+const OFFLINE = ["index.html", "manifest.webmanifest", "favicon.svg", "icons/icon-192.png", "icons/icon-512.png"].map((arquivo) => new URL(arquivo, BASE).href);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -34,11 +38,11 @@ self.addEventListener("fetch", (event) => {
           const copia = res.clone();
           caches
             .open(CACHE)
-            .then((c) => c.put("/index.html", copia))
+            .then((c) => c.put(INDEX, copia))
             .catch(() => undefined);
           return res;
         })
-        .catch(() => caches.match("/index.html")),
+        .catch(() => caches.match(INDEX)),
     );
     return;
   }

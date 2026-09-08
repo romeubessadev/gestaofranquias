@@ -13,7 +13,7 @@ if ("serviceWorker" in navigator) {
   if (import.meta.env.PROD) {
     window.addEventListener("load", async () => {
       try {
-        const registro = await navigator.serviceWorker.register("/sw.js");
+        const registro = await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`);
         // Nova versão instalada: recarrega uma vez para não ficar com a antiga.
         let recarregando = false;
         navigator.serviceWorker.addEventListener("controllerchange", () => {
