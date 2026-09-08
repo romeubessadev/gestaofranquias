@@ -362,7 +362,7 @@ function pctDelta(atual: number, anterior: number): number {
 }
 
 /** Delta pronto para o KpiTile do template: sem sinal no texto, a seta já indica. */
-function kpiDelta(atual: number, anterior: number): { value: string; positive: boolean } | undefined {
+export function kpiDelta(atual: number, anterior: number): { value: string; positive: boolean } | undefined {
   if (anterior <= 0) return undefined;
   const v = pctDelta(atual, anterior);
   const casas = Math.abs(v) < 10 ? 1 : 0;
@@ -523,7 +523,7 @@ function statusRitmo(m: MetaCalculada): string {
 }
 
 /** Período anterior comparável, com o rótulo que a tela exibe. */
-function periodoAnterior(periodo: PeriodoResolvido): { inicio: string; fim: string; rotulo: string; horaMax?: number } {
+export function periodoAnterior(periodo: PeriodoResolvido): { inicio: string; fim: string; rotulo: string; horaMax?: number } {
   if (periodo.granularidade === "dia") {
     const ref = somarDias(periodo.inicio, -7);
     return { inicio: ref, fim: ref, rotulo: `${DIAS_SEMANA[deIso(ref).getDay()]} passada`, horaMax: periodo.ehHoje ? HORA_ATUAL : undefined };
