@@ -311,26 +311,24 @@ export function BlocoRitmo({ ritmo }: { ritmo: RitmoCard }) {
   );
 }
 
-/* ---------- Régua de lojas: uma barra por loja, pior ritmo (ou maior participação, com marca filtrada) primeiro ---------- */
+/* ---------- Régua de lojas: no padrão "Sessions by device" do Vela — % à direita, barra própria, clique abre a loja ---------- */
 
 export function BlocoRegua({ regua, modoMarca, onEscolher }: { regua: LinhaRegua[]; modoMarca: boolean; onEscolher: (filialId: string) => void }) {
   return (
     <Card className="flex flex-col">
       <CardTitle>Desempenho das lojas</CardTitle>
-      <p className="mt-1 mb-4 text-[12.5px] text-t2">
+      <p className="mt-1 mb-5 text-[12.5px] text-t2">
         {modoMarca ? "Participação de cada loja no faturamento da marca." : "Progresso da meta do mês, da loja que mais precisa de atenção para a que menos precisa."}
       </p>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-5">
         {regua.map((l) => (
-          <button key={l.filialId} onClick={() => onEscolher(l.filialId)} className="rounded-xl bg-bg-inset p-3.5 text-left hover:bg-bg-3">
-            <div className="mb-1.5 flex items-center justify-between gap-2">
-              <span className="flex min-w-0 items-center gap-2 truncate text-[13px] font-bold text-t0">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-[4px]" style={{ background: TINT[l.tint].fg }} />
-                <span className="truncate">{l.nome}</span>
-              </span>
-              <span className="flex shrink-0 items-center gap-2 text-[12px] text-t2">
-                <span className="font-mono font-bold text-t0">{l.faturamento}</span>
+          <button key={l.filialId} onClick={() => onEscolher(l.filialId)} className="text-left">
+            <div className="mb-2 flex items-center gap-3">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-[4px]" style={{ background: TINT[l.tint].fg }} />
+              <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-t1">{l.nome}</span>
+              <span className="flex shrink-0 items-center gap-2">
+                <span className="font-mono text-[13px] font-bold text-t0">{l.faturamento}</span>
                 {l.variacaoDia && (
                   <Badge variant={l.variacaoDia.value === "=" ? "neutral" : l.variacaoDia.positive ? "success" : "danger"}>
                     {l.variacaoDia.value === "=" ? l.variacaoDia.value : `${l.variacaoDia.positive ? "↗" : "↘"} ${l.variacaoDia.value}`}
