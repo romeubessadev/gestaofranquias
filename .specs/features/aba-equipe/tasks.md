@@ -109,7 +109,7 @@ T6 -> T7 -> T8
 
 ---
 
-### T2: Motor de meta individual e elegibilidade por data
+### T2: Motor de meta individual e elegibilidade por data ✅
 
 **What**: Funções puras em `equipe.ts` que derivam a meta individual de cada vendedora (distribuição por `pesoVenda`, proporcional aos dias elegíveis) e calculam dias trabalhados/agregados por vendedora no período.
 **Where**: `src/data/gestao/equipe.ts`
