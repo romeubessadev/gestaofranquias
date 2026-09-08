@@ -167,17 +167,48 @@ describe("T3: escada de degraus e comissão (EQUIP-04)", () => {
 });
 
 describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", () => {
-  it("Este mês: metaAtiva, 4 KPIs, colunas de meta preenchidas e desafios presentes", () => {
+  it("Este mês: metaAtiva, 6 KPIs (comissão + premiação), colunas de meta preenchidas e desafios presentes", () => {
     const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
     expect(v.visao).toBe("loja");
     expect(v.metaAtiva).toBe(true);
     expect(v.kpiComissao).not.toBeNull();
+    expect(v.kpiPremiacao).not.toBeNull();
     expect(v.desafios).not.toBeNull();
     expect(v.vendedoras!.length).toBeGreaterThan(0);
     const comMeta = v.vendedoras!.filter((l) => !l.semMeta);
     expect(comMeta.length).toBe(v.vendedoras!.length);
     expect(comMeta[0].metaIndividualValor).toBeGreaterThan(0);
     expect(comMeta[0].atingimentoPct).toBeGreaterThanOrEqual(0);
+  });
+
+  it("KPI Atendimentos sempre presente e plausível", () => {
+    for (const tipo of ["esteMes", "hoje"] as const) {
+      const v = montarEquipeView(escopo("f1", { tipo }));
+      expect(Number(v.kpiAtendimentos.valor.replace(/\D/g, "")), tipo).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("Premiação projetada = prêmio × participantes cuja projeção individual fecha", () => {
+    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    expect(v.kpiPremiacao).not.toBeNull();
+    // Contagem é POR PARTICIPANTE (projeção linear do progresso individual),
+    // não pelo veredito agregado do desafio: o grupo pode fechar com alguém
+    // atrás. Recalcula do mock (desafios + progressoIndividual), fonte real.
+    const decorridos = 15;
+    const totais = 30; // dias abertos de setembro no mock
+    let esperado = 0;
+    for (const d of desafiosAtivos("2026-09")) {
+      for (const id of d.participantes) {
+        const p = progressoIndividual(d, id);
+        if (p > 0 && (p / decorridos) * totais >= d.alvoIndividual) esperado += d.premio;
+      }
+    }
+    expect(parseBrl(v.kpiPremiacao!.valor)).toBeCloseTo(esperado, -1);
+  });
+
+  it("Premiação null sem meta ativa (competência não é do período)", () => {
+    const v = montarEquipeView(escopo("f1", { tipo: "7dias" }));
+    expect(v.kpiPremiacao).toBeNull();
   });
 
   it("Mês passado: metaAtiva com aviso de competência", () => {
@@ -187,11 +218,12 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
     expect(v.kpiComissao).not.toBeNull();
   });
 
-  it("Hoje/Ontem/7 dias: metaAtiva=false — 3 KPIs (comissão null), sem desafios", () => {
+  it("Hoje/Ontem/7 dias: metaAtiva=false — 4 KPIs (comissão e premiação null), sem desafios", () => {
     for (const tipo of ["hoje", "ontem", "7dias"] as const) {
       const v = montarEquipeView(escopo("f1", { tipo }));
       expect(v.metaAtiva, tipo).toBe(false);
       expect(v.kpiComissao, tipo).toBeNull();
+      expect(v.kpiPremiacao, tipo).toBeNull();
       expect(v.desafios, tipo).toBeNull();
       // Colunas de meta ficam zeradas: UI não mostra meta.
       for (const l of v.vendedoras!) {
@@ -300,11 +332,20 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
     }
   });
 
-  it("rede sem meta ativa: desafios null e resumos sem comissão ('—')", () => {
+  it("rede sem meta ativa: desafios null, premiação null e resumos sem comissão ('—')", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "7dias" }));
     expect(v.metaAtiva).toBe(false);
     expect(v.desafios).toBeNull();
+    expect(v.kpiPremiacao).toBeNull();
     for (const l of v.lojas!) expect(l.comissaoProjetada).toBe("—");
+  });
+
+  it("premiação da rede = premiação da mesma competência por loja (mesmos desafios)", () => {
+    const rede = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    expect(rede.kpiPremiacao).not.toBeNull();
+    // Desafios são da rede: a premiação não muda com o filtro de loja.
+    const isolada = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    expect(parseBrl(rede.kpiPremiacao!.valor)).toBe(parseBrl(isolada.kpiPremiacao!.valor));
   });
 });
 

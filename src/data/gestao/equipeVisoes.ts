@@ -248,10 +248,17 @@ export interface EquipeView {
   avisoCompetencia: string | null;
   avisos: string[];
   kpiFaturamento: KpiEquipeValor;
+  kpiAtendimentos: KpiEquipeValor;
   kpiTicket: KpiEquipeValor;
   kpiPA: KpiEquipeValor;
-  /** null sem meta ativa (vira 3 KPIs). */
+  /** null sem meta ativa (vira 4 KPIs). */
   kpiComissao: KpiEquipeValor | null;
+  /**
+   * Premiação projetada dos desafios: prêmio × participantes que vão fechar
+   * pelo ritmo (projeção linear). null sem meta ativa ou sem desafios —
+   * desafio é da competência, igual à meta (AD-040).
+   */
+  kpiPremiacao: KpiEquipeValor | null;
   leitura: string | null;
   vendedoras: VendedoraLinha[] | null;
   lojas: LojaEquipeResumo[] | null;
@@ -415,6 +422,36 @@ function comissaoProjetada(filialId: string, competencia: string, vendedoras: Ve
   return total;
 }
 
+/* ------------------------- Premiação projetada (EQUIP-05) ------------------------- */
+
+/**
+ * Premiação projetada dos desafios (EQUIP-05): para cada desafio, quantos
+ * participantes vão fechar pelo ritmo (mesma projeção linear do veredito
+ * `fechaNoRitmo`) × prêmio individual. Desafio sem engajamento não projeta
+ * ninguém (0 × prêmio); competência sem desafios devolve 0 — a UI decide o
+ * que mostrar. Competência encerrada: prêmio dos que de fato fecharam.
+ */
+function premiacaoProjetada(competencia: string, filiaisIds: string[]): number {
+  const { decorridos, totais } = diasAbertosDaCompetencia(competencia, filiaisIds);
+  let total = 0;
+  for (const d of desafiosAtivos(competencia)) {
+    const fechado = fimDoMes(`${competencia}-01`) < HOJE_ISO;
+    for (const id of d.participantes) {
+      const p = progressoIndividual(d, id);
+      if (p <= 0) continue;
+      const venceAgora = p >= d.alvoIndividual;
+      if (fechado) {
+        total += venceAgora ? d.premio : 0;
+      } else if (decorridos > 0) {
+        // Projeção linear do participante: mesmo veredito do `desafioView`.
+        const projetado = (p / decorridos) * totais;
+        if (projetado >= d.alvoIndividual) total += d.premio;
+      }
+    }
+  }
+  return total;
+}
+
 /* ------------------------- Leitura da IA (EQUIP-06) ------------------------- */
 
 /**
@@ -494,9 +531,11 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, competencia: strin
     avisoCompetencia,
     avisos,
     kpiFaturamento: { valor: brlK(atual.faturamento), delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento) : undefined },
+    kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos) : undefined },
     kpiTicket: { valor: brl(ticket), delta: temComparacao ? kpiDelta(ticket, ticketAnt) : undefined },
     kpiPA: { valor: num(pa, 2), delta: temComparacao ? kpiDelta(pa, paAnt) : undefined },
     kpiComissao: comissao === null ? null : { valor: brl(comissao), delta: undefined },
+    kpiPremiacao: metaAtiva ? { valor: brl(premiacaoProjetada(competencia, [filial.id])), delta: undefined } : null,
     leitura: null,
     vendedoras,
     lojas: null,
@@ -564,9 +603,12 @@ function visaoRede(escopo: Escopo, periodo: PeriodoResolvido, competencia: strin
     avisoCompetencia: null,
     avisos: [],
     kpiFaturamento: { valor: brlK(atual.faturamento), delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento) : undefined },
+    kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos) : undefined },
     kpiTicket: { valor: brl(divSeguro(atual.faturamento, atual.atendimentos)), delta: temComparacao ? kpiDelta(divSeguro(atual.faturamento, atual.atendimentos), divSeguro(anterior.faturamento, anterior.atendimentos)) : undefined },
     kpiPA: { valor: num(divSeguro(atual.itens, atual.atendimentos), 2), delta: temComparacao ? kpiDelta(divSeguro(atual.itens, atual.atendimentos), divSeguro(anterior.itens, anterior.atendimentos)) : undefined },
     kpiComissao: null,
+    // Premiação na rede soma as lojas (mesmos desafios, mesma competência).
+    kpiPremiacao: metaAtiva ? { valor: brl(premiacaoProjetada(competencia, filiais.map((f) => f.id))), delta: undefined } : null,
     leitura: null,
     vendedoras: null,
     lojas: lojas,

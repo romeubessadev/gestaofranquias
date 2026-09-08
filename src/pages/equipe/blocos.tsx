@@ -6,7 +6,6 @@
 import { Avatar, Badge, Card, CardHeader, CardTitle, DataTable, EmptyState, ProgressBar, type DataTableColumn } from "@/components/ui";
 import { KpiTile } from "@/pages/dashboards/KpiTile";
 import { ICONS, TINT } from "@/pages/dashboards/icons";
-import { cn } from "@/lib/cn";
 import { brl, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/blocos";
@@ -16,25 +15,31 @@ import type { DesafioView, EquipeView, LojaEquipeResumo, VendedoraLinha } from "
 
 export function BlocoKpisEquipe({
   faturamento,
+  atendimentos,
   ticket,
   pa,
   comissao,
+  premiacao,
   metaAtiva,
 }: {
   faturamento: EquipeView["kpiFaturamento"];
+  atendimentos: EquipeView["kpiAtendimentos"];
   ticket: EquipeView["kpiTicket"];
   pa: EquipeView["kpiPA"];
   comissao: EquipeView["kpiComissao"];
+  premiacao: EquipeView["kpiPremiacao"];
   metaAtiva: boolean;
 }) {
   return (
-    <div className={cn("grid gap-4", metaAtiva ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-3")}>
+    // Sempre 2 por linha (decisão do usuário): 4 KPIs sem meta (2×2) e 6 com
+    // meta ativa (3 linhas × 2). 3+ na mesma linha ficou feio no celular.
+    <div className="grid grid-cols-2 gap-4">
       <KpiTile label="Faturamento" value={faturamento.valor} icon="dollar" tint="acc" delta={faturamento.delta} />
-      <KpiTile label="Ticket médio" value={ticket.valor} icon="card" tint="info" delta={ticket.delta} />
-      <KpiTile label="P.A." value={pa.valor} icon="layers" tint="ok" delta={pa.delta} />
-      {metaAtiva && comissao && (
-        <KpiTile label="Comissão projetada" value={comissao.valor} icon="award" tint="warn" sub="do mês" />
-      )}
+      <KpiTile label="Atendimentos" value={atendimentos.valor} icon="users" tint="info" delta={atendimentos.delta} />
+      <KpiTile label="Ticket médio" value={ticket.valor} icon="card" tint="ok" delta={ticket.delta} />
+      <KpiTile label="P.A." value={pa.valor} icon="layers" tint="warn" delta={pa.delta} />
+      {metaAtiva && comissao && <KpiTile label="Comissão projetada" value={comissao.valor} icon="briefcase" tint="acc" sub="do mês" />}
+      {metaAtiva && premiacao && <KpiTile label="Premiação projetada" value={premiacao.valor} icon="award" tint="warn" sub="dos desafios" />}
     </div>
   );
 }

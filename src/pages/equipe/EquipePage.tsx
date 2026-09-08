@@ -25,7 +25,15 @@ export function EquipePage() {
 
         {v.leitura && <BlocoLeitura texto={v.leitura} />}
 
-        <BlocoKpisEquipe faturamento={v.kpiFaturamento} ticket={v.kpiTicket} pa={v.kpiPA} comissao={v.kpiComissao} metaAtiva={v.metaAtiva} />
+        <BlocoKpisEquipe
+          faturamento={v.kpiFaturamento}
+          atendimentos={v.kpiAtendimentos}
+          ticket={v.kpiTicket}
+          pa={v.kpiPA}
+          comissao={v.kpiComissao}
+          premiacao={v.kpiPremiacao}
+          metaAtiva={v.metaAtiva}
+        />
 
         {v.visao === "loja" ? (
           <CardVendedoras
