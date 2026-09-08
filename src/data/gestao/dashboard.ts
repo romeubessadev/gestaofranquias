@@ -172,7 +172,7 @@ export interface AlertaSistema {
 /** Um indicador do topo, no formato do KpiTile do template. */
 export interface KpiValor {
   valor: string;
-  delta?: { value: string; positive: boolean };
+  delta?: { value: string; positive: boolean; /** Rótulo curto da base, ex.: "ago" / "Segunda passada" */ vs?: string };
   /** Série curta para o traço de tendência. Só o Faturamento usa. */
   serie?: number[];
   /** Só o Faturamento sobrescreve rótulo e subtítulo — os outros usam o texto fixo do componente. */
@@ -361,13 +361,13 @@ function pctDelta(atual: number, anterior: number): number {
 }
 
 /** Delta pronto para o KpiTile do template: sem sinal no texto, a seta já indica. */
-export function kpiDelta(atual: number, anterior: number): { value: string; positive: boolean } | undefined {
+export function kpiDelta(atual: number, anterior: number, vs?: string): { value: string; positive: boolean; vs?: string } | undefined {
   if (anterior <= 0) return undefined;
   const v = pctDelta(atual, anterior);
   const casas = Math.abs(v) < 10 ? 1 : 0;
   // Arredondou pra zero: sem selo — não é queda nem alta, não há o que marcar.
   if (num(Math.abs(v), casas) === num(0, casas)) return undefined;
-  return { value: fmtDelta(v, casas).replace(/^[+−]/, ""), positive: v >= 0 };
+  return { value: fmtDelta(v, casas).replace(/^[+−]/, ""), positive: v >= 0, ...(vs ? { vs } : {}) };
 }
 
 /** Dias com loja aberta que ainda restam no mês corrente. */
@@ -879,9 +879,10 @@ export function montarLojaView(escopo: Escopo): LojaView {
   const paAnt = divSeguro(anterior.itens, anterior.atendimentos);
 
   const temComparacao = anterior.atendimentos > 0;
+  const vsRotulo = temComparacao ? ant.rotulo : undefined;
   const series = seriesTendencia(fs, periodo, divisao);
-  const kpiTicket: KpiValor = { valor: brl(ticket), delta: temComparacao ? kpiDelta(ticket, ticketAnt) : undefined, serie: series.ticket };
-  const kpiPA: KpiValor = { valor: num(pa, 2), delta: temComparacao ? kpiDelta(pa, paAnt) : undefined, serie: series.pa };
+  const kpiTicket: KpiValor = { valor: brl(ticket), delta: temComparacao ? kpiDelta(ticket, ticketAnt, vsRotulo) : undefined, serie: series.ticket };
+  const kpiPA: KpiValor = { valor: num(pa, 2), delta: temComparacao ? kpiDelta(pa, paAnt, vsRotulo) : undefined, serie: series.pa };
 
   // Meta é sempre mensal. Divisão ou período cruzando meses desligam.
   const competencia = periodo.granularidade === "mes" ? periodo.inicio.slice(0, 7) : HOJE_ISO.slice(0, 7);
@@ -902,14 +903,14 @@ export function montarLojaView(escopo: Escopo): LojaView {
 
   const kpiAtendimentos: KpiValor = {
     valor: num(atual.atendimentos),
-    delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos) : undefined,
+    delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined,
     serie: series.atendimentos,
     sub: periodo.granularidade !== "dia" && nDiasPeriodo > 0 ? `média ${num(atual.atendimentos / nDiasPeriodo, 0)}/dia` : undefined,
   };
 
   const kpiFaturamento: KpiValor = {
     valor: brlK(atual.faturamento),
-    delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento) : undefined,
+    delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
     serie: series.faturamento,
     // O período já está no filtro logo acima do card; sem sufixo "· HOJE".
     // A marca selecionada continua no rótulo porque muda o dado.

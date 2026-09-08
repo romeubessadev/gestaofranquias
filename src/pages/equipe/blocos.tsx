@@ -26,14 +26,22 @@ export function BlocoKpisEquipe({
   ticket: EquipeView["kpiTicket"];
   pa: EquipeView["kpiPA"];
 }) {
+  const comparadoA = faturamento.delta?.vs ?? ticket.delta?.vs ?? pa.delta?.vs ?? atendimentos.delta?.vs;
   // Sempre 4 KPIs em 2×2 — premiação e desafios ficam na faixa/tabela e no
   // bloco de desafios, não no topo (decisão do usuário).
   return (
-    <div className="grid grid-cols-2 gap-4">
-      <KpiTile label="Faturamento" value={faturamento.valor} icon="dollar" tint="acc" delta={faturamento.delta} />
-      <KpiTile label="Atendimentos" value={atendimentos.valor} icon="users" tint="info" delta={atendimentos.delta} />
-      <KpiTile label="Ticket médio" value={ticket.valor} icon="card" tint="ok" delta={ticket.delta} />
-      <KpiTile label="P.A." value={pa.valor} icon="layers" tint="warn" delta={pa.delta} />
+    <div className="flex flex-col gap-2.5">
+      {comparadoA && (
+        <p className="text-[12px] text-t2">
+          Variações em relação a <span className="font-semibold text-t1">{comparadoA}</span>
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-4">
+        <KpiTile label="Faturamento" value={faturamento.valor} icon="dollar" tint="acc" delta={faturamento.delta} />
+        <KpiTile label="Atendimentos" value={atendimentos.valor} icon="users" tint="info" delta={atendimentos.delta} />
+        <KpiTile label="Ticket médio" value={ticket.valor} icon="card" tint="ok" delta={ticket.delta} />
+        <KpiTile label="P.A." value={pa.valor} icon="layers" tint="warn" delta={pa.delta} />
+      </div>
     </div>
   );
 }

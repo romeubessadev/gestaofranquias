@@ -57,9 +57,10 @@
 | AD-045 | active | Visão rede da Equipe = tabela de vendedoras com coluna Shopping; abas Vendedoras\|Lojas com meta ativa; faixa global com badges de projeção e dias restantes; BlocoResumoRede removido. | 2026-09-08 |
 | AD-047 | active | **Adaptar, não esconder:** filtros recortam/adaptam o conteúdo, nunca removem a seção sem alternativa. Visão geral: gráfico = por hora (1 dia) ou por dia (período > 1 dia), inclusive na rede; régua = % meta, % marca na rede, ou participação da marca na loja única. Equipe: AD-046 (meta sempre do mês + aviso). Seletor de Marca continua só quando o escopo tem Wpink (controle, não conteúdo). | 2026-09-08 |
 | AD-048 | active | **KPIs + gráfico Visão geral:** cada subtítulo de KPI fala só do próprio indicador — Faturamento não mistura atendimentos nem “precisa R$/dia” (régua cobre ritmo). Em mês: `% da meta`; em outros períodos com meta: `% da meta do mês`; sem meta e multi-dia: média/dia. Atendimentos multi-dia: média/dia. Gráfico por dia/hora no padrão Finance (Revenue vs expenses): legenda com chave de cores, overlay da série anterior no mesmo eixo, switch Comparar e badge de delta. | 2026-09-08 |
+| AD-050 | active | **Comparação sem bloco “Período atual / Comparado a”:** removido da Visão geral. A base da variação fica explícita na linha “Variações em relação a {rótulo}” acima dos KPIs (e no badge/tooltip do delta + badge do gráfico). Período do filtro permanece livre (não travar no mês — ano/YTD continua possível). | 2026-09-08 |
 
 ## Handoff — snapshot
 
-- **AD-048** — KPIs limpos + gráfico com comparação sobreposta (chave/legenda).
-- AD-047 / AD-046 permanecem.
-- Prova visual no Pages: Este mês → Faturamento com `% da meta`; gráfico com Comparar ligado.
+- **AD-050** — comparação nos KPIs (“Variações em relação a …”), sem bloco de datas.
+- AD-048 / AD-047 / AD-046 permanecem.
+- Período livre mantido (trava no mês descartada).

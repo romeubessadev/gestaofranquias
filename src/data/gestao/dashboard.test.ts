@@ -431,3 +431,16 @@ describe("KPIs: subtítulos sem misturar indicadores (AD-048)", () => {
   });
 });
 
+
+describe("KPIs: base da variação explícita (AD-050)", () => {
+  it("este mês: delta traz vs do mês anterior (rótulo curto)", () => {
+    const v = montarLojaView(escopo("todas", { tipo: "esteMes" }));
+    expect(v.kpiFaturamento.delta?.vs).toBeTruthy();
+    expect(v.kpiFaturamento.delta!.vs!.length).toBeGreaterThan(0);
+  });
+
+  it("hoje: delta vs mesmo dia da semana passada", () => {
+    const v = montarLojaView(escopo("f1", { tipo: "hoje" }));
+    expect(v.kpiFaturamento.delta?.vs).toMatch(/passada/);
+  });
+});

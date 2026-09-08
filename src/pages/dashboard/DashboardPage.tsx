@@ -3,12 +3,12 @@ import { montarLojaView } from "@/data/gestao/dashboard";
 import { Avisos } from "@/components/gestao/Avisos";
 import { DashboardShell } from "./DashboardShell";
 import { useEscopo } from "./useEscopo";
-import { BlocoComparacao, BlocoEvolucao, BlocoKpis, BlocoPorHora, BlocoRegua, EstadoBloco } from "./blocos";
+import { BlocoEvolucao, BlocoKpis, BlocoPorHora, BlocoRegua, EstadoBloco } from "./blocos";
 
 /**
  * Visão geral do Dashboard: o resumo que funciona com qualquer filtro.
- * KPIs no topo; gráfico AreaLine por hora (1 dia) ou por dia (período maior),
- * com comparação sobreposta — mesmo componente visual na loja e na rede (AD-048).
+ * KPIs no topo (com “Variações vs …” na base da comparação); gráfico AreaLine
+ * por hora ou por dia com overlay — AD-048 / AD-050.
  */
 export function DashboardPage() {
   const { escopo, mudar } = useEscopo();
@@ -26,8 +26,6 @@ export function DashboardPage() {
       )}
 
       <div className="flex flex-col gap-5">
-        {v.comparacao && <BlocoComparacao comparacao={v.comparacao} />}
-
         <EstadoBloco estado={v.estados.kpis}>
           <BlocoKpis faturamento={v.kpiFaturamento} ticket={v.kpiTicket} pa={v.kpiPA} atendimentos={v.kpiAtendimentos} />
         </EstadoBloco>

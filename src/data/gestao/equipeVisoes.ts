@@ -176,7 +176,7 @@ export function escadaVendedora(
 
 export interface KpiEquipeValor {
   valor: string;
-  delta: { value: string; positive: boolean } | undefined;
+  delta: { value: string; positive: boolean; vs?: string } | undefined;
 }
 
 export interface VendedoraLinha {
@@ -608,6 +608,7 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
   );
 
   const temComparacao = anterior.atendimentos > 0;
+  const vsRotulo = temComparacao ? ant.rotulo : undefined;
   const ticket = divSeguro(atual.faturamento, atual.atendimentos);
   const pa = divSeguro(atual.itens, atual.atendimentos);
   const ticketAnt = divSeguro(anterior.faturamento, anterior.atendimentos);
@@ -630,10 +631,10 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
     metaAtiva,
     avisoCompetencia: null, // preenchido em montarEquipeView
     avisos,
-    kpiFaturamento: { valor: brlK(atual.faturamento), delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento) : undefined },
-    kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos) : undefined },
-    kpiTicket: { valor: brl(ticket), delta: temComparacao ? kpiDelta(ticket, ticketAnt) : undefined },
-    kpiPA: { valor: num(pa, 2), delta: temComparacao ? kpiDelta(pa, paAnt) : undefined },
+    kpiFaturamento: { valor: brlK(atual.faturamento), delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined },
+    kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined },
+    kpiTicket: { valor: brl(ticket), delta: temComparacao ? kpiDelta(ticket, ticketAnt, vsRotulo) : undefined },
+    kpiPA: { valor: num(pa, 2), delta: temComparacao ? kpiDelta(pa, paAnt, vsRotulo) : undefined },
     kpiPremiacao: premiacao === null ? null : { valor: brl(premiacao), delta: undefined },
     metaGlobal: null,
     leitura: null,
@@ -710,6 +711,7 @@ function visaoRede(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
     }),
   );
   const temComparacao = anterior.atendimentos > 0;
+  const vsRotulo = temComparacao ? ant.rotulo : undefined;
   const desafios = metaAtiva ? desafiosViewDaCompetencia(competencia, filiais.map((f) => f.id)) : null;
   const semDesafios = metaAtiva && desafiosAtivos(competencia).length === 0;
 
@@ -764,10 +766,10 @@ if (metaAtiva) {
     metaAtiva,
     avisoCompetencia: null,
     avisos: [],
-    kpiFaturamento: { valor: brlK(atual.faturamento), delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento) : undefined },
-    kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos) : undefined },
-    kpiTicket: { valor: brl(divSeguro(atual.faturamento, atual.atendimentos)), delta: temComparacao ? kpiDelta(divSeguro(atual.faturamento, atual.atendimentos), divSeguro(anterior.faturamento, anterior.atendimentos)) : undefined },
-    kpiPA: { valor: num(divSeguro(atual.itens, atual.atendimentos), 2), delta: temComparacao ? kpiDelta(divSeguro(atual.itens, atual.atendimentos), divSeguro(anterior.itens, anterior.atendimentos)) : undefined },
+    kpiFaturamento: { valor: brlK(atual.faturamento), delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined },
+    kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined },
+    kpiTicket: { valor: brl(divSeguro(atual.faturamento, atual.atendimentos)), delta: temComparacao ? kpiDelta(divSeguro(atual.faturamento, atual.atendimentos), divSeguro(anterior.faturamento, anterior.atendimentos), vsRotulo) : undefined },
+    kpiPA: { valor: num(divSeguro(atual.itens, atual.atendimentos), 2), delta: temComparacao ? kpiDelta(divSeguro(atual.itens, atual.atendimentos), divSeguro(anterior.itens, anterior.atendimentos), vsRotulo) : undefined },
     kpiPremiacao: premiacaoRede === null ? null : { valor: brl(premiacaoRede), delta: undefined },
     metaGlobal,
     leitura: null,

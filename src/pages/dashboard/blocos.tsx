@@ -180,8 +180,10 @@ export function BlocoDiagnostico({ diagnostico }: { diagnostico: LacunaView }) {
   );
 }
 
-/* ---------- Comparação: datas exatas, não um rótulo vago ---------- */
+/* ---------- Comparação: bloco de datas removido da UI (AD-050).
+ * A base fica na linha “Variações em relação a …” dos KPIs e no gráfico. ---------- */
 
+/** @deprecated Mantido só se alguma tela legado ainda importar; Visão geral não usa. */
 export function BlocoComparacao({ comparacao }: { comparacao: ComparacaoView }) {
   return (
     <div className="flex flex-wrap items-center gap-5">
@@ -271,12 +273,20 @@ export function KpiMetaTile({ tile }: { tile: TileMetaProjecao }) {
 }
 
 export function BlocoKpis({ faturamento, ticket, pa, atendimentos }: { faturamento: KpiValor; ticket: KpiValor; pa: KpiValor; atendimentos: KpiValor }) {
+  const comparadoA = faturamento.delta?.vs ?? ticket.delta?.vs ?? pa.delta?.vs ?? atendimentos.delta?.vs;
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <KpiTile label={faturamento.rotulo ?? "Faturamento"} value={faturamento.valor} icon="dollar" tint="acc" delta={faturamento.delta} sub={faturamento.sub} subDuasLinhas />
-      <KpiTile label="Atendimentos" value={atendimentos.valor} icon={ICONE_KPI.atendimentos} tint={TINT_KPI.atendimentos} delta={atendimentos.delta} sub={atendimentos.sub} subDuasLinhas />
-      <KpiTile label="Ticket médio" value={ticket.valor} icon={ICONE_KPI.ticket} tint={TINT_KPI.ticket} delta={ticket.delta} sub={SUB_KPI.ticket} subDuasLinhas />
-      <KpiTile label="P.A." value={pa.valor} icon={ICONE_KPI.pa} tint={TINT_KPI.pa} delta={pa.delta} sub={SUB_KPI.pa} subDuasLinhas />
+    <div className="flex flex-col gap-2.5">
+      {comparadoA && (
+        <p className="text-[12px] text-t2">
+          Variações em relação a <span className="font-semibold text-t1">{comparadoA}</span>
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <KpiTile label={faturamento.rotulo ?? "Faturamento"} value={faturamento.valor} icon="dollar" tint="acc" delta={faturamento.delta} sub={faturamento.sub} subDuasLinhas />
+        <KpiTile label="Atendimentos" value={atendimentos.valor} icon={ICONE_KPI.atendimentos} tint={TINT_KPI.atendimentos} delta={atendimentos.delta} sub={atendimentos.sub} subDuasLinhas />
+        <KpiTile label="Ticket médio" value={ticket.valor} icon={ICONE_KPI.ticket} tint={TINT_KPI.ticket} delta={ticket.delta} sub={SUB_KPI.ticket} subDuasLinhas />
+        <KpiTile label="P.A." value={pa.valor} icon={ICONE_KPI.pa} tint={TINT_KPI.pa} delta={pa.delta} sub={SUB_KPI.pa} subDuasLinhas />
+      </div>
     </div>
   );
 }
@@ -401,19 +411,19 @@ export function BlocoAtencao({ pontos, onEscolher }: { pontos: PontoAtencao[]; o
 
 /* ---------- Faturamento por hora (estilo Finance: série + comparação sobreposta) ---------- */
 
-function deltaBadge(atual: number, anterior: number): { text: string; positive: boolean } | null {
+function deltaBadge(atual: number, anterior: number, rotuloAnterior: string): { text: string; positive: boolean } | null {
   if (anterior <= 0) return null;
   const pct = ((atual - anterior) / anterior) * 100;
-  if (Math.abs(pct) < 0.5) return { text: "= vs período anterior", positive: true };
+  if (Math.abs(pct) < 0.5) return { text: `= vs ${rotuloAnterior}`, positive: true };
   const abs = Math.abs(pct) >= 10 ? Math.round(Math.abs(pct)) : Math.round(Math.abs(pct) * 10) / 10;
-  return { text: `${pct >= 0 ? "+" : "−"}${abs}% vs período anterior`, positive: pct >= 0 };
+  return { text: `${pct >= 0 ? "+" : "−"}${abs}% vs ${rotuloAnterior}`, positive: pct >= 0 };
 }
 
 export function BlocoPorHora({ g }: { g: GraficoHora }) {
   const [comparar, setComparar] = useState(Boolean(g.anterior));
   const total = g.valores.reduce((s, v) => s + v, 0);
   const totalAnt = g.anterior?.reduce((s, v) => s + v, 0) ?? 0;
-  const badge = g.anterior ? deltaBadge(total, totalAnt) : null;
+  const badge = g.anterior ? deltaBadge(total, totalAnt, g.rotuloAnterior) : null;
   const rotulos = g.horas.map((h) => `${h}h`);
   return (
     <Card>
@@ -520,7 +530,7 @@ export function BlocoEvolucao({ g }: { g: GraficoEvolucao }) {
   const [comparar, setComparar] = useState(Boolean(g.anterior));
   const total = g.valores.reduce((s, v) => s + v, 0);
   const totalAnt = g.anterior?.reduce((s, v) => s + v, 0) ?? 0;
-  const badge = g.anterior ? deltaBadge(total, totalAnt) : null;
+  const badge = g.anterior ? deltaBadge(total, totalAnt, g.rotuloAnterior) : null;
   return (
     <Card>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">

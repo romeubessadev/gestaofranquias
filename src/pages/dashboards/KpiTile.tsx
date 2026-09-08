@@ -7,7 +7,7 @@ export interface KpiTileProps {
   value: string;
   icon: IconKey;
   tint: TintKey;
-  delta?: { value: string; positive: boolean };
+  delta?: { value: string; positive: boolean; /** Base da comparação, ex.: "1–15 ago" */ vs?: string };
   sub?: string;
   /**
    * Quando true, o subtítulo aceita duas linhas (quebra em " · ") e reserva a
@@ -52,7 +52,7 @@ export function KpiTile({ label, value, icon, tint, delta, sub, subDuasLinhas }:
         </span>
         {delta && (
           <span
-            title={`${delta.value} ${delta.positive ? "acima" : "abaixo"} do período comparado`}
+            title={`${delta.value} ${delta.positive ? "acima" : "abaixo"}${delta.vs ? ` de ${delta.vs}` : " do período comparado"}`}
             className={cn(
               "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold",
               delta.positive ? "text-ok bg-ok-soft" : "text-bad bg-bad-soft",
