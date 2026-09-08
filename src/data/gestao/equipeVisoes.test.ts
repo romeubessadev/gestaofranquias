@@ -315,15 +315,37 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
 });
 
 describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
-  it("todas as lojas: um resumo por filial, vendedoras null", () => {
+  it("todas as lojas: resumo por filial + vendedoras flat com filialNome (REDE-01/02)", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
     expect(v.visao).toBe("rede");
-    expect(v.vendedoras).toBeNull();
+    expect(v.vendedoras).not.toBeNull();
+    expect(v.vendedoras!.length).toBeGreaterThan(0);
     expect(v.lojas!.length).toBe(2);
+    // Toda linha carrega a filial (coluna Shopping).
+    for (const l of v.vendedoras!) {
+      expect(l.filialId, l.nome).toBeTruthy();
+      expect(l.filialNome, l.nome).toBeTruthy();
+    }
+    // União das linhas por filial cobre todas as lojas do escopo.
+    const filiaisNaTabela = new Set(v.vendedoras!.map((l) => l.filialId));
+    for (const loja of v.lojas!) expect(filiaisNaTabela.has(loja.filialId)).toBe(true);
     for (const l of v.lojas!) {
       expect(l.faturamento).toBeTruthy();
       expect(l.ticket).toBeTruthy();
       expect(l.pa).toBeTruthy();
+    }
+  });
+
+  it("pctMetaGlobal das lojas com meta soma ~100 (REDE-13)", () => {
+    const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    const comMeta = v.lojas!.filter((l) => l.metaValor > 0);
+    expect(comMeta.length).toBeGreaterThan(0);
+    const soma = comMeta.reduce((s, l) => s + l.pctMetaGlobal, 0);
+    expect(soma).toBeCloseTo(100, 1);
+    // metaValor + realizadoValor coerentes.
+    for (const l of comMeta) {
+      expect(l.metaValor).toBeGreaterThan(0);
+      expect(l.realizadoValor).toBeGreaterThanOrEqual(0);
     }
   });
 

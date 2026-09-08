@@ -182,6 +182,9 @@ export interface KpiEquipeValor {
 export interface VendedoraLinha {
   colaboradorId: string;
   nome: string;
+  /** Filial da vendedora — necessária na visão rede (coluna Shopping). */
+  filialId: string;
+  filialNome: string;
   faturamentoValor: number;
   faturamento: string;
   atendimentos: number;
@@ -241,6 +244,12 @@ export interface LojaEquipeResumo {
   ticket: string;
   pa: string;
   premiacaoProjetada: string;
+  /** Meta da loja na competência (0 se sem meta). */
+  metaValor: number;
+  /** Realizado da loja no período. */
+  realizadoValor: number;
+  /** Meta da loja / meta global × 100 (0 se meta global = 0). */
+  pctMetaGlobal: number;
   melhor: { nome: string; atingimentoPct: number } | null;
   pior: { nome: string; atingimentoPct: number } | null;
 }
@@ -369,6 +378,8 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
     return {
       colaboradorId: c.id,
       nome: c.nome,
+      filialId,
+      filialNome: filial.fantasia,
       faturamentoValor: ag.faturamento,
       faturamento: brl(ag.faturamento),
       atendimentos: ag.atendimentos,
@@ -628,14 +639,21 @@ function desafiosViewDaCompetencia(competencia: string, filiaisIds: string[]): D
 /* ------------------------- Visão rede (EQUIP-07) ------------------------- */
 
 function visaoRede(escopo: Escopo, periodo: PeriodoResolvido, competencia: string, metaAtiva: boolean): EquipeView {
+  // Meta global = soma das metas das lojas do escopo que têm meta (REDE-08).
+  const metaGlobalTotal = filiais.reduce((s, f) => s + (metaDaFilial(f.id, competencia)?.valorLoja ?? 0), 0);
+
+  const vendedorasFlat: VendedoraLinha[] = [];
   const lojas: LojaEquipeResumo[] = filiais.map((f, i) => {
     const escopoLoja: Escopo = { ...escopo, filialId: f.id };
     const vLoja = visaoLoja(escopoLoja, periodo, competencia, metaAtiva);
     const linhas = vLoja.vendedoras ?? [];
+    vendedorasFlat.push(...linhas);
     const comMeta = metaAtiva ? linhas.filter((l) => !l.semMeta) : [];
     const ordenadas = [...comMeta].sort((a, b) => b.atingimentoPct - a.atingimentoPct);
     const melhor = ordenadas.length > 0 ? { nome: primeiroNome(ordenadas[0].nome), atingimentoPct: ordenadas[0].atingimentoPct } : null;
     const pior = ordenadas.length > 0 ? { nome: primeiroNome(ordenadas[ordenadas.length - 1].nome), atingimentoPct: ordenadas[ordenadas.length - 1].atingimentoPct } : null;
+    const metaValor = metaDaFilial(f.id, competencia)?.valorLoja ?? 0;
+    const realizadoValor = linhas.reduce((s, l) => s + l.faturamentoValor, 0);
     return {
       filialId: f.id,
       nome: f.fantasia,
@@ -646,9 +664,19 @@ function visaoRede(escopo: Escopo, periodo: PeriodoResolvido, competencia: strin
       // Premiação da loja = só a escada de metas dela; os desafios são da rede
       // e entram uma vez no KPI da visão rede (não dobram por loja).
       premiacaoProjetada: vLoja.kpiPremiacao?.valor ?? "—",
+      metaValor,
+      realizadoValor,
+      pctMetaGlobal: metaGlobalTotal > 0 ? (metaValor / metaGlobalTotal) * 100 : 0,
       melhor,
       pior,
     };
+  });
+
+  // Flat da rede: mesma regra de ordenação da loja (atingimento / faturamento).
+  vendedorasFlat.sort((a, b) => {
+    const ka = metaAtiva && !a.semMeta ? a.atingimentoPct : a.faturamentoValor;
+    const kb = metaAtiva && !b.semMeta ? b.atingimentoPct : b.faturamentoValor;
+    return kb - ka;
   });
 
   // KPIs da rede: soma das lojas (ticket e P.A. recalculados sobre a soma).
@@ -695,13 +723,13 @@ if (metaAtiva) {
     kpiPA: { valor: num(divSeguro(atual.itens, atual.atendimentos), 2), delta: temComparacao ? kpiDelta(divSeguro(atual.itens, atual.atendimentos), divSeguro(anterior.itens, anterior.atendimentos)) : undefined },
     kpiPremiacao: premiacaoRede === null ? null : { valor: brl(premiacaoRede), delta: undefined },
     leitura: null,
-    vendedoras: null,
+    vendedoras: vendedorasFlat,
     lojas: lojas,
     desafios,
     estados: {
       kpis: "disponivel",
       leitura: "sem_dados",
-      vendedoras: "sem_dados",
+      vendedoras: vendedorasFlat.length > 0 ? "disponivel" : "sem_dados",
       desafios: metaAtiva ? (semDesafios ? "sem_dados" : "disponivel") : "indisponivel",
     },
   };
