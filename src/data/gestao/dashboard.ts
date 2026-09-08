@@ -985,11 +985,11 @@ export function montarLojaView(escopo: Escopo): LojaView {
   let regua: LinhaRegua[] | null = null;
   let pontosAtencao: PontoAtencao[] | null = null;
   let reguaTitulo: string = "Desempenho das lojas";
-  // Rede: uma linha por loja. Uma loja só (períodos): a régua vira o painel de
-  // meta da própria loja — "Desempenho da loja". Dia: não repete o que o
-  // gráfico por hora e o título do filtro já mostram. Com marca selecionada a
-  // meta é da loja inteira, então o painel de meta não entra.
-  if (visao === "rede" || (visao === "periodo" && unica && !divisao)) {
+  // Rede: uma linha por loja. Uma loja só: a régua vira o painel de meta da
+  // própria loja — "Desempenho da loja" — em qualquer período, incluindo o dia,
+  // porque o gestor quer ver quanto da meta do mês a loja já atingiu. Com marca
+  // selecionada a meta é da loja inteira, então o painel de meta não entra.
+  if (visao === "rede" || (unica && !divisao)) {
     const variacaoBadge = (v: number | null): { value: string; positive: boolean } | null => {
       if (v === null) return null;
       if (Math.abs(v) < 0.5) return { value: "=", positive: true };

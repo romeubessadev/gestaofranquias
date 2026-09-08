@@ -352,8 +352,10 @@ describe("régua: rede, loja única e dia", () => {
     expect(v.regua![0].atingimentoTexto).toContain("da meta");
   });
 
-  it("dia: sem régua (o gráfico por hora já cobre)", () => {
+  it("dia: régua presente, título no singular (painel de meta do mês)", () => {
     const v = montarLojaView(escopo("f1", { tipo: "hoje" }));
-    expect(v.regua).toBeNull();
+    expect(v.reguaTitulo).toBe("Desempenho da loja");
+    expect(v.regua!.length).toBe(1);
+    expect(v.regua![0].atingimentoTexto).toContain("da meta");
   });
 });
