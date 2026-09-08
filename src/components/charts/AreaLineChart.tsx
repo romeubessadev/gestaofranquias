@@ -2,8 +2,11 @@ import { useId, useMemo, useState } from "react";
 
 export interface AreaLineChartProps {
   data: number[];
+  /** Segunda série no mesmo eixo (ex.: período anterior). Escala compartilhada. */
+  compareData?: number[];
   labels?: string[];
   color?: string;
+  compareColor?: string;
   height?: number;
   showArea?: boolean;
   formatValue?: (v: number) => string;
@@ -26,31 +29,50 @@ function buildSmoothPath(points: { x: number; y: number }[]) {
   return d;
 }
 
-export function AreaLineChart({ data, labels, color = "var(--acc)", height = 240, showArea = true, formatValue = (v) => String(v) }: AreaLineChartProps) {
+function toPoints(data: number[], width: number, height: number, padY: number, min: number, range: number) {
+  return data.map((v, i) => ({
+    x: data.length <= 1 ? width / 2 : (i / (data.length - 1)) * width,
+    y: padY + (height - padY * 2) * (1 - (v - min) / range),
+  }));
+}
+
+export function AreaLineChart({
+  data,
+  compareData,
+  labels,
+  color = "var(--acc)",
+  compareColor = "var(--t2)",
+  height = 240,
+  showArea = true,
+  formatValue = (v) => String(v),
+}: AreaLineChartProps) {
   const gradientId = useId();
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const width = 600;
   const padY = 16;
 
-  const { points, min, max } = useMemo(() => {
-    const min = Math.min(...data);
-    const max = Math.max(...data);
+  const { points, comparePoints, min, max } = useMemo(() => {
+    const pool = compareData && compareData.length === data.length ? [...data, ...compareData] : data;
+    const min = Math.min(...pool);
+    const max = Math.max(...pool);
     const range = max - min || 1;
-    const points = data.map((v, i) => ({
-      x: (i / (data.length - 1)) * width,
-      y: padY + (height - padY * 2) * (1 - (v - min) / range),
-    }));
-    return { points, min, max };
-  }, [data, height]);
+    return {
+      points: toPoints(data, width, height, padY, min, range),
+      comparePoints: compareData && compareData.length === data.length ? toPoints(compareData, width, height, padY, min, range) : null,
+      min,
+      max,
+    };
+  }, [data, compareData, height]);
 
   const linePath = buildSmoothPath(points);
   const areaPath = `${linePath} L ${width} ${height} L 0 ${height} Z`;
+  const comparePath = comparePoints ? buildSmoothPath(comparePoints) : "";
   const active = hoverIdx !== null ? points[hoverIdx] : null;
 
   function handleMove(e: React.MouseEvent<SVGSVGElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     const relX = ((e.clientX - rect.left) / rect.width) * width;
-    const idx = Math.round((relX / width) * (data.length - 1));
+    const idx = Math.round((relX / width) * Math.max(data.length - 1, 0));
     setHoverIdx(Math.min(data.length - 1, Math.max(0, idx)));
   }
 
@@ -69,11 +91,15 @@ export function AreaLineChart({ data, labels, color = "var(--acc)", height = 240
             <stop offset="100%" stopColor={color} stopOpacity="0" />
           </linearGradient>
         </defs>
+        {comparePath && <path d={comparePath} fill="none" stroke={compareColor} strokeWidth="2" strokeLinecap="round" strokeDasharray="6 4" vectorEffect="non-scaling-stroke" />}
         {showArea && <path d={areaPath} fill={`url(#${gradientId})`} />}
         <path d={linePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
         {active && (
           <g>
             <line x1={active.x} y1={0} x2={active.x} y2={height} stroke="var(--line-2)" strokeDasharray="3 3" />
+            {comparePoints && hoverIdx !== null && (
+              <circle cx={comparePoints[hoverIdx].x} cy={comparePoints[hoverIdx].y} r="4" fill={compareColor} stroke="var(--bg-2)" strokeWidth="2" />
+            )}
             <circle cx={active.x} cy={active.y} r="5" fill={color} stroke="var(--bg-2)" strokeWidth="2" />
           </g>
         )}
@@ -83,8 +109,15 @@ export function AreaLineChart({ data, labels, color = "var(--acc)", height = 240
           className="pointer-events-none absolute -translate-x-1/2 -translate-y-full rounded-lg border border-line bg-bg-3 px-2.5 py-1.5 text-[11px] font-bold text-t0 shadow-[var(--shadow-vela)]"
           style={{ left: `${(active.x / width) * 100}%`, top: `${(active.y / height) * 100}%`, marginTop: -8 }}
         >
-          {labels?.[hoverIdx] ? `${labels[hoverIdx]}: ` : ""}
-          {formatValue(data[hoverIdx])}
+          {labels?.[hoverIdx] ? <span className="mb-0.5 block text-t2">{labels[hoverIdx]}</span> : null}
+          <span className="block" style={{ color }}>
+            {formatValue(data[hoverIdx])}
+          </span>
+          {compareData && compareData.length === data.length && (
+            <span className="mt-0.5 block font-semibold" style={{ color: compareColor }}>
+              {formatValue(compareData[hoverIdx])}
+            </span>
+          )}
         </div>
       )}
       <span className="sr-only">

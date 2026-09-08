@@ -395,3 +395,31 @@ describe("gráfico principal: por hora (1 dia) ou por dia (período)", () => {
     expect(hoje.evolucao).toBeNull();
   });
 });
+
+/* ---------- KPIs Visão geral: subtítulos limpos (AD-048) ---------- */
+
+describe("KPIs: subtítulos sem misturar indicadores (AD-048)", () => {
+  it("este mês: faturamento mostra % da meta, sem atendimentos nem precisa/dia", () => {
+    const v = montarLojaView(escopo("todas", { tipo: "esteMes" }));
+    expect(v.kpiFaturamento.sub).toMatch(/% da meta$/);
+    expect(v.kpiFaturamento.sub).not.toMatch(/atendimento/i);
+    expect(v.kpiFaturamento.sub).not.toMatch(/precisa/i);
+    expect(v.kpiAtendimentos.sub).toMatch(/média .+\/dia/);
+  });
+
+  it("hoje: faturamento não lista atendimentos; gráfico por hora traz série anterior", () => {
+    const v = montarLojaView(escopo("f1", { tipo: "hoje" }));
+    expect(v.kpiFaturamento.sub).not.toMatch(/atendimento/i);
+    expect(v.kpiFaturamento.sub).not.toMatch(/precisa/i);
+    expect(v.graficoHora).not.toBeNull();
+    expect(v.graficoHora!.anterior).not.toBeNull();
+    expect(v.graficoHora!.anterior!.length).toBe(v.graficoHora!.valores.length);
+  });
+
+  it("7 dias: faturamento sem precisa/dia; atendimentos com média/dia", () => {
+    const v = montarLojaView(escopo("f1", { tipo: "7dias" }));
+    expect(v.kpiFaturamento.sub).not.toMatch(/precisa/i);
+    expect(v.kpiFaturamento.sub).not.toMatch(/atendimento/i);
+    expect(v.kpiAtendimentos.sub).toMatch(/média .+\/dia/);
+  });
+});

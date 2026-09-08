@@ -274,7 +274,7 @@ export function BlocoKpis({ faturamento, ticket, pa, atendimentos }: { faturamen
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <KpiTile label={faturamento.rotulo ?? "Faturamento"} value={faturamento.valor} icon="dollar" tint="acc" delta={faturamento.delta} sub={faturamento.sub} subDuasLinhas />
-      <KpiTile label="Atendimentos" value={atendimentos.valor} icon={ICONE_KPI.atendimentos} tint={TINT_KPI.atendimentos} delta={atendimentos.delta} subDuasLinhas />
+      <KpiTile label="Atendimentos" value={atendimentos.valor} icon={ICONE_KPI.atendimentos} tint={TINT_KPI.atendimentos} delta={atendimentos.delta} sub={atendimentos.sub} subDuasLinhas />
       <KpiTile label="Ticket médio" value={ticket.valor} icon={ICONE_KPI.ticket} tint={TINT_KPI.ticket} delta={ticket.delta} sub={SUB_KPI.ticket} subDuasLinhas />
       <KpiTile label="P.A." value={pa.valor} icon={ICONE_KPI.pa} tint={TINT_KPI.pa} delta={pa.delta} sub={SUB_KPI.pa} subDuasLinhas />
     </div>
@@ -399,24 +399,66 @@ export function BlocoAtencao({ pontos, onEscolher }: { pontos: PontoAtencao[]; o
   );
 }
 
-/* ---------- Faturamento por hora ---------- */
+/* ---------- Faturamento por hora (estilo Finance: série + comparação sobreposta) ---------- */
+
+function deltaBadge(atual: number, anterior: number): { text: string; positive: boolean } | null {
+  if (anterior <= 0) return null;
+  const pct = ((atual - anterior) / anterior) * 100;
+  if (Math.abs(pct) < 0.5) return { text: "= vs período anterior", positive: true };
+  const abs = Math.abs(pct) >= 10 ? Math.round(Math.abs(pct)) : Math.round(Math.abs(pct) * 10) / 10;
+  return { text: `${pct >= 0 ? "+" : "−"}${abs}% vs período anterior`, positive: pct >= 0 };
+}
 
 export function BlocoPorHora({ g }: { g: GraficoHora }) {
-  const dados = g.horas.map((h, i) => ({
-    label: `${h}h`,
-    value: g.valores[i],
-    color: g.horaAtual === null || h <= g.horaAtual ? "var(--acc)" : "var(--bg-3)",
-  }));
+  const [comparar, setComparar] = useState(Boolean(g.anterior));
+  const total = g.valores.reduce((s, v) => s + v, 0);
+  const totalAnt = g.anterior?.reduce((s, v) => s + v, 0) ?? 0;
+  const badge = g.anterior ? deltaBadge(total, totalAnt) : null;
+  const rotulos = g.horas.map((h) => `${h}h`);
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Faturamento por hora</CardTitle>
-      </CardHeader>
-      {g.comparacaoTexto && <p className="mb-3 text-[12px] text-t2">{g.comparacaoTexto}</p>}
-      <div className="-mx-1 overflow-x-auto px-1">
-        <div style={{ minWidth: Math.max(0, dados.length * 58) }}>
-          <BarChart data={dados} height={220} formatValue={(v) => (v === 0 ? "" : brlK(v))} />
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <CardTitle>Faturamento por hora</CardTitle>
+          <div className="mt-2.5 flex flex-wrap gap-5">
+            <div>
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                <span className="h-2.5 w-2.5 rounded-[3px] bg-acc" />
+                Este dia
+              </span>
+              <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(total)}</p>
+            </div>
+            {g.anterior && comparar && (
+              <div>
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                  <span className="h-2.5 w-2.5 rounded-[3px] bg-t2" />
+                  {g.rotuloAnterior}
+                </span>
+                <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(totalAnt)}</p>
+              </div>
+            )}
+          </div>
         </div>
+        <div className="flex flex-col items-end gap-2">
+          {badge && <Badge variant={badge.positive ? "success" : "danger"}>{badge.text}</Badge>}
+          {g.anterior && <Switch checked={comparar} onChange={setComparar} label={<span className="text-[12px] text-t1">Comparar</span>} />}
+        </div>
+      </div>
+      <AreaLineChart
+        data={g.valores}
+        compareData={comparar && g.anterior ? g.anterior : undefined}
+        labels={rotulos}
+        height={220}
+        color="var(--acc)"
+        compareColor="var(--t2)"
+        formatValue={brl}
+      />
+      <div className="mt-2 flex justify-between px-1">
+        {rotulos.map((r, i) => (
+          <span key={i} className={cn("text-[10.5px] font-semibold text-t2", rotulos.length > 12 && i % 2 === 1 && "hidden sm:inline")}>
+            {r}
+          </span>
+        ))}
       </div>
     </Card>
   );
@@ -472,22 +514,51 @@ export function BlocoPorHoraRede({ g }: { g: GraficoHoraRede }) {
   );
 }
 
-/* ---------- Evolução diária ---------- */
+/* ---------- Evolução diária (mesmo padrão do Revenue vs expenses do Finance) ---------- */
 
 export function BlocoEvolucao({ g }: { g: GraficoEvolucao }) {
-  const [comparar, setComparar] = useState(false);
-  const serie = comparar && g.anterior ? g.anterior : g.valores;
+  const [comparar, setComparar] = useState(Boolean(g.anterior));
   const total = g.valores.reduce((s, v) => s + v, 0);
+  const totalAnt = g.anterior?.reduce((s, v) => s + v, 0) ?? 0;
+  const badge = g.anterior ? deltaBadge(total, totalAnt) : null;
   return (
     <Card>
-      <CardHeader>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <CardTitle>Faturamento por dia</CardTitle>
-          <p className="mt-1.5 text-2xl font-extrabold tracking-tight text-t0">{brl(total)}</p>
+          <div className="mt-2.5 flex flex-wrap gap-5">
+            <div>
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                <span className="h-2.5 w-2.5 rounded-[3px] bg-acc" />
+                Período
+              </span>
+              <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(total)}</p>
+            </div>
+            {g.anterior && comparar && (
+              <div>
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                  <span className="h-2.5 w-2.5 rounded-[3px] bg-t2" />
+                  {g.rotuloAnterior}
+                </span>
+                <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(totalAnt)}</p>
+              </div>
+            )}
+          </div>
         </div>
-        {g.anterior && <Switch checked={comparar} onChange={setComparar} label={<span className="text-[12px] text-t1">Comparar com {g.rotuloAnterior}</span>} />}
-      </CardHeader>
-      <AreaLineChart data={serie} labels={g.rotulos} height={220} color={comparar ? "var(--t2)" : "var(--acc)"} formatValue={brl} />
+        <div className="flex flex-col items-end gap-2">
+          {badge && <Badge variant={badge.positive ? "success" : "danger"}>{badge.text}</Badge>}
+          {g.anterior && <Switch checked={comparar} onChange={setComparar} label={<span className="text-[12px] text-t1">Comparar</span>} />}
+        </div>
+      </div>
+      <AreaLineChart
+        data={g.valores}
+        compareData={comparar && g.anterior ? g.anterior : undefined}
+        labels={g.rotulos}
+        height={220}
+        color="var(--acc)"
+        compareColor="var(--t2)"
+        formatValue={brl}
+      />
       <div className="mt-2 flex justify-between px-1">
         {g.rotulos.map((r, i) => (
           <span key={i} className={cn("text-[10.5px] font-semibold text-t2", g.rotulos.length > 16 && i % 2 === 1 && "hidden sm:inline")}>

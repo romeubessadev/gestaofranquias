@@ -5,6 +5,8 @@
  * AD-047 — adaptar, não esconder: o gráfico principal é por hora (1 dia) ou
  * por dia (período > 1 dia), inclusive na rede. A régua sempre aparece:
  * % da meta, % da marca na rede, ou participação da marca na loja única.
+ * AD-048 — KPIs com subtítulo só do próprio indicador; gráfico compara
+ * períodos no mesmo eixo (padrão Finance / Revenue vs expenses).
  */
 import { categorias, filiais, filialPorId, tarefas, turnos, type Divisao, type Filial } from "./filiais";
 import { metaDaFilial } from "./metas";
@@ -224,8 +226,10 @@ export interface PontoAtencao {
 export interface GraficoHora {
   horas: number[];
   valores: number[];
+  /** Mesmo dia da semana anterior (semana passada), alinhado por hora — AD-048. */
+  anterior: number[] | null;
+  rotuloAnterior: string;
   horaAtual: number | null;
-  comparacaoTexto: string | null;
 }
 
 /** Por hora, empilhado por loja — só na rede, período de um dia. Acima de 5 lojas, colapsa: uma cor só, soma simples. */
@@ -878,24 +882,31 @@ export function montarLojaView(escopo: Escopo): LojaView {
   const series = seriesTendencia(fs, periodo, divisao);
   const kpiTicket: KpiValor = { valor: brl(ticket), delta: temComparacao ? kpiDelta(ticket, ticketAnt) : undefined, serie: series.ticket };
   const kpiPA: KpiValor = { valor: num(pa, 2), delta: temComparacao ? kpiDelta(pa, paAnt) : undefined, serie: series.pa };
-  const kpiAtendimentos: KpiValor = { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos) : undefined, serie: series.atendimentos };
 
   // Meta é sempre mensal. Divisão ou período cruzando meses desligam.
   const competencia = periodo.granularidade === "mes" ? periodo.inicio.slice(0, 7) : HOJE_ISO.slice(0, 7);
   const semMetaPeriodo = periodo.atravessaMeses && periodo.granularidade !== "mes";
   const metaCalc = divisao || semMetaPeriodo ? null : calcularMeta(fs, competencia);
 
-  const palavraAtend = atual.atendimentos === 1 ? "atendimento" : "atendimentos";
-  let subFaturamento = `${num(atual.atendimentos)} ${palavraAtend}`;
+  // Subtítulos: cada KPI fala só do próprio indicador (AD-048).
+  // Faturamento NÃO repete atendimentos nem “precisa R$/dia” (régua/meta cobrem ritmo).
+  const nDiasPeriodo = intervaloDias(periodo.inicio, periodo.fim).length;
+  let subFaturamento: string | undefined;
   if (!divisao && metaCalc) {
-    if (periodo.granularidade === "mes") {
-      subFaturamento = `${num(atual.atendimentos)} ${palavraAtend} · ${pct(metaCalc.atingimentoPct)} da meta`;
-    } else if (metaCalc.atingimentoPct >= 100) {
-      subFaturamento = "meta do mês atingida";
-    } else if (metaCalc.necessarioDia !== null) {
-      subFaturamento = `${num(atual.atendimentos)} ${palavraAtend} · precisa ${brlK(metaCalc.necessarioDia)}/dia`;
-    }
+    if (metaCalc.atingimentoPct >= 100) subFaturamento = "meta do mês atingida";
+    else if (periodo.granularidade === "mes") subFaturamento = `${pct(metaCalc.atingimentoPct)} da meta`;
+    else subFaturamento = `${pct(metaCalc.atingimentoPct)} da meta do mês`;
+  } else if (periodo.granularidade !== "dia" && nDiasPeriodo > 0) {
+    subFaturamento = `média ${brlK(atual.faturamento / nDiasPeriodo)}/dia`;
   }
+
+  const kpiAtendimentos: KpiValor = {
+    valor: num(atual.atendimentos),
+    delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos) : undefined,
+    serie: series.atendimentos,
+    sub: periodo.granularidade !== "dia" && nDiasPeriodo > 0 ? `média ${num(atual.atendimentos / nDiasPeriodo, 0)}/dia` : undefined,
+  };
+
   const kpiFaturamento: KpiValor = {
     valor: brlK(atual.faturamento),
     delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento) : undefined,
@@ -1099,11 +1110,19 @@ export function montarLojaView(escopo: Escopo): LojaView {
       return Math.round(a.faturamento * fr);
     };
     const totalRef = diaRef ? agregadoDoDia(diaRef, divisao, periodo.ehHoje ? HORA_ATUAL : undefined).faturamento : 0;
+    const valores = horas.map((h) => fatia(dia, h));
+    const valoresAnt = diaRef
+      ? horas.map((h) => {
+          if (periodo.ehHoje && h > HORA_ATUAL) return 0;
+          return fatia(diaRef, h);
+        })
+      : null;
     graficoHora = {
       horas,
-      valores: horas.map((h) => fatia(dia, h)),
+      valores,
+      anterior: totalRef > 0 ? valoresAnt : null,
+      rotuloAnterior: `${DIAS_SEMANA[deIso(refIso).getDay()]} passada`,
       horaAtual: periodo.ehHoje ? HORA_ATUAL : null,
-      comparacaoTexto: totalRef > 0 ? `${DIAS_SEMANA[deIso(refIso).getDay()]} passada: ${brl(totalRef)}${periodo.ehHoje ? ` até ${HORA_ATUAL}h` : ""}` : null,
     };
   }
 
