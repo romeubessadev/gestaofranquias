@@ -44,11 +44,14 @@
 | AD-033 | active | O diagnóstico de fluxo/ticket carrega o flag `exibir`, decidido na camada de dados (`pctTrilho < 90`). A página não decide exibição. | 2026-09-07 |
 | AD-034 | active | `curvaReceita` é derivada do histórico de faturamento e `curvaAtendimentos` do histórico de atendimentos, normalizadas separadamente. `pesoDia` continua como base de distribuição e fallback quando não há histórico suficiente. | 2026-09-07 |
 | AD-035 | active | Retroceder o `design.md` para `Draft` até que todos os ajustes do parecer sejam incorporados e aprovados novamente. | 2026-09-07 |
+| AD-036 | active | Deploy migrado de Cloudflare Pages (`npm run subir`) para GitHub Pages via Actions (`.github/workflows/deploy.yml`): push na `master` publica em `https://romeubessadev.github.io/gestaofranquias/`. Vite `base`, HashRouter e PWA (manifest/sw) alinhados ao subpath. `wrangler` removido. | 2026-09-08 |
+| AD-037 | active | A página principal do produto passa a ser `/dashboard` (título "Dashboard", subtítulo "Visão geral do desempenho das suas lojas", aba "Visão geral"). `/loja` vira legado com redirect preservando a navegação. | 2026-09-08 |
+| AD-038 | active | A Visão geral é um resumo que funciona com qualquer filtro: KPIs (Faturamento, Atendimentos, Ticket médio, P.A.) em 2×2 no celular e 4×1 no desktop, gráfico principal (por hora no dia, evolução diária em períodos) e Desempenho das lojas ao lado no desktop. Trilho, venda necessária, projeção, diagnóstico, alertas e checklist saem da tela e pertencem a telas próprias. A seção "Direto das outras abas" (Financeiro/Equipe/Produtos) fica em linha própria e só entra quando as abas existirem. | 2026-09-08 |
 
 ## Handoff — snapshot
 
-- Rodada atual: fase **Tasks** da tela Loja.
-- `design.md` aprovado (2026-09-07); `tasks.md` criado e validado por `validate_tasks.py` (0 erros, 3 avisos esperados de `Tests: none`).
-- Decisões novas registradas: AD-032 (estados por bloco), AD-033 (flag `exibir` do diagnóstico), AD-034 (curvas derivadas de históricos distintos, `pesoDia` como fallback), AD-035 (design volta a Draft até aprovação final — já re-aprovado).
-- `git init` feito; baseline commit (T0) pendente.
-- Próximo passo: aprovação das tasks pelo usuário; depois Execute (T0→T9), com batch offer (10 tasks > 8) e Verifier ao final.
+- Rodada atual: **Visão geral do Dashboard** (substitui o redesenho da aba Loja como página principal).
+- Spec `.specs/features/aba-loja/` trata do modelo anterior (trilho/diagnóstico); a lógica permanece no data layer (`loja.ts`) para telas futuras de Metas/Acompanhamento, mas **não alimenta mais a página principal**.
+- Commit da mudança: `ff2a606` (rota `/dashboard`, KPIs 2×2/4×1, gráfico por hora/evolução, régua de lojas ao lado no desktop).
+- Pendências: cards "Direto das outras abas" (Financeiro/Equipe/Produtos) quando essas telas existirem; reaproveitar trilho/projeção em tela própria de metas.
+- Próximo passo sugerido: revisar a Visão geral publicada no Pages e decidir a próxima tela (Financeiro ou Equipe).
