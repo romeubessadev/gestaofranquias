@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { montarEquipeView } from "@/data/gestao/equipeVisoes";
 import { mesAno } from "@/lib/formato";
 import { Avisos } from "@/components/gestao/Avisos";
+import { Card, EmptyState } from "@/components/ui";
 import { DashboardShell } from "@/pages/dashboard/DashboardShell";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { BlocoLeitura } from "@/pages/dashboard/blocos";
@@ -42,6 +43,11 @@ export function EquipePage() {
         )}
 
         {v.metaAtiva && v.desafios && v.desafios.length > 0 && <BlocoDesafios desafios={v.desafios} />}
+        {v.metaAtiva && (!v.desafios || v.desafios.length === 0) && (
+          <Card>
+            <EmptyState icon="🎯" title="Sem desafios ativos" description={`Nenhum desafio cadastrado para ${mesAno(`${v.competencia}-01`)}.`} />
+          </Card>
+        )}
       </div>
     </DashboardShell>
   );

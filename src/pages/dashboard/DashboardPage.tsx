@@ -7,16 +7,15 @@ import { BlocoComparacao, BlocoEvolucao, BlocoKpis, BlocoPorHora, BlocoPorHoraRe
 
 /**
  * Visão geral do Dashboard: o resumo que funciona com qualquer filtro.
- * KPIs no topo (2x2 no celular, 4 em linha no desktop), o gráfico da
- * evolução/faturamento por hora conforme o período, a régua de lojas e a
- * comparação de período. Análises de meta (trilho, venda necessária,
- * projeção, diagnóstico) pertencem a telas próprias e não entram aqui.
+ * KPIs no topo; gráfico por hora (1 dia) ou por dia (período maior), inclusive
+ * na rede; régua de lojas/marca sempre adaptada ao filtro (AD-047).
  */
 export function DashboardPage() {
   const { escopo, mudar } = useEscopo();
   const v = useMemo(() => montarLojaView(escopo), [escopo]);
 
-  // Gráfico principal: por hora (dia, empilhado na rede) ou evolução diária.
+  // Gráfico principal: por hora (dia) ou evolução diária (período > 1 dia).
+  // Nunca fica em branco quando há dados — AD-047.
   const principal = v.graficoHoraRede ? <BlocoPorHoraRede g={v.graficoHoraRede} /> : v.graficoHora ? <BlocoPorHora g={v.graficoHora} /> : v.evolucao ? <BlocoEvolucao g={v.evolucao} /> : null;
 
   return (

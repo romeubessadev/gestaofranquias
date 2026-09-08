@@ -358,4 +358,40 @@ describe("régua: rede, loja única e dia", () => {
     expect(v.regua!.length).toBe(1);
     expect(v.regua![0].atingimentoTexto).toContain("da meta");
   });
+
+  it("loja + marca: régua adapta para participação da marca (não some) — AD-047", () => {
+    const v = montarLojaView({ filialId: "f2", periodo: { tipo: "esteMes" }, divisao: "WPINK" });
+    expect(v.regua).not.toBeNull();
+    expect(v.regua!.length).toBe(1);
+    expect(v.reguaTitulo).toContain("Wpink");
+    expect(v.regua![0].atingimentoTexto).toContain("da loja");
+  });
+});
+
+/* ---------- Gráfico principal: adaptar ao período (AD-047) ---------- */
+
+describe("gráfico principal: por hora (1 dia) ou por dia (período)", () => {
+  it("rede + 7 dias: evolução diária presente (não some o gráfico)", () => {
+    const v = montarLojaView(escopo("todas", { tipo: "7dias" }));
+    expect(v.graficoHora).toBeNull();
+    expect(v.graficoHoraRede).toBeNull();
+    expect(v.evolucao).not.toBeNull();
+    expect(v.evolucao!.valores.length).toBe(7);
+    expect(v.evolucao!.valores.reduce((s, x) => s + x, 0)).toBeGreaterThan(0);
+  });
+
+  it("rede + este mês: evolução diária presente", () => {
+    const v = montarLojaView(escopo("todas", { tipo: "esteMes" }));
+    expect(v.evolucao).not.toBeNull();
+    expect(v.evolucao!.valores.length).toBeGreaterThan(1);
+  });
+
+  it("loja + 7 dias: evolução diária; loja + hoje: por hora", () => {
+    const semana = montarLojaView(escopo("f1", { tipo: "7dias" }));
+    expect(semana.evolucao).not.toBeNull();
+    expect(semana.graficoHora).toBeNull();
+    const hoje = montarLojaView(escopo("f1", { tipo: "hoje" }));
+    expect(hoje.graficoHora).not.toBeNull();
+    expect(hoje.evolucao).toBeNull();
+  });
 });

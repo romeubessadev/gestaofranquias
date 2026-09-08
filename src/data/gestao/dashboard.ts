@@ -1,15 +1,10 @@
 /**
- * Camada de visões da tela Loja. Faz o papel do backend: recebe o escopo
- * (filial, período, divisão) e devolve apenas os blocos válidos, com todos os
- * números prontos e já formatados. Nenhuma tela calcula nada.
+ * Camada de visões da Visão geral. Faz o papel do backend: recebe o escopo
+ * (filial, período, divisão) e devolve os blocos com números prontos.
  *
- * Toda visão usa o mesmo conjunto de 4 tiles no topo. O segundo tile muda de
- * papel conforme o contexto — Meta do mês, Projeção ou Participação da marca
- * — mas a posição e a quantidade não mudam. O que muda por visão é o bloco
- * principal logo abaixo:
- *  rede    — por hora empilhado (dia) ou evolução (mês) + ritmo da meta
- *  dia     — faturamento por hora + turno atual
- *  periodo — evolução diária + lucro bruto (quando o período é o mês inteiro)
+ * AD-047 — adaptar, não esconder: o gráfico principal é por hora (1 dia) ou
+ * por dia (período > 1 dia), inclusive na rede. A régua sempre aparece:
+ * % da meta, % da marca na rede, ou participação da marca na loja única.
  */
 import { categorias, filiais, filialPorId, tarefas, turnos, type Divisao, type Filial } from "./filiais";
 import { metaDaFilial } from "./metas";
@@ -985,11 +980,9 @@ export function montarLojaView(escopo: Escopo): LojaView {
   let regua: LinhaRegua[] | null = null;
   let pontosAtencao: PontoAtencao[] | null = null;
   let reguaTitulo: string = "Desempenho das lojas";
-  // Rede: uma linha por loja. Uma loja só: a régua vira o painel de meta da
-  // própria loja — "Desempenho da loja" — em qualquer período, incluindo o dia,
-  // porque o gestor quer ver quanto da meta do mês a loja já atingiu. Com marca
-  // selecionada a meta é da loja inteira, então o painel de meta não entra.
-  if (visao === "rede" || (unica && !divisao)) {
+  // Sempre adaptamos ao filtro (AD-047): rede = uma linha por loja; loja única =
+  // painel de meta (ou de participação da marca, se houver marca). Nunca some.
+  if (visao === "rede" || unica) {
     const variacaoBadge = (v: number | null): { value: string; positive: boolean } | null => {
       if (v === null) return null;
       if (Math.abs(v) < 0.5) return { value: "=", positive: true };
@@ -1003,8 +996,30 @@ export function montarLojaView(escopo: Escopo): LojaView {
       return refF > 0 ? pctDelta(hojeF, refF) : null;
     };
 
-    if (divisao) {
-      // Marca filtrada: a barra vira participação daquela loja no total da marca, não mais % da meta.
+    if (unica && divisao) {
+      // Loja + marca: painel da participação da marca no faturamento da loja.
+      const fatMarca = agregadoPeriodo(unica, periodo.inicio, periodo.fim, divisao).faturamento;
+      const fatLoja = agregadoPeriodo(unica, periodo.inicio, periodo.fim, null).faturamento;
+      const participacao = fatLoja > 0 ? (fatMarca / fatLoja) * 100 : 0;
+      const indiceCor = filiais.findIndex((x) => x.id === unica.id);
+      reguaTitulo = `Desempenho · ${divisao === "WPINK" ? "Wpink" : "Wepink"}`;
+      regua = [
+        {
+          filialId: unica.id,
+          nome: unica.fantasia,
+          faturamento: brlK(fatMarca),
+          faturamentoValor: fatMarca,
+          atingimentoPct: participacao,
+          atingimentoTexto: `${pct(participacao)} da loja`,
+          barraPct: Math.min(100, participacao),
+          tint: PALETA_LOJAS[indiceCor % PALETA_LOJAS.length],
+          variacaoDia: variacaoBadge(variacaoDoDia(unica)),
+          variacaoDiaValor: variacaoDoDia(unica),
+        },
+      ];
+      pontosAtencao = null;
+    } else if (divisao) {
+      // Rede + marca: a barra vira participação daquela loja no total da marca.
       const receitas = fs.map((f) => ({ f, receita: agregadoPeriodo(f, periodo.inicio, periodo.fim, divisao).faturamento }));
       const totalMarca = receitas.reduce((s, r) => s + r.receita, 0);
       regua = receitas
@@ -1116,9 +1131,9 @@ export function montarLojaView(escopo: Escopo): LojaView {
     graficoHoraRede = { horas: horasRede, series, horaAtual: periodo.ehHoje ? HORA_ATUAL : null, colapsado: fs.length > 5 };
   }
 
-  /* --- Evolução diária: uma loja, período maior que um dia --- */
+  /* --- Evolução diária: período > 1 dia (loja única OU rede) — AD-047 --- */
   let evolucao: GraficoEvolucao | null = null;
-  if (visao === "periodo") {
+  if (periodo.granularidade !== "dia") {
     const dias = intervaloDias(periodo.inicio, periodo.fim);
     const diasAnt = intervaloDias(ant.inicio, ant.fim);
     const valores = dias.map((iso) => somarAgregados(fs.map((f) => agregadoDoDia(diaVendas(f.id, iso)!, divisao))).faturamento);

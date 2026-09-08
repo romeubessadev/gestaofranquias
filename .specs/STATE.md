@@ -55,9 +55,10 @@
 | AD-043 | active | Aba Equipe usa `DataTable` do tema para desempenho das vendedoras e desafios; visão "todas as lojas" mostra um resumo por loja (melhor/pior atingimento) com clique que troca o filtro preservando período e marca. | 2026-09-08 |
 | AD-044 | active | Camada de visões da Equipe vive em `equipeVisoes.ts` (separada do cadastro `equipe.ts`) para evitar ciclo de módulos com `vendas.ts`, que consome o cadastro no boot. | 2026-09-08 |
 | AD-045 | active | Visão rede da Equipe = tabela de vendedoras com coluna Shopping; abas Vendedoras\|Lojas com meta ativa; faixa global com badges de projeção e dias restantes; BlocoResumoRede removido. | 2026-09-08 |
+| AD-047 | active | **Adaptar, não esconder:** filtros recortam/adaptam o conteúdo, nunca removem a seção sem alternativa. Visão geral: gráfico = por hora (1 dia) ou por dia (período > 1 dia), inclusive na rede; régua = % meta, % marca na rede, ou participação da marca na loja única. Equipe: AD-046 (meta sempre do mês + aviso). Seletor de Marca continua só quando o escopo tem Wpink (controle, não conteúdo). | 2026-09-08 |
 
 ## Handoff — snapshot
 
-- Rodada atual: **Equipe · AD-046** — meta/escada/desafios sempre do mês da competência; filtro só recorta KPIs de desempenho; aviso + “Ver este mês” quando período ≠ competência.
-- AD-040 supersedida. AD-045 (visão rede) permanece.
-- Próximo passo sugerido: prova visual no Pages com filtro **Hoje** (deve mostrar meta + aviso).
+- **AD-047** implementado: Visão geral adapta gráfico (hora↔dia) e régua (meta/marca); Equipe mostra EmptyState sem desafios.
+- AD-046 permanece (meta/escada/desafios sempre do mês + aviso).
+- Prova visual: Todas + 7 dias / Este mês → “Faturamento por dia”.
