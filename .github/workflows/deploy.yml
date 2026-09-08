@@ -35,6 +35,10 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          # Habilita o GitHub Pages no repo na primeira execucao (senao o
+          # passo "Deploy" falha com "Get Pages site failed" apos criar o repo).
+          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
