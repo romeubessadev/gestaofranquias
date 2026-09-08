@@ -231,7 +231,7 @@ T6 -> T7 -> T8
 
 ---
 
-### T6: Visão rede — resumo por loja
+### T6: Visão rede — resumo por loja ✅
 
 **What**: Com "todas as lojas", compor um `LojaEquipeResumo` por loja (KPIs da equipe da loja, melhor e pior atingimento) e navegação por clique.
 **Where**: `src/data/gestao/equipe.ts`
@@ -259,7 +259,7 @@ T6 -> T7 -> T8
 
 ---
 
-### T7: UI — blocos e página da Equipe
+### T7: UI — blocos e página da Equipe ✅
 
 **What**: Criar `blocos.tsx` (KPIs em `KpiTile`, tabela de vendedoras e tabela de desafios em `DataTable`, leitura, estados) e reescrever `EquipePage` montando a `EquipeView`.
 **Where**: `src/pages/equipe/blocos.tsx`
@@ -290,7 +290,7 @@ T6 -> T7 -> T8
 
 ---
 
-### T8: Integração final e registro de decisão
+### T8: Integração final e registro de decisão ✅
 
 **What**: Fechamento: lint/build limpos, revisão de consistência com a Visão geral, atualização do `STATE.md` (decisão da aba Equipe) e handoff.
 **Where**: `src/pages/equipe/EquipePage.tsx`

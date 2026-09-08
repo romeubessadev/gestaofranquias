@@ -47,11 +47,17 @@
 | AD-036 | active | Deploy migrado de Cloudflare Pages (`npm run subir`) para GitHub Pages via Actions (`.github/workflows/deploy.yml`): push na `master` publica em `https://romeubessadev.github.io/gestaofranquias/`. Vite `base`, HashRouter e PWA (manifest/sw) alinhados ao subpath. `wrangler` removido. | 2026-09-08 |
 | AD-037 | active | A página principal do produto passa a ser `/dashboard` (título "Dashboard", subtítulo "Visão geral do desempenho das suas lojas", aba "Visão geral"). `/loja` vira legado com redirect preservando a navegação. | 2026-09-08 |
 | AD-038 | active | A Visão geral é um resumo que funciona com qualquer filtro: KPIs (Faturamento, Atendimentos, Ticket médio, P.A.) em 2×2 no celular e 4×1 no desktop, gráfico principal (por hora no dia, evolução diária em períodos) e Desempenho das lojas ao lado no desktop. Trilho, venda necessária, projeção, diagnóstico, alertas e checklist saem da tela e pertencem a telas próprias. A seção "Direto das outras abas" (Financeiro/Equipe/Produtos) fica em linha própria e só entra quando as abas existirem. | 2026-09-08 |
+| AD-039 | active | Meta individual é derivada, não cadastrada: meta da loja distribuída pelo `pesoVenda` das elegíveis, proporcional aos dias elegíveis em admissão/inatividade no meio do mês; a soma das individuais fecha exato com a meta da loja. | 2026-09-08 |
+| AD-040 | active | Regra `metaAtiva`: meta, comissão e desafios só aparecem quando o período do filtro é exatamente o mês da competência (Este mês/Mês passado). Hoje, Ontem, 7 dias, personalizado ou cruzando meses mostram só desempenho (3 KPIs, tabela sem colunas de meta, sem desafios). | 2026-09-08 |
+| AD-041 | active | Comissão segue a escada de degraus da Meta da filial (não os padrões globais): degrau pelo atingimento individual, comissão = realizado × pct do degrau, bônus uma única vez; KPI da aba é comissão **projetada** (realizado escalado pelo índice de desempenho da curva, comissionado pelo degrau da projeção). | 2026-09-08 |
+| AD-042 | active | Desafios são objetivos pontuais de produto, quantidade ou índice — nunca em reais; o prêmio é o único campo monetário. Mock determinístico (mesma técnica de ruído do `vendas.ts`) com 3 desafios na competência corrente. | 2026-09-08 |
+| AD-043 | active | Aba Equipe usa `DataTable` do tema para desempenho das vendedoras e desafios; visão "todas as lojas" mostra um resumo por loja (melhor/pior atingimento) com clique que troca o filtro preservando período e marca. | 2026-09-08 |
+| AD-044 | active | Camada de visões da Equipe vive em `equipeVisoes.ts` (separada do cadastro `equipe.ts`) para evitar ciclo de módulos com `vendas.ts`, que consome o cadastro no boot. | 2026-09-08 |
 
 ## Handoff — snapshot
 
-- Rodada atual: **Visão geral do Dashboard** (substitui o redesenho da aba Loja como página principal).
-- Spec `.specs/features/aba-loja/` trata do modelo anterior (trilho/diagnóstico); a lógica permanece no data layer (`loja.ts`) para telas futuras de Metas/Acompanhamento, mas **não alimenta mais a página principal**.
-- Commit da mudança: `ff2a606` (rota `/dashboard`, KPIs 2×2/4×1, gráfico por hora/evolução, régua de lojas ao lado no desktop).
-- Pendências: cards "Direto das outras abas" (Financeiro/Equipe/Produtos) quando essas telas existirem; reaproveitar trilho/projeção em tela própria de metas.
-- Próximo passo sugerido: revisar a Visão geral publicada no Pages e decidir a próxima tela (Financeiro ou Equipe).
+- Rodada atual: **Aba Equipe** (metas individuais, desafios e comissão da equipe).
+- Spec em `.specs/features/aba-equipe/`; implementação em `equipeVisoes.ts` (views), `desafios.ts` (mock), `src/pages/equipe/` (UI).
+- Regra central: `metaAtiva` (AD-040) — meta/comissão/desafios só no mês da competência; fora dele, só desempenho do período.
+- Pendências: prova visual no Pages (deploy automático no push); futura tela de Configurações · Desafios (regra "nunca em reais" já registrada em AD-042).
+- Próximo passo sugerido: revisar a Equipe publicada e decidir a próxima tela (Financeiro ou Produtos).
