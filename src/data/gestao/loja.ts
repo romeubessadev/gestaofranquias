@@ -261,6 +261,24 @@ export interface ProjecaoView {
   valor: number | null;
   disponivel: boolean;
   encerrada: boolean;
+  /** Índice de desempenho da competência (realizado ÷ meta acumulada), usado para escalar a curva restante. */
+  indice: number | null;
+}
+
+/** Período com agregados consolidados para a comparação única (LOJA-06 AC 1-3). */
+export interface PeriodoAgregadoComparacao {
+  inicio: string;
+  fim: string;
+  faturamento: number;
+  atendimentos: number;
+  itens: number;
+}
+
+export interface ComparacaoView {
+  atual: PeriodoAgregadoComparacao;
+  anterior: PeriodoAgregadoComparacao;
+  rotuloAtual: string;
+  rotuloAnterior: string;
 }
 
 export interface LojaView {
@@ -272,7 +290,7 @@ export interface LojaView {
   alertas: AlertaSistema[];
   leitura: string | null;
   avisos: string[];
-  comparacao: { atual: string; anterior: string } | null;
+  comparacao: ComparacaoView | null;
   trilho: TrilhoView | null;
   vendaNecessaria: VendaNecessariaView | null;
   projecao: ProjecaoView | null;
@@ -671,6 +689,30 @@ function vendaNecessariaHoje(fs: Filial[], competencia: string): VendaNecessaria
   };
 }
 
+/** Projeção de fechamento (LOJA-03): índice da competência × curva restante, com gate do dia 7. */
+function calcularProjecao(fs: Filial[], competencia: string): ProjecaoView {
+  const metasFs = fs.map((f) => metaDaFilial(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+  if (metasFs.length === 0) return { valor: null, disponivel: false, encerrada: false, indice: null };
+
+  const valor = metasFs.reduce((s, m) => s + m.valorLoja, 0);
+  const primeiroDia = `${competencia}-01`;
+  const ultimoDia = fimDoMes(primeiroDia);
+  const fechada = ultimoDia < HOJE_ISO;
+  const fimReal = fechada ? ultimoDia : HOJE_ISO;
+  const realizado = fs.reduce((s, f) => s + agregadoPeriodo(f, primeiroDia, fimReal, null).faturamento, 0);
+
+  if (fechada) return { valor: realizado, disponivel: false, encerrada: true, indice: null };
+
+  const diaDoMes = deIso(fimReal).getDate();
+  if (diaDoMes < 7) return { valor: null, disponivel: false, encerrada: false, indice: null };
+
+  const metaAcum = metaAcumuladaAteHoje(fs, competencia, valor, fimReal);
+  const indice = metaAcum > 0 ? realizado / metaAcum : 0;
+  const fracaoRestante = 1 - metaAcumuladaAteHoje(fs, competencia, 1, fimReal);
+  const projecao = realizado + valor * fracaoRestante * indice;
+  return { valor: projecao, disponivel: true, encerrada: false, indice };
+}
+
 export function montarLojaView(escopo: Escopo): LojaView {
   const periodo = resolverPeriodo(escopo.periodo);
   const fs = filiaisDoEscopo(escopo);
@@ -1015,15 +1057,22 @@ export function montarLojaView(escopo: Escopo): LojaView {
     alertas: montarAlertas(fs),
     leitura: null,
     avisos,
-    comparacao: temComparacao ? { atual: formatarIntervalo(periodo.inicio, periodo.fim), anterior: formatarIntervalo(ant.inicio, ant.fim) } : null,
+    comparacao: temComparacao
+      ? {
+          atual: { inicio: periodo.inicio, fim: periodo.fim, faturamento: atual.faturamento, atendimentos: atual.atendimentos, itens: atual.itens },
+          anterior: { inicio: ant.inicio, fim: ant.fim, faturamento: anterior.faturamento, atendimentos: anterior.atendimentos, itens: anterior.itens },
+          rotuloAtual: formatarIntervalo(periodo.inicio, periodo.fim),
+          rotuloAnterior: formatarIntervalo(ant.inicio, ant.fim),
+        }
+      : null,
     trilho,
     vendaNecessaria,
-    projecao: null, // implementado na T4
+    projecao: calcularProjecao(fs, competenciaTrilho),
     estados: {
       kpis: "disponivel",
       trilho: trilho ? "disponivel" : "sem_dados",
       vendaNecessaria: vendaNecessaria ? "disponivel" : "sem_dados",
-      projecao: "sem_dados",
+      projecao: trilho && vendaNecessaria ? "disponivel" : trilho ? "sem_dados" : "indisponivel",
       diagnostico: "sem_dados",
       mix: "sem_dados",
       lojas: "disponivel",

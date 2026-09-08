@@ -191,7 +191,7 @@ T8 -> T9
 
 ---
 
-### T4: Implementar projeção e comparação de período (LOJA-03, LOJA-06)
+### T4: Implementar projeção e comparação de período (LOJA-03, LOJA-06) ✅
 
 **What**: Projeção de fechamento (índice da competência escalando a curva restante, gate do dia 7) e a comparação única de período com `ComparacaoView` (deltas derivam só dela).
 **Where**: `src/data/gestao/loja.ts`

@@ -5,21 +5,21 @@ import { ICONS, TINT, type IconKey, type TintKey } from "@/pages/dashboards/icon
 import { KpiSubtitulo, KpiTile } from "@/pages/dashboards/KpiTile";
 import { cn } from "@/lib/cn";
 import { brl } from "@/lib/formato";
-import { brlK, type AlertaSistema, type CategoriaLinha, type ChecklistDia, type GraficoEvolucao, type GraficoHora, type GraficoHoraRede, type ItemLucro, type KpiValor, type LinhaRegua, type PontoAtencao, type RitmoCard, type TileMetaProjecao, type TurnoLinha } from "@/data/gestao/loja";
+import { brlK, type AlertaSistema, type CategoriaLinha, type ChecklistDia, type ComparacaoView, type GraficoEvolucao, type GraficoHora, type GraficoHoraRede, type ItemLucro, type KpiValor, type LinhaRegua, type PontoAtencao, type RitmoCard, type TileMetaProjecao, type TurnoLinha } from "@/data/gestao/loja";
 import { produtosDaCategoria, type ProdutoResumo } from "@/data/gestao/produtos";
 
 /* ---------- Comparação: datas exatas, não um rótulo vago ---------- */
 
-export function BlocoComparacao({ atual, anterior }: { atual: string; anterior: string }) {
+export function BlocoComparacao({ comparacao }: { comparacao: ComparacaoView }) {
   return (
     <div className="flex flex-wrap items-center gap-5">
       <div>
         <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">Período atual</p>
-        <p className="text-[12.5px] font-semibold text-t1">{atual}</p>
+        <p className="text-[12.5px] font-semibold text-t1">{comparacao.rotuloAtual}</p>
       </div>
       <div>
         <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">Comparado a</p>
-        <p className="text-[12.5px] font-semibold text-t1">{anterior}</p>
+        <p className="text-[12.5px] font-semibold text-t1">{comparacao.rotuloAnterior}</p>
       </div>
     </div>
   );

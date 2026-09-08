@@ -45,7 +45,7 @@ export function LojaPage() {
       )}
 
       <div className="flex flex-col gap-5">
-        {v.comparacao && <BlocoComparacao atual={v.comparacao.atual} anterior={v.comparacao.anterior} />}
+        {v.comparacao && <BlocoComparacao comparacao={v.comparacao} />}
         <BlocoKpis faturamento={v.kpiFaturamento} tileMeta={v.tileMeta} ticket={v.kpiTicket} pa={v.kpiPA} />
 
         {principal && (
