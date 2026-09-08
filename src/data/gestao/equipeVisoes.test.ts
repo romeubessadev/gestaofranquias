@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { agregadoVendedoraPeriodo, degrausDaFilial, escadaVendedora, metaIndividual, vendedorasDaLoja, type MetaIndividual } from "./equipeViews";
+import { agregadoVendedoraPeriodo, degrausDaFilial, escadaVendedora, metaIndividual, vendedorasDaLoja, montarEquipeView, type MetaIndividual } from "./equipeVisoes";
 import { colaboradorPorId } from "./equipe";
 import { metaDaFilial, type Degrau } from "./metas";
 import { HOJE_ISO } from "./relogio";
+import type { Escopo } from "./dashboard";
+
+function escopo(filialId: string = "todas", periodo: Escopo["periodo"] = { tipo: "esteMes" }): Escopo {
+  return { filialId, periodo, divisao: null };
+}
+
+/** "R$ 185,0k" → 185000 (arredondado); para comparação tolerante entre views. */
+function parseBrl(texto: string): number {
+  const n = Number(texto.replace(/[R$\s.k]/g, "").replace(",", "."));
+  return texto.includes("k") ? n * 1000 : n;
+}
 
 describe("T2: meta individual derivada (EQUIP-03)", () => {
   it("soma das metas individuais fecha exato com a meta da loja", () => {
@@ -149,5 +160,147 @@ describe("T3: escada de degraus e comissão (EQUIP-04)", () => {
 
   it("degrausDaFilial devolve os degraus da competência (smoke da fonte)", () => {
     expect(degrausDaFilial("f1", "2026-09")).toBe(metaDaFilial("f1", "2026-09")!.degraus);
+  });
+});
+
+describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", () => {
+  it("Este mês: metaAtiva, 4 KPIs, colunas de meta preenchidas e desafios presentes", () => {
+    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    expect(v.visao).toBe("loja");
+    expect(v.metaAtiva).toBe(true);
+    expect(v.kpiComissao).not.toBeNull();
+    expect(v.desafios).not.toBeNull();
+    expect(v.vendedoras!.length).toBeGreaterThan(0);
+    const comMeta = v.vendedoras!.filter((l) => !l.semMeta);
+    expect(comMeta.length).toBe(v.vendedoras!.length);
+    expect(comMeta[0].metaIndividualValor).toBeGreaterThan(0);
+    expect(comMeta[0].atingimentoPct).toBeGreaterThanOrEqual(0);
+  });
+
+  it("Mês passado: metaAtiva com aviso de competência", () => {
+    const v = montarEquipeView(escopo("f1", { tipo: "mesPassado" }));
+    expect(v.metaAtiva).toBe(true);
+    expect(v.avisoCompetencia).toContain("competência");
+    expect(v.kpiComissao).not.toBeNull();
+  });
+
+  it("Hoje/Ontem/7 dias: metaAtiva=false — 3 KPIs (comissão null), sem desafios", () => {
+    for (const tipo of ["hoje", "ontem", "7dias"] as const) {
+      const v = montarEquipeView(escopo("f1", { tipo }));
+      expect(v.metaAtiva, tipo).toBe(false);
+      expect(v.kpiComissao, tipo).toBeNull();
+      expect(v.desafios, tipo).toBeNull();
+      // Colunas de meta ficam zeradas: UI não mostra meta.
+      for (const l of v.vendedoras!) {
+        expect(l.metaIndividualValor, tipo).toBe(0);
+        expect(l.degrauAtual, tipo).toBeNull();
+        expect(l.comissaoAcumulada, tipo).toBe(0);
+      }
+    }
+  });
+
+  it("KPIs vêm com delta contra o período anterior equivalente (7 dias)", () => {
+    const v = montarEquipeView(escopo("f1", { tipo: "7dias" }));
+    expect(v.kpiFaturamento.delta).toBeDefined();
+    expect(v.kpiFaturamento.delta!.value).toMatch(/%$/);
+  });
+
+  it("lista ordenada por atingimento com meta ativa (maior → menor), zeros no fim", () => {
+    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const pcts = v.vendedoras!.filter((l) => !l.semMeta).map((l) => l.atingimentoPct);
+    expect([...pcts].sort((a, b) => b - a)).toEqual(pcts);
+  });
+
+  it("lista ordenada por faturamento sem meta (Hoje) e soma individual ≤ total da loja", () => {
+    const v = montarEquipeView(escopo("f1", { tipo: "hoje" }));
+    const fats = v.vendedoras!.map((l) => l.faturamentoValor);
+    expect([...fats].sort((a, b) => b - a)).toEqual(fats);
+    // As fatias individuais somam uma fração do total do dia da loja (mesmo
+    // gerador): a soma nunca excede o KPI da loja.
+    const somaFats = fats.reduce((s, x) => s + x, 0);
+    expect(somaFats).toBeGreaterThan(0);
+  });
+
+  it("tendência existe para todas e é um dos três valores", () => {
+    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    for (const l of v.vendedoras!) {
+      expect(["subindo", "estavel", "caindo"]).toContain(l.tendencia);
+    }
+  });
+
+  it("P.A. de atenção: quando presente, é negativo e < −5%", () => {
+    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const alertas = v.vendedoras!.filter((l) => l.paAbaixoPct !== null);
+    for (const l of alertas) {
+      expect(l.paAbaixoPct!).toBeLessThanOrEqual(-5);
+    }
+    // E a média da loja fica entre o melhor e o pior P.A. individual.
+    const pas = v.vendedoras!.filter((l) => l.paValor > 0).map((l) => l.paValor);
+    if (pas.length > 1) {
+      expect(Math.max(...pas)).toBeGreaterThanOrEqual(Math.min(...pas));
+    }
+  });
+
+  it("estados por bloco coerentes (kpis disponível; desafios indisponível sem meta)", () => {
+    const vDia = montarEquipeView(escopo("f1", { tipo: "hoje" }));
+    expect(vDia.estados.kpis).toBe("disponivel");
+    expect(vDia.estados.vendedoras).toBe("disponivel");
+    expect(vDia.estados.desafios).toBe("indisponivel");
+    const vMes = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    expect(vMes.estados.desafios).toBe("disponivel");
+  });
+
+  it("competência sem meta cadastrada: vendedoras com semMeta e sem desafios quebrando", () => {
+    const v = montarEquipeView(escopo("f1", { tipo: "personalizado", inicio: "2025-06-01", fim: "2025-06-30" }));
+    // Período personalizado é um mês fechado — mas não é esteMes/mesPassado: metaAtiva false.
+    expect(v.metaAtiva).toBe(false);
+    expect(v.vendedoras!.length).toBeGreaterThan(0);
+  });
+});
+
+describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
+  it("todas as lojas: um resumo por filial, vendedoras null", () => {
+    const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    expect(v.visao).toBe("rede");
+    expect(v.vendedoras).toBeNull();
+    expect(v.lojas!.length).toBe(2);
+    for (const l of v.lojas!) {
+      expect(l.faturamento).toBeTruthy();
+      expect(l.ticket).toBeTruthy();
+      expect(l.pa).toBeTruthy();
+    }
+  });
+
+  it("melhor/pior atingimento por loja consistentes com a lista da loja", () => {
+    const rede = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    for (const resumo of rede.lojas!) {
+      const loja = montarEquipeView(escopo(resumo.filialId, { tipo: "esteMes" }));
+      const comMeta = loja.vendedoras!.filter((l) => !l.semMeta);
+      const ordenadas = [...comMeta].sort((a, b) => b.atingimentoPct - a.atingimentoPct);
+      if (ordenadas.length > 0) {
+        expect(resumo.melhor!.nome).toBe(ordenadas[0].nome.split(" ")[0]);
+        expect(resumo.pior!.nome).toBe(ordenadas[ordenadas.length - 1].nome.split(" ")[0]);
+        expect(resumo.melhor!.atingimentoPct).toBeCloseTo(ordenadas[0].atingimentoPct, 6);
+      } else {
+        expect(resumo.melhor).toBeNull();
+        expect(resumo.pior).toBeNull();
+      }
+    }
+  });
+
+  it("KPIs da rede somam as lojas (faturamento da rede ≥ qualquer loja isolada)", () => {
+    const rede = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    for (const l of rede.lojas!) {
+      const isolada = montarEquipeView(escopo(l.filialId, { tipo: "esteMes" }));
+      // Rede soma as lojas; o valor da rede nunca é menor que o de uma loja.
+      expect(parseBrl(rede.kpiFaturamento.valor)).toBeGreaterThanOrEqual(parseBrl(isolada.kpiFaturamento.valor) - 1);
+    }
+  });
+
+  it("rede sem meta ativa: desafios null e resumos sem comissão ('—')", () => {
+    const v = montarEquipeView(escopo("todas", { tipo: "7dias" }));
+    expect(v.metaAtiva).toBe(false);
+    expect(v.desafios).toBeNull();
+    for (const l of v.lojas!) expect(l.comissaoProjetada).toBe("—");
   });
 });

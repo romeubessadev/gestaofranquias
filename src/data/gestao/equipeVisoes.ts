@@ -15,8 +15,8 @@ import { desafiosAtivos, progressoIndividual, type Desafio } from "./desafios";
 import { HOJE_ISO, HORA_ATUAL } from "./relogio";
 import { agregadoDoDia, diaVendas, lojaAberta, pesoDia, somarAgregados, type Agregado } from "./vendas";
 import { filialPorId, filiais, type Filial } from "./filiais";
-import { resolverPeriodo, periodoAnterior, kpiDelta, curvaReceita, type Escopo, type PeriodoResolvido, type EstadoBloco } from "./dashboard";
-import { brl, brlK, deIso, fimDoMes, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
+import { brlK, curvaReceita, kpiDelta, periodoAnterior, resolverPeriodo, type Escopo, type PeriodoResolvido, type EstadoBloco } from "./dashboard";
+import { brl, deIso, fimDoMes, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
 import type { TintKey } from "@/pages/dashboards/icons";
 
 const PALETA_LOJAS: TintKey[] = ["acc", "ok", "info", "warn", "bad"];
@@ -289,7 +289,8 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
   const paMedioLoja = divSeguro(agLoja.itens, agLoja.atendimentos);
   const degraus = degrausDaFilial(filialId, competencia);
 
-  return vendedorasDaLoja(filialId, competencia).map((c) => {
+  return vendedorasDaLoja(filialId, competencia)
+    .map((c) => {
     const ag = agregadoVendedoraPeriodo(c, filialId, periodo.inicio, periodo.fim);
     const ticket = divSeguro(ag.faturamento, ag.atendimentos);
     const pa = divSeguro(ag.itens, ag.atendimentos);
@@ -321,7 +322,13 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
       paAbaixoPct,
       semMeta: !metaInd || metaInd.valor <= 0,
     };
-  });
+    })
+    // Ordena por atingimento (meta ativa) ou faturamento; zeros no fim.
+    .sort((a, b) => {
+      const ka = metaAtiva && !a.semMeta ? a.atingimentoPct : a.faturamentoValor;
+      const kb = metaAtiva && !b.semMeta ? b.atingimentoPct : b.faturamentoValor;
+      return kb - ka;
+    });
 }
 
 /* ------------------------- Desafios (EQUIP-05) ------------------------- */
@@ -374,7 +381,13 @@ function comissaoProjetada(filialId: string, competencia: string, vendedoras: Ve
   const ultimo = fimDoMes(primeiro);
   const fechada = ultimo < HOJE_ISO;
   const fimReal = fechada ? ultimo : HOJE_ISO;
-  if (fechada) return null;
+
+  let total = 0;
+  if (fechada) {
+    // Competência encerrada: comissão final do mês (sem projeção).
+    for (const l of vendedoras) total += l.comissaoAcumulada + l.bonusAlcancado;
+    return total;
+  }
 
   const curva = curvaReceita([filial], competencia);
   const realizadoLoja = agregadoLoja(filialId, primeiro, fimReal).faturamento;
@@ -383,7 +396,6 @@ function comissaoProjetada(filialId: string, competencia: string, vendedoras: Ve
   const indice = metaAcum > 0 ? realizadoLoja / metaAcum : 0;
   if (indice <= 0) return null;
 
-  let total = 0;
   for (const l of vendedoras) {
     if (l.semMeta) continue;
     const degrau = l.degrauAtual ? meta.degraus.find((d) => d.nome === l.degrauAtual) ?? null : null;

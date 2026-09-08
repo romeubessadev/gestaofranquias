@@ -169,7 +169,7 @@ T6 -> T7 -> T8
 
 ---
 
-### T4: montarEquipeView — visão loja com metaAtiva
+### T4: montarEquipeView — visão loja com metaAtiva ✅
 
 **What**: Compor a `EquipeView` da visão loja: KPIs (Faturamento, Ticket, P.A. + Comissão quando meta ativa), tabela de vendedoras ordenada, regra `metaAtiva`, tendência e atenção de P.A.
 **Where**: `src/data/gestao/equipe.ts`
