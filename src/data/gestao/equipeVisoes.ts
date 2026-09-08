@@ -125,8 +125,8 @@ export function agregadoVendedoraPeriodo(c: Colaborador, filialId: string, inici
 export interface EscadaLinha {
   /** Degrau alcançado (maior minPct ≤ atingimento); null antes do primeiro. */
   degrau: Degrau | null;
-  /** Comissão acumulada: realizado × comissaoPct do degrau ÷ 100. */
-  comissao: number;
+  /** Premiação da escada: realizado × pct do degrau ÷ 100 (paga como premiação, AD-041). */
+  premiacao: number;
   /** Bônus do degrau — só entra quando o degrau é alcançado. */
   bonus: number;
   /** Próximo degrau e quanto falta em R$; null no último degrau. */
@@ -139,9 +139,10 @@ export function degrausDaFilial(filialId: string, competencia: string): Degrau[]
 }
 
 /**
- * Posição na escada: degrau alcançado pelo atingimento individual, comissão
- * acumulada, bônus e quanto falta pro próximo. Comissão sem degrau é 0 —
- * a vendedora só comissiona ao entrar no primeiro degrau.
+ * Posição na escada: degrau alcançado pelo atingimento individual, premiação
+ * acumulada e bônus, e quanto falta pro próximo degrau. Sem degrau a
+ * premiação é 0 — a vendedora só premia ao entrar no primeiro degrau.
+ * (O usuário paga tudo como premiação, não como comissão — AD-041.)
  */
 export function escadaVendedora(
   realizado: number,
@@ -156,13 +157,13 @@ export function escadaVendedora(
     else break;
   }
   const idx = degrau ? degraus.indexOf(degrau) : -1;
-  const comissao = degrau ? (realizado * degrau.comissaoPct) / 100 : 0;
+  const premiacao = degrau ? (realizado * degrau.comissaoPct) / 100 : 0;
   const bonus = degrau ? degrau.bonus : 0;
   const seguinte = idx + 1 < degraus.length ? degraus[idx + 1] : null;
   const proximo = seguinte
     ? { nome: seguinte.nome, faltaValor: Math.max(0, (metaInd.valor * seguinte.atingimentoMinPct) / 100 - realizado) }
     : null;
-  return { degrau, comissao, bonus, proximo };
+  return { degrau, premiacao, bonus, proximo };
 }
 
 /* ------------------------- Tipos da visão ------------------------- */
@@ -192,7 +193,8 @@ export interface VendedoraLinha {
   barraPct: number;
   degrauAtual: string | null;
   proximoDegrau: { nome: string; faltaValor: number } | null;
-  comissaoAcumulada: number;
+  /** Premiação acumulada da escada de metas (realizado × pct do degrau). */
+  premiacaoAcumulada: number;
   bonusAlcancado: number;
   // Atenção
   paAbaixoPct: number | null;
@@ -226,7 +228,7 @@ export interface LojaEquipeResumo {
   faturamento: string;
   ticket: string;
   pa: string;
-  comissaoProjetada: string;
+  premiacaoProjetada: string;
   melhor: { nome: string; atingimentoPct: number } | null;
   pior: { nome: string; atingimentoPct: number } | null;
 }
@@ -243,7 +245,7 @@ export interface EquipeView {
   periodo: PeriodoResolvido;
   visao: "loja" | "rede";
   competencia: string;
-  /** Período do filtro é exatamente o mês da competência: meta/comissão/desafios entram. */
+  /** Período do filtro é exatamente o mês da competência: meta/premiação/desafios entram. */
   metaAtiva: boolean;
   avisoCompetencia: string | null;
   avisos: string[];
@@ -251,12 +253,10 @@ export interface EquipeView {
   kpiAtendimentos: KpiEquipeValor;
   kpiTicket: KpiEquipeValor;
   kpiPA: KpiEquipeValor;
-  /** null sem meta ativa (vira 4 KPIs). */
-  kpiComissao: KpiEquipeValor | null;
   /**
-   * Premiação projetada dos desafios: prêmio × participantes que vão fechar
-   * pelo ritmo (projeção linear). null sem meta ativa ou sem desafios —
-   * desafio é da competência, igual à meta (AD-040).
+   * Premiação projetada — VERBA ÚNICA (decisão do usuário: paga tudo como
+   * premiação, nunca como comissão): escada de metas + prêmios dos desafios
+   * que fecham. null sem meta ativa (vira 4 KPIs).
    */
   kpiPremiacao: KpiEquipeValor | null;
   leitura: string | null;
@@ -326,7 +326,7 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
       barraPct: metaInd && metaInd.valor > 0 ? Math.min(100, (ag.faturamento / metaInd.valor) * 100) : 0,
       degrauAtual: escada?.degrau?.nome ?? null,
       proximoDegrau: escada?.proximo ?? null,
-      comissaoAcumulada: escada?.comissao ?? 0,
+      premiacaoAcumulada: escada?.premiacao ?? 0,
       bonusAlcancado: escada?.bonus ?? 0,
       paAbaixoPct,
       semMeta: !metaInd || metaInd.valor <= 0,
@@ -377,27 +377,25 @@ function diasAbertosDaCompetencia(competencia: string, filiaisIds: string[]): { 
   return { decorridos, totais: abertos.length };
 }
 
-/* ------------------------- Comissão projetada (EQUIP-04) ------------------------- */
+/* ------------------------- Premiação projetada (EQUIP-04/05) ------------------------- */
 
 /**
- * Comissão projetada do mês (EQUIP-04 AC 3): realizado de cada vendedora
+ * Fonte 1 — escada de metas da filial (EQUIP-04): realizado de cada vendedora
  * escalado pelo ritmo da loja até o fim do mês (fração acumulada da curva —
- * equivale a "realizado + restante × índice de desempenho"), comissionado pelo
- * degrau que a projeção alcança. Bônus entra uma única vez, só de degrau já
- * alcançado (risco D4). Competência encerrada: comissão final do mês.
+ * equivale a "realizado + restante × índice de desempenho"), pago pelo degrau
+ * que a projeção alcança. Bônus entra uma única vez, só de degrau já alcançado
+ * (risco D4). Competência encerrada: premiação final do mês.
+ * null quando não há meta na competência (a escada não paga nada).
  */
-function comissaoProjetada(filialId: string, competencia: string, vendedoras: VendedoraLinha[]): number | null {
+function premiacaoEscada(filialId: string, competencia: string, vendedoras: VendedoraLinha[]): number | null {
   const meta = metaDaFilial(filialId, competencia);
   if (!meta) return null;
   const filial = filialPorId(filialId);
   const primeiro = `${competencia}-01`;
-  const ultimo = fimDoMes(primeiro);
-  const fechada = ultimo < HOJE_ISO;
+  const fechado = fimDoMes(primeiro) < HOJE_ISO;
 
-  let total = 0;
-  if (fechada) {
-    for (const l of vendedoras) total += l.comissaoAcumulada + l.bonusAlcancado;
-    return total;
+  if (fechado) {
+    return vendedoras.reduce((s, l) => s + l.premiacaoAcumulada + l.bonusAlcancado, 0);
   }
 
   const curva = curvaReceita([filial], competencia);
@@ -405,6 +403,7 @@ function comissaoProjetada(filialId: string, competencia: string, vendedoras: Ve
   for (const iso of intervaloDias(primeiro, HOJE_ISO)) fracaoAcum += curva.peso(iso);
   if (fracaoAcum <= 0) return null;
 
+  let total = 0;
   for (const l of vendedoras) {
     if (l.semMeta || l.metaIndividualValor <= 0) continue;
     // Realizado escalado: hoje está em fracaoAcum do mês → projeção linear
@@ -416,26 +415,23 @@ function comissaoProjetada(filialId: string, competencia: string, vendedoras: Ve
       if (atingPct >= d.atingimentoMinPct) degrau = d;
       else break;
     }
-    const pctComissao = degrau?.comissaoPct ?? 0;
-    total += (projecaoFinal * pctComissao) / 100 + l.bonusAlcancado;
+    const pctDegrau = degrau?.comissaoPct ?? 0;
+    total += (projecaoFinal * pctDegrau) / 100 + l.bonusAlcancado;
   }
   return total;
 }
 
-/* ------------------------- Premiação projetada (EQUIP-05) ------------------------- */
-
 /**
- * Premiação projetada dos desafios (EQUIP-05): para cada desafio, quantos
- * participantes vão fechar pelo ritmo (mesma projeção linear do veredito
- * `fechaNoRitmo`) × prêmio individual. Desafio sem engajamento não projeta
- * ninguém (0 × prêmio); competência sem desafios devolve 0 — a UI decide o
- * que mostrar. Competência encerrada: prêmio dos que de fato fecharam.
+ * Fonte 2 — desafios (EQUIP-05): prêmio de cada participante cuja projeção
+ * linear do progresso fecha o alvo individual (mesma projeção do
+ * `desafioView`). Desafio é da COMPETÊNCIA, não da loja: na visão rede entra
+ * uma única vez. Competência encerrada: prêmio dos que de fato fecharam.
  */
-function premiacaoProjetada(competencia: string, filiaisIds: string[]): number {
+function premiacaoDesafios(competencia: string, filiaisIds: string[]): number {
   const { decorridos, totais } = diasAbertosDaCompetencia(competencia, filiaisIds);
   let total = 0;
+  const fechado = fimDoMes(`${competencia}-01`) < HOJE_ISO;
   for (const d of desafiosAtivos(competencia)) {
-    const fechado = fimDoMes(`${competencia}-01`) < HOJE_ISO;
     for (const id of d.participantes) {
       const p = progressoIndividual(d, id);
       if (p <= 0) continue;
@@ -443,13 +439,24 @@ function premiacaoProjetada(competencia: string, filiaisIds: string[]): number {
       if (fechado) {
         total += venceAgora ? d.premio : 0;
       } else if (decorridos > 0) {
-        // Projeção linear do participante: mesmo veredito do `desafioView`.
         const projetado = (p / decorridos) * totais;
         if (projetado >= d.alvoIndividual) total += d.premio;
       }
     }
   }
   return total;
+}
+
+/**
+ * KPI da visão loja: escada da loja + desafios. Os desafios são da
+ * competência inteira; a visão rede soma a escada de todas e os desafios uma
+ * única vez (ver visaoRede).
+ */
+function premiacaoProjetada(filialId: string, competencia: string, vendedoras: VendedoraLinha[]): number | null {
+  const escada = premiacaoEscada(filialId, competencia, vendedoras);
+  const desafios = premiacaoDesafios(competencia, [filialId]);
+  if (escada === null) return desafios > 0 ? desafios : null;
+  return escada + desafios;
 }
 
 /* ------------------------- Leitura da IA (EQUIP-06) ------------------------- */
@@ -514,13 +521,13 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, competencia: strin
   const paAnt = divSeguro(anterior.itens, anterior.atendimentos);
 
   const vendedoras = visaoVendedoras(filialId, periodo, metaAtiva, competencia);
-  const comissao = metaAtiva ? comissaoProjetada(filialId, competencia, vendedoras) : null;
+  const premiacao = metaAtiva ? premiacaoProjetada(filialId, competencia, vendedoras) : null;
 
   const avisos: string[] = [];
   if (escopo.divisao && metaAtiva) {
     avisos.push("Com marca selecionada, as metas individuais continuam sendo da loja inteira.");
   }
-  const avisoCompetencia = metaAtiva && periodo.tipo === "mesPassado" ? `Meta e comissão valem para a competência ${mesAno(`${competencia}-01`)}.` : null;
+  const avisoCompetencia = metaAtiva && periodo.tipo === "mesPassado" ? `Meta e premiação valem para a competência ${mesAno(`${competencia}-01`)}.` : null;
 
   return {
     escopo,
@@ -534,8 +541,7 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, competencia: strin
     kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos) : undefined },
     kpiTicket: { valor: brl(ticket), delta: temComparacao ? kpiDelta(ticket, ticketAnt) : undefined },
     kpiPA: { valor: num(pa, 2), delta: temComparacao ? kpiDelta(pa, paAnt) : undefined },
-    kpiComissao: comissao === null ? null : { valor: brl(comissao), delta: undefined },
-    kpiPremiacao: metaAtiva ? { valor: brl(premiacaoProjetada(competencia, [filial.id])), delta: undefined } : null,
+    kpiPremiacao: premiacao === null ? null : { valor: brl(premiacao), delta: undefined },
     leitura: null,
     vendedoras,
     lojas: null,
@@ -572,7 +578,9 @@ function visaoRede(escopo: Escopo, periodo: PeriodoResolvido, competencia: strin
       faturamento: vLoja.kpiFaturamento.valor,
       ticket: vLoja.kpiTicket.valor,
       pa: vLoja.kpiPA.valor,
-      comissaoProjetada: vLoja.kpiComissao?.valor ?? "—",
+      // Premiação da loja = só a escada de metas dela; os desafios são da rede
+      // e entram uma vez no KPI da visão rede (não dobram por loja).
+      premiacaoProjetada: vLoja.kpiPremiacao?.valor ?? "—",
       melhor,
       pior,
     };
@@ -594,6 +602,20 @@ function visaoRede(escopo: Escopo, periodo: PeriodoResolvido, competencia: strin
   const desafios = metaAtiva ? desafiosViewDaCompetencia(competencia, filiais.map((f) => f.id)) : null;
   const semDesafios = metaAtiva && desafiosAtivos(competencia).length === 0;
 
+// Premiação da rede = escada de metas de cada loja + desafios uma única
+// vez (desafio é da competência inteira, não por loja).
+let premiacaoRede: number | null = null;
+if (metaAtiva) {
+  let parteEscada = 0;
+  for (const f of filiais) {
+    const vLoja = visaoLoja({ ...escopo, filialId: f.id }, periodo, competencia, metaAtiva);
+    const escadaLoja = premiacaoEscada(f.id, competencia, vLoja.vendedoras ?? []);
+    if (escadaLoja !== null) parteEscada += escadaLoja;
+  }
+  const parteDesafios = premiacaoDesafios(competencia, filiais.map((f) => f.id));
+  premiacaoRede = parteEscada > 0 || parteDesafios > 0 ? parteEscada + parteDesafios : null;
+}
+
   return {
     escopo,
     periodo,
@@ -606,9 +628,7 @@ function visaoRede(escopo: Escopo, periodo: PeriodoResolvido, competencia: strin
     kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos) : undefined },
     kpiTicket: { valor: brl(divSeguro(atual.faturamento, atual.atendimentos)), delta: temComparacao ? kpiDelta(divSeguro(atual.faturamento, atual.atendimentos), divSeguro(anterior.faturamento, anterior.atendimentos)) : undefined },
     kpiPA: { valor: num(divSeguro(atual.itens, atual.atendimentos), 2), delta: temComparacao ? kpiDelta(divSeguro(atual.itens, atual.atendimentos), divSeguro(anterior.itens, anterior.atendimentos)) : undefined },
-    kpiComissao: null,
-    // Premiação na rede soma as lojas (mesmos desafios, mesma competência).
-    kpiPremiacao: metaAtiva ? { valor: brl(premiacaoProjetada(competencia, filiais.map((f) => f.id))), delta: undefined } : null,
+    kpiPremiacao: premiacaoRede === null ? null : { valor: brl(premiacaoRede), delta: undefined },
     leitura: null,
     vendedoras: null,
     lojas: lojas,

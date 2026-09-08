@@ -30,8 +30,8 @@ export function EquipePage() {
           atendimentos={v.kpiAtendimentos}
           ticket={v.kpiTicket}
           pa={v.kpiPA}
-          comissao={v.kpiComissao}
           premiacao={v.kpiPremiacao}
+          desafios={v.desafios}
           metaAtiva={v.metaAtiva}
         />
 

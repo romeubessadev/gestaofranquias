@@ -18,18 +18,21 @@ export function BlocoKpisEquipe({
   atendimentos,
   ticket,
   pa,
-  comissao,
   premiacao,
+  desafios,
   metaAtiva,
 }: {
   faturamento: EquipeView["kpiFaturamento"];
   atendimentos: EquipeView["kpiAtendimentos"];
   ticket: EquipeView["kpiTicket"];
   pa: EquipeView["kpiPA"];
-  comissao: EquipeView["kpiComissao"];
   premiacao: EquipeView["kpiPremiacao"];
+  desafios: EquipeView["desafios"];
   metaAtiva: boolean;
 }) {
+  // Verba única (decisão do usuário): a escada de metas é paga como
+  // premiação, junto com os prêmios dos desafios — um KPI só.
+  const foraDoRitmo = desafios?.filter((d) => !d.fechaNoRitmo && !d.semEngajamento).length ?? 0;
   return (
     // Sempre 2 por linha (decisão do usuário): 4 KPIs sem meta (2×2) e 6 com
     // meta ativa (3 linhas × 2). 3+ na mesma linha ficou feio no celular.
@@ -38,8 +41,18 @@ export function BlocoKpisEquipe({
       <KpiTile label="Atendimentos" value={atendimentos.valor} icon="users" tint="info" delta={atendimentos.delta} />
       <KpiTile label="Ticket médio" value={ticket.valor} icon="card" tint="ok" delta={ticket.delta} />
       <KpiTile label="P.A." value={pa.valor} icon="layers" tint="warn" delta={pa.delta} />
-      {metaAtiva && comissao && <KpiTile label="Comissão projetada" value={comissao.valor} icon="briefcase" tint="acc" sub="do mês" />}
-      {metaAtiva && premiacao && <KpiTile label="Premiação projetada" value={premiacao.valor} icon="award" tint="warn" sub="dos desafios" />}
+      {metaAtiva && premiacao && (
+        <KpiTile label="Premiação projetada" value={premiacao.valor} icon="award" tint="acc" sub="metas + desafios" />
+      )}
+      {metaAtiva && desafios && (
+        <KpiTile
+          label="Desafios fora do ritmo"
+          value={num(foraDoRitmo, 0)}
+          icon="target"
+          tint={foraDoRitmo > 0 ? "bad" : "ok"}
+          sub={`${desafios.length} ativos`}
+        />
+      )}
     </div>
   );
 }
@@ -117,12 +130,12 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[];
               ),
           } as DataTableColumn<VendedoraLinha>,
           {
-            key: "comissao",
-            header: "Comissão",
+            key: "premiacao",
+            header: "Premiação",
             align: "right",
             render: (l: VendedoraLinha) =>
-              l.comissaoAcumulada > 0 ? (
-                <span className="font-mono text-[12.5px] font-bold text-ok">{brl(l.comissaoAcumulada)}</span>
+              l.premiacaoAcumulada > 0 ? (
+                <span className="font-mono text-[12.5px] font-bold text-ok">{brl(l.premiacaoAcumulada)}</span>
               ) : (
                 <span className="text-[12px] text-t2">sem degrau</span>
               ),
@@ -280,7 +293,7 @@ export function BlocoResumoRede({ lojas, onEscolher }: { lojas: LojaEquipeResumo
                 P.A. <span className="font-mono font-semibold text-t0">{l.pa}</span>
               </span>
               <span>
-                comissão <span className="font-mono font-semibold text-ok">{l.comissaoProjetada}</span>
+                premiação <span className="font-mono font-semibold text-ok">{l.premiacaoProjetada}</span>
               </span>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
