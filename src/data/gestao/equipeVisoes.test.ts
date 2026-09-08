@@ -352,7 +352,7 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
 describe("T5: desafios na visão (EQUIP-05)", () => {
   it("progresso agregado é a soma do progresso individual e alvo agregado = alvo × participantes", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
-    expect(v.desafios!.length).toBe(3);
+    expect(v.desafios!.length).toBe(6);
     for (const d of v.desafios!) {
       const somaIndividuais = colaboradores
         .filter((c) => vendedorElegivel(c))

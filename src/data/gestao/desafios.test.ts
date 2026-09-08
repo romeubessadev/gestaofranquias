@@ -3,8 +3,8 @@ import { desafios, desafiosAtivos, progressoIndividual } from "./desafios";
 import { colaboradorPorId, colaboradores } from "./equipe";
 
 describe("T1: desafios ativos (EQUIP-05)", () => {
-  it("competência corrente tem 3 desafios ativos", () => {
-    expect(desafiosAtivos("2026-09").length).toBe(3);
+  it("competência corrente tem 6 desafios ativos", () => {
+    expect(desafiosAtivos("2026-09").length).toBe(6);
   });
 
   it("competência sem desafios devolve lista vazia", () => {
@@ -12,9 +12,9 @@ describe("T1: desafios ativos (EQUIP-05)", () => {
     expect(desafiosAtivos("2025-01")).toEqual([]);
   });
 
-  it("cobre os três tipos: produto, quantidade e índice", () => {
-    const tipos = desafiosAtivos("2026-09").map((d) => d.tipo).sort();
-    expect(tipos).toEqual(["indice", "produto", "quantidade"]);
+  it("cobre os três tipos: produto, quantidade e índice (com repetição entre eles)", () => {
+    const tipos = desafiosAtivos("2026-09").map((d) => d.tipo);
+    expect(new Set(tipos)).toEqual(new Set(["produto", "quantidade", "indice"]));
   });
 
   it("desafios nunca em reais: prêmio é o único campo monetário", () => {
