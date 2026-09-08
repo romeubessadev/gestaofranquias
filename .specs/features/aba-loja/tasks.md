@@ -138,7 +138,7 @@ T8 -> T9
 
 ---
 
-### T2: Store puro Map + smoke test
+### T2: Store puro Map + smoke test ✅
 
 **What**: Expor a mesma lógica `diaVendas`/`diasVendas`/`agregadoDoDia`/`somarAgregados` a partir de um store puro `Map` paramétrico, em vez de um Map global no módulo, para permitir testes isolados por cenário; adicionar o primeiro teste smoke que prova o runner.
 **Where**: `src/data/gestao/vendas.ts`

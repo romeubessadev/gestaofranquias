@@ -208,21 +208,44 @@ export function intervaloHoras(filial: Filial): number[] {
 
 const INICIO_HISTORICO = "2026-06-01";
 
-const indice = new Map<string, DiaVendas>();
-for (const f of filiais) {
-  for (const iso of intervaloDias(INICIO_HISTORICO, HOJE_ISO)) {
-    indice.set(`${f.id}|${iso}`, gerarDia(f, iso));
+/** Índice puro de vendas por filial+data, parametrizável para testes isolados. */
+export class DiaVendasStore {
+  private readonly indice: Map<string, DiaVendas>;
+  readonly inicio: string;
+  readonly fim: string;
+
+  /** Popula do histórico deterministicamente gerado. */
+  constructor(inicio: string = INICIO_HISTORICO, fim: string = HOJE_ISO) {
+    this.inicio = inicio;
+    this.fim = fim;
+    this.indice = new Map<string, DiaVendas>();
+    for (const f of filiais) {
+      for (const iso of intervaloDias(inicio, fim)) {
+        this.indice.set(`${f.id}|${iso}`, gerarDia(f, iso));
+      }
+    }
+  }
+
+  dia(filialId: string, iso: string): DiaVendas | undefined {
+    return this.indice.get(`${filialId}|${iso}`);
+  }
+
+  dias(filialId: string, inicio: string, fim: string): DiaVendas[] {
+    return intervaloDias(inicio, fim)
+      .map((iso) => this.indice.get(`${filialId}|${iso}`))
+      .filter((d): d is DiaVendas => Boolean(d));
   }
 }
 
+/** Instância padrão usada pela aplicação. */
+export const store = new DiaVendasStore();
+
 export function diaVendas(filialId: string, iso: string): DiaVendas | undefined {
-  return indice.get(`${filialId}|${iso}`);
+  return store.dia(filialId, iso);
 }
 
 export function diasVendas(filialId: string, inicio: string, fim: string): DiaVendas[] {
-  return intervaloDias(inicio, fim)
-    .map((iso) => indice.get(`${filialId}|${iso}`))
-    .filter((d): d is DiaVendas => Boolean(d));
+  return store.dias(filialId, inicio, fim);
 }
 
 /** Agregado de um dia, opcionalmente recortado por divisão e por faixa de horas. */
@@ -236,8 +259,8 @@ export function agregadoDoDia(dia: DiaVendas, divisao: Divisao | null, horaMax?:
       out.itens += a.itens;
     }
     if (divisao) {
-      const fr = dia.total.faturamento > 0 ? dia.porDivisao[divisao].faturamento / dia.total.faturamento : 0;
-      return { faturamento: Math.round(out.faturamento * fr), atendimentos: Math.round(out.atendimentos * fr), itens: Math.round(out.itens * fr) };
+      const r = dia.total.faturamento > 0 ? dia.porDivisao[divisao].faturamento / dia.total.faturamento : 0;
+      return { faturamento: Math.round(out.faturamento * r), atendimentos: Math.round(out.atendimentos * r), itens: Math.round(out.itens * r) };
     }
     return out;
   }
