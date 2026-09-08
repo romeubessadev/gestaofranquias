@@ -13,10 +13,10 @@ import { vendedorElegivel, colaboradoresDaFilial, type Colaborador } from "./equ
 import { metaDaFilial, type Degrau } from "./metas";
 import { desafiosAtivos, progressoIndividual, type Desafio } from "./desafios";
 import { HOJE_ISO, HORA_ATUAL } from "./relogio";
-import { agregadoDoDia, diaVendas, lojaAberta, pesoDia, somarAgregados, type Agregado } from "./vendas";
+import { agregadoDoDia, diaVendas, lojaAberta, somarAgregados, type Agregado } from "./vendas";
 import { filialPorId, filiais, type Filial } from "./filiais";
 import { brlK, curvaReceita, kpiDelta, periodoAnterior, resolverPeriodo, type Escopo, type PeriodoResolvido, type EstadoBloco } from "./dashboard";
-import { brl, deIso, fimDoMes, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
+import { brl, fimDoMes, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
 import type { TintKey } from "@/pages/dashboards/icons";
 
 const PALETA_LOJAS: TintKey[] = ["acc", "ok", "info", "warn", "bad"];

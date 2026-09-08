@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { desafios, desafiosAtivos, progressoIndividual, type Desafio } from "./desafios";
+import { desafios, desafiosAtivos, progressoIndividual } from "./desafios";
 import { colaboradorPorId, colaboradores } from "./equipe";
 
 describe("T1: desafios ativos (EQUIP-05)", () => {

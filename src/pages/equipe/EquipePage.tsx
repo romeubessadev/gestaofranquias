@@ -1,35 +1,44 @@
-import { Card, EmptyState } from "@/components/ui";
+import { useMemo } from "react";
+import { montarEquipeView } from "@/data/gestao/equipeVisoes";
+import { mesAno } from "@/lib/formato";
+import { Avisos } from "@/components/gestao/Avisos";
 import { DashboardShell } from "@/pages/dashboard/DashboardShell";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
+import { BlocoLeitura } from "@/pages/dashboard/blocos";
+import { AvisoCompetencia, BlocoDesafios, BlocoKpisEquipe, BlocoResumoRede, CardVendedoras } from "./blocos";
 
-const ITENS = [
-  "Quatro indicadores: faturamento, ticket, PA e comissão projetada, com variação contra o mês anterior",
-  "Leitura da IA reconciliando meta, ritmo e mix",
-  "Por vendedora, ordenado por atingimento: dias trabalhados, tendência, posição na escada, ponto de atenção, comissão até agora e próximo degrau",
-  "Lacuna de meta sem responsável quando alguém está em período parcial",
-  "Desafios ativos com engajamento e veredito",
-  "Fila de mensagens com badge e botão de WhatsApp",
-];
-
-/** Aba "Equipe" do Dashboard, ainda não construída. Usa o mesmo filtro da Loja (Fase 2). */
+/**
+ * Aba Equipe: análise de metas, desafios e comissão do mês por vendedora.
+ * Filtro global (período/loja/marca); "todas as lojas" mostra um resumo por
+ * loja. Período que não é o mês da competência mostra só desempenho.
+ */
 export function EquipePage() {
   const { escopo, mudar } = useEscopo();
+  const v = useMemo(() => montarEquipeView(escopo), [escopo]);
 
   return (
     <DashboardShell tab="equipe" escopo={escopo} onChange={mudar}>
-      <div className="max-w-2xl">
-        <EmptyState icon="🚧" title="Tela ainda não construída" description="Uma loja mostra a equipe; todas as lojas mostram uma linha por loja. Fase 2 do produto." />
-        <Card className="mt-4">
-          <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-t2">O que ela vai mostrar</p>
-          <ul className="flex flex-col gap-2">
-            {ITENS.map((i) => (
-              <li key={i} className="flex items-start gap-2.5 text-[13px] text-t0">
-                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-acc" />
-                {i}
-              </li>
-            ))}
-          </ul>
-        </Card>
+      <div className="flex flex-col gap-5">
+        {v.avisos.length > 0 && <Avisos itens={v.avisos} />}
+
+        {v.avisoCompetencia && <AvisoCompetencia texto={v.avisoCompetencia} />}
+
+        {v.leitura && <BlocoLeitura texto={v.leitura} />}
+
+        <BlocoKpisEquipe faturamento={v.kpiFaturamento} ticket={v.kpiTicket} pa={v.kpiPA} comissao={v.kpiComissao} metaAtiva={v.metaAtiva} />
+
+        {v.visao === "loja" ? (
+          <CardVendedoras
+            estado={v.estados.vendedoras}
+            lista={v.vendedoras}
+            metaAtiva={v.metaAtiva}
+            competenciaTexto={mesAno(`${v.competencia}-01`)}
+          />
+        ) : (
+          <BlocoResumoRede lojas={v.lojas ?? []} onEscolher={(id) => mudar({ ...escopo, filialId: id, divisao: null })} />
+        )}
+
+        {v.metaAtiva && v.desafios && v.desafios.length > 0 && <BlocoDesafios desafios={v.desafios} />}
       </div>
     </DashboardShell>
   );

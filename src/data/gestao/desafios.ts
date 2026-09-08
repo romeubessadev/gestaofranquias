@@ -5,8 +5,7 @@
  * gerado com a mesma técnica de ruído do gerador de vendas: mesma entrada,
  * mesmo valor, em qualquer dia de validação.
  */
-import { colaboradores, vendedorElegivel, type Colaborador } from "./equipe";
-import { HOJE_ISO, HORA_ATUAL } from "./relogio";
+import { colaboradores, vendedorElegivel } from "./equipe";
 
 export type TipoDesafio = "produto" | "quantidade" | "indice";
 
@@ -92,20 +91,21 @@ export function desafiosAtivos(competencia: string): Desafio[] {
 }
 
 /**
- * Progresso individual do participante no desafio, até agora (15/09, 14h).
- * produto/quantidade: un vendidas; índice: valor do índice (P.A.).
+ * Progresso individual do participante no desafio, até agora (relógio do mock:
+ * 15/09, 14h). produto/quantidade: un vendidas; índice: valor do índice (P.A.).
  * Determinístico pela chave desafio|participante.
  */
 export function progressoIndividual(d: Desafio, colaboradorId: string): number {
   if (!d.participantes.includes(colaboradorId)) return 0;
   const r = prng(hash(`${d.id}|${colaboradorId}`));
-  // Fração do alvo já alcançada: metade do mês decorrida, amplitude ±35%,
+  // Fração do alvo já alcançada: ~metade do mês decorrida (15 dias de 31),
   // algumas pessoas à frente e outras atrás. Índice fica perto do alvo.
   if (d.tipo === "indice") {
     const fator = 0.95 + (r() * 2 - 1) * 0.25;
     return Math.round(d.alvoIndividual * fator * 100) / 100;
   }
-  const fracaoMes = 0.47; // 15 dias de 31, coerente com o relógio do mock
-  const base = d.alvoIndividual * fracaoMes * (0.65 + r() * 1.1);
+  const diasDecorridos = 15; // 1–15/set abertos, coerente com HOJE_ISO/HORA_ATUAL
+  const diasTotais = 31;
+  const base = d.alvoIndividual * (diasDecorridos / diasTotais) * (0.65 + r() * 1.1);
   return Math.max(0, Math.round(base * 10) / 10);
 }
