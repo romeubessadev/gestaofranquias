@@ -93,6 +93,20 @@ export interface VendaNecessariaView {
   semMeta: boolean;
 }
 
+export interface LacunaView {
+  exibir: boolean;
+  efeitoFluxo: number;
+  efeitoTicket: number;
+  gapTotal: number;
+  alavancaDominante: "fluxo" | "ticket" | null;
+  semMeta: boolean;
+}
+
+export interface MixView {
+  itens: { categoria: string; divisao: string; margem: number; receita: number; pct: number }[];
+  periodo: string;
+}
+
 const DIAS_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
 export function resolverPeriodo(p: Periodo): PeriodoResolvido {
@@ -294,6 +308,8 @@ export interface LojaView {
   trilho: TrilhoView | null;
   vendaNecessaria: VendaNecessariaView | null;
   projecao: ProjecaoView | null;
+  diagnostico: LacunaView | null;
+  mix: MixView | null;
   estados: EstadosLojaView;
   kpiFaturamento: KpiValor;
   kpiTicket: KpiValor;
@@ -611,7 +627,7 @@ function ocorrenciasAnteriores(f: Filial, iso: string, n: number): DiaVendasVend
 /** Tipo mínimo de DiaVendas usado pelas curvas. */
 interface DiaVendasVendas {
   data: string;
-  total: { faturamento: number };
+  total: { faturamento: number; atendimentos: number };
 }
 
 /** Meta acumulada esperada até hoje: meta mensal × fração acumulada da curvaReceita (LOJA-01 AC 2-7). */
@@ -711,6 +727,116 @@ function calcularProjecao(fs: Filial[], competencia: string): ProjecaoView {
   const fracaoRestante = 1 - metaAcumuladaAteHoje(fs, competencia, 1, fimReal);
   const projecao = realizado + valor * fracaoRestante * indice;
   return { valor: projecao, disponivel: true, encerrada: false, indice };
+}
+
+/** curvaAtendimentos (AD-034): pesos diários normalizados a partir do histórico de atendimentos. */
+function curvaAtendimentos(fs: Filial[], competencia: string): CurvaReceita {
+  const primeiroDia = `${competencia}-01`;
+  const ultimoDia = fimDoMes(primeiroDia);
+  const pesos = new Map<string, number>();
+  let soma = 0;
+  for (const iso of intervaloDias(primeiroDia, ultimoDia)) {
+    let bruto = 0;
+    let abertas = 0;
+    for (const f of fs) {
+      if (!lojaAberta(f, iso)) continue;
+      const ocas = ocorrenciasAnteriores(f, iso, 4);
+      bruto += ocas.length > 0 ? ocas.reduce((s, d) => s + d.total.atendimentos, 0) / ocas.length : pesoDia(f, iso);
+      abertas++;
+    }
+    if (abertas === 0) continue;
+    pesos.set(iso, bruto);
+    soma += bruto;
+  }
+  return {
+    soma,
+    peso: (iso: string) => (soma > 0 ? (pesos.get(iso) ?? 0) / soma : 0),
+    pesoBruto: (iso: string) => pesos.get(iso) ?? 0,
+  };
+}
+
+/** Diagnóstica a lacuna de receita entre fluxo e ticket (LOJA-04 AC 1-9). */
+function calcularLacuna(fs: Filial[], competencia: string, pctTrilho: number | null): LacunaView {
+  const metasFs = fs.map((f) => metaDaFilial(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+  if (metasFs.length === 0) return { exibir: false, efeitoFluxo: 0, efeitoTicket: 0, gapTotal: 0, alavancaDominante: null, semMeta: true };
+
+  const meta = metasFs.reduce((s, m) => s + m.valorLoja, 0);
+  const primeiroDia = `${competencia}-01`;
+  const ultimoDia = fimDoMes(primeiroDia);
+  const fechada = ultimoDia < HOJE_ISO;
+  const fimReal = fechada ? ultimoDia : HOJE_ISO;
+
+  // Atendimentos esperados no mês: soma da curvaAtendimentos (peso normalizado × faturamento? Não—
+  // é o total esperado de atendimentos do mês). O total esperado = (média diária × dias abertos).
+  const cA = curvaAtendimentos(fs, competencia);
+  const cR = curvaReceita(fs, competencia);
+  // Total esperado do mês = soma dos pesos brutos de atendimentos (cada dia = média de 4 semanas).
+  const totalEsperadoMes = cA.soma; // soma dos pesos brutos = média diária × nº dias — já é n atendimentos esperados.
+  const ticketMeta = totalEsperadoMes > 0 ? meta / totalEsperadoMes : 0;
+
+  // Atendimentos esperados até hoje = total mensal × fração acumulada da curvaReceita.
+  const fracaoAcumReceita = intervaloDias(primeiroDia, fimReal).reduce((s, iso) => s + cR.peso(iso), 0);
+  const atendimentosEsperadosAteHoje = totalEsperadoMes * fracaoAcumReceita;
+
+  // Atendimentos realizados até hoje.
+  const atendimentosRealizadosAteHoje = fs.reduce((s, f) => s + agregadoPeriodo(f, primeiroDia, fimReal, null).atendimentos, 0);
+
+  // Ticket realizado até hoje.
+  const realizadoReceita = fs.reduce((s, f) => s + agregadoPeriodo(f, primeiroDia, fimReal, null).faturamento, 0);
+  const ticketRealAteHoje = atendimentosRealizadosAteHoje > 0 ? realizadoReceita / atendimentosRealizadosAteHoje : 0;
+
+  // Efeitos (LOJA-04 AC 5-6); interação já contida no efeito fluxo.
+  const efeitoFluxo = (atendimentosEsperadosAteHoje - atendimentosRealizadosAteHoje) * ticketMeta;
+  const efeitoTicket = (ticketMeta - ticketRealAteHoje) * atendimentosRealizadosAteHoje;
+  const gapTotal = meta * fracaoAcumReceita - realizadoReceita;
+
+  // Alavanca dominante (AC 8-9): apenas efeitos positivos; maior ≥ 60% da soma dos positivos.
+  const positivos = [efeitoFluxo, efeitoTicket].filter((e) => e > 0);
+  const somaPositivos = positivos.reduce((s, e) => s + e, 0);
+  let alavancaDominante: LacunaView["alavancaDominante"] = null;
+  if (somaPositivos > 0 && positivos.length > 0) {
+    const maior = Math.max(...positivos);
+    if (maior >= 0.6 * somaPositivos) alavancaDominante = efeitoFluxo >= efeitoTicket ? "fluxo" : "ticket";
+  }
+
+  // Exibe apenas quando pctTrilho < 90 (AD-033).
+  return {
+    exibir: pctTrilho !== null && pctTrilho < 90,
+    efeitoFluxo,
+    efeitoTicket,
+    gapTotal,
+    alavancaDominante,
+    semMeta: false,
+  };
+}
+
+/** Mix do período/marca selecionados: participação por categoria com margem (LOJA-04 AC 10). */
+function montarMix(fs: Filial[], inicio: string, fim: string, divisao: Divisao | null, rotuloPeriodo: string): MixView {
+  const catResumo = new Map<number, { receita: number; cmv: number }>();
+  for (const f of fs) {
+    for (const d of diasVendas(f.id, inicio, fim)) {
+      for (const [id, c] of Object.entries(d.porCategoria)) {
+        const cat = categorias.find((x) => x.id === Number(id));
+        if (!cat || (divisao && cat.divisao !== divisao)) continue;
+        let acc = catResumo.get(cat.id);
+        if (!acc) {
+          acc = { receita: 0, cmv: 0 };
+          catResumo.set(cat.id, acc);
+        }
+        acc.receita += c.faturamento;
+        acc.cmv += c.cmv;
+      }
+    }
+  }
+  const total = [...catResumo.values()].reduce((s, c) => s + c.receita, 0);
+  const itens = [...catResumo.entries()]
+    .map(([id, c]) => {
+      const cat = categorias.find((x) => x.id === id)!;
+      const margem = c.receita - c.cmv;
+      return { categoria: cat.nome, divisao: cat.divisao, margem, receita: c.receita, pct: total > 0 ? (c.receita / total) * 100 : 0 };
+    })
+    .sort((a, b) => b.receita - a.receita);
+  return { itens, periodo: rotuloPeriodo };
 }
 
 export function montarLojaView(escopo: Escopo): LojaView {
@@ -1068,13 +1194,15 @@ export function montarLojaView(escopo: Escopo): LojaView {
     trilho,
     vendaNecessaria,
     projecao: calcularProjecao(fs, competenciaTrilho),
+    diagnostico: calcularLacuna(fs, competenciaTrilho, trilho?.pctTrilho ?? null),
+    mix: visao === "periodo" ? montarMix(fs, periodo.inicio, periodo.fim, divisao, periodo.rotulo) : null,
     estados: {
       kpis: "disponivel",
       trilho: trilho ? "disponivel" : "sem_dados",
       vendaNecessaria: vendaNecessaria ? "disponivel" : "sem_dados",
       projecao: trilho && vendaNecessaria ? "disponivel" : trilho ? "sem_dados" : "indisponivel",
-      diagnostico: "sem_dados",
-      mix: "sem_dados",
+      diagnostico: trilho?.status === "abaixo" ? "disponivel" : "sem_dados",
+      mix: visao === "periodo" ? "disponivel" : "sem_dados",
       lojas: "disponivel",
     },
     kpiFaturamento,

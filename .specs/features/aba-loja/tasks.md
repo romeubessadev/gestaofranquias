@@ -216,7 +216,7 @@ T8 -> T9
 
 ---
 
-### T5: Implementar diagnóstico fluxo/ticket (LOJA-04)
+### T5: Implementar diagnóstico fluxo/ticket (LOJA-04) ✅
 
 **What**: Decomposição fechada do gap em efeito fluxo e efeito ticket, regra da alavanca dominante (60%) e flag `exibir` (<90%), com mix separado na camada de dados.
 **Where**: `src/data/gestao/loja.ts`
