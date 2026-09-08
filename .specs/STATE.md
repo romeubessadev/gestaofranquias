@@ -53,11 +53,12 @@
 | AD-042 | active | Desafios são objetivos pontuais de produto, quantidade ou índice — nunca em reais; o prêmio é o único campo monetário. Mock determinístico (mesma técnica de ruído do `vendas.ts`) com 3 desafios na competência corrente. | 2026-09-08 |
 | AD-043 | active | Aba Equipe usa `DataTable` do tema para desempenho das vendedoras e desafios; visão "todas as lojas" mostra um resumo por loja (melhor/pior atingimento) com clique que troca o filtro preservando período e marca. | 2026-09-08 |
 | AD-044 | active | Camada de visões da Equipe vive em `equipeVisoes.ts` (separada do cadastro `equipe.ts`) para evitar ciclo de módulos com `vendas.ts`, que consome o cadastro no boot. | 2026-09-08 |
+| AD-045 | active | Visão rede da Equipe = tabela de vendedoras com coluna Shopping; abas Vendedoras\|Lojas com meta ativa; faixa global com badges de projeção e dias restantes; BlocoResumoRede removido. | 2026-09-08 |
 
 ## Handoff — snapshot
 
-- Rodada atual: **Aba Equipe** (metas individuais, desafios e comissão da equipe).
-- Spec em `.specs/features/aba-equipe/`; implementação em `equipeVisoes.ts` (views), `desafios.ts` (mock), `src/pages/equipe/` (UI).
-- Regra central: `metaAtiva` (AD-040) — meta/comissão/desafios só no mês da competência; fora dele, só desempenho do período.
-- Pendências: prova visual no Pages (deploy automático no push); futura tela de Configurações · Desafios (regra "nunca em reais" já registrada em AD-042).
-- Próximo passo sugerido: revisar a Equipe publicada e decidir a próxima tela (Financeiro ou Produtos).
+- Rodada atual: **Equipe · visão rede** (`equipe-rede-vendedoras`) — **Verified PASS** (101 testes; AD-045).
+- Spec/validação em `.specs/features/equipe-rede-vendedoras/`; domínio em `equipeVisoes.ts`; UI em `src/pages/equipe/` (`FaixaMetaGlobal`, `BlocoVendedorasRede`).
+- Regra central: `metaAtiva` (AD-040) + AD-045 (tabela flat com Shopping / abas / faixa global; sem cards de resumo por loja).
+- Pendências: prova visual no Pages (deploy no push); assumptions `n` da spec (ordenação visual, clique na linha, divisão×lista quando houver exemplos).
+- Próximo passo sugerido: revisão visual da rede publicada; em seguida Financeiro ou Produtos.

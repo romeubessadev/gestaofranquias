@@ -9,7 +9,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 ---
 
 **Design**: `.specs/features/equipe-rede-vendedoras/design.md`
-**Status**: Approved · In Progress
+**Status**: Done · Verified PASS
 
 ---
 
@@ -47,7 +47,7 @@ Fase única (cadeia linear; 5 tasks, batch único inline).
 
 ### T1: dimensão filial na linha + visão rede flat
 
-- [x] **T1 — `filialId`/`filialNome` em `VendedoraLinha` e `vendedoras` flat na visão rede**
+- [x] **T1 — `filialId`/`filialNome` em `VendedoraLinha` e `vendedoras` flat na visão rede** — **Done**
 **Where**: `src/data/gestao/equipeVisoes.ts` (modify)
 **Depends on**: None
 **Reuses**: `visaoVendedoras` (única fonte de linha), `visaoRede` existente
@@ -60,11 +60,11 @@ Fase única (cadeia linear; 5 tasks, batch único inline).
 
 **Done when**:
 
-- [ ] `VendedoraLinha` tem `filialId`/`filialNome` preenchidos nas duas visões
-- [ ] `visaoRede` retorna `vendedoras` (flat, ordenada pela regra da loja)
-- [ ] `LojaEquipeResumo` com os 3 campos novos calculados
-- [ ] Testes novos passam; count sobe sem deletar existentes
-- [ ] Gate check passes: `npx vitest run src/data/gestao/equipeVisoes.test.ts` + `npx tsc -b --noEmit`
+- [x] `VendedoraLinha` tem `filialId`/`filialNome` preenchidos nas duas visões
+- [x] `visaoRede` retorna `vendedoras` (flat, ordenada pela regra da loja)
+- [x] `LojaEquipeResumo` com os 3 campos novos calculados
+- [x] Testes novos passam; count sobe sem deletar existentes
+- [x] Gate check passes: `npx vitest run src/data/gestao/equipeVisoes.test.ts` + `npx tsc -b --noEmit`
 
 **Tests**: unit
 **Gate**: quick
@@ -75,6 +75,7 @@ Fase única (cadeia linear; 5 tasks, batch único inline).
 
 ### T2: meta global da rede
 
+- [x] **T2 — `RedeMetaGlobal` em `EquipeView.metaGlobal`** — **Done**
 **What**: `RedeMetaGlobal` (competTexto, realizado, total, pct, projetadoPct, diasRestantes) em `EquipeView.metaGlobal`, null fora da competência.
 **Where**: `src/data/gestao/equipeVisoes.ts` (modify)
 **Depends on**: T1
@@ -88,10 +89,10 @@ Fase única (cadeia linear; 5 tasks, batch único inline).
 
 **Done when**:
 
-- [ ] `metaGlobal` calculada só em visão rede com meta ativa; null caso contrário
-- [ ] `total` soma só lojas com meta; `pct = realizado/total*100`
-- [ ] `projetadoPct` via fração acumulada da curva da rede
-- [ ] Gate check passes: `npx vitest run src/data/gestao/equipeVisoes.test.ts`
+- [x] `metaGlobal` calculada só em visão rede com meta ativa; null caso contrário
+- [x] `total` soma só lojas com meta; `pct = realizado/total*100`
+- [x] `projetadoPct` via fração acumulada da curva da rede
+- [x] Gate check passes: `npx vitest run src/data/gestao/equipeVisoes.test.ts`
 
 **Tests**: unit
 **Gate**: quick
@@ -102,6 +103,7 @@ Fase única (cadeia linear; 5 tasks, batch único inline).
 
 ### T3: faixa de meta global na UI
 
+- [x] **T3 — `FaixaMetaGlobal` + badges** — **Done**
 **What**: Componente `FaixaMetaGlobal` (faixa + barra + badges de projeção e dias restantes) renderizado na EquipePage em visão rede com meta ativa.
 **Where**: `src/pages/equipe/blocos.tsx`, `src/pages/equipe/EquipePage.tsx` (modify)
 **Depends on**: T2
@@ -115,10 +117,10 @@ Fase única (cadeia linear; 5 tasks, batch único inline).
 
 **Done when**:
 
-- [ ] Faixa com formato `META DE [MÊS] · R$ X DE R$ Y · Z%` + barra + % à direita
-- [ ] Badge "Meta será atingida"/"Projeção abaixo da meta" conforme `projetadoPct >= 100`; "N dias restantes"
-- [ ] Não aparece fora da visão rede nem sem meta
-- [ ] Gate check passes: `npx tsc -b --noEmit` + `npx vitest run`
+- [x] Faixa com formato `META DE [MÊS] · R$ X DE R$ Y · Z%` + barra + % à direita
+- [x] Badge "Meta será atingida"/"Projeção abaixo da meta" conforme `projetadoPct >= 100`; "N dias restantes"
+- [x] Não aparece fora da visão rede nem sem meta
+- [x] Gate check passes: `npx tsc -b --noEmit` + `npx vitest run`
 
 **Tests**: none (UI render — cobertura da matriz é prova visual)
 **Gate**: build
@@ -129,6 +131,7 @@ Fase única (cadeia linear; 5 tasks, batch único inline).
 
 ### T4: tabela da rede com Shopping e abas Vendedoras|Lojas
 
+- [x] **T4 — `BlocoVendedoras` + `BlocoVendedorasRede`; remove `BlocoResumoRede`** — **Done**
 **What**: `BlocoVendedoras` reutilizável (`mostrarShopping`), `BlocoVendedorasRede` com abas internas substituindo `BlocoResumoRede`.
 **Where**: `src/pages/equipe/blocos.tsx`, `src/pages/equipe/EquipePage.tsx` (modify)
 **Depends on**: T3
@@ -142,11 +145,11 @@ Fase única (cadeia linear; 5 tasks, batch único inline).
 
 **Done when**:
 
-- [ ] Coluna Shopping presente na aba Vendedoras e ausente nas tabelas aninhadas da aba Lojas
-- [ ] Aba Lojas: bloco por loja com `% da meta global`, barra, `atingido / meta` e tabela aninhada
-- [ ] Abas só com meta ativa; sem meta → tabela flat de desempenho (REDE-04)
-- [ ] Loja única inalterada (REDE-05); `BlocoResumoRede` removido sem referências pendentes
-- [ ] Gate check passes: `npx tsc -b --noEmit` + `npx vitest run` (99+ testes)
+- [x] Coluna Shopping presente na aba Vendedoras e ausente nas tabelas aninhadas da aba Lojas
+- [x] Aba Lojas: bloco por loja com `% da meta global`, barra, `atingido / meta` e tabela aninhada
+- [x] Abas só com meta ativa; sem meta → tabela flat de desempenho (REDE-04)
+- [x] Loja única inalterada (REDE-05); `BlocoResumoRede` removido sem referências pendentes
+- [x] Gate check passes: `npx tsc -b --noEmit` + `npx vitest run` (99+ testes)
 
 **Tests**: none (unit — cobertura via regressão da suíte; UI por prova visual)
 **Gate**: full
@@ -157,6 +160,7 @@ Fase única (cadeia linear; 5 tasks, batch único inline).
 
 ### T5: verificação final
 
+- [x] **T5 — Verifier + validation.md + AD-045** — **Done**
 **What**: Verifier (spec-anchored + discrimination sensor), `validation.md`, AD-045 no `STATE.md`.
 **Where**: `.specs/features/equipe-rede-vendedoras/validation.md`, `.specs/STATE.md`
 **Depends on**: T4
@@ -170,10 +174,10 @@ Fase única (cadeia linear; 5 tasks, batch único inline).
 
 **Done when**:
 
-- [ ] validation.md PASS com evidências file:line por AC
-- [ ] Sensor de discriminação executado (mutantes mortos)
-- [ ] AD-045 registrada
-- [ ] Gate check passes: `npx vitest run` + `validate_state.py` exit 0
+- [x] validation.md PASS com evidências file:line por AC
+- [x] Sensor de discriminação executado (mutantes mortos)
+- [x] AD-045 registrada
+- [x] Gate check passes: `npx vitest run` + `validate_state.py` exit 0
 
 **Tests**: unit
 **Gate**: full

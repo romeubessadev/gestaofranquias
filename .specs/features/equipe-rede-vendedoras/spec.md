@@ -6,8 +6,8 @@ Na visão "Todas as lojas" da aba Equipe, o card "Equipe por loja" mostra apenas
 
 ## Goals
 
-- [ ] Na visão "Todas as lojas" com meta ativa, o gestor vê todas as vendedoras da rede numa única tabela com a coluna Shopping.
-- [ ] O card abre com uma faixa de meta global da rede: valor atingido, valor total e % atingido, no formato do print de referência.
+- [x] Na visão "Todas as lojas" com meta ativa, o gestor vê todas as vendedoras da rede numa única tabela com a coluna Shopping.
+- [x] O card abre com uma faixa de meta global da rede: valor atingido, valor total e % atingido, no formato do print de referência.
 
 ## Out of Scope
 
@@ -115,31 +115,31 @@ Na visão "Todas as lojas" da aba Equipe, o card "Equipe por loja" mostra apenas
 
 | Requirement ID | Story | Phase | Status |
 | -------------- | ----- | ----- | ------ |
-| REDE-01 | P1: Tabela da rede com Shopping | Tasks | Implementing |
-| REDE-02 | P1: Tabela da rede com Shopping | Tasks | Implementing |
-| REDE-03 | P1: Tabela da rede com Shopping | Design | Pending |
-| REDE-04 | P1: Tabela da rede com Shopping | Design | Pending |
-| REDE-05 | P1: Tabela da rede com Shopping | Design | Pending |
-| REDE-06 | P2: Faixa de meta global | Design | Pending |
-| REDE-07 | P2: Faixa de meta global | Design | Pending |
-| REDE-08 | P2: Faixa de meta global | Design | Pending |
-| REDE-09 | P2: Faixa de meta global | Design | Pending |
-| REDE-10 | P2: Faixa de meta global | Design | Pending |
-| REDE-11 | P2: Faixa de meta global | Design | Pending |
-| REDE-12 | P2b: Abas Vendedoras \| Lojas | Design | Pending |
-| REDE-13 | P2b: Abas Vendedoras \| Lojas | Design | Pending |
-| REDE-14 | P2b: Abas Vendedoras \| Lojas | Design | Pending |
-| REDE-15 | P2b: Abas Vendedoras \| Lojas | Design | Pending |
-| REDE-16 | P3: Veredito coerente | Design | Pending |
-| REDE-17 | P3: Veredito coerente | Design | Pending |
+| REDE-01 | P1: Tabela da rede com Shopping | Execute | Verified |
+| REDE-02 | P1: Tabela da rede com Shopping | Execute | Verified |
+| REDE-03 | P1: Tabela da rede com Shopping | Execute | Verified |
+| REDE-04 | P1: Tabela da rede com Shopping | Execute | Verified |
+| REDE-05 | P1: Tabela da rede com Shopping | Execute | Verified |
+| REDE-06 | P2: Faixa de meta global | Execute | Verified |
+| REDE-07 | P2: Faixa de meta global | Execute | Verified |
+| REDE-08 | P2: Faixa de meta global | Execute | Verified |
+| REDE-09 | P2: Faixa de meta global | Execute | Verified |
+| REDE-10 | P2: Faixa de meta global | Execute | Verified |
+| REDE-11 | P2: Faixa de meta global | Execute | Verified |
+| REDE-12 | P2b: Abas Vendedoras \| Lojas | Execute | Verified |
+| REDE-13 | P2b: Abas Vendedoras \| Lojas | Execute | Verified |
+| REDE-14 | P2b: Abas Vendedoras \| Lojas | Execute | Verified |
+| REDE-15 | P2b: Abas Vendedoras \| Lojas | Execute | Verified |
+| REDE-16 | P3: Veredito coerente | Execute | Verified |
+| REDE-17 | P3: Veredito coerente | Execute | Verified |
 
-**Coverage:** 17 total, 0 mapped to tasks, 17 unmapped ⚠️
+**Coverage:** 17 total, 17 mapped to tasks (T1–T5), 17 Verified — ver `validation.md`
 
 ---
 
 ## Success Criteria
 
-- [ ] Com "Todas as lojas" + "Este mês", a tabela única lista todas as vendedoras da rede com Shopping e as colunas do print.
-- [ ] A faixa global mostra R$ atingido de R$ total com % e barra, fechando com a soma das metas das lojas.
-- [ ] Sem meta ativa, a tabela vira desempenho puro com Shopping e some a faixa.
-- [ ] 99+ testes do projeto continuam passando, incluindo novos testes da visão rede.
+- [x] Com "Todas as lojas" + "Este mês", a tabela única lista todas as vendedoras da rede com Shopping e as colunas do print.
+- [x] A faixa global mostra R$ atingido de R$ total com % e barra, fechando com a soma das metas das lojas.
+- [x] Sem meta ativa, a tabela vira desempenho puro com Shopping e some a faixa.
+- [x] 99+ testes do projeto continuam passando, incluindo novos testes da visão rede.
