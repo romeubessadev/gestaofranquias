@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { agregadoVendedoraPeriodo, metaIndividual, vendedorasDaLoja } from "./equipeViews";
+import { agregadoVendedoraPeriodo, degrausDaFilial, escadaVendedora, metaIndividual, vendedorasDaLoja, type MetaIndividual } from "./equipeViews";
 import { colaboradorPorId } from "./equipe";
-import { metaDaFilial } from "./metas";
+import { metaDaFilial, type Degrau } from "./metas";
 import { HOJE_ISO } from "./relogio";
 
 describe("T2: meta individual derivada (EQUIP-03)", () => {
@@ -83,5 +83,71 @@ describe("T2: agregados por vendedora no período (EQUIP-02)", () => {
     const ana = colaboradorPorId("c01")!;
     const ateAgora = agregadoVendedoraPeriodo(ana, "f1", HOJE_ISO, HOJE_ISO);
     expect(ateAgora.faturamento).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("T3: escada de degraus e comissão (EQUIP-04)", () => {
+  const degrausPadrao = degrausDaFilial("f1", "2026-09");
+  const metaBase: MetaIndividual = { valor: 1000, proporcional: false, diasElegiveis: 30, diasAbertosMes: 30 };
+  const escadaDe = (degraus: Degrau[], meta = metaBase) => (realizado: number) => escadaVendedora(realizado, meta, degraus);
+
+  it("antes do primeiro degrau: degrau null, comissão e bônus 0", () => {
+    const e = escadaDe(degrausPadrao)(400); // 40% < 100%
+    expect(e!.degrau).toBeNull();
+    expect(e!.comissao).toBe(0);
+    expect(e!.bonus).toBe(0);
+  });
+
+  it("fronteira exata: 100% entra no degrau Meta, 120% no Super Meta", () => {
+    const exata = escadaDe(degrausPadrao)(1000);
+    expect(exata!.degrau!.nome).toBe("Meta");
+    expect(exata!.comissao).toBeCloseTo(1000 * 0.015, 6);
+    expect(exata!.bonus).toBe(50);
+    const superMeta = escadaDe(degrausPadrao)(1200);
+    expect(superMeta!.degrau!.nome).toBe("Super Meta");
+    expect(superMeta!.comissao).toBeCloseTo(1200 * 0.02, 6);
+    expect(superMeta!.bonus).toBe(100);
+  });
+
+  it("degrau alcançado é o maior possível (150% → Hiper, não Super)", () => {
+    const e = escadaDe(degrausPadrao)(1500);
+    expect(e!.degrau!.nome).toBe("Hiper Meta");
+  });
+
+  it("bônus entra uma única vez (não dobra na projeção)", () => {
+    const e = escadaDe(degrausPadrao)(1500);
+    // bônus do Hiper = 150, uma vez; comissão separada do bônus.
+    expect(e!.bonus).toBe(150);
+    expect(e!.comissao).toBeCloseTo(1500 * 0.025, 6);
+  });
+
+  it("próximo degrau: falta = meta × minPct ÷ 100 − realizado", () => {
+    const e = escadaDe(degrausPadrao)(1000);
+    expect(e!.proximo!.nome).toBe("Super Meta");
+    expect(e!.proximo!.faltaValor).toBeCloseTo(1200 - 1000, 6);
+    // Já no último: null.
+    const topo = escadaDe(degrausPadrao)(1900);
+    expect(topo!.proximo).toBeNull();
+  });
+
+  it("sem meta individual (null ou zero) escada é null", () => {
+    expect(escadaVendedora(500, null, degrausPadrao)).toBeNull();
+    expect(escadaVendedora(500, { ...metaBase, valor: 0 }, degrausPadrao)).toBeNull();
+  });
+
+  it("escada lê degraus CUSTOMIZADOS da meta da filial, não os padrões", () => {
+    const custom: Degrau[] = [
+      { nome: "Bronze", atingimentoMinPct: 60, comissaoPct: 1.0, bonus: 10 },
+      { nome: "Prata", atingimentoMinPct: 90, comissaoPct: 2.0, bonus: 30 },
+    ];
+    const e = escadaDe(custom)(900); // 90% → Prata na custom (seria Sem degrau na padrão)
+    expect(e!.degrau!.nome).toBe("Prata");
+    expect(e!.comissao).toBeCloseTo(900 * 0.02, 6);
+    expect(e!.bonus).toBe(30);
+    expect(e!.proximo).toBeNull();
+  });
+
+  it("degrausDaFilial devolve os degraus da competência (smoke da fonte)", () => {
+    expect(degrausDaFilial("f1", "2026-09")).toBe(metaDaFilial("f1", "2026-09")!.degraus);
   });
 });

@@ -139,7 +139,7 @@ T6 -> T7 -> T8
 
 ---
 
-### T3: Escada de degraus e comissão por vendedora
+### T3: Escada de degraus e comissão por vendedora ✅
 
 **What**: Calcular para cada vendedora o degrau alcançado na escada da filial, comissão acumulada, bônus e quanto falta pro próximo degrau.
 **Where**: `src/data/gestao/equipe.ts`

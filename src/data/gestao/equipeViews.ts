@@ -5,7 +5,7 @@
  * importar o cadastro daqui evita ciclo de módulos.
  */
 import { vendedorElegivel, colaboradoresDaFilial, type Colaborador } from "./equipe";
-import { metaDaFilial, type Meta } from "./metas";
+import { metaDaFilial, type Meta, type Degrau } from "./metas";
 import { HOJE_ISO, HORA_ATUAL } from "./relogio";
 import { agregadoDoDia, diaVendas, lojaAberta } from "./vendas";
 import { filialPorId, type Filial } from "./filiais";
@@ -102,4 +102,47 @@ export function agregadoVendedoraPeriodo(c: Colaborador, filialId: string, inici
 export function vendedorasDaLoja(filialId: string, competencia: string): Colaborador[] {
   const primeiroMes = `${competencia}-01`;
   return colaboradoresDaFilial(filialId).filter((c) => presenteNoDia(c, primeiroMes) || presenteNoDia(c, HOJE_ISO));
+}
+
+export interface EscadaLinha {
+  /** Degrau alcançado (maior minPct ≤ atingimento); null antes do primeiro. */
+  degrau: Degrau | null;
+  /** Comissão acumulada: realizado × comissaoPct do degrau ÷ 100. */
+  comissao: number;
+  /** Bônus do degrau — só entra quando o degrau é alcançado. */
+  bonus: number;
+  /** Próximo degrau e quanto falta em R$; null no último degrau. */
+  proximo: { nome: string; faltaValor: number } | null;
+}
+
+/** Escada de degraus da Meta customizada da filial (não a padrão global). */
+export function degrausDaFilial(filialId: string, competencia: string): Degrau[] {
+  return metaDaFilial(filialId, competencia)?.degraus ?? [];
+}
+
+/**
+ * Posição na escada: degrau alcançado pelo atingimento individual, comissão
+ * acumulada, bônus e quanto falta pro próximo. Comissão sem degrau é 0 —
+ * a vendedora só comissiona ao entrar no primeiro degrau.
+ */
+export function escadaVendedora(
+  realizado: number,
+  metaInd: MetaIndividual | null,
+  degraus: Degrau[],
+): EscadaLinha | null {
+  if (!metaInd || metaInd.valor <= 0) return null;
+  const atingPct = (realizado / metaInd.valor) * 100;
+  let degrau: Degrau | null = null;
+  for (const d of degraus) {
+    if (atingPct >= d.atingimentoMinPct) degrau = d;
+    else break;
+  }
+  const idx = degrau ? degraus.indexOf(degrau) : -1;
+  const comissao = degrau ? (realizado * degrau.comissaoPct) / 100 : 0;
+  const bonus = degrau ? degrau.bonus : 0;
+  const seguinte = idx + 1 < degraus.length ? degraus[idx + 1] : null;
+  const proximo = seguinte
+    ? { nome: seguinte.nome, faltaValor: Math.max(0, (metaInd.valor * seguinte.atingimentoMinPct) / 100 - realizado) }
+    : null;
+  return { degrau, comissao, bonus, proximo };
 }
