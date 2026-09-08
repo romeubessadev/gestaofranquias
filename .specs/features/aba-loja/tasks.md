@@ -294,7 +294,7 @@ T8 -> T9
 
 ---
 
-### T8: Implementar mix em DonutChart com margem (AC 10)
+### T8: Implementar mix em DonutChart com margem (AC 10) ✅
 
 **What**: Renderizar o mix por categoria como `DonutChart` (participação de faturamento) com margem na legend a/detalhe, para o período e a marca selecionados.
 **Where**: `src/pages/loja/blocos.tsx`

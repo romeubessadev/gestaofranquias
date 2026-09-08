@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { useSessaoAtiva } from "@/session/SessionProvider";
 import { DashboardShell } from "./DashboardShell";
 import { useEscopo } from "./useEscopo";
-import { BlocoAlertas, BlocoCategorias, BlocoChecklist, BlocoComparacao, BlocoEvolucao, BlocoKpis, BlocoLucroBruto, BlocoPorHora, BlocoPorHoraRede, BlocoRegua, BlocoRitmo, EstadoBloco } from "./blocos";
+import { BlocoAlertas, BlocoCategorias, BlocoChecklist, BlocoComparacao, BlocoEvolucao, BlocoKpis, BlocoLucroBruto, BlocoMix, BlocoPorHora, BlocoPorHoraRede, BlocoRegua, BlocoRitmo, EstadoBloco } from "./blocos";
 
 /**
  * Loja: mesmo conjunto de 4 tiles no topo em qualquer visão. Abaixo, um par
@@ -60,6 +60,12 @@ export function LojaPage() {
         {!principal && lateral}
 
         {v.regua && <BlocoRegua regua={v.regua} modoMarca={Boolean(escopo.divisao)} onEscolher={(id) => mudar({ ...escopo, filialId: id, divisao: null })} />}
+
+        {v.mix && (
+          <EstadoBloco estado={v.estados.mix}>
+            <BlocoMix mix={v.mix} />
+          </EstadoBloco>
+        )}
 
         {podeVerCusto && v.categorias && v.categorias.length > 0 && <BlocoCategorias categorias={v.categorias} escopoId={escopo.filialId} />}
       </div>

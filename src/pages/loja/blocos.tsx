@@ -1,11 +1,11 @@
 import { useState, type ReactNode } from "react";
 import { Accordion, Badge, Card, CardHeader, CardTitle, DataTable, EmptyState, Modal, ProgressBar, Skeleton, Switch, type AccordionItemData, type DataTableColumn } from "@/components/ui";
-import { AreaLineChart, BarChart, StackedBarChart } from "@/components/charts";
+import { AreaLineChart, BarChart, DonutChart, StackedBarChart } from "@/components/charts";
 import { ICONS, TINT, type IconKey, type TintKey } from "@/pages/dashboards/icons";
 import { KpiSubtitulo, KpiTile } from "@/pages/dashboards/KpiTile";
 import { cn } from "@/lib/cn";
 import { brl } from "@/lib/formato";
-import { brlK, type AlertaSistema, type CategoriaLinha, type ChecklistDia, type ComparacaoView, type EstadoBloco as EstadoBlocoTipo, type GraficoEvolucao, type GraficoHora, type GraficoHoraRede, type ItemLucro, type KpiValor, type LinhaRegua, type PontoAtencao, type RitmoCard, type TileMetaProjecao, type TurnoLinha } from "@/data/gestao/loja";
+import { brlK, type AlertaSistema, type CategoriaLinha, type ChecklistDia, type ComparacaoView, type EstadoBloco as EstadoBlocoTipo, type GraficoEvolucao, type GraficoHora, type GraficoHoraRede, type ItemLucro, type KpiValor, type LinhaRegua, type MixView, type PontoAtencao, type RitmoCard, type TileMetaProjecao, type TurnoLinha } from "@/data/gestao/loja";
 import { produtosDaCategoria, type ProdutoResumo } from "@/data/gestao/produtos";
 
 /* ---------- Estados de leitura (LOJA-07): carregando → Skeleton; sem dados → EmptyState ---------- */
@@ -33,6 +33,46 @@ export function EstadoBloco({ estado, children }: { estado: EstadoBlocoTipo; chi
       title={ROTULO_ESTADO[estado]}
       description={estado === "sem_dados" ? "Não existem vendas para o período selecionado." : "Tente outro período ou consulte a equipe de TI."}
     />
+  );
+}
+
+/* ---------- Mix por categoria (LOJA-04 AC 10): DonutChart + margem na legenda ---------- */
+
+const CORES_MIX: TintKey[] = ["acc", "bad", "info", "ok", "warn"];
+
+export function BlocoMix({ mix }: { mix: MixView }) {
+  const segments = mix.itens.map((it, i) => ({
+    label: it.categoria,
+    value: it.receita,
+    color: TINT[CORES_MIX[i % CORES_MIX.length]].fg,
+  }));
+  return (
+    <Card className="flex flex-col">
+      <CardHeader>
+        <CardTitle>Mix por categoria</CardTitle>
+        <p className="mt-1 text-[12.5px] text-t2">{mix.periodo}</p>
+      </CardHeader>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <DonutChart segments={segments} size={150} centerLabel="Mix" centerValue={`${mix.itens.length} cat.`} />
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          {mix.itens.map((it) => (
+            <div key={it.categoria} className="flex items-center justify-between gap-2 rounded-lg bg-bg-inset px-3 py-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: TINT[CORES_MIX[mix.itens.indexOf(it) % CORES_MIX.length]].fg }} />
+                <div className="min-w-0">
+                  <p className="truncate text-[12.5px] font-bold text-t0">{it.categoria}</p>
+                  <p className="text-[11px] text-t2">{it.divisao}</p>
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-[12.5px] font-bold text-t0">{Math.round(it.pct)}%</p>
+                <p className="text-[11px] text-t2">margem {brl(it.margem)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
   );
 }
 
