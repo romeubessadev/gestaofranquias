@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { useSessaoAtiva } from "@/session/SessionProvider";
 import { DashboardShell } from "./DashboardShell";
 import { useEscopo } from "./useEscopo";
-import { BlocoAlertas, BlocoCategorias, BlocoChecklist, BlocoComparacao, BlocoDiagnostico, BlocoEvolucao, BlocoKpis, BlocoLucroBruto, BlocoMix, BlocoPorHora, BlocoPorHoraRede, BlocoProjecao, BlocoRegua, BlocoRitmo, BlocoTrilho, BlocoVendaNecessaria, EstadoBloco } from "./blocos";
+import { BlocoAlertas, BlocoCategorias, BlocoComparacao, BlocoDiagnostico, BlocoEvolucao, BlocoKpis, BlocoLucroBruto, BlocoMix, BlocoPorHora, BlocoPorHoraRede, BlocoProjecao, BlocoRegua, BlocoRitmo, BlocoTrilho, BlocoVendaNecessaria, EstadoBloco } from "./blocos";
 
 /**
  * Loja: mesmo conjunto de 4 tiles no topo em qualquer visão. Abaixo, um par
@@ -25,7 +25,7 @@ export function LojaPage() {
   // do Turno/Lucro Bruto em vez de disputar o mesmo espaço.
   const principal = v.graficoHoraRede ? <BlocoPorHoraRede g={v.graficoHoraRede} /> : v.graficoHora ? <BlocoPorHora g={v.graficoHora} /> : v.evolucao ? <BlocoEvolucao g={v.evolucao} /> : null;
   const ladoRitmo = v.ritmo ? <BlocoRitmo ritmo={v.ritmo} /> : v.ritmoAviso ? <p className="text-[13px] text-t2">{v.ritmoAviso}</p> : null;
-  const ladoContexto = v.checklist ? <BlocoChecklist c={v.checklist} /> : podeVerCusto && v.lucroBruto ? <BlocoLucroBruto itens={v.lucroBruto.itens} aviso={v.lucroBruto.aviso} divisaoLinha={v.lucroBruto.divisaoLinha} /> : null;
+  const ladoContexto = podeVerCusto && v.lucroBruto ? <BlocoLucroBruto itens={v.lucroBruto.itens} aviso={v.lucroBruto.aviso} divisaoLinha={v.lucroBruto.divisaoLinha} /> : null;
   const lateral =
     ladoRitmo || ladoContexto ? (
       <div className="flex flex-col gap-5">
