@@ -261,6 +261,21 @@ export interface EstadosEquipeView {
   desafios: EstadoBloco;
 }
 
+export interface RedeMetaGlobal {
+  /** "Setembro 2026" */
+  competTexto: string;
+  /** Faturamento da rede na competência. */
+  realizado: number;
+  /** Soma das metas das lojas do escopo com meta. */
+  total: number;
+  /** realizado / total × 100. */
+  pct: number;
+  /** Projeção da rede pelo índice de desempenho acumulado (AD-021). */
+  projetadoPct: number;
+  /** Dias abertos da competência a partir de hoje (incluindo hoje). */
+  diasRestantes: number;
+}
+
 export interface EquipeView {
   escopo: Escopo;
   periodo: PeriodoResolvido;
@@ -280,6 +295,8 @@ export interface EquipeView {
    * que fecham. null sem meta ativa (vira 4 KPIs).
    */
   kpiPremiacao: KpiEquipeValor | null;
+  /** Faixa global da rede — só em visão rede com meta ativa. */
+  metaGlobal: RedeMetaGlobal | null;
   leitura: string | null;
   vendedoras: VendedoraLinha[] | null;
   lojas: LojaEquipeResumo[] | null;
@@ -618,6 +635,7 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, competencia: strin
     kpiTicket: { valor: brl(ticket), delta: temComparacao ? kpiDelta(ticket, ticketAnt) : undefined },
     kpiPA: { valor: num(pa, 2), delta: temComparacao ? kpiDelta(pa, paAnt) : undefined },
     kpiPremiacao: premiacao === null ? null : { valor: brl(premiacao), delta: undefined },
+    metaGlobal: null,
     leitura: null,
     vendedoras,
     lojas: null,
@@ -709,6 +727,35 @@ if (metaAtiva) {
   premiacaoRede = parteEscada > 0 || parteDesafios > 0 ? parteEscada + parteDesafios : null;
 }
 
+  // Faixa global (REDE-06..09): só com meta ativa.
+  let metaGlobal: RedeMetaGlobal | null = null;
+  if (metaAtiva && metaGlobalTotal > 0) {
+    const primeiro = `${competencia}-01`;
+    const ultimo = fimDoMes(primeiro);
+    const realizado = somarAgregados(filiais.map((f) => agregadoLoja(f.id, primeiro, ultimo <= HOJE_ISO ? ultimo : HOJE_ISO))).faturamento;
+    const pct = (realizado / metaGlobalTotal) * 100;
+    const fechado = ultimo < HOJE_ISO;
+    let projetadoPct = pct;
+    if (!fechado) {
+      const curva = curvaReceita(filiais, competencia);
+      let fracaoAcum = 0;
+      for (const iso of intervaloDias(primeiro, HOJE_ISO)) fracaoAcum += curva.peso(iso);
+      if (fracaoAcum > 0) projetadoPct = (realizado / fracaoAcum / metaGlobalTotal) * 100;
+    }
+    // Dias abertos restantes (incluindo hoje) — AD-019.
+    const abertosRestantes = intervaloDias(HOJE_ISO, ultimo).filter((iso) =>
+      filiais.some((f) => lojaAberta(f, iso)),
+    );
+    metaGlobal = {
+      competTexto: mesAno(primeiro),
+      realizado,
+      total: metaGlobalTotal,
+      pct,
+      projetadoPct,
+      diasRestantes: fechado ? 0 : abertosRestantes.length,
+    };
+  }
+
   return {
     escopo,
     periodo,
@@ -722,6 +769,7 @@ if (metaAtiva) {
     kpiTicket: { valor: brl(divSeguro(atual.faturamento, atual.atendimentos)), delta: temComparacao ? kpiDelta(divSeguro(atual.faturamento, atual.atendimentos), divSeguro(anterior.faturamento, anterior.atendimentos)) : undefined },
     kpiPA: { valor: num(divSeguro(atual.itens, atual.atendimentos), 2), delta: temComparacao ? kpiDelta(divSeguro(atual.itens, atual.atendimentos), divSeguro(anterior.itens, anterior.atendimentos)) : undefined },
     kpiPremiacao: premiacaoRede === null ? null : { valor: brl(premiacaoRede), delta: undefined },
+    metaGlobal,
     leitura: null,
     vendedoras: vendedorasFlat,
     lojas: lojas,

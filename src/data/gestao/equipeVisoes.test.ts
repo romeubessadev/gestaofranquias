@@ -349,6 +349,25 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
     }
   });
 
+  it("metaGlobal: total = soma das metas; pct = realizado/total; null fora da competência (REDE-06..09)", () => {
+    const comMeta = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    expect(comMeta.metaGlobal).not.toBeNull();
+    const g = comMeta.metaGlobal!;
+    const somaMetas = comMeta.lojas!.reduce((s, l) => s + l.metaValor, 0);
+    expect(g.total).toBe(somaMetas);
+    expect(g.total).toBeGreaterThan(0);
+    expect(g.pct).toBeCloseTo((g.realizado / g.total) * 100, 6);
+    expect(g.projetadoPct).toBeGreaterThan(0);
+    expect(g.diasRestantes).toBeGreaterThan(0);
+    expect(g.competTexto).toBeTruthy();
+
+    const semMeta = montarEquipeView(escopo("todas", { tipo: "7dias" }));
+    expect(semMeta.metaGlobal).toBeNull();
+
+    const loja = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    expect(loja.metaGlobal).toBeNull();
+  });
+
   it("melhor/pior atingimento por loja consistentes com a lista da loja", () => {
     const rede = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
     for (const resumo of rede.lojas!) {
