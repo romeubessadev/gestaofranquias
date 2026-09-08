@@ -54,6 +54,10 @@ export function colaboradoresDaFilial(filialId: string): Colaborador[] {
   return colaboradores.filter((c) => c.filialId === filialId);
 }
 
+export function colaboradorPorId(id: string): Colaborador | undefined {
+  return colaboradores.find((c) => c.id === id);
+}
+
 /** Vendedora elegível para ranking, meta e comissão. */
 export function vendedorElegivel(c: Colaborador): boolean {
   return c.cargo === "VENDEDOR" && c.tipo === "VENDEDOR" && !c.inativoNoErp && !c.excluirDeRanking;
