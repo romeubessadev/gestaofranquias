@@ -482,7 +482,7 @@ export function BlocoEvolucao({ g }: { g: GraficoEvolucao }) {
     <Card>
       <CardHeader>
         <div>
-          <CardTitle>Evolução diária</CardTitle>
+          <CardTitle>Faturamento por dia</CardTitle>
           <p className="mt-1.5 text-2xl font-extrabold tracking-tight text-t0">{brl(total)}</p>
         </div>
         {g.anterior && <Switch checked={comparar} onChange={setComparar} label={<span className="text-[12px] text-t1">Comparar com {g.rotuloAnterior}</span>} />}
