@@ -9,7 +9,7 @@ import { ICONS, TINT } from "@/pages/dashboards/icons";
 import { brl, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/blocos";
-import type { DesafioView, EquipeView, LojaEquipeResumo, VendedoraLinha } from "@/data/gestao/equipeVisoes";
+import type { DesafioView, EquipeView, LojaEquipeResumo, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
 
 /* ------------------------- KPIs do topo ------------------------- */
 
@@ -232,6 +232,45 @@ export function CardVendedoras({ estado, lista, metaAtiva, competenciaTexto }: {
       <EstadoBloco estado={estado}>
         {lista && lista.length > 0 ? <BlocoVendedoras lista={lista} metaAtiva={metaAtiva} /> : <EmptyState icon="👤" title="Sem vendedoras" description="Nenhuma vendedora elegível nesta loja para o período." />}
       </EstadoBloco>
+    </Card>
+  );
+}
+
+/**
+ * Faixa global da rede (REDE-06..11): META DE SETEMBRO · R$ X DE R$ Y · Z%
+ * + barra + badges de projeção e dias restantes. Só renderiza com metaGlobal.
+ */
+export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
+  const fecha = meta.projetadoPct >= 100;
+  return (
+    <Card>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-t2">Meta de {meta.competTexto}</p>
+          <p className="mt-1 text-[15px] font-bold text-t0">
+            <span className="font-mono">{brl(meta.realizado)}</span>
+            <span className="mx-1.5 text-[13px] font-semibold text-t2">de</span>
+            <span className="font-mono text-t1">{brl(meta.total)}</span>
+          </p>
+        </div>
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <p className={`font-mono text-[28px] font-bold leading-none ${meta.pct >= 100 ? "text-ok" : meta.projetadoPct >= 100 ? "text-acc" : "text-bad"}`}>
+            {num(meta.pct, 1)}%
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            <Badge variant={fecha ? "success" : "warning"}>{fecha ? "Meta será atingida" : "Projeção abaixo da meta"}</Badge>
+            <Badge variant="neutral">
+              <span className="inline-flex items-center gap-1">
+                <ICONS.calendar size={12} />
+                {meta.diasRestantes}d restantes
+              </span>
+            </Badge>
+          </div>
+        </div>
+      </div>
+      <div className="mt-3">
+        <ProgressBar value={Math.min(100, meta.pct)} height={8} color={meta.pct >= 100 ? "var(--ok)" : meta.projetadoPct >= 100 ? "var(--acc)" : "var(--bad)"} />
+      </div>
     </Card>
   );
 }

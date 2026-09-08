@@ -5,7 +5,7 @@ import { Avisos } from "@/components/gestao/Avisos";
 import { DashboardShell } from "@/pages/dashboard/DashboardShell";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { BlocoLeitura } from "@/pages/dashboard/blocos";
-import { AvisoCompetencia, BlocoDesafios, BlocoKpisEquipe, BlocoResumoRede, CardVendedoras } from "./blocos";
+import { AvisoCompetencia, BlocoDesafios, BlocoKpisEquipe, BlocoResumoRede, CardVendedoras, FaixaMetaGlobal } from "./blocos";
 
 /**
  * Aba Equipe: análise de metas, desafios e comissão do mês por vendedora.
@@ -34,6 +34,8 @@ export function EquipePage() {
           desafios={v.desafios}
           metaAtiva={v.metaAtiva}
         />
+
+        {v.visao === "rede" && v.metaGlobal && <FaixaMetaGlobal meta={v.metaGlobal} />}
 
         {v.visao === "loja" ? (
           <CardVendedoras
