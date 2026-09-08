@@ -13,6 +13,9 @@ import path from 'node:path'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // GitHub Pages publica em <user>.github.io/<repo>/; todos os assets devem
+  // ser referenciados a partir desse subpath.
+  base: "/gestaofranquias/",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
