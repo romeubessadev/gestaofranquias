@@ -4,10 +4,10 @@
  * Fica em arquivo próprio porque vendas.ts consome o cadastro de colaboradores
  * (equipe.ts) no boot — importar a camada de views daqui evita ciclo.
  *
- * Regra `metaAtiva` (decisão do usuário): só quando o período do filtro é
- * exatamente o mês da competência (Este mês, Mês passado). Hoje, Ontem, 7
- * dias, personalizado ou período cruzando meses mostram só desempenho do
- * período: 3 KPIs, tabela sem colunas de meta/comissão e sem desafios.
+ * Regra AD-046: meta, escada, premiação e desafios são SEMPRE do mês da
+ * competência (mês corrente, ou mês passado se o filtro for “Mês passado”) e
+ * permanecem visíveis. Os 4 KPIs de desempenho obedecem ao período filtrado.
+ * Quando o período ≠ competência, um aviso deixa o recorte explícito.
  */
 import { vendedorElegivel, colaboradoresDaFilial, type Colaborador } from "./equipe";
 import { metaDaFilial, type Degrau } from "./metas";
@@ -281,7 +281,7 @@ export interface EquipeView {
   periodo: PeriodoResolvido;
   visao: "loja" | "rede";
   competencia: string;
-  /** Período do filtro é exatamente o mês da competência: meta/premiação/desafios entram. */
+  /** Há meta na competência: escada/premiação/desafios entram (AD-046 — independente do filtro de período). */
   metaAtiva: boolean;
   avisoCompetencia: string | null;
   avisos: string[];
@@ -592,16 +592,16 @@ function primeiroNome(nomeCompleto: string): string {
 
 /* ------------------------- Visão loja ------------------------- */
 
-function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, competencia: string, metaAtiva: boolean): EquipeView {
+function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: PeriodoResolvido, competencia: string, metaAtiva: boolean): EquipeView {
   const filialId = escopo.filialId;
   const filial = filialPorId(filialId);
   const ant = periodoAnterior(periodo);
+  // KPIs de desempenho: período filtrado (AD-046).
   const atual = agregadoLoja(filialId, periodo.inicio, periodo.fim);
   const anterior = somarAgregados(
     intervaloDias(ant.inicio, ant.fim).map((iso) => {
       const dia = diaVendas(filialId, iso);
       if (!dia) return { faturamento: 0, atendimentos: 0, itens: 0 };
-      // Hoje no período comparado usa a hora atual só quando o fim é hoje.
       const horaMax = iso === ant.fim && ant.horaMax !== undefined ? ant.horaMax : undefined;
       return agregadoDoDia(dia, null, horaMax);
     }),
@@ -613,14 +613,14 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, competencia: strin
   const ticketAnt = divSeguro(anterior.faturamento, anterior.atendimentos);
   const paAnt = divSeguro(anterior.itens, anterior.atendimentos);
 
-  const vendedoras = visaoVendedoras(filialId, periodo, metaAtiva, competencia);
+  // Meta/escada/premiação: sempre janela da competência (AD-046).
+  const vendedoras = visaoVendedoras(filialId, periodoMeta, metaAtiva, competencia);
   const premiacao = metaAtiva ? premiacaoProjetada(filialId, competencia, vendedoras) : null;
 
   const avisos: string[] = [];
   if (escopo.divisao && metaAtiva) {
     avisos.push("Com marca selecionada, as metas individuais continuam sendo da loja inteira.");
   }
-  const avisoCompetencia = metaAtiva && periodo.tipo === "mesPassado" ? `Meta e premiação valem para a competência ${mesAno(`${competencia}-01`)}.` : null;
 
   return {
     escopo,
@@ -628,7 +628,7 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, competencia: strin
     visao: "loja",
     competencia,
     metaAtiva,
-    avisoCompetencia,
+    avisoCompetencia: null, // preenchido em montarEquipeView
     avisos,
     kpiFaturamento: { valor: brlK(atual.faturamento), delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento) : undefined },
     kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos) : undefined },
@@ -656,14 +656,14 @@ function desafiosViewDaCompetencia(competencia: string, filiaisIds: string[]): D
 
 /* ------------------------- Visão rede (EQUIP-07) ------------------------- */
 
-function visaoRede(escopo: Escopo, periodo: PeriodoResolvido, competencia: string, metaAtiva: boolean): EquipeView {
+function visaoRede(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: PeriodoResolvido, competencia: string, metaAtiva: boolean): EquipeView {
   // Meta global = soma das metas das lojas do escopo que têm meta (REDE-08).
   const metaGlobalTotal = filiais.reduce((s, f) => s + (metaDaFilial(f.id, competencia)?.valorLoja ?? 0), 0);
 
   const vendedorasFlat: VendedoraLinha[] = [];
   const lojas: LojaEquipeResumo[] = filiais.map((f, i) => {
     const escopoLoja: Escopo = { ...escopo, filialId: f.id };
-    const vLoja = visaoLoja(escopoLoja, periodo, competencia, metaAtiva);
+    const vLoja = visaoLoja(escopoLoja, periodo, periodoMeta, competencia, metaAtiva);
     const linhas = vLoja.vendedoras ?? [];
     vendedorasFlat.push(...linhas);
     const comMeta = metaAtiva ? linhas.filter((l) => !l.semMeta) : [];
@@ -719,7 +719,7 @@ let premiacaoRede: number | null = null;
 if (metaAtiva) {
   let parteEscada = 0;
   for (const f of filiais) {
-    const vLoja = visaoLoja({ ...escopo, filialId: f.id }, periodo, competencia, metaAtiva);
+    const vLoja = visaoLoja({ ...escopo, filialId: f.id }, periodo, periodoMeta, competencia, metaAtiva);
     const escadaLoja = premiacaoEscada(f.id, competencia, vLoja.vendedoras ?? []);
     if (escadaLoja !== null) parteEscada += escadaLoja;
   }
@@ -785,11 +785,44 @@ if (metaAtiva) {
 
 /* ------------------------- Entrada da aba ------------------------- */
 
+/**
+ * Competência da Equipe (AD-046): mês passado só quando o filtro é
+ * “Mês passado”; nos demais casos, mês corrente. Meta/escada/desafios
+ * usam essa janela; KPIs usam o período filtrado.
+ */
+function competenciaDaEquipe(periodo: PeriodoResolvido): string {
+  return periodo.tipo === "mesPassado" ? periodo.inicio.slice(0, 7) : HOJE_ISO.slice(0, 7);
+}
+
+/** Período resolvido da competência (mês inteiro até hoje ou fechado). */
+function periodoDaCompetencia(competencia: string): PeriodoResolvido {
+  return resolverPeriodo(competencia === HOJE_ISO.slice(0, 7) ? { tipo: "esteMes" } : { tipo: "mesPassado" });
+}
+
+/** True quando o filtro já é exatamente o mês da competência. */
+function periodoBateComCompetencia(periodo: PeriodoResolvido, competencia: string): boolean {
+  if (periodo.atravessaMeses) return false;
+  if (periodo.tipo === "esteMes") return competencia === HOJE_ISO.slice(0, 7);
+  if (periodo.tipo === "mesPassado") return competencia === periodo.inicio.slice(0, 7);
+  return false;
+}
+
 export function montarEquipeView(escopo: Escopo): EquipeView {
   const periodo = resolverPeriodo(escopo.periodo);
-  const metaAtiva = periodo.granularidade === "mes" && !periodo.atravessaMeses && (periodo.tipo === "esteMes" || periodo.tipo === "mesPassado");
-  const competencia = periodo.granularidade === "mes" ? periodo.inicio.slice(0, 7) : HOJE_ISO.slice(0, 7);
-  const v = escopo.filialId === "todas" ? visaoRede(escopo, periodo, competencia, metaAtiva) : visaoLoja(escopo, periodo, competencia, metaAtiva);
+  const competencia = competenciaDaEquipe(periodo);
+  const periodoMeta = periodoDaCompetencia(competencia);
+  const filiaisEscopo = escopo.filialId === "todas" ? filiais : [filialPorId(escopo.filialId)];
+  // Meta ativa = existe meta cadastrada na competência (não depende mais do filtro).
+  const metaAtiva = filiaisEscopo.some((f) => Boolean(metaDaFilial(f.id, competencia)));
+
+  const v = escopo.filialId === "todas" ? visaoRede(escopo, periodo, periodoMeta, competencia, metaAtiva) : visaoLoja(escopo, periodo, periodoMeta, competencia, metaAtiva);
+
+  if (metaAtiva && !periodoBateComCompetencia(periodo, competencia)) {
+    v.avisoCompetencia = `KPIs do topo seguem o período filtrado. Meta, escada e desafios são de ${mesAno(`${competencia}-01`)}.`;
+  } else if (metaAtiva && periodo.tipo === "mesPassado") {
+    v.avisoCompetencia = `Meta e premiação valem para a competência ${mesAno(`${competencia}-01`)}.`;
+  }
+
   v.leitura = montarLeituraEquipe(v);
   v.estados.leitura = v.leitura ? "disponivel" : "sem_dados";
   return v;

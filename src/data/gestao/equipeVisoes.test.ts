@@ -215,9 +215,10 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
     expect(parteEscada).toBeLessThan(fat * 0.1);
   });
 
-  it("Premiação null sem meta ativa (competência não é do período)", () => {
+  it("Premiação presente com filtro 7 dias (AD-046 — competência corrente)", () => {
     const v = montarEquipeView(escopo("f1", { tipo: "7dias" }));
-    expect(v.kpiPremiacao).toBeNull();
+    expect(v.kpiPremiacao).not.toBeNull();
+    expect(v.avisoCompetencia).toContain("seguem o período");
   });
 
   it("Mês passado: metaAtiva com aviso de competência", () => {
@@ -227,18 +228,18 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
     expect(v.kpiPremiacao).not.toBeNull();
   });
 
-  it("Hoje/Ontem/7 dias: metaAtiva=false — 4 KPIs (premiação null), sem desafios", () => {
+  it("Hoje/Ontem/7 dias: meta continua ativa (AD-046) com aviso; KPIs seguem o período", () => {
     for (const tipo of ["hoje", "ontem", "7dias"] as const) {
       const v = montarEquipeView(escopo("f1", { tipo }));
-      expect(v.metaAtiva, tipo).toBe(false);
-      expect(v.kpiPremiacao, tipo).toBeNull();
-      expect(v.desafios, tipo).toBeNull();
-      // Colunas de meta ficam zeradas: UI não mostra meta.
-      for (const l of v.vendedoras!) {
-        expect(l.metaIndividualValor, tipo).toBe(0);
-        expect(l.degrauAtual, tipo).toBeNull();
-        expect(l.premiacaoAcumulada, tipo).toBe(0);
-      }
+      expect(v.metaAtiva, tipo).toBe(true);
+      expect(v.kpiPremiacao, tipo).not.toBeNull();
+      expect(v.desafios, tipo).not.toBeNull();
+      expect(v.avisoCompetencia, tipo).toContain("seguem o período");
+      expect(v.competencia, tipo).toBe("2026-09");
+      // Colunas de meta preenchidas com a janela da competência (não do filtro).
+      const comMeta = v.vendedoras!.filter((l) => !l.semMeta);
+      expect(comMeta.length, tipo).toBeGreaterThan(0);
+      expect(comMeta[0].metaIndividualValor, tipo).toBeGreaterThan(0);
     }
   });
 
@@ -254,14 +255,17 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
     expect([...pcts].sort((a, b) => b - a)).toEqual(pcts);
   });
 
-  it("lista ordenada por faturamento sem meta (Hoje) e soma individual ≤ total da loja", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "hoje" }));
-    const fats = v.vendedoras!.map((l) => l.faturamentoValor);
-    expect([...fats].sort((a, b) => b - a)).toEqual(fats);
-    // As fatias individuais somam uma fração do total do dia da loja (mesmo
-    // gerador): a soma nunca excede o KPI da loja.
-    const somaFats = fats.reduce((s, x) => s + x, 0);
-    expect(somaFats).toBeGreaterThan(0);
+  it("KPI de Hoje recorta o dia; meta da linha continua MTD da competência", () => {
+    const hoje = montarEquipeView(escopo("f1", { tipo: "hoje" }));
+    const mes = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    // KPI do topo: Hoje ≤ Este mês.
+    expect(parseBrl(hoje.kpiFaturamento.valor)).toBeLessThanOrEqual(parseBrl(mes.kpiFaturamento.valor) + 1);
+    // Linhas de meta: mesmo atingimento (mesma janela de competência).
+    expect(hoje.vendedoras!.length).toBe(mes.vendedoras!.length);
+    for (let i = 0; i < hoje.vendedoras!.length; i++) {
+      expect(hoje.vendedoras![i].colaboradorId).toBe(mes.vendedoras![i].colaboradorId);
+      expect(hoje.vendedoras![i].atingimentoPct).toBeCloseTo(mes.vendedoras![i].atingimentoPct, 6);
+    }
   });
 
   it("tendência existe para todas e é um dos três valores", () => {
@@ -297,19 +301,22 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
     }
   });
 
-  it("estados por bloco coerentes (kpis disponível; desafios indisponível sem meta)", () => {
+  it("estados por bloco: desafios disponíveis mesmo com filtro Hoje (AD-046)", () => {
     const vDia = montarEquipeView(escopo("f1", { tipo: "hoje" }));
     expect(vDia.estados.kpis).toBe("disponivel");
     expect(vDia.estados.vendedoras).toBe("disponivel");
-    expect(vDia.estados.desafios).toBe("indisponivel");
+    expect(vDia.estados.desafios).toBe("disponivel");
     const vMes = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
     expect(vMes.estados.desafios).toBe("disponivel");
+    expect(vMes.avisoCompetencia).toBeNull();
   });
 
-  it("competência sem meta cadastrada: vendedoras com semMeta e sem desafios quebrando", () => {
+  it("período personalizado antigo: KPIs do período; meta/aviso da competência corrente", () => {
     const v = montarEquipeView(escopo("f1", { tipo: "personalizado", inicio: "2025-06-01", fim: "2025-06-30" }));
-    // Período personalizado é um mês fechado — mas não é esteMes/mesPassado: metaAtiva false.
-    expect(v.metaAtiva).toBe(false);
+    // AD-046: competência = mês corrente (há meta em 2026-09).
+    expect(v.metaAtiva).toBe(true);
+    expect(v.competencia).toBe("2026-09");
+    expect(v.avisoCompetencia).toContain("seguem o período");
     expect(v.vendedoras!.length).toBeGreaterThan(0);
   });
 });
@@ -349,7 +356,7 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
     }
   });
 
-  it("metaGlobal: total = soma das metas; pct = realizado/total; null fora da competência (REDE-06..09)", () => {
+  it("metaGlobal: total = soma das metas; pct = realizado/total; presente na rede mesmo com 7 dias (AD-046)", () => {
     const comMeta = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
     expect(comMeta.metaGlobal).not.toBeNull();
     const g = comMeta.metaGlobal!;
@@ -361,8 +368,10 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
     expect(g.diasRestantes).toBeGreaterThan(0);
     expect(g.competTexto).toBeTruthy();
 
-    const semMeta = montarEquipeView(escopo("todas", { tipo: "7dias" }));
-    expect(semMeta.metaGlobal).toBeNull();
+    // AD-046: faixa global permanece com filtro curto (mesma competência).
+    const seteDias = montarEquipeView(escopo("todas", { tipo: "7dias" }));
+    expect(seteDias.metaGlobal).not.toBeNull();
+    expect(seteDias.metaGlobal!.total).toBe(g.total);
 
     const loja = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
     expect(loja.metaGlobal).toBeNull();
@@ -394,12 +403,14 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
     }
   });
 
-  it("rede sem meta ativa: desafios null, premiação null e resumos sem premiação ('—')", () => {
+  it("rede com filtro 7 dias: meta/desafios/faixa da competência; KPIs do período", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "7dias" }));
-    expect(v.metaAtiva).toBe(false);
-    expect(v.desafios).toBeNull();
-    expect(v.kpiPremiacao).toBeNull();
-    for (const l of v.lojas!) expect(l.premiacaoProjetada).toBe("—");
+    expect(v.metaAtiva).toBe(true);
+    expect(v.desafios).not.toBeNull();
+    expect(v.kpiPremiacao).not.toBeNull();
+    expect(v.metaGlobal).not.toBeNull();
+    expect(v.avisoCompetencia).toContain("seguem o período");
+    for (const l of v.lojas!) expect(l.premiacaoProjetada).not.toBe("—");
   });
 
   it("premiação da rede = escada das duas lojas + desafios (que não dobram)", () => {
@@ -542,10 +553,12 @@ describe("T5: leitura da IA da equipe (EQUIP-06)", () => {
     }
   });
 
-  it("sem meta ativa, leitura só fala de mix/ticket (sem menção a meta)", () => {
+  it("com filtro 7 dias a leitura ainda pode falar de meta (AD-046 — competência ativa)", () => {
     const v = montarEquipeView(escopo("f1", { tipo: "7dias" }));
+    expect(v.metaAtiva).toBe(true);
+    // Leitura usa as linhas de meta da competência; menção a meta é válida.
     if (v.leitura) {
-      expect(v.leitura).not.toContain("abaixo da meta individual");
+      expect(v.leitura.length).toBeGreaterThan(0);
     }
   });
 });

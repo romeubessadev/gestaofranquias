@@ -48,7 +48,8 @@
 | AD-037 | active | A página principal do produto passa a ser `/dashboard` (título "Dashboard", subtítulo "Visão geral do desempenho das suas lojas", aba "Visão geral"). `/loja` vira legado com redirect preservando a navegação. | 2026-09-08 |
 | AD-038 | active | A Visão geral é um resumo que funciona com qualquer filtro: KPIs (Faturamento, Atendimentos, Ticket médio, P.A.) em 2×2 no celular e 4×1 no desktop, gráfico principal (por hora no dia, evolução diária em períodos) e Desempenho das lojas ao lado no desktop. Trilho, venda necessária, projeção, diagnóstico, alertas e checklist saem da tela e pertencem a telas próprias. A seção "Direto das outras abas" (Financeiro/Equipe/Produtos) fica em linha própria e só entra quando as abas existirem. | 2026-09-08 |
 | AD-039 | active | Meta individual é derivada, não cadastrada: meta da loja distribuída pelo `pesoVenda` das elegíveis, proporcional aos dias elegíveis em admissão/inatividade no meio do mês; a soma das individuais fecha exato com a meta da loja. | 2026-09-08 |
-| AD-040 | active | Regra `metaAtiva`: meta, comissão e desafios só aparecem quando o período do filtro é exatamente o mês da competência (Este mês/Mês passado). Hoje, Ontem, 7 dias, personalizado ou cruzando meses mostram só desempenho (3 KPIs, tabela sem colunas de meta, sem desafios). | 2026-09-08 |
+| AD-040 | superseded | ~~Regra `metaAtiva`: meta, comissão e desafios só quando o período é o mês da competência.~~ Substituída por AD-046. | 2026-09-08 |
+| AD-046 | active | Equipe alinha à Visão geral (AD-017): **meta, escada, premiação e desafios são sempre do mês da competência** e permanecem visíveis. Competência = mês corrente (ou mês passado se o filtro for “Mês passado”). Os 4 KPIs de desempenho (faturamento, atendimentos, ticket, P.A.) obedecem ao período filtrado. Quando o período ≠ mês da competência, um aviso deixa explícito: “KPIs seguem o período; meta/escada/desafios são de [mês]” + atalho “Ver este mês”. Filtro não esconde mais seções. | 2026-09-08 |
 | AD-041 | active | A escada de degraus da Meta da filial paga **premiação** (nunca "comissão" — decisão do usuário: é a mesma verba). KPI único "Premiação projetada" = escada de metas (realizado escalado pelo índice, degrau da projeção, bônus uma vez) + prêmios dos desafios que fecham. Desafio é da competência: na visão rede entra uma única vez, não dobrado por loja. | 2026-09-08 |
 | AD-042 | active | Desafios são objetivos pontuais de produto, quantidade ou índice — nunca em reais; o prêmio é o único campo monetário. Mock determinístico (mesma técnica de ruído do `vendas.ts`) com 3 desafios na competência corrente. | 2026-09-08 |
 | AD-043 | active | Aba Equipe usa `DataTable` do tema para desempenho das vendedoras e desafios; visão "todas as lojas" mostra um resumo por loja (melhor/pior atingimento) com clique que troca o filtro preservando período e marca. | 2026-09-08 |
@@ -57,8 +58,6 @@
 
 ## Handoff — snapshot
 
-- Rodada atual: **Equipe · visão rede** (`equipe-rede-vendedoras`) — **Verified PASS** (101 testes; AD-045).
-- Spec/validação em `.specs/features/equipe-rede-vendedoras/`; domínio em `equipeVisoes.ts`; UI em `src/pages/equipe/` (`FaixaMetaGlobal`, `BlocoVendedorasRede`).
-- Regra central: `metaAtiva` (AD-040) + AD-045 (tabela flat com Shopping / abas / faixa global; sem cards de resumo por loja).
-- Pendências: prova visual no Pages (deploy no push); assumptions `n` da spec (ordenação visual, clique na linha, divisão×lista quando houver exemplos).
-- Próximo passo sugerido: revisão visual da rede publicada; em seguida Financeiro ou Produtos.
+- Rodada atual: **Equipe · AD-046** — meta/escada/desafios sempre do mês da competência; filtro só recorta KPIs de desempenho; aviso + “Ver este mês” quando período ≠ competência.
+- AD-040 supersedida. AD-045 (visão rede) permanece.
+- Próximo passo sugerido: prova visual no Pages com filtro **Hoje** (deve mostrar meta + aviso).

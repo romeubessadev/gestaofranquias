@@ -41,10 +41,11 @@ describe("T8: integração — Equipe e Visão geral concordam (EQUIP-01)", () =
     }
   });
 
-  it("estados coerentes: kpis sempre disponível; desafios indisponível sem meta ativa", () => {
+  it("estados coerentes: kpis e desafios disponíveis mesmo com filtro Hoje (AD-046)", () => {
     const dia = montarEquipeView(escopo("f1", { tipo: "hoje" }));
     expect(dia.estados.kpis).toBe("disponivel");
-    expect(dia.estados.desafios).toBe("indisponivel");
+    expect(dia.estados.desafios).toBe("disponivel");
+    expect(dia.metaAtiva).toBe(true);
     const mes = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
     expect(mes.estados.kpis).toBe("disponivel");
     expect(mes.estados.desafios).toBe("disponivel");

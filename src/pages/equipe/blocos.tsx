@@ -443,13 +443,18 @@ export function BlocoVendedorasRede({
 
 /* ------------------------- Aviso de competência ------------------------- */
 
-export function AvisoCompetencia({ texto }: { texto: string }) {
+export function AvisoCompetencia({ texto, onVerMes }: { texto: string; onVerMes?: () => void }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-[var(--radius-vela-lg)] border border-line bg-info-soft px-4 py-3 text-[13px] text-t0">
+    <div className="flex flex-wrap items-center gap-2.5 rounded-[var(--radius-vela-lg)] border border-line bg-info-soft px-4 py-3 text-[13px] text-t0">
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-info text-white">
         <ICONS.calendar size={14} />
       </span>
-      {texto}
+      <span className="min-w-0 flex-1">{texto}</span>
+      {onVerMes && (
+        <button type="button" onClick={onVerMes} className="shrink-0 text-[12.5px] font-bold text-acc hover:underline">
+          Ver este mês
+        </button>
+      )}
     </div>
   );
 }

@@ -8,47 +8,37 @@ import { BlocoLeitura } from "@/pages/dashboard/blocos";
 import { AvisoCompetencia, BlocoDesafios, BlocoKpisEquipe, BlocoVendedorasRede, CardVendedoras, FaixaMetaGlobal } from "./blocos";
 
 /**
- * Aba Equipe: análise de metas, desafios e premiação do mês por vendedora.
- * Filtro global (período/loja/marca); "todas as lojas" mostra a tabela da
- * rede (com abas Vendedoras|Lojas quando a meta está ativa).
+ * Aba Equipe: metas, desafios e premiação do mês (sempre visíveis — AD-046).
+ * Os 4 KPIs de desempenho seguem o período filtrado; um aviso deixa o
+ * recorte explícito quando o período ≠ competência.
  */
 export function EquipePage() {
   const { escopo, mudar } = useEscopo();
   const v = useMemo(() => montarEquipeView(escopo), [escopo]);
+  const periodoForaDoMes = Boolean(v.avisoCompetencia?.includes("seguem o período"));
 
   return (
     <DashboardShell tab="equipe" escopo={escopo} onChange={mudar}>
       <div className="flex flex-col gap-5">
         {v.avisos.length > 0 && <Avisos itens={v.avisos} />}
 
-        {v.avisoCompetencia && <AvisoCompetencia texto={v.avisoCompetencia} />}
+        {v.avisoCompetencia && (
+          <AvisoCompetencia
+            texto={v.avisoCompetencia}
+            onVerMes={periodoForaDoMes ? () => mudar({ ...escopo, periodo: { tipo: "esteMes" } }) : undefined}
+          />
+        )}
 
         {v.leitura && <BlocoLeitura texto={v.leitura} />}
 
-        <BlocoKpisEquipe
-          faturamento={v.kpiFaturamento}
-          atendimentos={v.kpiAtendimentos}
-          ticket={v.kpiTicket}
-          pa={v.kpiPA}
-        />
+        <BlocoKpisEquipe faturamento={v.kpiFaturamento} atendimentos={v.kpiAtendimentos} ticket={v.kpiTicket} pa={v.kpiPA} />
 
         {v.visao === "rede" && v.metaGlobal && <FaixaMetaGlobal meta={v.metaGlobal} />}
 
         {v.visao === "loja" ? (
-          <CardVendedoras
-            estado={v.estados.vendedoras}
-            lista={v.vendedoras}
-            metaAtiva={v.metaAtiva}
-            competenciaTexto={mesAno(`${v.competencia}-01`)}
-          />
+          <CardVendedoras estado={v.estados.vendedoras} lista={v.vendedoras} metaAtiva={v.metaAtiva} competenciaTexto={mesAno(`${v.competencia}-01`)} />
         ) : (
-          <BlocoVendedorasRede
-            estado={v.estados.vendedoras}
-            lista={v.vendedoras}
-            lojas={v.lojas}
-            metaAtiva={v.metaAtiva}
-            competenciaTexto={mesAno(`${v.competencia}-01`)}
-          />
+          <BlocoVendedorasRede estado={v.estados.vendedoras} lista={v.vendedoras} lojas={v.lojas} metaAtiva={v.metaAtiva} competenciaTexto={mesAno(`${v.competencia}-01`)} />
         )}
 
         {v.metaAtiva && v.desafios && v.desafios.length > 0 && <BlocoDesafios desafios={v.desafios} />}
