@@ -11,7 +11,7 @@
 import { categorias, filiais, filialPorId, tarefas, turnos, type Divisao, type Filial } from "./filiais";
 import { metaDaFilial } from "./metas";
 import { AGORA, ATUALIZADO_AS, HOJE_ISO, HORA_ATUAL, INTERVALO_SYNC_MIN, ULTIMO_SYNC } from "./relogio";
-import { agregadoDoDia, diaVendas, diasVendas, intervaloHoras, lojaAberta, pesoDia, somarAgregados, type Agregado } from "./vendas";
+import { agregadoDoDia, diaVendas, diasVendas, lojaAberta, pesoDia, somarAgregados, type Agregado } from "./vendas";
 import { brl, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, inicioDoMes, intervaloDias, mesAno, num, pct, somarDias } from "@/lib/formato";
 import type { TintKey } from "@/pages/dashboards/icons";
 import { montarLeituraLoja } from "./leitura";
@@ -1095,28 +1095,32 @@ export function montarLojaView(escopo: Escopo): LojaView {
     }
   }
 
-  /* --- Gráfico por hora: uma loja, um dia --- */
+  /* --- Por hora: loja única OU rede (soma) — mesmo gráfico AreaLine com comparação (AD-048) --- */
   let graficoHora: GraficoHora | null = null;
-  if (visao === "dia" && unica) {
-    const dia = diaVendas(unica.id, periodo.inicio);
+  if (periodo.granularidade === "dia" && fs.length > 0) {
     const refIso = somarDias(periodo.inicio, -7);
-    const diaRef = diaVendas(unica.id, refIso);
-    const horas = intervaloHoras(unica);
-    const fatia = (d: typeof dia, h: number) => {
+    const aberturaMin = Math.min(...fs.map((f) => f.abertura));
+    const fechamentoMax = Math.max(...fs.map((f) => f.fechamento));
+    const horas: number[] = [];
+    for (let h = aberturaMin; h < fechamentoMax; h++) horas.push(h);
+
+    const fatiaHora = (filialId: string, iso: string, h: number) => {
+      const d = diaVendas(filialId, iso);
       const a = d?.porHora[h];
       if (!a) return 0;
       if (!divisao) return a.faturamento;
       const fr = d!.total.faturamento > 0 ? d!.porDivisao[divisao].faturamento / d!.total.faturamento : 0;
       return Math.round(a.faturamento * fr);
     };
-    const totalRef = diaRef ? agregadoDoDia(diaRef, divisao, periodo.ehHoje ? HORA_ATUAL : undefined).faturamento : 0;
-    const valores = horas.map((h) => fatia(dia, h));
-    const valoresAnt = diaRef
-      ? horas.map((h) => {
-          if (periodo.ehHoje && h > HORA_ATUAL) return 0;
-          return fatia(diaRef, h);
-        })
-      : null;
+    const somaHora = (iso: string, h: number) => fs.reduce((s, f) => s + fatiaHora(f.id, iso, h), 0);
+
+    const valores = horas.map((h) => somaHora(periodo.inicio, h));
+    const valoresAnt = horas.map((h) => {
+      if (periodo.ehHoje && h > HORA_ATUAL) return 0;
+      return somaHora(refIso, h);
+    });
+    const totalRef = valoresAnt.reduce((s, v) => s + v, 0);
+
     graficoHora = {
       horas,
       valores,
@@ -1126,29 +1130,8 @@ export function montarLojaView(escopo: Escopo): LojaView {
     };
   }
 
-  /* --- Por hora empilhado por loja: rede, período de um dia --- */
-  let graficoHoraRede: GraficoHoraRede | null = null;
-  if (visao === "rede" && periodo.granularidade === "dia" && fs.length > 0) {
-    const aberturaMin = Math.min(...fs.map((f) => f.abertura));
-    const fechamentoMax = Math.max(...fs.map((f) => f.fechamento));
-    const horasRede: number[] = [];
-    for (let h = aberturaMin; h < fechamentoMax; h++) horasRede.push(h);
-
-    const series = fs.map((f) => {
-      const dia = diaVendas(f.id, periodo.inicio);
-      const fatia = (h: number) => {
-        const a = dia?.porHora[h];
-        if (!a) return 0;
-        if (!divisao) return a.faturamento;
-        const fr = dia!.total.faturamento > 0 ? dia!.porDivisao[divisao].faturamento / dia!.total.faturamento : 0;
-        return Math.round(a.faturamento * fr);
-      };
-      const indiceCor = filiais.findIndex((x) => x.id === f.id);
-      return { filialId: f.id, nome: f.fantasia, tint: PALETA_LOJAS[indiceCor % PALETA_LOJAS.length], valores: horasRede.map(fatia) };
-    });
-
-    graficoHoraRede = { horas: horasRede, series, horaAtual: periodo.ehHoje ? HORA_ATUAL : null, colapsado: fs.length > 5 };
-  }
+  /* Rede por loja empilhada: não usada na Visão geral — o gráfico principal unificou em AreaLine (AD-048). */
+  const graficoHoraRede: GraficoHoraRede | null = null;
 
   /* --- Evolução diária: período > 1 dia (loja única OU rede) — AD-047 --- */
   let evolucao: GraficoEvolucao | null = null;

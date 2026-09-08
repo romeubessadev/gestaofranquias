@@ -3,20 +3,19 @@ import { montarLojaView } from "@/data/gestao/dashboard";
 import { Avisos } from "@/components/gestao/Avisos";
 import { DashboardShell } from "./DashboardShell";
 import { useEscopo } from "./useEscopo";
-import { BlocoComparacao, BlocoEvolucao, BlocoKpis, BlocoPorHora, BlocoPorHoraRede, BlocoRegua, EstadoBloco } from "./blocos";
+import { BlocoComparacao, BlocoEvolucao, BlocoKpis, BlocoPorHora, BlocoRegua, EstadoBloco } from "./blocos";
 
 /**
  * Visão geral do Dashboard: o resumo que funciona com qualquer filtro.
- * KPIs no topo; gráfico por hora (1 dia) ou por dia (período maior), inclusive
- * na rede; régua de lojas/marca sempre adaptada ao filtro (AD-047).
+ * KPIs no topo; gráfico AreaLine por hora (1 dia) ou por dia (período maior),
+ * com comparação sobreposta — mesmo componente visual na loja e na rede (AD-048).
  */
 export function DashboardPage() {
   const { escopo, mudar } = useEscopo();
   const v = useMemo(() => montarLojaView(escopo), [escopo]);
 
   // Gráfico principal: por hora (dia) ou evolução diária (período > 1 dia).
-  // Nunca fica em branco quando há dados — AD-047.
-  const principal = v.graficoHoraRede ? <BlocoPorHoraRede g={v.graficoHoraRede} /> : v.graficoHora ? <BlocoPorHora g={v.graficoHora} /> : v.evolucao ? <BlocoEvolucao g={v.evolucao} /> : null;
+  const principal = v.graficoHora ? <BlocoPorHora g={v.graficoHora} /> : v.evolucao ? <BlocoEvolucao g={v.evolucao} /> : null;
 
   return (
     <DashboardShell tab="loja" escopo={escopo} onChange={mudar}>

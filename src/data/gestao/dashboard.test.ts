@@ -394,6 +394,13 @@ describe("gráfico principal: por hora (1 dia) ou por dia (período)", () => {
     expect(hoje.graficoHora).not.toBeNull();
     expect(hoje.evolucao).toBeNull();
   });
+  it("rede + hoje: mesmo gráfico por hora (AreaLine), sem barras empilhadas", () => {
+    const v = montarLojaView(escopo("todas", { tipo: "hoje" }));
+    expect(v.graficoHoraRede).toBeNull();
+    expect(v.graficoHora).not.toBeNull();
+    expect(v.graficoHora!.valores.length).toBeGreaterThan(0);
+    expect(v.graficoHora!.anterior).not.toBeNull();
+  });
 });
 
 /* ---------- KPIs Visão geral: subtítulos limpos (AD-048) ---------- */
@@ -423,3 +430,4 @@ describe("KPIs: subtítulos sem misturar indicadores (AD-048)", () => {
     expect(v.kpiAtendimentos.sub).toMatch(/média .+\/dia/);
   });
 });
+
