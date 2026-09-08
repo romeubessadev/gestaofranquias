@@ -3,13 +3,15 @@
  * Reusa os componentes do tema: KpiTile, DataTable, Card, ProgressBar,
  * Badge, Avatar, EmptyState e o padrão EstadoBloco da Visão geral.
  */
+import { useState } from "react";
 import { Avatar, Badge, Card, CardHeader, CardTitle, DataTable, EmptyState, ProgressBar, type DataTableColumn } from "@/components/ui";
 import { KpiTile } from "@/pages/dashboards/KpiTile";
-import { ICONS, TINT } from "@/pages/dashboards/icons";
+import { ICONS } from "@/pages/dashboards/icons";
 import { brl, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/blocos";
 import type { DesafioView, EquipeView, LojaEquipeResumo, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
+import { cn } from "@/lib/cn";
 
 /* ------------------------- KPIs do topo ------------------------- */
 
@@ -65,7 +67,7 @@ const ROTULO_TENDENCIA: Record<VendedoraLinha["tendencia"], { texto: string; var
   caindo: { texto: "↘ caindo", variant: "danger" },
 };
 
-export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[]; metaAtiva: boolean }) {
+export function BlocoVendedoras({ lista, metaAtiva, mostrarShopping = false }: { lista: VendedoraLinha[]; metaAtiva: boolean; mostrarShopping?: boolean }) {
   const colunas: DataTableColumn<VendedoraLinha>[] = [
     {
       key: "vendedora",
@@ -86,6 +88,16 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[];
         </div>
       ),
     },
+    ...(mostrarShopping
+      ? ([
+          {
+            key: "shopping",
+            header: "Shopping",
+            hideBelow: "sm",
+            render: (l: VendedoraLinha) => <span className="text-[12.5px] text-t1">{l.filialNome}</span>,
+          },
+        ] as DataTableColumn<VendedoraLinha>[])
+      : []),
     // Faturamento/ticket/P.A. só entram SEM meta ativa — com meta a tabela
     // segue o mockup: realizado aparece na linha da barra de avanço.
     ...(metaAtiva
@@ -144,7 +156,7 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[];
       : []),
   ];
 
-  return <DataTable columns={colunas} data={lista} rowKey={(l) => l.colaboradorId} emptyMessage="Sem vendedoras elegíveis no período." />;
+  return <DataTable columns={colunas} data={lista} rowKey={(l) => `${l.filialId}-${l.colaboradorId}`} emptyMessage="Sem vendedoras elegíveis no período." />;
 }
 
 /** Barra segmentada da escada: preenchida até o realizado, marcos nos degraus. */
@@ -357,45 +369,95 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
   );
 }
 
-/* ------------------------- Visão rede: resumo por loja ------------------------- */
+/* ------------------------- Visão rede: tabela + abas ------------------------- */
 
-const IconeLoja = ICONS.store;
+/**
+ * Card da rede: abas Vendedoras | Lojas com meta ativa; sem meta, só a tabela
+ * flat com Shopping (REDE-04 / REDE-15). Substitui o antigo resumo por cards.
+ */
+export function BlocoVendedorasRede({
+  estado,
+  lista,
+  lojas,
+  metaAtiva,
+  competenciaTexto,
+}: {
+  estado: EstadoBlocoTipo;
+  lista: VendedoraLinha[] | null;
+  lojas: LojaEquipeResumo[] | null;
+  metaAtiva: boolean;
+  competenciaTexto: string;
+}) {
+  const [aba, setAba] = useState<"vendedoras" | "lojas">("vendedoras");
 
-export function BlocoResumoRede({ lojas, onEscolher }: { lojas: LojaEquipeResumo[]; onEscolher: (filialId: string) => void }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Equipe por loja</CardTitle>
-        <p className="mt-1 text-[12.5px] text-t2">Toque numa loja para ver as vendedoras.</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle>Desempenho por vendedora</CardTitle>
+            <p className="mt-1 text-[12.5px] text-t2">
+              {metaAtiva
+                ? `Rede · competência ${competenciaTexto}. Alterna entre todas as vendedoras e o agrupamento por loja.`
+                : "Desempenho do período filtrado; metas e premiação são do mês e não entram aqui."}
+            </p>
+          </div>
+          {metaAtiva && (
+            <div className="flex w-fit gap-1 rounded-[13px] border border-line bg-bg-2 p-1">
+              {(
+                [
+                  { id: "vendedoras" as const, label: "Vendedoras" },
+                  { id: "lojas" as const, label: "Lojas" },
+                ] as const
+              ).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setAba(t.id)}
+                  className={cn("rounded-[10px] px-3.5 py-1.5 text-[12.5px] font-bold transition-colors", aba === t.id ? "bg-acc text-white" : "text-t1 hover:text-t0")}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </CardHeader>
-      <div className="grid gap-4 md:grid-cols-2">
-        {lojas.map((l) => (
-          <button key={l.filialId} onClick={() => onEscolher(l.filialId)} className="rounded-[var(--radius-vela-lg)] border border-line bg-bg-2 p-4 text-left transition-colors hover:bg-bg-3">
-            <div className="mb-3 flex items-center gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]" style={{ background: TINT[l.tint].bg, color: TINT[l.tint].fg }}>
-                <IconeLoja size={16} />
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-t1">{l.nome}</span>
-              <span className="font-mono text-[13px] font-bold text-t0">{l.faturamento}</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-t2">
-              <span>
-                ticket <span className="font-mono font-semibold text-t0">{l.ticket}</span>
-              </span>
-              <span>
-                P.A. <span className="font-mono font-semibold text-t0">{l.pa}</span>
-              </span>
-              <span>
-                premiação <span className="font-mono font-semibold text-ok">{l.premiacaoProjetada}</span>
-              </span>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {l.melhor && <Badge variant="success">↗ {l.melhor.nome} · {num(l.melhor.atingimentoPct, 0)}%</Badge>}
-              {l.pior && <Badge variant="danger">↘ {l.pior.nome} · {num(l.pior.atingimentoPct, 0)}%</Badge>}
-            </div>
-          </button>
-        ))}
-      </div>
+      <EstadoBloco estado={estado}>
+        {!lista || lista.length === 0 ? (
+          <EmptyState icon="👤" title="Sem vendedoras" description="Nenhuma vendedora elegível na rede para o período." />
+        ) : !metaAtiva || aba === "vendedoras" ? (
+          <BlocoVendedoras lista={lista} metaAtiva={metaAtiva} mostrarShopping />
+        ) : (
+          <div className="flex flex-col gap-5">
+            {(lojas ?? []).map((loja) => {
+              const daLoja = lista.filter((l) => l.filialId === loja.filialId);
+              const pctLoja = loja.metaValor > 0 ? (loja.realizadoValor / loja.metaValor) * 100 : 0;
+              return (
+                <div key={loja.filialId} className="rounded-[var(--radius-vela-lg)] border border-line bg-bg-2 p-4">
+                  <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                    <div>
+                      <p className="text-[14px] font-bold text-t0">{loja.nome}</p>
+                      <p className="text-[12px] text-t2">{num(loja.pctMetaGlobal, 0)}% da meta global</p>
+                    </div>
+                    <p className="font-mono text-[12.5px] text-t1">
+                      {brl(loja.realizadoValor)} / {brl(loja.metaValor)} · <span className="font-bold text-t0">{num(pctLoja, 1)}%</span>
+                    </p>
+                  </div>
+                  <ProgressBar value={Math.min(100, pctLoja)} height={6} color={pctLoja >= 100 ? "var(--ok)" : "var(--acc)"} />
+                  <div className="mt-3">
+                    {daLoja.length > 0 ? (
+                      <BlocoVendedoras lista={daLoja} metaAtiva={metaAtiva} />
+                    ) : (
+                      <p className="text-[12.5px] text-t2">Sem vendedoras elegíveis nesta loja.</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </EstadoBloco>
     </Card>
   );
 }

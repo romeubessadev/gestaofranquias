@@ -5,12 +5,12 @@ import { Avisos } from "@/components/gestao/Avisos";
 import { DashboardShell } from "@/pages/dashboard/DashboardShell";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { BlocoLeitura } from "@/pages/dashboard/blocos";
-import { AvisoCompetencia, BlocoDesafios, BlocoKpisEquipe, BlocoResumoRede, CardVendedoras, FaixaMetaGlobal } from "./blocos";
+import { AvisoCompetencia, BlocoDesafios, BlocoKpisEquipe, BlocoVendedorasRede, CardVendedoras, FaixaMetaGlobal } from "./blocos";
 
 /**
- * Aba Equipe: análise de metas, desafios e comissão do mês por vendedora.
- * Filtro global (período/loja/marca); "todas as lojas" mostra um resumo por
- * loja. Período que não é o mês da competência mostra só desempenho.
+ * Aba Equipe: análise de metas, desafios e premiação do mês por vendedora.
+ * Filtro global (período/loja/marca); "todas as lojas" mostra a tabela da
+ * rede (com abas Vendedoras|Lojas quando a meta está ativa).
  */
 export function EquipePage() {
   const { escopo, mudar } = useEscopo();
@@ -45,7 +45,13 @@ export function EquipePage() {
             competenciaTexto={mesAno(`${v.competencia}-01`)}
           />
         ) : (
-          <BlocoResumoRede lojas={v.lojas ?? []} onEscolher={(id) => mudar({ ...escopo, filialId: id, divisao: null })} />
+          <BlocoVendedorasRede
+            estado={v.estados.vendedoras}
+            lista={v.vendedoras}
+            lojas={v.lojas}
+            metaAtiva={v.metaAtiva}
+            competenciaTexto={mesAno(`${v.competencia}-01`)}
+          />
         )}
 
         {v.metaAtiva && v.desafios && v.desafios.length > 0 && <BlocoDesafios desafios={v.desafios} />}
