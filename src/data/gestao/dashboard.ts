@@ -369,13 +369,18 @@ function pctDelta(atual: number, anterior: number): number {
 }
 
 /** Delta pronto para o KpiTile do template: sem sinal no texto, a seta já indica. */
-export function kpiDelta(atual: number, anterior: number, vs?: string): { value: string; positive: boolean; vs?: string } | undefined {
+export function kpiDelta(atual: number, anterior: number, vs?: string): { value: string; positive: boolean; vs?: string; diff?: string } | undefined {
   if (anterior <= 0) return undefined;
   const v = pctDelta(atual, anterior);
   const casas = Math.abs(v) < 10 ? 1 : 0;
-  // Arredondou pra zero: sem selo — não é queda nem alta, não há o que marcar.
   if (num(Math.abs(v), casas) === num(0, casas)) return undefined;
-  return { value: fmtDelta(v, casas).replace(/^[+−]/, ""), positive: v >= 0, ...(vs ? { vs } : {}) };
+  const diferenca = Math.abs(atual - anterior);
+  return {
+    value: fmtDelta(v, casas).replace(/^[+−]/, ""),
+    positive: v >= 0,
+    ...(vs ? { vs } : {}),
+    ...(diferenca > 0 ? { diff: brl(diferenca) } : {}),
+  };
 }
 
 /** Dias com loja aberta que ainda restam no mês corrente. */
@@ -1435,28 +1440,27 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
       valor: brlK(atual.faturamento),
       delta: temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
       serie: serieFaturamento,
-      tooltip: "Receita bruta total das vendas no período selecionado.",
-    },
+      },
     {
       label: "Custo dos produtos",
       valor: brlK(custoAtual),
       delta: temComp ? kpiDelta(custoAtual, custoAnterior, vsRotulo) : undefined,
       serie: serieCmv,
-      tooltip: "CMV — quanto custou a mercadoria vendida. Se sobe mais que o faturamento, corrói margem.",
+      tooltip: "Quanto custou a mercadoria vendida no período. Se subir mais que o faturamento, corrói a margem.",
     },
     {
       label: "Lucro bruto",
       valor: brlK(lucroAtual),
       delta: temComp ? kpiDelta(lucroAtual, lucroAnterior, vsRotulo) : undefined,
       serie: serieLucro,
-      tooltip: "Faturamento − CMV. O que sobra antes de descontar aluguel, salários etc.",
+      tooltip: "O que sobra do faturamento após descontar o custo dos produtos vendidos.",
     },
     {
       label: "Margem",
       valor: pct(margemAtual),
       delta: temComp ? { value: `${Math.abs(margemAtual - margemAnterior).toFixed(1)} p.p.`, positive: margemAtual >= margemAnterior, vs: vsRotulo } : undefined,
       serie: serieMargem,
-      tooltip: "Quantos centavos de lucro cada R$ 1 vendido deixa (antes das despesas fixas).",
+      tooltip: "Quantos centavos de lucro cada real vendido gera antes das despesas fixas.",
     },
   ];
 
@@ -1692,13 +1696,12 @@ export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | nul
       valor: brlK(totalFat),
       delta: temComp ? kpiDelta(totalFat, antTotalFat, vsRotulo) : undefined,
       serie: serieFat,
-      tooltip: "Receita bruta total de produtos no período selecionado.",
     },
     {
       label: "Lucro bruto",
       valor: brlK(totalLucro),
       delta: temComp ? kpiDelta(totalLucro, antTotalLucro, vsRotulo) : undefined,
-      tooltip: "Faturamento − CMV. O que sobra antes das despesas fixas.",
+      tooltip: "O que sobra do faturamento após descontar o custo dos produtos vendidos.",
     },
     {
       label: "Margem",
@@ -1710,7 +1713,6 @@ export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | nul
       label: "Itens vendidos",
       valor: num(totalItens),
       delta: temComp ? kpiDelta(totalItens, antTotalItens, vsRotulo) : undefined,
-      tooltip: "Quantidade total de unidades vendidas no período.",
     },
   ];
 
@@ -2150,34 +2152,26 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
         : `${num(atual.atendimentos)} vendas · ${num(atual.itens)} itens`,
       delta: temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
       serie: serieFat,
-      tooltip: metaTotal > 0 && temComp
-        ? `Receita bruta total. Vs ${vsRotulo}: ${brl(Math.abs(atual.faturamento - anterior.faturamento))} ${atual.faturamento >= anterior.faturamento ? "acima" : "abaixo"}.`
-        : "Receita bruta total.",
-      drillTo: "/dashboard/financeiro",
-    },
+      },
     {
       label: "CMV (custo)",
       valor: brlK(custoAtual),
       sub: `CMV% ${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}%`,
       delta: temComp ? kpiDelta(custoAtual, custoAnterior, vsRotulo) : undefined,
-      tooltip: "Custo dos produtos vendidos. Drill → Financeiro.",
-      drillTo: "/dashboard/financeiro",
+      tooltip: "Quanto custou a mercadoria vendida no período. Se subir mais que o faturamento, corrói a margem.",
     },
     {
       label: "Vendas",
       valor: num(atual.atendimentos),
       sub: `${num(atual.itens)} itens vendidos`,
       delta: temComp ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined,
-      tooltip: "Quantidade de atendimentos/vendas no período.",
-      drillTo: "/equipe",
     },
     {
       label: "Ticket Médio",
       valor: brl(ticketAtual),
       sub: `PA ${divSeguro(atual.itens, atual.atendimentos).toFixed(2)}`,
       delta: temComp ? kpiDelta(ticketAtual, ticketAnterior, vsRotulo) : undefined,
-      tooltip: "Valor médio por atendimento. Drill → Produtos.",
-      drillTo: "/dashboard/produtos",
+      tooltip: "Valor médio gasto por cada atendimento realizado.",
     },
   ];
 

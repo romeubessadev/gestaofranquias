@@ -10,7 +10,7 @@ export interface StatCardProps {
   icon: ReactNode;
   iconColor?: string;
   iconBg?: string;
-  delta?: { value: string; positive: boolean };
+  delta?: { value: string; positive: boolean; vs?: string; diff?: string };
   sparkline?: ReactNode;
   /** Texto secundário abaixo do valor (ex.: "1.665 vendas · 2.495 itens"). */
   sub?: string;
@@ -30,14 +30,16 @@ export function StatCard({ label, value, icon, iconColor = "var(--acc)", iconBg 
           {icon}
         </div>
         {delta && (
-          <span
-            className={cn(
-              "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold",
-              delta.positive ? "text-ok bg-ok-soft" : "text-bad bg-bad-soft",
-            )}
-          >
-            {delta.positive ? "↗" : "↘"} {delta.value}
-          </span>
+          <Tooltip label={delta.vs ? `${delta.positive ? "Acima" : "Abaixo"} de ${delta.vs}${delta.diff ? ` · ${delta.diff}` : ""}` : undefined}>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold",
+                delta.positive ? "text-ok bg-ok-soft" : "text-bad bg-bad-soft",
+              )}
+            >
+              {delta.positive ? "↗" : "↘"} {delta.value}
+            </span>
+          </Tooltip>
         )}
       </div>
       <div className="mt-4 flex items-center gap-1.5">
