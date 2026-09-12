@@ -177,6 +177,8 @@ export function escadaVendedora(
 export interface KpiEquipeValor {
   valor: string;
   delta: { value: string; positive: boolean; vs?: string } | undefined;
+  /** Série diária para sparkline nos KPIs da Equipe (opcional). */
+  serie?: number[];
 }
 
 export interface VendedoraLinha {
@@ -298,6 +300,8 @@ export interface EquipeView {
   /** Faixa global da rede — só em visão rede com meta ativa. */
   metaGlobal: RedeMetaGlobal | null;
   leitura: string | null;
+  /** Série diária de faturamento para gráfico de Evolução na EquipePage. */
+  evolucaoFaturamento?: { label: string; valor: number }[];
   vendedoras: VendedoraLinha[] | null;
   lojas: LojaEquipeResumo[] | null;
   desafios: DesafioView[] | null;
@@ -614,6 +618,28 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
   const ticketAnt = divSeguro(anterior.faturamento, anterior.atendimentos);
   const paAnt = divSeguro(anterior.itens, anterior.atendimentos);
 
+  // Séries diárias para sparklines nos KPIs
+  const diasPeriodo = intervaloDias(periodo.inicio, periodo.fim);
+  const serieFat: number[] = [];
+  const serieAtend: number[] = [];
+  const serieTicket: number[] = [];
+  const seriePA: number[] = [];
+  for (const iso of diasPeriodo) {
+    const dia = diaVendas(filialId, iso);
+    if (!dia) {
+      serieFat.push(0);
+      serieAtend.push(0);
+      serieTicket.push(0);
+      seriePA.push(0);
+      continue;
+    }
+    const ag = agregadoDoDia(dia, null, iso === HOJE_ISO ? HORA_ATUAL : undefined);
+    serieFat.push(ag.faturamento);
+    serieAtend.push(ag.atendimentos);
+    serieTicket.push(divSeguro(ag.faturamento, ag.atendimentos));
+    seriePA.push(divSeguro(ag.itens, ag.atendimentos));
+  }
+
   // Meta/escada/premiação: sempre janela da competência (AD-046).
   const vendedoras = visaoVendedoras(filialId, periodoMeta, metaAtiva, competencia);
   const premiacao = metaAtiva ? premiacaoProjetada(filialId, competencia, vendedoras) : null;
@@ -631,13 +657,14 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
     metaAtiva,
     avisoCompetencia: null, // preenchido em montarEquipeView
     avisos,
-    kpiFaturamento: { valor: brlK(atual.faturamento), delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined },
-    kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined },
-    kpiTicket: { valor: brl(ticket), delta: temComparacao ? kpiDelta(ticket, ticketAnt, vsRotulo) : undefined },
-    kpiPA: { valor: num(pa, 2), delta: temComparacao ? kpiDelta(pa, paAnt, vsRotulo) : undefined },
+    kpiFaturamento: { valor: brlK(atual.faturamento), delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined, serie: serieFat.length > 1 ? serieFat : undefined },
+    kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined, serie: serieAtend.length > 1 ? serieAtend : undefined },
+    kpiTicket: { valor: brl(ticket), delta: temComparacao ? kpiDelta(ticket, ticketAnt, vsRotulo) : undefined, serie: serieTicket.length > 1 ? serieTicket : undefined },
+    kpiPA: { valor: num(pa, 2), delta: temComparacao ? kpiDelta(pa, paAnt, vsRotulo) : undefined, serie: seriePA.length > 1 ? seriePA : undefined },
     kpiPremiacao: premiacao === null ? null : { valor: brl(premiacao), delta: undefined },
     metaGlobal: null,
     leitura: null,
+    evolucaoFaturamento: serieFat.length > 1 ? diasPeriodo.map((iso, i) => ({ label: iso.slice(5), valor: serieFat[i] })) : undefined,
     vendedoras,
     lojas: null,
     desafios: metaAtiva ? desafiosViewDaCompetencia(competencia, [filial.id]) : null,
@@ -712,6 +739,24 @@ function visaoRede(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
   );
   const temComparacao = anterior.atendimentos > 0;
   const vsRotulo = temComparacao ? ant.rotulo : undefined;
+
+  // Séries diárias para sparklines nos KPIs da rede
+  const diasPeriodoRede = intervaloDias(periodo.inicio, periodo.fim);
+  const serieFatRede: number[] = [];
+  const serieAtendRede: number[] = [];
+  const serieTicketRede: number[] = [];
+  const seriePARede: number[] = [];
+  for (const iso of diasPeriodoRede) {
+    const agDia = somarAgregados(filiais.map((f) => {
+      const dia = diaVendas(f.id, iso);
+      return dia ? agregadoDoDia(dia, null, iso === HOJE_ISO ? HORA_ATUAL : undefined) : { faturamento: 0, atendimentos: 0, itens: 0 };
+    }));
+    serieFatRede.push(agDia.faturamento);
+    serieAtendRede.push(agDia.atendimentos);
+    serieTicketRede.push(divSeguro(agDia.faturamento, agDia.atendimentos));
+    seriePARede.push(divSeguro(agDia.itens, agDia.atendimentos));
+  }
+
   const desafios = metaAtiva ? desafiosViewDaCompetencia(competencia, filiais.map((f) => f.id)) : null;
   const semDesafios = metaAtiva && desafiosAtivos(competencia).length === 0;
 
@@ -766,13 +811,14 @@ if (metaAtiva) {
     metaAtiva,
     avisoCompetencia: null,
     avisos: [],
-    kpiFaturamento: { valor: brlK(atual.faturamento), delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined },
-    kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined },
-    kpiTicket: { valor: brl(divSeguro(atual.faturamento, atual.atendimentos)), delta: temComparacao ? kpiDelta(divSeguro(atual.faturamento, atual.atendimentos), divSeguro(anterior.faturamento, anterior.atendimentos), vsRotulo) : undefined },
-    kpiPA: { valor: num(divSeguro(atual.itens, atual.atendimentos), 2), delta: temComparacao ? kpiDelta(divSeguro(atual.itens, atual.atendimentos), divSeguro(anterior.itens, anterior.atendimentos), vsRotulo) : undefined },
+    kpiFaturamento: { valor: brlK(atual.faturamento), delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined, serie: serieFatRede.length > 1 ? serieFatRede : undefined },
+    kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined, serie: serieAtendRede.length > 1 ? serieAtendRede : undefined },
+    kpiTicket: { valor: brl(divSeguro(atual.faturamento, atual.atendimentos)), delta: temComparacao ? kpiDelta(divSeguro(atual.faturamento, atual.atendimentos), divSeguro(anterior.faturamento, anterior.atendimentos), vsRotulo) : undefined, serie: serieTicketRede.length > 1 ? serieTicketRede : undefined },
+    kpiPA: { valor: num(divSeguro(atual.itens, atual.atendimentos), 2), delta: temComparacao ? kpiDelta(divSeguro(atual.itens, atual.atendimentos), divSeguro(anterior.itens, anterior.atendimentos), vsRotulo) : undefined, serie: seriePARede.length > 1 ? seriePARede : undefined },
     kpiPremiacao: premiacaoRede === null ? null : { valor: brl(premiacaoRede), delta: undefined },
     metaGlobal,
     leitura: null,
+    evolucaoFaturamento: serieFatRede.length > 1 ? diasPeriodoRede.map((iso, i) => ({ label: iso.slice(5), valor: serieFatRede[i] })) : undefined,
     vendedoras: vendedorasFlat,
     lojas: lojas,
     desafios,

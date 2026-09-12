@@ -58,17 +58,33 @@ export default function TurnosPage() {
     mudar({ ...escopo, divisao: v });
   }
 
-  // Preparar dados para StackedBarChart (dia × turno)
+  // Preparar dados para StackedBarChart (dia da semana × turno) — agrupa e tira média
   const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-  const stackedData = view.faturamentoPorDiaTurno.map((d) => {
+  const ordemDias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  const acumulado: Record<string, Record<string, number>> = {};
+  const contagem: Record<string, number> = {};
+  for (const d of view.faturamentoPorDiaTurno) {
     const data = new Date(d.dia + "T12:00:00");
     const label = diasSemana[data.getDay()];
-    const entry: Record<string, string | number> = { label };
-    for (const [turno, fat] of Object.entries(d.porTurno)) {
-      entry[turno] = fat;
+    if (!acumulado[label]) {
+      acumulado[label] = {};
+      contagem[label] = 0;
     }
-    return entry;
-  });
+    contagem[label]++;
+    for (const [turno, fat] of Object.entries(d.porTurno)) {
+      acumulado[label][turno] = (acumulado[label][turno] ?? 0) + fat;
+    }
+  }
+  const stackedData = ordemDias
+    .filter((label) => acumulado[label])
+    .map((label) => {
+      const n = contagem[label] || 1;
+      const entry: Record<string, string | number> = { label };
+      for (const [turno, soma] of Object.entries(acumulado[label])) {
+        entry[turno] = Math.round(soma / n);
+      }
+      return entry;
+    });
   const turnoKeys = view.kpisPorTurno.map((k) => k.nome);
   const turnoColors = turnoKeys.map((k) => CORES_TURNOS[k] ?? "var(--t2)");
 

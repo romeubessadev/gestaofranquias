@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Avatar, Badge, Card, CardHeader, CardTitle, DataTable, EmptyState, ProgressBar, type DataTableColumn } from "@/components/ui";
 import { KpiTile } from "@/pages/dashboards/KpiTile";
 import { ICONS } from "@/pages/dashboards/icons";
+import { Sparkline } from "@/components/charts";
 import { brl, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/blocos";
@@ -37,10 +38,10 @@ export function BlocoKpisEquipe({
         </p>
       )}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiTile label="Faturamento" value={faturamento.valor} icon="dollar" tint="acc" delta={faturamento.delta} tooltip="Receita bruta total da equipe no período." />
-        <KpiTile label="Atendimentos" value={atendimentos.valor} icon="users" tint="info" delta={atendimentos.delta} tooltip="Total de vendas/atendimentos realizados." />
-        <KpiTile label="Ticket médio" value={ticket.valor} icon="card" tint="ok" delta={ticket.delta} tooltip="Valor médio por atendimento (Faturamento ÷ Atendimentos)." />
-        <KpiTile label="P.A." value={pa.valor} icon="layers" tint="warn" delta={pa.delta} tooltip="Peças/itens por atendimento (Itens ÷ Atendimentos)." />
+        <KpiTile label="Faturamento" value={faturamento.valor} icon="dollar" tint="acc" delta={faturamento.delta} tooltip="Receita bruta total da equipe no período." sparkline={faturamento.serie && faturamento.serie.length > 1 ? <Sparkline data={faturamento.serie} /> : undefined} />
+        <KpiTile label="Atendimentos" value={atendimentos.valor} icon="users" tint="info" delta={atendimentos.delta} tooltip="Total de vendas/atendimentos realizados." sparkline={atendimentos.serie && atendimentos.serie.length > 1 ? <Sparkline data={atendimentos.serie} /> : undefined} />
+        <KpiTile label="Ticket médio" value={ticket.valor} icon="card" tint="ok" delta={ticket.delta} tooltip="Valor médio por atendimento (Faturamento ÷ Atendimentos)." sparkline={ticket.serie && ticket.serie.length > 1 ? <Sparkline data={ticket.serie} /> : undefined} />
+        <KpiTile label="P.A." value={pa.valor} icon="layers" tint="warn" delta={pa.delta} tooltip="Peças/itens por atendimento (Itens ÷ Atendimentos)." sparkline={pa.serie && pa.serie.length > 1 ? <Sparkline data={pa.serie} /> : undefined} />
       </div>
     </div>
   );

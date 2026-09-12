@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Card, AnimatedNumber, Tooltip } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { ICONS, TINT, type IconKey, type TintKey } from "./icons";
@@ -18,6 +19,8 @@ export interface KpiTileProps {
   subDuasLinhas?: boolean;
   /** Tooltip exibido ao passar o mouse no ⓘ ao lado do label. */
   tooltip?: string;
+  /** Sparkline ou outro elemento renderizado abaixo do subtítulo. */
+  sparkline?: ReactNode;
 }
 
 /** Subtítulo que quebra em duas linhas no mobile (uma por trecho, separado por " · " no texto de origem) e volta a ficar numa linha só a partir do sm, onde cabe. Reserva a altura da segunda linha mesmo quando não há, pra tiles vizinhos não ficarem com alturas diferentes. */
@@ -41,7 +44,7 @@ export function KpiSubtitulo({ texto }: { texto: string }) {
  * close to `StatCard` but with an uppercase label and an optional
  * secondary "sub" line under the value, matching the source layout.
  */
-export function KpiTile({ label, value, icon, tint, delta, sub, subDuasLinhas, tooltip }: KpiTileProps) {
+export function KpiTile({ label, value, icon, tint, delta, sub, subDuasLinhas, tooltip, sparkline }: KpiTileProps) {
   const Icon = ICONS[icon];
   return (
     <Card className="min-w-0">
@@ -76,6 +79,7 @@ export function KpiTile({ label, value, icon, tint, delta, sub, subDuasLinhas, t
       </div>
       <AnimatedNumber value={value} className="mt-1.5 block truncate text-2xl font-extrabold tracking-tight text-t0" />
       {sub && (subDuasLinhas ? <KpiSubtitulo texto={sub} /> : <p className="mt-0.5 truncate text-[11.5px] text-t2">{sub}</p>)}
+      {sparkline && <div className="mt-3 h-9">{sparkline}</div>}
     </Card>
   );
 }

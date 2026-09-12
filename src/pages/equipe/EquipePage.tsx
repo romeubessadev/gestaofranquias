@@ -1,8 +1,10 @@
 import { useMemo } from "react";
 import { montarEquipeView } from "@/data/gestao/equipeVisoes";
-import { mesAno } from "@/lib/formato";
+import { mesAno, brl } from "@/lib/formato";
 import { Avisos } from "@/components/gestao/Avisos";
-import { Card, EmptyState, PageHeader } from "@/components/ui";
+import { Card, CardHeader, CardTitle, EmptyState, PageHeader } from "@/components/ui";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { AreaLineChart } from "@/components/charts";
 import { SeletorEscopo } from "@/pages/dashboard/SeletorEscopo";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { BlocoLeitura } from "@/pages/dashboard/blocos";
@@ -40,6 +42,28 @@ export function EquipePage() {
         {v.leitura && <BlocoLeitura texto={v.leitura} />}
 
         <BlocoKpisEquipe faturamento={v.kpiFaturamento} atendimentos={v.kpiAtendimentos} ticket={v.kpiTicket} pa={v.kpiPA} />
+
+        {v.evolucaoFaturamento && v.evolucaoFaturamento.length > 1 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-1.5">
+                <CardTitle>Evolução do Faturamento</CardTitle>
+                <Tooltip label="Faturamento diário da equipe no período selecionado.">
+                  <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                </Tooltip>
+              </div>
+            </CardHeader>
+            <div className="px-4 pb-4">
+              <AreaLineChart
+                data={v.evolucaoFaturamento.map((e) => e.valor)}
+                labels={v.evolucaoFaturamento.map((e) => e.label)}
+                color="var(--acc)"
+                height={200}
+                formatValue={brl}
+              />
+            </div>
+          </Card>
+        )}
 
         {v.visao === "rede" && v.metaGlobal && <FaixaMetaGlobal meta={v.metaGlobal} />}
 

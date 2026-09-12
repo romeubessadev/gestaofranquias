@@ -1755,7 +1755,7 @@ export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | nul
         categoriaNome: cat.nome,
         cmv,
         cmvPct: divSeguro(cmv, p.receita) * 100,
-        ticketMedio: divSeguro(p.receita, p.itens > 0 ? Math.round(p.receita / (totalFat / (totalItens || 1))) : 1),
+        ticketMedio: divSeguro(p.receita, p.itens),
         tmPorItem: divSeguro(p.receita, p.itens),
         tendencia: p.margemPct > 50 ? "up" : p.margemPct < 30 ? "down" : "flat",
       });
@@ -2000,19 +2000,24 @@ export function montarTurnosView(escopo: Escopo, turnoFiltro: string | null = nu
     });
   }
 
-  // Vendedoras por hora (staff real vs meta mínima)
+  // Vendedoras por hora (staff real vs meta mínima) — agrega todos os dias do período
+  const diasDoPeriodo = intervaloDias(periodo.inicio, periodo.fim);
+  const numDias = diasDoPeriodo.length || 1;
   const vendedorasPorHora: VendedoraPorHora[] = horasAtivas.map((h) => {
-    let reais = 0;
-    for (const f of fs) {
-      const dv = diaVendas(f.id, HOJE_ISO);
-      if (!dv) continue;
-      const ag = dv.porHora[h];
-      if (ag && ag.atendimentos > 0) {
-        // Estimativa: vendedoras ativas ≈ atendimentos / ticket médio esperado
-        const vendedoresCount = Object.keys(dv.porVendedora).length || 1;
-        reais += vendedoresCount;
+    let somaReais = 0;
+    for (const dia of diasDoPeriodo) {
+      for (const f of fs) {
+        const dv = diaVendas(f.id, dia);
+        if (!dv) continue;
+        const ag = dv.porHora[h];
+        if (ag && ag.atendimentos > 0) {
+          const vendedoresCount = Object.keys(dv.porVendedora).length || 1;
+          somaReais += vendedoresCount;
+        }
       }
     }
+    // Média de vendedoras por hora ao longo do período
+    const reais = Math.round(somaReais / numDias);
     // Meta mínima: 2 vendedoras por hora como baseline
     const metaMinima = 2;
     return { hora: h, reais, metaMinima };
