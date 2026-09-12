@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardTitle, StatCard, Segmented, DateRangePicker, PageHeader, Button } from "@/components/ui";
+import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, BarChart, DonutChart, Gauge } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
@@ -16,26 +16,27 @@ const IconFat = () => (
 );
 const IconCmv = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-    <line x1="12" y1="22.08" x2="12" y2="12" />
+    <circle cx="8" cy="21" r="1" />
+    <circle cx="19" cy="21" r="1" />
+    <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
   </svg>
 );
-const IconLucro = () => (
+const IconVendas = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="1" x2="12" y2="23" />
-    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
   </svg>
 );
 const IconTicket = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <path d="M16 8l-4 4-4-4" />
-    <path d="M16 16l-4-4-4 4" />
+    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+    <line x1="1" y1="10" x2="23" y2="10" />
   </svg>
 );
 
-const KPI_ICONS = [IconFat, IconCmv, IconLucro, IconTicket];
+const KPI_ICONS = [IconFat, IconCmv, IconVendas, IconTicket];
 
 /** BarChart horizontal compacto para Top 3 rankings. */
 function RankingCompacto({ items, formatValue, onClick }: { items: { nome: string; valor: number }[]; formatValue: (v: number) => string; onClick?: () => void }) {
@@ -112,7 +113,7 @@ export default function VisaoGeralPage() {
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
       <PageHeader
-        crumbs={[{ label: "Dashboards", to: "/dashboard/visao-geral" }, { label: "Visão Geral" }]}
+        crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Visão Geral" }]}
         title="Visão Geral"
         subtitle="Faturamento, metas e indicadores-chave — visão consolidada da rede."
         actions={
@@ -124,27 +125,29 @@ export default function VisaoGeralPage() {
             <Button variant="secondary" size="sm" onClick={forcarAtualizacao} disabled={refreshing}
               icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
             />
+            <Button variant="primary" size="sm" onClick={() => window.print()}
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>}
+            >
+              Exportar PDF
+            </Button>
             <DateRangePicker value={dateRange} onChange={onDateChange} />
-            <Segmented
-              options={[{ label: "WEPINK", value: "WEPINK" }, { label: "WPINK", value: "WPINK" }]}
-              value={escopo.divisao}
-              onChange={onMarcaChange}
-              allowClear
-            />
+            <select
+              value={escopo.divisao ?? ""}
+              onChange={(e) => onMarcaChange(e.target.value ? e.target.value as "WEPINK" | "WPINK" : null)}
+              className="h-8 rounded-[9px] border border-line bg-bg-inset px-3 text-xs font-semibold text-t1 transition-colors hover:border-acc focus:border-acc focus:outline-none"
+            >
+              <option value="">Todas as marcas</option>
+              <option value="WEPINK">WEPINK</option>
+              <option value="WPINK">WPINK</option>
+            </select>
           </>
         }
       />
 
-      {/* KPI row — 4 cards com drill-down */}
+      {/* KPI row — 4 cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {view.kpis.map((kpi, i) => (
-          <div
-            key={kpi.label}
-            className={kpi.drillTo ? "cursor-pointer transition-opacity hover:opacity-90" : ""}
-            onClick={() => kpi.drillTo && navigate(kpi.drillTo)}
-          >
-            <KpiCard kpi={kpi} Icon={KPI_ICONS[i]} colorIdx={i} />
-          </div>
+          <KpiCard key={kpi.label} kpi={kpi} Icon={KPI_ICONS[i]} colorIdx={i} />
         ))}
       </div>
 

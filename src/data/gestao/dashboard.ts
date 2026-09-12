@@ -2144,12 +2144,14 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     {
       label: "Faturamento",
       valor: brlK(atual.faturamento),
-      sub: `${num(atual.atendimentos)} vendas · ${num(atual.itens)} itens`,
-      delta: metaTotal > 0
-        ? { value: `${Math.abs(atingMeta - 100).toFixed(1)}% ${atingMeta >= 100 ? "acima" : "abaixo"} da meta`, positive: atingMeta >= 100 }
-        : temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
+      sub: metaTotal > 0
+        ? `Meta: ${brlK(metaTotal)} · ${num(atual.atendimentos)} vendas`
+        : `${num(atual.atendimentos)} vendas · ${num(atual.itens)} itens`,
+      delta: temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
       serie: serieFat,
-      tooltip: "Receita bruta total. Drill → Financeiro.",
+      tooltip: metaTotal > 0 && temComp
+        ? `Receita bruta total. Vs ${vsRotulo}: ${brl(Math.abs(atual.faturamento - anterior.faturamento))} ${atual.faturamento >= anterior.faturamento ? "acima" : "abaixo"}.`
+        : "Receita bruta total.",
       drillTo: "/dashboard/financeiro",
     },
     {
@@ -2161,11 +2163,11 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
       drillTo: "/dashboard/financeiro",
     },
     {
-      label: "Lucro bruto",
-      valor: brlK(lucroAtual),
-      sub: `${margemAtual.toFixed(0)}% de margem`,
-      delta: temComp ? kpiDelta(lucroAtual, lucroAnterior, vsRotulo) : undefined,
-      tooltip: "Faturamento − CMV. Drill → Equipe.",
+      label: "Vendas",
+      valor: num(atual.atendimentos),
+      sub: `${num(atual.itens)} itens vendidos`,
+      delta: temComp ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined,
+      tooltip: "Quantidade de atendimentos/vendas no período.",
       drillTo: "/equipe",
     },
     {

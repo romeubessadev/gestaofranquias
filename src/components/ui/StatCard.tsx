@@ -41,11 +41,11 @@ export function StatCard({ label, value, icon, iconColor = "var(--acc)", iconBg 
         )}
       </div>
       <div className="mt-4 flex items-center gap-1.5">
-        <p className="truncate text-xs font-medium text-t1">{label}</p>
+        <p className="truncate text-xs font-bold uppercase tracking-wide text-t1">{label}</p>
         {tooltip && (
           <Tooltip label={tooltip}>
-            <span className="inline-flex h-3.5 w-3.5 shrink-0 cursor-help items-center justify-center rounded-full border border-line text-[8px] font-bold leading-none text-t2">
-              ⓘ
+            <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+              ?
             </span>
           </Tooltip>
         )}
