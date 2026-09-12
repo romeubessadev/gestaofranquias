@@ -1302,6 +1302,7 @@ export interface FinanceiroKpi {
   delta?: { value: string; positive: boolean; vs?: string };
   serie?: number[];
   tooltip?: string;
+  sub?: string;
 }
 
 export interface CustoLucroMes {
