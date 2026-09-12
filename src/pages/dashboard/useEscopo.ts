@@ -27,8 +27,8 @@ export function useEscopo() {
     // loja única → já seleciona ela.
     const resolvedIds = filialIds.length === 0 ? (sessao.filiais.length > 1 ? [] : [sessao.filiais[0]]) : filialIds;
 
-    const tipo = (params.get("periodo") as PeriodoTipo | null) ?? "hoje";
-    const periodoTipo = PERIODOS.includes(tipo) ? tipo : "hoje";
+    const tipo = (params.get("periodo") as PeriodoTipo | null) ?? "esteMes";
+    const periodoTipo = PERIODOS.includes(tipo) ? tipo : "esteMes";
     const divisaoParam = params.get("divisao");
     const divisao: Divisao | null = divisaoParam === "WEPINK" || divisaoParam === "WPINK" ? divisaoParam : null;
 
