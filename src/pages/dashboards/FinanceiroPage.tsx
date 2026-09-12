@@ -65,17 +65,23 @@ export default function FinanceiroPage() {
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
       {/* Filtros internos */}
-      <div className="flex flex-wrap items-center gap-3">
-        <DateRangePicker value={dateRange} onChange={onDateChange} />
-        <Segmented
-          options={[
-            { label: "WEPINK", value: "WEPINK" },
-            { label: "WPINK", value: "WPINK" },
-          ]}
-          value={escopo.divisao}
-          onChange={onMarcaChange}
-          allowClear
-        />
+      <div className="flex flex-wrap items-end gap-4">
+        <div>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-t2">Período</p>
+          <DateRangePicker value={dateRange} onChange={onDateChange} />
+        </div>
+        <div>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-t2">Marca</p>
+          <Segmented
+            options={[
+              { label: "WEPINK", value: "WEPINK" },
+              { label: "WPINK", value: "WPINK" },
+            ]}
+            value={escopo.divisao}
+            onChange={onMarcaChange}
+            allowClear
+          />
+        </div>
       </div>
 
       {/* KPI row — 4 cards */}
@@ -286,7 +292,6 @@ function KpiCard({ kpi, Icon }: { kpi: FinanceiroKpi; Icon: () => React.JSX.Elem
       delta={kpi.delta}
       sub={kpi.sub}
       tooltip={kpi.tooltip}
-      sparkline={kpi.serie && kpi.serie.length > 1 ? <Sparkline data={kpi.serie} /> : undefined}
     />
   );
 }

@@ -29,5 +29,7 @@ export function RequirePapel({ papeis }: { papeis: Papel[] }) {
 }
 
 export function inicioDoPapel(papel: Papel): string {
-  return papel === "VENDEDOR" ? paths.vendedora.minhaMeta : paths.dashboard;
+  if (papel === "VENDEDOR") return paths.vendedora.minhaMeta;
+  // Gestores/Gerentes/Admins → Dashboard > Visão Geral (não a tela legada com tabs)
+  return paths.visaoGeral;
 }
