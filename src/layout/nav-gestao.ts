@@ -19,11 +19,11 @@ const navGestor: NavEntry[] = [
     label: "Dashboard",
     icon: ICONE.dashboard,
     items: [
-      { label: "Visão Geral", to: paths.visaoGeral },
-      { label: "Financeiro", to: paths.financeiro },
-      { label: "Produtos", to: paths.produtos },
-      { label: "Equipe", to: paths.equipe },
-      { label: "Turnos", to: paths.turnos },
+      { label: "Visão Geral", to: paths.visaoGeral, dot: "var(--acc)" },
+      { label: "Financeiro", to: paths.financeiro, dot: "var(--ok)" },
+      { label: "Produtos", to: paths.produtos, dot: "var(--warn)" },
+      { label: "Equipe", to: paths.equipe, dot: "var(--info)" },
+      { label: "Turnos", to: paths.turnos, dot: "var(--bad)" },
     ],
   },
   {

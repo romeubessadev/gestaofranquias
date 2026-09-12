@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardTitle, StatCard, Segmented, DateRangePicker } from "@/components/ui";
+import { Card, CardHeader, CardTitle, StatCard, Segmented, DateRangePicker, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, BarChart, DonutChart, Gauge, Sparkline } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
@@ -62,14 +62,36 @@ function RankingCompacto({ items, formatValue, onClick }: { items: { nome: strin
   );
 }
 
+/** Cores distintas para cada KPI card (hero). */
+const KPI_COLORS = [
+  { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
+  { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
+  { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },
+  { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
+];
+
 export default function VisaoGeralPage() {
   const { escopo, mudar } = useEscopo();
   const navigate = useNavigate();
   const view = useMemo(() => montarVisaoGeralView(escopo), [escopo]);
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
+  const [refreshing, setRefreshing] = useState(false);
 
+  // Resolve o DateRange a partir do escopo — sempre mostra algo selecionado.
   const dateRange: DateRange | null = useMemo(() => {
-    if (escopo.periodo.tipo !== "personalizado" || !escopo.periodo.inicio || !escopo.periodo.fim) return null;
-    return [deIso(escopo.periodo.inicio), deIso(escopo.periodo.fim)];
+    if (escopo.periodo.tipo === "personalizado" && escopo.periodo.inicio && escopo.periodo.fim) {
+      return [deIso(escopo.periodo.inicio), deIso(escopo.periodo.fim)];
+    }
+    // Para presets, resolve o intervalo correspondente para exibir no picker.
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    switch (escopo.periodo.tipo) {
+      case "hoje": return [hoje, hoje];
+      case "ontem": { const y = new Date(hoje); y.setDate(y.getDate() - 1); return [y, y]; }
+      case "7dias": { const s = new Date(hoje); s.setDate(s.getDate() - 6); return [s, hoje]; }
+      case "esteMes": return [new Date(hoje.getFullYear(), hoje.getMonth(), 1), hoje];
+      case "mesPassado": return [new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1), new Date(hoje.getFullYear(), hoje.getMonth(), 0)];
+      default: return null;
+    }
   }, [escopo.periodo]);
 
   function onDateChange(r: DateRange) {
@@ -79,24 +101,39 @@ export default function VisaoGeralPage() {
     mudar({ ...escopo, divisao: v });
   }
 
+  const forcarAtualizacao = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => { setUltimaAtualizacao(new Date()); setRefreshing(false); }, 600);
+  }, []);
+
+  const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
+  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} minuto${minutosAtras !== 1 ? "s" : ""}`;
+
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
-      {/* Filtros internos */}
-      <div className="flex flex-wrap items-end gap-4">
-        <div>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-t2">Período</p>
-          <DateRangePicker value={dateRange} onChange={onDateChange} />
-        </div>
-        <div>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-t2">Marca</p>
-          <Segmented
-            options={[{ label: "WEPINK", value: "WEPINK" }, { label: "WPINK", value: "WPINK" }]}
-            value={escopo.divisao}
-            onChange={onMarcaChange}
-            allowClear
-          />
-        </div>
-      </div>
+      <PageHeader
+        crumbs={[{ label: "Dashboards", to: "/dashboard/visao-geral" }, { label: "Visão Geral" }]}
+        title="Visão Geral"
+        subtitle="Faturamento, metas e indicadores-chave — visão consolidada da rede."
+        actions={
+          <>
+            <span className="flex items-center gap-1.5 text-[12px] text-t2">
+              <span className="inline-block h-2 w-2 rounded-full bg-warn" />
+              {rotuloAtualizacao}
+            </span>
+            <Button variant="secondary" size="sm" onClick={forcarAtualizacao} disabled={refreshing}
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
+            />
+            <DateRangePicker value={dateRange} onChange={onDateChange} />
+            <Segmented
+              options={[{ label: "WEPINK", value: "WEPINK" }, { label: "WPINK", value: "WPINK" }]}
+              value={escopo.divisao}
+              onChange={onMarcaChange}
+              allowClear
+            />
+          </>
+        }
+      />
 
       {/* KPI row — 4 cards com drill-down */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -106,7 +143,7 @@ export default function VisaoGeralPage() {
             className={kpi.drillTo ? "cursor-pointer transition-opacity hover:opacity-90" : ""}
             onClick={() => kpi.drillTo && navigate(kpi.drillTo)}
           >
-            <KpiCard kpi={kpi} Icon={KPI_ICONS[i]} />
+            <KpiCard kpi={kpi} Icon={KPI_ICONS[i]} colorIdx={i} />
           </div>
         ))}
       </div>
@@ -269,12 +306,15 @@ export default function VisaoGeralPage() {
   );
 }
 
-function KpiCard({ kpi, Icon }: { kpi: VisaoKpi; Icon: () => React.JSX.Element }) {
+function KpiCard({ kpi, Icon, colorIdx = 0 }: { kpi: VisaoKpi; Icon: () => React.JSX.Element; colorIdx?: number }) {
+  const c = KPI_COLORS[colorIdx % KPI_COLORS.length];
   return (
     <StatCard
       label={kpi.label}
       value={kpi.valor}
       icon={<Icon />}
+      iconColor={c.iconColor}
+      iconBg={c.iconBg}
       delta={kpi.delta}
       sub={kpi.sub}
       tooltip={kpi.tooltip}
