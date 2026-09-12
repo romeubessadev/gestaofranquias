@@ -9,6 +9,8 @@ export interface AreaLineChartProps {
   compareColor?: string;
   height?: number;
   showArea?: boolean;
+  /** Mostra o valor formatado direto em cada ponto da linha (R$ direto no gráfico). */
+  showValues?: boolean;
   formatValue?: (v: number) => string;
 }
 
@@ -44,6 +46,7 @@ export function AreaLineChart({
   compareColor = "var(--t2)",
   height = 240,
   showArea = true,
+  showValues = false,
   formatValue = (v) => String(v),
 }: AreaLineChartProps) {
   const gradientId = useId();
@@ -103,6 +106,11 @@ export function AreaLineChart({
             <circle cx={active.x} cy={active.y} r="5" fill={color} stroke="var(--bg-2)" strokeWidth="2" />
           </g>
         )}
+        {showValues && points.map((p, i) => (
+          <text key={i} x={p.x} y={p.y - 8} textAnchor="middle" fontSize="10" fontWeight="700" fill={color} style={{ pointerEvents: "none" }}>
+            {formatValue(data[i])}
+          </text>
+        ))}
       </svg>
       {active && hoverIdx !== null && (
         <div

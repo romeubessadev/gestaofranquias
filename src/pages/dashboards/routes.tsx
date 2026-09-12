@@ -6,6 +6,10 @@ const SalesDashboardPage = lazyPage(() => import("./SalesDashboardPage"), "Sales
 const ProjectDashboardPage = lazyPage(() => import("./ProjectDashboardPage"), "ProjectDashboardPage");
 const SaasDashboardPage = lazyPage(() => import("./SaasDashboardPage"), "SaasDashboardPage");
 const BiDashboardPage = lazyPage(() => import("./BiDashboardPage"), "BiDashboardPage");
+const FinanceiroPage = lazyPage(() => import("./FinanceiroPage"), "FinanceiroPage");
+const ProdutosPage = lazyPage(() => import("./ProdutosPage"), "ProdutosPage");
+const TurnosPage = lazyPage(() => import("./TurnosPage"), "TurnosPage");
+const VisaoGeralPage = lazyPage(() => import("./VisaoGeralPage"), "VisaoGeralPage");
 
 /**
  * NOTE: paths.dashboards.{crm,ecommerce,finance,logistics} and the marketing
@@ -20,4 +24,8 @@ export const dashboardsRoutes: RouteObject[] = [
   { path: paths.dashboards.projects, element: <ProjectDashboardPage /> },
   { path: paths.dashboards.saas, element: <SaasDashboardPage /> },
   { path: paths.dashboards.bi, element: <BiDashboardPage /> },
+  { path: paths.financeiro, element: <FinanceiroPage /> },
+{ path: paths.produtos, element: <ProdutosPage /> },
+  { path: paths.turnos, element: <TurnosPage /> },
+  { path: paths.visaoGeral, element: <VisaoGeralPage /> },
 ];

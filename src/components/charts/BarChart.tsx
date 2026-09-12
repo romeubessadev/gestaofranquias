@@ -36,12 +36,14 @@ export function BarChart({ data, height = 220, color = "var(--acc)", formatValue
   );
 }
 
-export function StackedBarChart({ data, keys, colors, height = 220, formatValue }: {
+export function StackedBarChart({ data, keys, colors, height = 220, showValues = true, formatValue }: {
   data: Array<Record<string, number | string>>;
   keys: string[];
   colors: string[];
   height?: number;
-  /** Quando informado, mostra o total da coluna (soma das séries) acima da barra. */
+  /** Mostra o total da coluna (soma das séries) acima da barra. Default true (R$ direto no gráfico). */
+  showValues?: boolean;
+  /** Formata o valor exibido (ex.: brl). Só usado quando showValues=true. */
   formatValue?: (v: number) => string;
 }) {
   const totais = data.map((d) => keys.reduce((sum, k) => sum + (Number(d[k]) || 0), 0));
@@ -51,7 +53,7 @@ export function StackedBarChart({ data, keys, colors, height = 220, formatValue 
     <div className="flex items-stretch gap-2.5 sm:gap-3" style={{ height }}>
       {data.map((d, i) => (
         <div key={i} className="flex flex-1 flex-col items-center gap-2">
-          {formatValue && <span className="whitespace-nowrap text-[11px] font-extrabold text-t0">{totais[i] === 0 ? "" : formatValue(totais[i])}</span>}
+          {showValues && formatValue && <span className="whitespace-nowrap text-[11px] font-extrabold text-t0">{totais[i] === 0 ? "" : formatValue(totais[i])}</span>}
           <div
             className="flex w-full flex-1 flex-col-reverse items-stretch overflow-hidden rounded-t-[8px]"
             style={{ transformOrigin: "bottom", animation: `velaGrowY .55s cubic-bezier(.22,.61,.36,1) ${i * 0.05}s both` }}

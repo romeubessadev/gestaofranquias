@@ -41,7 +41,12 @@ export interface PeriodoResolvido {
 }
 
 export interface Escopo {
-  filialId: string | "todas";
+  /**
+   * Lojas selecionadas (multi-select). Array vazio = "Todas as lojas"
+   * (consolida a rede). Um id = visão detalhada daquela loja. Vários =
+   * soma daquelas lojas. Substitui o antigo `filialId: string | "todas"`.
+   */
+  filialIds: string[];
   periodo: Periodo;
   divisao: Divisao | null;
 }
@@ -344,7 +349,9 @@ export interface LojaView {
 /* ---------- Helpers ---------- */
 
 function filiaisDoEscopo(escopo: Escopo): Filial[] {
-  return escopo.filialId === "todas" ? filiais : [filialPorId(escopo.filialId)];
+  // Array vazio = "Todas as lojas" → consolida a rede inteira.
+  // Um ou mais ids → só aquelas lojas (multi-select).
+  return escopo.filialIds.length === 0 ? filiais : filiais.filter((f) => escopo.filialIds.includes(f.id));
 }
 
 function agregadoPeriodo(f: Filial, inicio: string, fim: string, divisao: Divisao | null, horaMax?: number): Agregado {
@@ -439,6 +446,11 @@ function esperadoDia(f: Filial, iso: string, divisao: Divisao | null): number {
 }
 
 /** R$ 85,3k — valor curto, pra não quebrar componente. R$ 1,2M a partir de 1 milhão. Abaixo de R$ 10.000, valor cheio — R$ 3.022, não R$ 3k, que esconderia precisão que cabe na tela. Sem ",0" à toa: só mostra casa decimal quando ela diz algo (283k, não 283,0k). */
+/** Formata número inteiro com separador de milhar (ex.: 5778 → "5.778"). */
+export function num(v: number): string {
+  return Math.round(v).toLocaleString("pt-BR");
+}
+
 export function brlK(v: number): string {
   const abs = Math.abs(v);
   const compacto = (dividido: number) => dividido.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
@@ -865,7 +877,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
   const periodo = resolverPeriodo(escopo.periodo);
   const fs = filiaisDoEscopo(escopo);
   const divisao = escopo.divisao;
-  const todas = escopo.filialId === "todas";
+  const todas = escopo.filialIds.length === 0 || escopo.filialIds.length > 1;
   const unica = todas ? null : fs[0];
   const visao: LojaView["visao"] = todas ? "rede" : periodo.granularidade === "dia" ? "dia" : "periodo";
 
@@ -1276,4 +1288,1059 @@ export function montarLojaView(escopo: Escopo): LojaView {
   };
   view.leitura = montarLeituraLoja(view);
   return view;
+}
+
+/* ================================================================
+ * TELA FINANCEIRO — camada de dados (montarFinanceiroView)
+ * ================================================================ */
+
+export interface FinanceiroKpi {
+  label: string;
+  valor: string;
+  delta?: { value: string; positive: boolean; vs?: string };
+  serie?: number[];
+  tooltip?: string;
+}
+
+export interface CustoLucroMes {
+  mes: string;
+  custo: number;
+  lucro: number;
+  margemPct: number;
+  faturamento: number;
+}
+
+export interface FormaPagamentoFat {
+  forma: string;
+  valor: number;
+  pct: number;
+  cor: string;
+}
+
+export interface LinhaCustoFixo {
+  rotulo: string;
+  valor: number;
+  ehTotal?: boolean;
+  ehResultado?: boolean;
+}
+
+export interface EvolucaoMensalLinha {
+  mes: string;
+  faturamento: number;
+  custo: number;
+  lucro: number;
+  margemPct: number;
+  ticketMedio: number;
+}
+
+export interface FinanceiroView {
+  escopo: Escopo;
+  periodo: PeriodoResolvido;
+  kpis: FinanceiroKpi[];
+  custoLucroMargem: CustoLucroMes[];
+  formasPagamento: FormaPagamentoFat[];
+  custosFixosFranquia: LinhaCustoFixo[];
+  evolucaoMensal: EvolucaoMensalLinha[];
+  itensVsPreco: { label: string; qty: number; pa: number }[];
+  faturamentoVsTicket: { label: string; faturamento: number; ticket: number }[];
+}
+
+const CORES_FORMAS: Record<string, string> = {
+  Pix: "var(--ok)",
+  "Cartão de crédito": "var(--acc)",
+  "Cartão de débito": "var(--info)",
+  Dinheiro: "var(--warn)",
+};
+
+/** Custos fixos e franquia mockados por filial (mensais). Na futura aba DRE viram CRUD. */
+function custosFixosDaFilial(f: Filial): { aluguelFixo: number; aluguelPct: number; royalties: number; taxaMktWepink: number; taxaMktWpink: number } {
+  // Valores base proporcionais ao porte da filial (baseDia dos parâmetros de vendas).
+  const base = f.id === "f1" ? 6100 : 3450;
+  const fator = base / 5000;
+  return {
+    aluguelFixo: Math.round(18000 * fator),
+    aluguelPct: Math.round(9000 * fator),
+    royalties: Math.round(12000 * fator),
+    taxaMktWepink: Math.round(6000 * fator),
+    taxaMktWpink: Math.round(4000 * fator),
+  };
+}
+
+/** Últimos N meses (incluindo o atual) em ordem cronológica. */
+function ultimosMeses(n: number): string[] {
+  const hoje = deIso(HOJE_ISO);
+  const out: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return out;
+}
+
+function agregadoMes(fs: Filial[], mes: string, divisao: Divisao | null): Agregado & { cmv: number; porMeio: Record<string, number> } {
+  const inicio = `${mes}-01`;
+  const fim = fimDoMes(inicio);
+  const agg = somarAgregados(fs.map((f) => agregadoPeriodo(f, inicio, fim, divisao)));
+  const custo = custoPeriodo(fs, inicio, fim, divisao).cmv;
+  // Soma das formas de pagamento no mês.
+  const dias = intervaloDias(inicio, fim);
+  const porMeio: Record<string, number> = {};
+  for (const f of fs) {
+    for (const diaIso of dias) {
+      const dv = diaVendas(f.id, diaIso);
+      if (!dv) continue;
+      for (const [meio, val] of Object.entries(dv.porMeio)) {
+        porMeio[meio] = (porMeio[meio] ?? 0) + val;
+      }
+    }
+  }
+  return { ...agg, cmv: custo, porMeio };
+}
+
+export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
+  const periodo = resolverPeriodo(escopo.periodo);
+  const fs = filiaisDoEscopo(escopo);
+  const divisao = escopo.divisao;
+
+  // Atual e anterior para deltas dos KPIs.
+  const atual = somarAgregados(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, divisao)));
+  const custoAtual = custoPeriodo(fs, periodo.inicio, periodo.fim, divisao).cmv;
+  const ant = periodoAnterior(periodo);
+  const anterior = somarAgregados(fs.map((f) => agregadoPeriodo(f, ant.inicio, ant.fim, divisao, ant.horaMax)));
+  const custoAnterior = custoPeriodo(fs, ant.inicio, ant.fim, divisao).cmv;
+
+  const lucroAtual = atual.faturamento - custoAtual;
+  const lucroAnterior = anterior.faturamento - custoAnterior;
+  const margemAtual = divSeguro(lucroAtual, atual.faturamento) * 100;
+  const margemAnterior = divSeguro(lucroAnterior, anterior.faturamento) * 100;
+  const ticketAtual = divSeguro(atual.faturamento, atual.atendimentos);
+  const ticketAnterior = divSeguro(anterior.faturamento, anterior.atendimentos);
+
+  const temComp = anterior.atendimentos > 0;
+  const vsRotulo = temComp ? ant.rotulo : undefined;
+
+  // Séries de tendência (últimos 7 pontos do período, ou 7 dias se período curto).
+  const serieFaturamento = seriesTendencia(fs, periodo, divisao).faturamento.slice(-7);
+  const serieCmv = serieFaturamento.map((_, i) => {
+    const frac = custoAtual / (atual.faturamento || 1);
+    return Math.round(serieFaturamento[i] * frac);
+  });
+  const serieLucro = serieFaturamento.map((v, i) => v - serieCmv[i]);
+  const serieMargem = serieFaturamento.map((v, i) => v > 0 ? ((v - serieCmv[i]) / v) * 100 : 0);
+
+  const kpis: FinanceiroKpi[] = [
+    {
+      label: "Faturamento",
+      valor: brlK(atual.faturamento),
+      delta: temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
+      serie: serieFaturamento,
+      tooltip: "Receita bruta total das vendas no período selecionado.",
+    },
+    {
+      label: "Custo dos produtos",
+      valor: brlK(custoAtual),
+      delta: temComp ? kpiDelta(custoAtual, custoAnterior, vsRotulo) : undefined,
+      serie: serieCmv,
+      tooltip: "CMV — quanto custou a mercadoria vendida. Se sobe mais que o faturamento, corrói margem.",
+    },
+    {
+      label: "Lucro bruto",
+      valor: brlK(lucroAtual),
+      delta: temComp ? kpiDelta(lucroAtual, lucroAnterior, vsRotulo) : undefined,
+      serie: serieLucro,
+      tooltip: "Faturamento − CMV. O que sobra antes de descontar aluguel, salários etc.",
+    },
+    {
+      label: "Margem",
+      valor: pct(margemAtual),
+      delta: temComp ? { value: `${Math.abs(margemAtual - margemAnterior).toFixed(1)} p.p.`, positive: margemAtual >= margemAnterior, vs: vsRotulo } : undefined,
+      serie: serieMargem,
+      tooltip: "Quantos centavos de lucro cada R$ 1 vendido deixa (antes das despesas fixas).",
+    },
+  ];
+
+  // Custo/Lucro/Margem por mês (últimos 6 meses).
+  const meses = ultimosMeses(6);
+  const custoLucroMargem: CustoLucroMes[] = meses.map((mes) => {
+    const agg = agregadoMes(fs, mes, divisao);
+    const lucro = agg.faturamento - agg.cmv;
+    return {
+      mes: mesAno(`${mes}-01`).split(" de ")[0],
+      custo: agg.cmv,
+      lucro,
+      margemPct: divSeguro(lucro, agg.faturamento) * 100,
+      faturamento: agg.faturamento,
+    };
+  });
+
+  // Formas de pagamento no período.
+  const diasPeriodo = intervaloDias(periodo.inicio, periodo.fim);
+  const totaisForma: Record<string, number> = {};
+  for (const f of fs) {
+    for (const diaIso of diasPeriodo) {
+      const dv = diaVendas(f.id, diaIso);
+      if (!dv) continue;
+      for (const [meio, val] of Object.entries(dv.porMeio)) {
+        totaisForma[meio] = (totaisForma[meio] ?? 0) + val;
+      }
+    }
+  }
+  const totalFormas = Object.values(totaisForma).reduce((s, v) => s + v, 0) || 1;
+  const formasPagamento: FormaPagamentoFat[] = Object.entries(totaisForma)
+    .sort((a, b) => b[1] - a[1])
+    .map(([forma, valor]) => ({
+      forma,
+      valor,
+      pct: (valor / totalFormas) * 100,
+      cor: CORES_FORMAS[forma] ?? "var(--t2)",
+    }));
+
+  // Custos fixos e franquia (mini-DRE → Resultado Operacional).
+  const custosAgg = fs.reduce(
+    (acc, f) => {
+      const c = custosFixosDaFilial(f);
+      acc.aluguelFixo += c.aluguelFixo;
+      acc.aluguelPct += c.aluguelPct;
+      acc.royalties += c.royalties;
+      acc.taxaMktWepink += c.taxaMktWepink;
+      acc.taxaMktWpink += c.taxaMktWpink;
+      return acc;
+    },
+    { aluguelFixo: 0, aluguelPct: 0, royalties: 0, taxaMktWepink: 0, taxaMktWpink: 0 },
+  );
+  const totalCustosFixos = custosAgg.aluguelFixo + custosAgg.aluguelPct + custosAgg.royalties + custosAgg.taxaMktWepink + custosAgg.taxaMktWpink;
+  const resultadoOperacional = lucroAtual - totalCustosFixos;
+  const custosFixosFranquia: LinhaCustoFixo[] = [
+    { rotulo: "Lucro bruto", valor: lucroAtual },
+    { rotulo: "Aluguel fixo", valor: custosAgg.aluguelFixo },
+    { rotulo: "Aluguel % shopping", valor: custosAgg.aluguelPct },
+    { rotulo: "Royalties", valor: custosAgg.royalties },
+    { rotulo: "Taxa marketing WEPINK", valor: custosAgg.taxaMktWepink },
+    { rotulo: "Taxa marketing WPINK", valor: custosAgg.taxaMktWpink },
+    { rotulo: "Total custos fixos", valor: totalCustosFixos, ehTotal: true },
+    { rotulo: "Resultado operacional", valor: resultadoOperacional, ehResultado: true },
+  ];
+
+  // Itens vendidos vs Preço médio (PA) por mês.
+  const itensVsPreco = meses.map((mes) => {
+    const agg = agregadoMes(fs, mes, divisao);
+    return {
+      label: mesAno(`${mes}-01`).split(" de ")[0],
+      qty: agg.itens,
+      pa: divSeguro(agg.faturamento, agg.itens),
+    };
+  });
+
+  // Faturamento vs Ticket médio por mês.
+  const faturamentoVsTicket = meses.map((mes) => {
+    const agg = agregadoMes(fs, mes, divisao);
+    return {
+      label: mesAno(`${mes}-01`).split(" de ")[0],
+      faturamento: agg.faturamento,
+      ticket: divSeguro(agg.faturamento, agg.atendimentos),
+    };
+  });
+
+  // Evolução mensal (tabela DRE simplificada).
+  const evolucaoMensal: EvolucaoMensalLinha[] = meses.map((mes) => {
+    const agg = agregadoMes(fs, mes, divisao);
+    const lucro = agg.faturamento - agg.cmv;
+    return {
+      mes: mesAno(`${mes}-01`).split(" de ")[0],
+      faturamento: agg.faturamento,
+      custo: agg.cmv,
+      lucro,
+      margemPct: divSeguro(lucro, agg.faturamento) * 100,
+      ticketMedio: divSeguro(agg.faturamento, agg.atendimentos),
+    };
+  });
+
+  return {
+    escopo,
+    periodo,
+    kpis,
+    custoLucroMargem,
+    formasPagamento,
+    custosFixosFranquia,
+    evolucaoMensal,
+    itensVsPreco,
+    faturamentoVsTicket,
+  };
+}
+
+/* ================================================================
+ * TELA PRODUTOS — camada de dados (montarProdutosView)
+ * ================================================================ */
+
+import { produtosDaCategoria, type ProdutoResumo } from "./produtos";
+
+export interface ProdutosKpi {
+  label: string;
+  valor: string;
+  delta?: { value: string; positive: boolean; vs?: string };
+  serie?: number[];
+  tooltip?: string;
+}
+
+export interface CategoriaFat {
+  categoriaId: number;
+  nome: string;
+  faturamento: number;
+  cmv: number;
+  lucro: number;
+  margemPct: number;
+  itens: number;
+}
+
+export interface LinhaProduto {
+  nome: string;
+  faturamento: number;
+}
+
+export interface ProdutoLinha extends ProdutoResumo {
+  categoriaNome: string;
+  cmv: number;
+  cmvPct: number;
+  ticketMedio: number;
+  tmPorItem: number;
+  tendencia: "up" | "down" | "flat";
+}
+
+export interface ProdutosView {
+  escopo: Escopo;
+  periodo: PeriodoResolvido;
+  kpis: ProdutosKpi[];
+  categorias: CategoriaFat[];
+  topLinhas: LinhaProduto[];
+  /** Filtro de categoria ativo na view (null = todas). */
+  categoriaFiltro: number | null;
+  produtos: ProdutoLinha[];
+}
+
+/** Deriva "linha de produto" do nome (primeiras 1-2 palavras significativas). */
+function extrairLinha(nome: string): string {
+  const upper = nome.toUpperCase();
+  // Linhas conhecidas dos mocks
+  const linhas = ["OBSESSED", "GOLDEN", "HEAVEN", "LIBERTE", "CHERRY BLOSSOM", "PINK DREAM", "SWEET VANILLA", "BLACK ORCHID", "OCEAN BREEZE", "COCONUT", "FRESH MINT", "LAVANDA", "KARITÉ", "RECONSTRUÇÃO", "HIDRATAÇÃO", "PROTEÇÃO", "VITAMINA C", "ARGILA"];
+  for (const l of linhas) {
+    if (upper.includes(l)) return l;
+  }
+  // Fallback: primeiras 2 palavras
+  const partes = nome.split(" ");
+  return partes.slice(0, Math.min(2, partes.length)).join(" ");
+}
+
+export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | null = null): ProdutosView {
+  const periodo = resolverPeriodo(escopo.periodo);
+  const fs = filiaisDoEscopo(escopo);
+  const divisao = escopo.divisao;
+
+  // Agregados por categoria no período
+  const catMap = new Map<number, { faturamento: number; cmv: number; itens: number }>();
+  for (const f of fs) {
+    for (const d of diasVendas(f.id, periodo.inicio, periodo.fim)) {
+      for (const [id, c] of Object.entries(d.porCategoria)) {
+        const cat = categorias.find((x) => x.id === Number(id));
+        if (!cat || (divisao && cat.divisao !== divisao)) continue;
+        const acc = catMap.get(cat.id) ?? { faturamento: 0, cmv: 0, itens: 0 };
+        acc.faturamento += c.faturamento;
+        acc.cmv += c.cmv;
+        acc.itens += c.itens;
+        catMap.set(cat.id, acc);
+      }
+    }
+  }
+
+  const totalFat = [...catMap.values()].reduce((s, c) => s + c.faturamento, 0);
+  const totalCmv = [...catMap.values()].reduce((s, c) => s + c.cmv, 0);
+  const totalItens = [...catMap.values()].reduce((s, c) => s + c.itens, 0);
+  const totalLucro = totalFat - totalCmv;
+  const totalMargem = divSeguro(totalLucro, totalFat) * 100;
+
+  // Período anterior para deltas
+  const ant = periodoAnterior(periodo);
+  const antCatMap = new Map<number, { faturamento: number; cmv: number; itens: number }>();
+  for (const f of fs) {
+    for (const d of diasVendas(f.id, ant.inicio, ant.fim)) {
+      for (const [id, c] of Object.entries(d.porCategoria)) {
+        const cat = categorias.find((x) => x.id === Number(id));
+        if (!cat || (divisao && cat.divisao !== divisao)) continue;
+        const acc = antCatMap.get(cat.id) ?? { faturamento: 0, cmv: 0, itens: 0 };
+        acc.faturamento += c.faturamento;
+        acc.cmv += c.cmv;
+        acc.itens += c.itens;
+        antCatMap.set(cat.id, acc);
+      }
+    }
+  }
+  const antTotalFat = [...antCatMap.values()].reduce((s, c) => s + c.faturamento, 0);
+  const antTotalCmv = [...antCatMap.values()].reduce((s, c) => s + c.cmv, 0);
+  const antTotalItens = [...antCatMap.values()].reduce((s, c) => s + c.itens, 0);
+  const antTotalLucro = antTotalFat - antTotalCmv;
+  const antTotalMargem = divSeguro(antTotalLucro, antTotalFat) * 100;
+  const temComp = antTotalFat > 0;
+  const vsRotulo = temComp ? ant.rotulo : undefined;
+
+  // Séries de tendência (7 pontos)
+  const serieFat = seriesTendencia(fs, periodo, divisao).faturamento?.slice(-7) ?? [];
+
+  const kpis: ProdutosKpi[] = [
+    {
+      label: "Faturamento",
+      valor: brlK(totalFat),
+      delta: temComp ? kpiDelta(totalFat, antTotalFat, vsRotulo) : undefined,
+      serie: serieFat,
+      tooltip: "Receita bruta total de produtos no período selecionado.",
+    },
+    {
+      label: "Lucro bruto",
+      valor: brlK(totalLucro),
+      delta: temComp ? kpiDelta(totalLucro, antTotalLucro, vsRotulo) : undefined,
+      tooltip: "Faturamento − CMV. O que sobra antes das despesas fixas.",
+    },
+    {
+      label: "Margem",
+      valor: pct(totalMargem),
+      delta: temComp ? { value: `${Math.abs(totalMargem - antTotalMargem).toFixed(1)} p.p.`, positive: totalMargem >= antTotalMargem, vs: vsRotulo } : undefined,
+      tooltip: "Percentual de lucro sobre o faturamento. Quanto maior, melhor.",
+    },
+    {
+      label: "Itens vendidos",
+      valor: num(totalItens),
+      delta: temComp ? kpiDelta(totalItens, antTotalItens, vsRotulo) : undefined,
+      tooltip: "Quantidade total de unidades vendidas no período.",
+    },
+  ];
+
+  // Categorias ordenadas por faturamento
+  const catsOrdenadas = [...catMap.entries()]
+    .map(([id, c]) => {
+      const cat = categorias.find((x) => x.id === id)!;
+      const lucro = c.faturamento - c.cmv;
+      return {
+        categoriaId: id,
+        nome: cat.nome,
+        faturamento: c.faturamento,
+        cmv: c.cmv,
+        lucro,
+        margemPct: divSeguro(lucro, c.faturamento) * 100,
+        itens: c.itens,
+      };
+    })
+    .sort((a, b) => b.faturamento - a.faturamento);
+
+  // Top linhas de produto (agrega por linha derivada do nome)
+  const linhaMap = new Map<string, number>();
+  for (const cat of catsOrdenadas) {
+    const prods = produtosDaCategoria(cat.categoriaId, `${periodo.inicio}|${divisao ?? ""}`, cat.faturamento, cat.lucro, cat.itens);
+    for (const p of prods) {
+      const linha = extrairLinha(p.nome);
+      linhaMap.set(linha, (linhaMap.get(linha) ?? 0) + p.receita);
+    }
+  }
+  const topLinhas: LinhaProduto[] = [...linhaMap.entries()]
+    .map(([nome, faturamento]) => ({ nome, faturamento }))
+    .sort((a, b) => b.faturamento - a.faturamento)
+    .slice(0, 8);
+
+  // Produtos (filtrados por categoria se aplicável)
+  const produtosBase: ProdutoLinha[] = [];
+  for (const cat of catsOrdenadas) {
+    if (categoriaFiltro !== null && cat.categoriaId !== categoriaFiltro) continue;
+    const prods = produtosDaCategoria(cat.categoriaId, `${periodo.inicio}|${divisao ?? ""}`, cat.faturamento, cat.lucro, cat.itens);
+    for (const p of prods) {
+      const cmv = p.receita - p.margem;
+      produtosBase.push({
+        ...p,
+        categoriaNome: cat.nome,
+        cmv,
+        cmvPct: divSeguro(cmv, p.receita) * 100,
+        ticketMedio: divSeguro(p.receita, p.itens > 0 ? Math.round(p.receita / (totalFat / (totalItens || 1))) : 1),
+        tmPorItem: divSeguro(p.receita, p.itens),
+        tendencia: p.margemPct > 50 ? "up" : p.margemPct < 30 ? "down" : "flat",
+      });
+    }
+  }
+  produtosBase.sort((a, b) => b.receita - a.receita);
+
+  return {
+    escopo,
+    periodo,
+    kpis,
+    categorias: catsOrdenadas,
+    topLinhas,
+    categoriaFiltro,
+    produtos: produtosBase,
+  };
+}
+
+/* ================================================================
+ * TELA TURNOS — camada de dados (montarTurnosView)
+ * ================================================================ */
+
+import { turnos as turnosCadastrados, type Turno } from "./filiais";
+
+export interface TurnoKpi {
+  nome: string;
+  faturamento: number;
+  vendas: number;
+  ticketMedio: number;
+}
+
+export interface DiaTurnoFat {
+  dia: string;
+  porTurno: Record<string, number>;
+}
+
+export interface HoraIndicador {
+  hora: number;
+  faturamento: number;
+  atendimentos: number;
+  ticketMedio: number;
+  pctFatDia: number;
+  fatAcumulado: number;
+  pctFatAcumulado: number;
+  deltaVsAnterior: { value: string; positive: boolean } | null;
+}
+
+export interface HeatmapCelula {
+  dia: string;
+  hora: number;
+  valor: number;
+}
+
+export interface VendedoraPorHora {
+  hora: number;
+  reais: number;
+  metaMinima: number;
+}
+
+export interface TurnosView {
+  escopo: Escopo;
+  periodo: PeriodoResolvido;
+  turnoFiltro: string | null;
+  turnosDisponiveis: { id: string; nome: string }[];
+  kpisPorTurno: TurnoKpi[];
+  faturamentoPorDiaTurno: DiaTurnoFat[];
+  heatmap: HeatmapCelula[];
+  indicadoresPorHora: HoraIndicador[] | null;
+  vendedorasPorHora: VendedoraPorHora[];
+}
+
+/** Filtra horas que pertencem ao turno. Se turnoId=null, inclui todas. */
+function horasDoTurno(turno: Turno | null): number[] {
+  if (!turno) return Array.from({ length: 24 }, (_, i) => i);
+  const horas: number[] = [];
+  for (let h = turno.horaInicio; h < turno.horaFim; h++) horas.push(h);
+  return horas;
+}
+
+export function montarTurnosView(escopo: Escopo, turnoFiltro: string | null = null): TurnosView {
+  const periodo = resolverPeriodo(escopo.periodo);
+  const fs = filiaisDoEscopo(escopo);
+  const divisao = escopo.divisao;
+
+  // Turnos disponíveis nas filiais do escopo
+  const turnosEscopo = turnosCadastrados.filter((t) => fs.some((f) => f.id === t.filialId));
+  const turnosUnicos = [...new Map(turnosEscopo.map((t) => [t.nome, t])).values()];
+  const turnosDisponiveis = turnosUnicos.map((t) => ({ id: t.id, nome: t.nome }));
+
+  const turnoAtivo = turnoFiltro ? turnosCadastrados.find((t) => t.id === turnoFiltro) ?? null : null;
+  const horasAtivas = horasDoTurno(turnoAtivo);
+
+  // KPIs por turno (agrega todas as filiais do escopo)
+  const kpisPorTurno: TurnoKpi[] = turnosUnicos.map((turno) => {
+    let faturamento = 0;
+    let vendas = 0;
+    for (const f of fs) {
+      if (f.id !== turno.filialId && escopo.filialId !== "todas") continue;
+      for (const iso of intervaloDias(periodo.inicio, periodo.fim)) {
+        const dv = diaVendas(f.id, iso);
+        if (!dv) continue;
+        for (const h of horasDoTurno(turno)) {
+          const ag = dv.porHora[h];
+          if (!ag) continue;
+          if (divisao) {
+            const divAg = dv.porDivisao[divisao];
+            const fr = divAg && dv.total.faturamento > 0 ? divAg.faturamento / dv.total.faturamento : 1;
+            faturamento += Math.round(ag.faturamento * fr);
+            vendas += Math.round(ag.atendimentos * fr);
+          } else {
+            faturamento += ag.faturamento;
+            vendas += ag.atendimentos;
+          }
+        }
+      }
+    }
+    return {
+      nome: turno.nome,
+      faturamento,
+      vendas,
+      ticketMedio: divSeguro(faturamento, vendas),
+    };
+  });
+
+  // Faturamento por dia × turno
+  const dias = intervaloDias(periodo.inicio, periodo.fim);
+  const faturamentoPorDiaTurno: DiaTurnoFat[] = dias.map((iso) => {
+    const porTurno: Record<string, number> = {};
+    for (const turno of turnosUnicos) {
+      let fat = 0;
+      for (const f of fs) {
+        if (f.id !== turno.filialId && escopo.filialId !== "todas") continue;
+        const dv = diaVendas(f.id, iso);
+        if (!dv) continue;
+        for (const h of horasDoTurno(turno)) {
+          const ag = dv.porHora[h];
+          if (!ag) continue;
+          if (divisao) {
+            const divAg = dv.porDivisao[divisao];
+            const fr = divAg && dv.total.faturamento > 0 ? divAg.faturamento / dv.total.faturamento : 1;
+            fat += Math.round(ag.faturamento * fr);
+          } else {
+            fat += ag.faturamento;
+          }
+        }
+      }
+      porTurno[turno.nome] = fat;
+    }
+    return { dia: iso, porTurno };
+  });
+
+  // Heatmap (dia × hora) — valores de faturamento
+  const heatmap: HeatmapCelula[] = [];
+  for (const iso of dias) {
+    for (const h of horasAtivas) {
+      let valor = 0;
+      for (const f of fs) {
+        const dv = diaVendas(f.id, iso);
+        if (!dv) continue;
+        const ag = dv.porHora[h];
+        if (!ag) continue;
+        if (divisao) {
+          const divAg = dv.porDivisao[divisao];
+          const fr = divAg && dv.total.faturamento > 0 ? divAg.faturamento / dv.total.faturamento : 1;
+          valor += Math.round(ag.faturamento * fr);
+        } else {
+          valor += ag.faturamento;
+        }
+      }
+      heatmap.push({ dia: iso, hora: h, valor });
+    }
+  }
+
+  // Indicadores por hora (só quando período = 1 dia)
+  const ehUmDia = periodo.inicio === periodo.fim;
+  let indicadoresPorHora: HoraIndicador[] | null = null;
+  if (ehUmDia) {
+    const diaIso = periodo.inicio;
+    const ant = periodoAnterior(periodo);
+    let fatTotalDia = 0;
+    for (const f of fs) {
+      const dv = diaVendas(f.id, diaIso);
+      if (!dv) continue;
+      for (const h of horasAtivas) {
+        const ag = dv.porHora[h];
+        if (!ag) continue;
+        if (divisao) {
+          const divAg = dv.porDivisao[divisao];
+          const fr = divAg && dv.total.faturamento > 0 ? divAg.faturamento / dv.total.faturamento : 1;
+          fatTotalDia += Math.round(ag.faturamento * fr);
+        } else {
+          fatTotalDia += ag.faturamento;
+        }
+      }
+    }
+    let acumulado = 0;
+    indicadoresPorHora = horasAtivas.map((h) => {
+      let fat = 0;
+      let atd = 0;
+      for (const f of fs) {
+        const dv = diaVendas(f.id, diaIso);
+        if (!dv) continue;
+        const ag = dv.porHora[h];
+        if (!ag) continue;
+        if (divisao) {
+          const divAg = dv.porDivisao[divisao];
+          const fr = divAg && dv.total.faturamento > 0 ? divAg.faturamento / dv.total.faturamento : 1;
+          fat += Math.round(ag.faturamento * fr);
+          atd += Math.round(ag.atendimentos * fr);
+        } else {
+          fat += ag.faturamento;
+          atd += ag.atendimentos;
+        }
+      }
+      acumulado += fat;
+      // Comparativo com mesmo horário do dia anterior
+      let fatAnt = 0;
+      for (const f of fs) {
+        const dvAnt = diaVendas(f.id, ant.inicio);
+        if (!dvAnt) continue;
+        const agAnt = dvAnt.porHora[h];
+        if (!agAnt) continue;
+        if (divisao) {
+          const divAg = dvAnt.porDivisao[divisao];
+          const fr = divAg && dvAnt.total.faturamento > 0 ? divAg.faturamento / dvAnt.total.faturamento : 1;
+          fatAnt += Math.round(agAnt.faturamento * fr);
+        } else {
+          fatAnt += agAnt.faturamento;
+        }
+      }
+      const delta = fatAnt > 0 ? ((fat - fatAnt) / fatAnt) * 100 : null;
+      return {
+        hora: h,
+        faturamento: fat,
+        atendimentos: atd,
+        ticketMedio: divSeguro(fat, atd),
+        pctFatDia: divSeguro(fat, fatTotalDia) * 100,
+        fatAcumulado: acumulado,
+        pctFatAcumulado: divSeguro(acumulado, fatTotalDia) * 100,
+        deltaVsAnterior: delta !== null ? { value: `${Math.abs(delta).toFixed(0)}%`, positive: delta >= 0 } : null,
+      };
+    });
+  }
+
+  // Vendedoras por hora (staff real vs meta mínima)
+  const vendedorasPorHora: VendedoraPorHora[] = horasAtivas.map((h) => {
+    let reais = 0;
+    for (const f of fs) {
+      const dv = diaVendas(f.id, HOJE_ISO);
+      if (!dv) continue;
+      const ag = dv.porHora[h];
+      if (ag && ag.atendimentos > 0) {
+        // Estimativa: vendedoras ativas ≈ atendimentos / ticket médio esperado
+        const vendedoresCount = Object.keys(dv.porVendedora).length || 1;
+        reais += vendedoresCount;
+      }
+    }
+    // Meta mínima: 2 vendedoras por hora como baseline
+    const metaMinima = 2;
+    return { hora: h, reais, metaMinima };
+  });
+
+  return {
+    escopo,
+    periodo,
+    turnoFiltro,
+    turnosDisponiveis,
+    kpisPorTurno,
+    faturamentoPorDiaTurno,
+    heatmap,
+    indicadoresPorHora,
+    vendedorasPorHora,
+  };
+}
+
+/* ================================================================
+ * TELA VISÃO GERAL — camada de dados (montarVisaoGeralView)
+ * ================================================================ */
+
+import { metaDaFilial } from "./metas";
+import { produtosDaCategoria } from "./produtos";
+import { colaboradoresDaFilial } from "./equipe";
+
+export interface VisaoKpi {
+  label: string;
+  valor: string;
+  sub?: string;
+  delta?: { value: string; positive: boolean; vs?: string };
+  serie?: number[];
+  tooltip?: string;
+  drillTo?: string;
+}
+
+export interface GaugeMeta {
+  nome: string;
+  pct: number;
+  alvo: number;
+  realizado: number;
+}
+
+export interface CategoriaVsMeta {
+  categoria: string;
+  meta: number;
+  realizado: number;
+}
+
+export interface DiaVsMeta {
+  dia: string;
+  meta: number;
+  realizado: number;
+}
+
+export interface EvolucaoPonto {
+  label: string;
+  realizado: number;
+  meta: number;
+  projecao: number | null;
+}
+
+export interface TopItem {
+  nome: string;
+  valor: number;
+}
+
+export interface VisaoGeralView {
+  escopo: Escopo;
+  periodo: PeriodoResolvido;
+  kpis: VisaoKpi[];
+  gauges: GaugeMeta[];
+  faltamParaMeta: string | null;
+  projecaoFechamento: string | null;
+  categoriaVsMeta: CategoriaVsMeta[];
+  diaVsMeta: DiaVsMeta[];
+  evolucao: EvolucaoPonto[];
+  formasPagamento: FormaPagamentoFat[];
+  topVendedoras: TopItem[];
+  topProdutos: TopItem[];
+}
+
+export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
+  const periodo = resolverPeriodo(escopo.periodo);
+  const fs = filiaisDoEscopo(escopo);
+  const divisao = escopo.divisao;
+
+  // Agregados do período
+  const atual = somarAgregados(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, divisao)));
+  const custoAtual = custoPeriodo(fs, periodo.inicio, periodo.fim, divisao).cmv;
+  const lucroAtual = atual.faturamento - custoAtual;
+  const margemAtual = divSeguro(lucroAtual, atual.faturamento) * 100;
+  const ticketAtual = divSeguro(atual.faturamento, atual.atendimentos);
+
+  // Período anterior para deltas
+  const ant = periodoAnterior(periodo);
+  const anterior = somarAgregados(fs.map((f) => agregadoPeriodo(f, ant.inicio, ant.fim, divisao, ant.horaMax)));
+  const custoAnterior = custoPeriodo(fs, ant.inicio, ant.fim, divisao).cmv;
+  const lucroAnterior = anterior.faturamento - custoAnterior;
+  const ticketAnterior = divSeguro(anterior.faturamento, anterior.atendimentos);
+  const temComp = anterior.atendimentos > 0;
+  const vsRotulo = temComp ? ant.rotulo : undefined;
+
+  // Meta da competência (mês corrente)
+  const competencia = periodo.inicio.slice(0, 7);
+  let metaTotal = 0;
+  for (const f of fs) {
+    const m = metaDaFilial(f.id, competencia);
+    if (m) metaTotal += m.valorLoja;
+  }
+  const atingMeta = metaTotal > 0 ? (atual.faturamento / metaTotal) * 100 : 0;
+  const faltam = metaTotal > 0 ? Math.max(0, metaTotal - atual.faturamento) : 0;
+
+  // Projeção de fechamento (curva de receita)
+  const curva = curvaReceita(fs, competencia);
+  let fracaoAcum = 0;
+  for (const iso of intervaloDias(`${competencia}-01`, HOJE_ISO)) fracaoAcum += curva.peso(iso);
+  const projetado = fracaoAcum > 0 ? atual.faturamento / fracaoAcum : 0;
+  const projPct = metaTotal > 0 ? (projetado / metaTotal) * 100 : 0;
+
+  // Série de tendência (7 pontos)
+  const serieFat = seriesTendencia(fs, periodo, divisao).faturamento?.slice(-7) ?? [];
+
+  // KPIs com drill-down
+  const kpis: VisaoKpi[] = [
+    {
+      label: "Faturamento",
+      valor: brlK(atual.faturamento),
+      sub: `${num(atual.atendimentos)} vendas · ${num(atual.itens)} itens`,
+      delta: metaTotal > 0
+        ? { value: `${Math.abs(atingMeta - 100).toFixed(1)}% ${atingMeta >= 100 ? "acima" : "abaixo"} da meta`, positive: atingMeta >= 100 }
+        : temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
+      serie: serieFat,
+      tooltip: "Receita bruta total. Drill → Financeiro.",
+      drillTo: "/dashboard/financeiro",
+    },
+    {
+      label: "CMV (custo)",
+      valor: brlK(custoAtual),
+      sub: `CMV% ${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}%`,
+      delta: temComp ? kpiDelta(custoAtual, custoAnterior, vsRotulo) : undefined,
+      tooltip: "Custo dos produtos vendidos. Drill → Financeiro.",
+      drillTo: "/dashboard/financeiro",
+    },
+    {
+      label: "Lucro bruto",
+      valor: brlK(lucroAtual),
+      sub: `${margemAtual.toFixed(0)}% de margem`,
+      delta: temComp ? kpiDelta(lucroAtual, lucroAnterior, vsRotulo) : undefined,
+      tooltip: "Faturamento − CMV. Drill → Equipe.",
+      drillTo: "/equipe",
+    },
+    {
+      label: "Ticket Médio",
+      valor: brl(ticketAtual),
+      sub: `PA ${divSeguro(atual.itens, atual.atendimentos).toFixed(2)}`,
+      delta: temComp ? kpiDelta(ticketAtual, ticketAnterior, vsRotulo) : undefined,
+      tooltip: "Valor médio por atendimento. Drill → Produtos.",
+      drillTo: "/dashboard/produtos",
+    },
+  ];
+
+  // Gauges: Meta / Super Meta / Hiper Meta (degraus da primeira filial com meta)
+  const filialComMeta = fs.find((f) => Boolean(metaDaFilial(f.id, competencia)));
+  const degraus = filialComMeta ? metaDaFilial(filialComMeta.id, competencia)?.degraus ?? [] : [];
+  const gauges: GaugeMeta[] = degraus.slice(0, 3).map((d) => ({
+    nome: d.nome,
+    pct: Math.min(100, (atual.faturamento / (metaTotal * d.atingimentoMinPct / 100)) * 100),
+    alvo: Math.round(metaTotal * d.atingimentoMinPct / 100),
+    realizado: atual.faturamento,
+  }));
+  // Fallback se não houver degraus mas houver meta
+  if (gauges.length === 0 && metaTotal > 0) {
+    gauges.push({ nome: "Meta", pct: Math.min(100, atingMeta), alvo: metaTotal, realizado: atual.faturamento });
+  }
+
+  const faltamParaMeta = faltam > 0 ? `Faltam ${brl(faltam)} pra bater a Meta do mês` : metaTotal > 0 ? "Meta atingida! 🎉" : null;
+  const projecaoFechamento = projetado > 0 ? `Projeção: ~${brlK(projetado)} (${projPct.toFixed(0)}% da meta)` : null;
+
+  // Faturamento por Categoria vs Meta
+  const catMap = new Map<number, { faturamento: number }>();
+  for (const f of fs) {
+    for (const d of diasVendas(f.id, periodo.inicio, periodo.fim)) {
+      for (const [id, c] of Object.entries(d.porCategoria)) {
+        const cat = categorias.find((x) => x.id === Number(id));
+        if (!cat || (divisao && cat.divisao !== divisao)) continue;
+        const acc = catMap.get(cat.id) ?? { faturamento: 0 };
+        acc.faturamento += c.faturamento;
+        catMap.set(cat.id, acc);
+      }
+    }
+  }
+  const categoriaVsMeta: CategoriaVsMeta[] = [...catMap.entries()]
+    .map(([id, c]) => {
+      const cat = categorias.find((x) => x.id === id)!;
+      // Meta proporcional por categoria (distribuição uniforme como fallback)
+      const metaCat = metaTotal > 0 ? metaTotal / catMap.size : 0;
+      return { categoria: cat.nome, meta: metaCat, realizado: c.faturamento };
+    })
+    .sort((a, b) => b.realizado - a.realizado);
+
+  // Faturamento por Dia da Semana vs Meta
+  const diasSemanaNomes = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const diaAgg: Record<number, { fat: number; count: number }> = {};
+  for (const iso of intervaloDias(periodo.inicio, periodo.fim)) {
+    const dow = deIso(iso).getDay();
+    if (!diaAgg[dow]) diaAgg[dow] = { fat: 0, count: 0 };
+    for (const f of fs) {
+      const dv = diaVendas(f.id, iso);
+      if (!dv) continue;
+      if (divisao) {
+        const divAg = dv.porDivisao[divisao];
+        diaAgg[dow].fat += divAg?.faturamento ?? 0;
+      } else {
+        diaAgg[dow].fat += dv.total.faturamento;
+      }
+    }
+    diaAgg[dow].count += 1;
+  }
+  const metaDiaria = metaTotal > 0 ? metaTotal / 7 : 0;
+  const diaVsMeta: DiaVsMeta[] = diasSemanaNomes.map((nome, i) => ({
+    dia: nome,
+    meta: metaDiaria,
+    realizado: diaAgg[i] ? diaAgg[i].fat / (diaAgg[i].count || 1) : 0,
+  }));
+
+  // Evolução diária (realizado acumulado + meta acumulada + projeção)
+  const diasPeriodo = intervaloDias(periodo.inicio, periodo.fim);
+  let acumRealizado = 0;
+  let acumMeta = 0;
+  const metaPorDia = metaTotal > 0 ? metaTotal / diasPeriodo.length : 0;
+  const evolucao: EvolucaoPonto[] = diasPeriodo.map((iso) => {
+    let fatDia = 0;
+    for (const f of fs) {
+      const dv = diaVendas(f.id, iso);
+      if (!dv) continue;
+      if (divisao) {
+        fatDia += dv.porDivisao[divisao]?.faturamento ?? 0;
+      } else {
+        fatDia += dv.total.faturamento;
+      }
+    }
+    acumRealizado += fatDia;
+    acumMeta += metaPorDia;
+    const proj = iso <= HOJE_ISO && fracaoAcum > 0 ? acumRealizado / fracaoAcum * (fracaoAcum + (diasPeriodo.length - diasPeriodo.indexOf(iso) - 1) * (fracaoAcum / (diasPeriodo.indexOf(HOJE_ISO) + 1 || 1))) : null;
+    return {
+      label: iso.slice(5), // MM-DD
+      realizado: acumRealizado,
+      meta: acumMeta,
+      projecao: proj,
+    };
+  });
+
+  // Formas de pagamento (reusa lógica do Financeiro)
+  const totaisForma: Record<string, number> = {};
+  for (const f of fs) {
+    for (const iso of diasPeriodo) {
+      const dv = diaVendas(f.id, iso);
+      if (!dv) continue;
+      for (const [meio, val] of Object.entries(dv.porMeio)) {
+        totaisForma[meio] = (totaisForma[meio] ?? 0) + val;
+      }
+    }
+  }
+  const totalFormas = Object.values(totaisForma).reduce((s, v) => s + v, 0) || 1;
+  const CORES_FORMAS: Record<string, string> = {
+    Pix: "var(--ok)",
+    "Cartão de crédito": "var(--acc)",
+    "Cartão de débito": "var(--info)",
+    Dinheiro: "var(--warn)",
+  };
+  const formasPagamento: FormaPagamentoFat[] = Object.entries(totaisForma)
+    .sort((a, b) => b[1] - a[1])
+    .map(([forma, valor]) => ({
+      forma,
+      valor,
+      pct: (valor / totalFormas) * 100,
+      cor: CORES_FORMAS[forma] ?? "var(--t2)",
+    }));
+
+  // Top 3 Vendedoras
+  const vendMap = new Map<string, { nome: string; fat: number }>();
+  for (const f of fs) {
+    const cols = colaboradoresDaFilial(f.id);
+    for (const iso of diasPeriodo) {
+      const dv = diaVendas(f.id, iso);
+      if (!dv) continue;
+      for (const [colId, ag] of Object.entries(dv.porVendedora)) {
+        const col = cols.find((c) => c.id === colId);
+        if (!col) continue;
+        const acc = vendMap.get(colId) ?? { nome: col.nome, fat: 0 };
+        acc.fat += ag.faturamento;
+        vendMap.set(colId, acc);
+      }
+    }
+  }
+  const topVendedoras: TopItem[] = [...vendMap.values()]
+    .sort((a, b) => b.fat - a.fat)
+    .slice(0, 3)
+    .map((v) => ({ nome: v.nome, valor: v.fat }));
+
+  // Top 3 Produtos
+  const prodMap = new Map<string, { nome: string; fat: number }>();
+  for (const cat of [...catMap.entries()].map(([id, c]) => ({ id, ...c }))) {
+    const prods = produtosDaCategoria(cat.id, `${periodo.inicio}|${divisao ?? ""}`, cat.faturamento, 0, 0);
+    for (const p of prods) {
+      const acc = prodMap.get(p.codProduto) ?? { nome: p.nome, fat: 0 };
+      acc.fat += p.receita;
+      prodMap.set(p.codProduto, acc);
+    }
+  }
+  const topProdutos: TopItem[] = [...prodMap.values()]
+    .sort((a, b) => b.fat - a.fat)
+    .slice(0, 3)
+    .map((p) => ({ nome: p.nome, valor: p.fat }));
+
+  return {
+    escopo,
+    periodo,
+    kpis,
+    gauges,
+    faltamParaMeta,
+    projecaoFechamento,
+    categoriaVsMeta,
+    diaVsMeta,
+    evolucao,
+    formasPagamento,
+    topVendedoras,
+    topProdutos,
+  };
 }

@@ -7,23 +7,33 @@ import { useSessaoAtiva } from "@/session/SessionProvider";
 const PERIODOS: PeriodoTipo[] = ["hoje", "ontem", "7dias", "esteMes", "mesPassado", "personalizado"];
 
 /**
- * Escopo (loja, período, divisão) mora na URL, não no estado de uma página.
+ * Escopo (lojas, período, divisão) mora na URL, não no estado de uma página.
  * Loja e Equipe são abas do mesmo Dashboard e precisam do mesmo filtro.
+ *
+ * Multi-select de lojas: `filial` na URL é uma lista separada por vírgula
+ * (ex.: "filial=1,2"). Lista vazia / ausente = "Todas as lojas" (consolida a
+ * rede). Uma única loja = visão detalhada daquela loja. Várias = soma delas.
  */
 export function useEscopo() {
   const sessao = useSessaoAtiva();
   const [params, setParams] = useSearchParams();
 
   const escopo = useMemo<Escopo>(() => {
-    const filialParam = params.get("filial");
-    const filialPadrao = sessao.filiais.length > 1 ? "todas" : sessao.filiais[0];
-    const filialId = filialParam && (filialParam === "todas" || sessao.filiais.includes(filialParam)) ? filialParam : filialPadrao;
+    const filialRaw = params.get("filial");
+    const idsRaw = filialRaw ? filialRaw.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    // Só aceita ids que a sessão realmente pode ver.
+    const filialIds = idsRaw.filter((id) => sessao.filiais.includes(id));
+    // Se nada válido veio da URL: várias lojas → "todas" (array vazio);
+    // loja única → já seleciona ela.
+    const resolvedIds = filialIds.length === 0 ? (sessao.filiais.length > 1 ? [] : [sessao.filiais[0]]) : filialIds;
+
     const tipo = (params.get("periodo") as PeriodoTipo | null) ?? "hoje";
     const periodoTipo = PERIODOS.includes(tipo) ? tipo : "hoje";
     const divisaoParam = params.get("divisao");
     const divisao: Divisao | null = divisaoParam === "WEPINK" || divisaoParam === "WPINK" ? divisaoParam : null;
+
     return {
-      filialId: filialId === "todas" && sessao.filiais.length === 1 ? sessao.filiais[0] : filialId,
+      filialIds: resolvedIds,
       periodo: periodoTipo === "personalizado" ? { tipo: periodoTipo, inicio: params.get("de") ?? undefined, fim: params.get("ate") ?? undefined } : { tipo: periodoTipo },
       divisao,
     };
@@ -31,7 +41,8 @@ export function useEscopo() {
 
   function mudar(e: Escopo) {
     const p = new URLSearchParams();
-    p.set("filial", e.filialId);
+    // Array vazio = "Todas as lojas" → não grava ids (URL limpa).
+    if (e.filialIds.length > 0) p.set("filial", e.filialIds.join(","));
     p.set("periodo", e.periodo.tipo);
     if (e.periodo.tipo === "personalizado") {
       if (e.periodo.inicio) p.set("de", e.periodo.inicio);
