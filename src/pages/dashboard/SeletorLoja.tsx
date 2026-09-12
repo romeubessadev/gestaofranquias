@@ -46,8 +46,9 @@ export function SeletorLoja({ escopo, onChange, minhas }: { escopo: Escopo; onCh
         className="flex h-9 w-full min-w-0 items-center gap-2 rounded-[11px] border border-line bg-bg-inset px-3 text-left text-t0 hover:border-acc"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-t2">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-          <polyline points="9 22 9 12 15 12 15 22" />
+          <path d="M3 21h18" />
+          <path d="M5 21V7l8-4 8 4v14" />
+          <path d="M17 21v-8H7v8" />
         </svg>
         <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold">{rotulo}</span>
         {!ehTodas && (

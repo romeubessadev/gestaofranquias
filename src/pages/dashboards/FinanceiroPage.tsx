@@ -88,7 +88,7 @@ export default function FinanceiroPage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Financeiro" }]}
         title="Financeiro"
-        subtitle="Receita, custos e margem — análise financeira da rede."
+        subtitle="Receita, custos e margem da loja."
         actions={
           <>
             <span className="flex items-center gap-1.5 text-[12px] text-t2">

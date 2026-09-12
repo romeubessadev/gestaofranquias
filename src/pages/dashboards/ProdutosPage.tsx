@@ -107,7 +107,7 @@ export default function ProdutosPage() {
       <PageHeader
         crumbs={[{ label: "Dashboard",to: "/dashboard/visao-geral" }, {label: "Produtos" }]}
         title="Produtos"
-        subtitle="Mix de produtos, categorias e margens — desempenho do catálogo."
+        subtitle="Mix de produtos, categorias e margens da loja."
         actions={
           <>
             <span className="flex items-center gap-1.5 text-[12px] text-t2">

@@ -134,7 +134,7 @@ export default function TurnosPage() {
       <PageHeader
         crumbs={[{ label: "Dashboard",to: "/dashboard/visao-geral" }, {label: "Turnos" }]}
         title="Turnos"
-        subtitle="Desempenho por turno, horário e dia da semana — cobertura da equipe."
+        subtitle="Desempenho por turno, horário e dia da semana da loja."
         actions={
           <>
             <span className="flex items-center gap-1.5 text-[12px] text-t2">
