@@ -9,6 +9,8 @@
  * períodos no mesmo eixo (padrão Finance / Revenue vs expenses).
  */
 import { categorias, filiais, tarefas, turnos, type Divisao, type Filial } from "./filiais";
+import { metaDaFilial } from "./metas";
+import { produtosDaCategoria } from "./produtos";
 import { AGORA, ATUALIZADO_AS, HOJE_ISO, HORA_ATUAL, INTERVALO_SYNC_MIN, ULTIMO_SYNC } from "./relogio";
 import { agregadoDoDia, diaVendas, diasVendas, lojaAberta, pesoDia, somarAgregados, type Agregado } from "./vendas";
 import { brl, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, inicioDoMes, intervaloDias, mesAno, pct, somarDias } from "@/lib/formato";
@@ -1413,8 +1415,6 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
   const lucroAnterior = anterior.faturamento - custoAnterior;
   const margemAtual = divSeguro(lucroAtual, atual.faturamento) * 100;
   const margemAnterior = divSeguro(lucroAnterior, anterior.faturamento) * 100;
-  const ticketAtual = divSeguro(atual.faturamento, atual.atendimentos);
-  const ticketAnterior = divSeguro(anterior.faturamento, anterior.atendimentos);
 
   const temComp = anterior.atendimentos > 0;
   const vsRotulo = temComp ? ant.rotulo : undefined;
@@ -2175,7 +2175,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
   // Gauges: Meta / Super Meta / Hiper Meta (degraus da primeira filial com meta)
   const filialComMeta = fs.find((f) => Boolean(metaDaFilial(f.id, competencia)));
   const degraus = filialComMeta ? metaDaFilial(filialComMeta.id, competencia)?.degraus ?? [] : [];
-  const gauges: GaugeMeta[] = degraus.slice(0, 3).map((d) => ({
+  const gauges: GaugeMeta[] = degraus.slice(0, 3).map((d: { nome: string; atingimentoMinPct: number }) => ({
     nome: d.nome,
     pct: Math.min(100, (atual.faturamento / (metaTotal * d.atingimentoMinPct / 100)) * 100),
     alvo: Math.round(metaTotal * d.atingimentoMinPct / 100),
