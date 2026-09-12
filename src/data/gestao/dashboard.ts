@@ -1578,6 +1578,7 @@ import { type ProdutoResumo } from "./produtos";
 export interface ProdutosKpi {
   label: string;
   valor: string;
+  sub?: string;
   delta?: { value: string; positive: boolean; vs?: string };
   serie?: number[];
   tooltip?: string;
@@ -2108,12 +2109,12 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
   const atual = somarAgregados(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, divisao)));
   const custoAtual = custoPeriodo(fs, periodo.inicio, periodo.fim, divisao).cmv;
   const lucroAtual = atual.faturamento - custoAtual;
-  const margemAtual = divSeguro(lucroAtual, atual.faturamento) * 100;
+  void lucroAtual; // reservado para KPIs futuros de margem/lucro
   // Período anterior para deltas
   const ant = periodoAnterior(periodo);
   const anterior = somarAgregados(fs.map((f) => agregadoPeriodo(f, ant.inicio, ant.fim, divisao)));
   const custoAnterior = custoPeriodo(fs, ant.inicio, ant.fim, divisao).cmv;
-  const lucroAnterior = anterior.faturamento - custoAnterior;
+  void custoAnterior; // reservado para KPIs futuros de margem/lucro
   const ticketAtual = divSeguro(atual.faturamento, atual.atendimentos);
   const ticketAnterior = divSeguro(anterior.faturamento, anterior.atendimentos);
   const temComp = anterior.atendimentos > 0;
