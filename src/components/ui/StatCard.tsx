@@ -29,8 +29,9 @@ export function StatCard({ label, value, icon, iconColor = "var(--acc)", iconBg 
         >
           {icon}
         </div>
-        {delta && (
-          <Tooltip label={delta.vs ? `${delta.positive ? "Acima" : "Abaixo"} de ${delta.vs}${delta.diff ? ` · ${delta.diff}` : ""}` : undefined}>
+        {delta && (() => {
+          const badgeLabel = delta.vs ? `${delta.positive ? "Acima" : "Abaixo"} de ${delta.vs}${delta.diff ? ` · ${delta.diff}` : ""}` : "";
+          const badge = (
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold",
@@ -39,8 +40,9 @@ export function StatCard({ label, value, icon, iconColor = "var(--acc)", iconBg 
             >
               {delta.positive ? "↗" : "↘"} {delta.value}
             </span>
-          </Tooltip>
-        )}
+          );
+          return badgeLabel ? <Tooltip label={badgeLabel}>{badge}</Tooltip> : badge;
+        })()}
       </div>
       <div className="mt-4 flex items-center gap-1.5">
         <p className="truncate text-xs font-bold uppercase tracking-wide text-t1">{label}</p>
