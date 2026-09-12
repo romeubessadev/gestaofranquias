@@ -6,9 +6,13 @@ import type { Escopo } from "@/data/gestao/dashboard";
 import { SeletorEscopo } from "./SeletorEscopo";
 
 /** Subtítulo por aba: o que ela mostra, não repete "Dashboard" nem status de sync. */
-const SUBTITULO: Record<"loja" | "equipe", string> = {
-  loja: "Visão geral do desempenho das suas lojas.",
+const SUBTITULO: Record<string, string> = {
+  visaoGeral: "Resumo executivo da operação — KPIs, metas e drill-down.",
+  financeiro: "Faturamento, CMV, lucro bruto e formas de pagamento.",
+  produtos: "Mix, categorias, top produtos e margem por linha.",
   equipe: "Quem precisa de atenção, por quê, e quanto vai custar.",
+  turnos: "Desempenho por turno, mapa de calor e staff por hora.",
+  loja: "Visão geral do desempenho das suas lojas.",
 };
 
 /**
@@ -24,7 +28,7 @@ export function DashboardShell({
   onChange,
   children,
 }: {
-  tab: "loja" | "equipe";
+  tab: string;
   escopo: Escopo;
   onChange: (e: Escopo) => void;
   children: ReactNode;
@@ -34,7 +38,7 @@ export function DashboardShell({
 
   return (
     <div>
-      <PageHeader title="Dashboard" subtitle={SUBTITULO[tab]} />
+      <PageHeader title="Dashboard" subtitle={SUBTITULO[tab] ?? ""} />
 
       <div className="mb-5">
         <SeletorEscopo escopo={escopo} onChange={onChange} />
@@ -42,8 +46,11 @@ export function DashboardShell({
 
       <TabNav
         items={[
-          { label: "Visão geral", to: `${paths.dashboard}${suffix}`, end: true },
+          { label: "Visão Geral", to: `${paths.visaoGeral}${suffix}` },
+          { label: "Financeiro", to: `${paths.financeiro}${suffix}` },
+          { label: "Produtos", to: `${paths.produtos}${suffix}` },
           { label: "Equipe", to: `${paths.equipe}${suffix}` },
+          { label: "Turnos", to: `${paths.turnos}${suffix}` },
         ]}
       />
 

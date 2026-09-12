@@ -15,7 +15,17 @@ const ICONE = {
 };
 
 const navGestor: NavEntry[] = [
-  { label: "Dashboard", icon: ICONE.dashboard, to: paths.dashboard, activePaths: [paths.equipe] },
+  {
+    label: "Dashboard",
+    icon: ICONE.dashboard,
+    items: [
+      { label: "Visão Geral", to: paths.visaoGeral },
+      { label: "Financeiro", to: paths.financeiro },
+      { label: "Produtos", to: paths.produtos },
+      { label: "Equipe", to: paths.equipe },
+      { label: "Turnos", to: paths.turnos },
+    ],
+  },
   {
     label: "Configurações",
     icon: ICONE.config,
