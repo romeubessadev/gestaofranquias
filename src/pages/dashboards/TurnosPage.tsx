@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Card, CardHeader, CardTitle, StatCard, Segmented, DateRangePicker, Badge } from "@/components/ui";
+import { useMemo, useState, useCallback } from "react";
+import { Card, CardHeader, CardTitle, StatCard, Segmented, DateRangePicker, Badge, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StackedBarChart, Heatmap, BarChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
@@ -40,15 +40,35 @@ const CORES_TURNOS: Record<string, string> = {
   Noite: "var(--warn)",
 };
 
+/** Cores distintas para cada KPI card (hero). */
+const KPI_COLORS = [
+  { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
+  { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
+  { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },
+  { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
+];
+
 export default function TurnosPage() {
   const { escopo, mudar } = useEscopo();
   const [turnoFiltro, setTurnoFiltro] = useState<string | null>(null);
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
+  const [refreshing, setRefreshing] = useState(false);
 
   const view = useMemo(() => montarTurnosView(escopo, turnoFiltro), [escopo, turnoFiltro]);
 
   const dateRange: DateRange | null = useMemo(() => {
-    if (escopo.periodo.tipo !== "personalizado" || !escopo.periodo.inicio || !escopo.periodo.fim) return null;
-    return [deIso(escopo.periodo.inicio), deIso(escopo.periodo.fim)];
+    if (escopo.periodo.tipo === "personalizado" && escopo.periodo.inicio && escopo.periodo.fim) {
+      return [deIso(escopo.periodo.inicio), deIso(escopo.periodo.fim)];
+    }
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    switch (escopo.periodo.tipo) {
+      case "hoje": return [hoje, hoje];
+      case "ontem": { const y = new Date(hoje); y.setDate(y.getDate() - 1); return [y, y]; }
+      case "7dias": { const s = new Date(hoje); s.setDate(s.getDate() - 6); return [s, hoje]; }
+      case "esteMes": return [new Date(hoje.getFullYear(), hoje.getMonth(), 1), hoje];
+      case "mesPassado": return [new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1), new Date(hoje.getFullYear(), hoje.getMonth(), 0)];
+      default: return null;
+    }
   }, [escopo.periodo]);
 
   function onDateChange(r: DateRange) {
@@ -57,6 +77,14 @@ export default function TurnosPage() {
   function onMarcaChange(v: "WEPINK" | "WPINK" | null) {
     mudar({ ...escopo, divisao: v });
   }
+
+  const forcarAtualizacao = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => { setUltimaAtualizacao(new Date()); setRefreshing(false); }, 600);
+  }, []);
+
+  const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
+  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} minuto${minutosAtras !== 1 ? "s" : ""}`;
 
   // Preparar dados para StackedBarChart (dia da semana × turno) — agrupa e tira média
   const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -103,26 +131,39 @@ export default function TurnosPage() {
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
-      {/* Filtros internos */}
-      <div className="flex flex-wrap items-center gap-3">
-        <DateRangePicker value={dateRange} onChange={onDateChange} />
-        <Segmented
-          options={[{ label: "WEPINK", value: "WEPINK" }, { label: "WPINK", value: "WPINK" }]}
-          value={escopo.divisao}
-          onChange={onMarcaChange}
-          allowClear
-        />
-        <select
-          value={turnoFiltro ?? ""}
-          onChange={(e) => setTurnoFiltro(e.target.value || null)}
-          className="h-[42px] rounded-[11px] border border-line bg-bg-inset px-3 text-[13px] font-semibold text-t1 transition-colors hover:border-acc focus:border-acc focus:outline-none"
-        >
-          <option value="">Todos os turnos</option>
-          {view.turnosDisponiveis.map((t) => (
-            <option key={t.id} value={t.id}>{t.nome}</option>
-          ))}
-        </select>
-      </div>
+      <PageHeader
+        crumbs={[{ label: "Dashboards", to: "/dashboard/visao-geral" }, { label: "Turnos" }]}
+        title="Turnos"
+        subtitle="Desempenho por turno, horário e dia da semana — cobertura da equipe."
+        actions={
+          <>
+            <span className="flex items-center gap-1.5 text-[12px] text-t2">
+              <span className="inline-block h-2 w-2 rounded-full bg-warn" />
+              {rotuloAtualizacao}
+            </span>
+            <Button variant="secondary" size="sm" onClick={forcarAtualizacao} disabled={refreshing}
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
+            />
+            <DateRangePicker value={dateRange} onChange={onDateChange} />
+            <Segmented
+              options={[{ label: "WEPINK", value: "WEPINK" }, { label: "WPINK", value: "WPINK" }]}
+              value={escopo.divisao}
+              onChange={onMarcaChange}
+              allowClear
+            />
+            <select
+              value={turnoFiltro ?? ""}
+              onChange={(e) => setTurnoFiltro(e.target.value || null)}
+              className="h-8 rounded-[9px] border border-line bg-bg-inset px-3 text-xs font-semibold text-t1 transition-colors hover:border-acc focus:border-acc focus:outline-none"
+            >
+              <option value="">Todos os turnos</option>
+              {view.turnosDisponiveis.map((t) => (
+                <option key={t.id} value={t.id}>{t.nome}</option>
+              ))}
+            </select>
+          </>
+        }
+      />
 
       {/* KPIs por turno — 4 cards multi-linha */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -130,6 +171,8 @@ export default function TurnosPage() {
           label="Faturamento por Turno"
           value=""
           icon={<IconFat />}
+          iconColor={KPI_COLORS[0].iconColor}
+          iconBg={KPI_COLORS[0].iconBg}
           sparkline={
             <div className="flex flex-col gap-0.5 text-[11px]">
               {view.kpisPorTurno.map((k) => (
@@ -145,6 +188,8 @@ export default function TurnosPage() {
           label="Vendas por Turno"
           value=""
           icon={<IconVendas />}
+          iconColor={KPI_COLORS[1].iconColor}
+          iconBg={KPI_COLORS[1].iconBg}
           sparkline={
             <div className="flex flex-col gap-0.5 text-[11px]">
               {view.kpisPorTurno.map((k) => (
@@ -160,6 +205,8 @@ export default function TurnosPage() {
           label="Ticket Médio por Turno"
           value=""
           icon={<IconTicket />}
+          iconColor={KPI_COLORS[2].iconColor}
+          iconBg={KPI_COLORS[2].iconBg}
           sparkline={
             <div className="flex flex-col gap-0.5 text-[11px]">
               {view.kpisPorTurno.map((k) => (
@@ -175,6 +222,8 @@ export default function TurnosPage() {
           label="Melhor Turno"
           value={melhorTurno?.nome ?? "—"}
           icon={<IconMeta />}
+          iconColor={KPI_COLORS[3].iconColor}
+          iconBg={KPI_COLORS[3].iconBg}
           delta={melhorTurno ? { value: brl(melhorTurno.faturamento), positive: true } : undefined}
         />
       </div>

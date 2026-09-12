@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
-import { Card, CardHeader, CardTitle, StatCard, Segmented, DateRangePicker, Badge } from "@/components/ui";
+import { useMemo, useState, useCallback } from "react";
+import { Card, CardHeader, CardTitle, StatCard, Segmented, DateRangePicker, Badge, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { AreaLineChart, BarChart, Sparkline } from "@/components/charts";
+import { AreaLineChart, BarChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarProdutosView, type ProdutosKpi } from "@/data/gestao/dashboard";
 import { brl, num } from "@/lib/formato";
@@ -37,17 +37,37 @@ const KPI_ICONS = [IconFat, IconLucro, IconMargem, IconItens];
 
 type Ordenacao = "faturamento" | "itens" | "margem";
 
+/** Cores distintas para cada KPI card (hero). */
+const KPI_COLORS = [
+  { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
+  { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
+  { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },
+  { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
+];
+
 export default function ProdutosPage() {
   const { escopo, mudar } = useEscopo();
   const [catFiltro, setCatFiltro] = useState<number | null>(null);
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("faturamento");
   const [busca, setBusca] = useState("");
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
+  const [refreshing, setRefreshing] = useState(false);
 
   const view = useMemo(() => montarProdutosView(escopo, catFiltro), [escopo, catFiltro]);
 
   const dateRange: DateRange | null = useMemo(() => {
-    if (escopo.periodo.tipo !== "personalizado" || !escopo.periodo.inicio || !escopo.periodo.fim) return null;
-    return [deIso(escopo.periodo.inicio), deIso(escopo.periodo.fim)];
+    if (escopo.periodo.tipo === "personalizado" && escopo.periodo.inicio && escopo.periodo.fim) {
+      return [deIso(escopo.periodo.inicio), deIso(escopo.periodo.fim)];
+    }
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    switch (escopo.periodo.tipo) {
+      case "hoje": return [hoje, hoje];
+      case "ontem": { const y = new Date(hoje); y.setDate(y.getDate() - 1); return [y, y]; }
+      case "7dias": { const s = new Date(hoje); s.setDate(s.getDate() - 6); return [s, hoje]; }
+      case "esteMes": return [new Date(hoje.getFullYear(), hoje.getMonth(), 1), hoje];
+      case "mesPassado": return [new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1), new Date(hoje.getFullYear(), hoje.getMonth(), 0)];
+      default: return null;
+    }
   }, [escopo.periodo]);
 
   function onDateChange(r: DateRange) {
@@ -56,6 +76,14 @@ export default function ProdutosPage() {
   function onMarcaChange(v: "WEPINK" | "WPINK" | null) {
     mudar({ ...escopo, divisao: v });
   }
+
+  const forcarAtualizacao = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => { setUltimaAtualizacao(new Date()); setRefreshing(false); }, 600);
+  }, []);
+
+  const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
+  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} minuto${minutosAtras !== 1 ? "s" : ""}`;
 
   // Filtra e ordena produtos para a tabela
   const produtosFiltrados = useMemo(() => {
@@ -76,31 +104,44 @@ export default function ProdutosPage() {
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
-      {/* Filtros internos */}
-      <div className="flex flex-wrap items-center gap-3">
-        <DateRangePicker value={dateRange} onChange={onDateChange} />
-        <Segmented
-          options={[{ label: "WEPINK", value: "WEPINK" }, { label: "WPINK", value: "WPINK" }]}
-          value={escopo.divisao}
-          onChange={onMarcaChange}
-          allowClear
-        />
-        <select
-          value={catFiltro ?? ""}
-          onChange={(e) => setCatFiltro(e.target.value ? Number(e.target.value) : null)}
-          className="h-[42px] rounded-[11px] border border-line bg-bg-inset px-3 text-[13px] font-semibold text-t1 transition-colors hover:border-acc focus:border-acc focus:outline-none"
-        >
-          <option value="">Todas as categorias</option>
-          {catsDisponiveis.map((c) => (
-            <option key={c.value} value={c.value}>{c.label}</option>
-          ))}
-        </select>
-      </div>
+      <PageHeader
+        crumbs={[{ label: "Dashboards", to: "/dashboard/visao-geral" }, { label: "Produtos" }]}
+        title="Produtos"
+        subtitle="Mix de produtos, categorias e margens — desempenho do catálogo."
+        actions={
+          <>
+            <span className="flex items-center gap-1.5 text-[12px] text-t2">
+              <span className="inline-block h-2 w-2 rounded-full bg-warn" />
+              {rotuloAtualizacao}
+            </span>
+            <Button variant="secondary" size="sm" onClick={forcarAtualizacao} disabled={refreshing}
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
+            />
+            <DateRangePicker value={dateRange} onChange={onDateChange} />
+            <Segmented
+              options={[{ label: "WEPINK", value: "WEPINK" }, { label: "WPINK", value: "WPINK" }]}
+              value={escopo.divisao}
+              onChange={onMarcaChange}
+              allowClear
+            />
+            <select
+              value={catFiltro ?? ""}
+              onChange={(e) => setCatFiltro(e.target.value ? Number(e.target.value) : null)}
+              className="h-8 rounded-[9px] border border-line bg-bg-inset px-3 text-xs font-semibold text-t1 transition-colors hover:border-acc focus:border-acc focus:outline-none"
+            >
+              <option value="">Todas as categorias</option>
+              {catsDisponiveis.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+          </>
+        }
+      />
 
       {/* KPI row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {view.kpis.map((kpi, i) => (
-          <KpiCard key={kpi.label} kpi={kpi} Icon={KPI_ICONS[i]} />
+          <KpiCard key={kpi.label} kpi={kpi} Icon={KPI_ICONS[i]} colorIdx={i} />
         ))}
       </div>
 
@@ -251,14 +292,18 @@ export default function ProdutosPage() {
   );
 }
 
-function KpiCard({ kpi, Icon }: { kpi: ProdutosKpi; Icon: () => React.JSX.Element }) {
+function KpiCard({ kpi, Icon, colorIdx = 0 }: { kpi: ProdutosKpi; Icon: () => React.JSX.Element; colorIdx?: number }) {
+  const c = KPI_COLORS[colorIdx % KPI_COLORS.length];
   return (
     <StatCard
       label={kpi.label}
       value={kpi.valor}
       icon={<Icon />}
+      iconColor={c.iconColor}
+      iconBg={c.iconBg}
       delta={kpi.delta}
-      sparkline={kpi.serie && kpi.serie.length > 1 ? <Sparkline data={kpi.serie} /> : undefined}
+      sub={kpi.sub}
+      tooltip={kpi.tooltip}
     />
   );
 }
