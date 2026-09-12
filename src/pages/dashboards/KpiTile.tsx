@@ -1,4 +1,4 @@
-import { Card, AnimatedNumber } from "@/components/ui";
+import { Card, AnimatedNumber, Tooltip } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { ICONS, TINT, type IconKey, type TintKey } from "./icons";
 
@@ -16,6 +16,8 @@ export interface KpiTileProps {
    * demais dashboards mantêm uma linha truncada, como sempre foi.
    */
   subDuasLinhas?: boolean;
+  /** Tooltip exibido ao passar o mouse no ⓘ ao lado do label. */
+  tooltip?: string;
 }
 
 /** Subtítulo que quebra em duas linhas no mobile (uma por trecho, separado por " · " no texto de origem) e volta a ficar numa linha só a partir do sm, onde cabe. Reserva a altura da segunda linha mesmo quando não há, pra tiles vizinhos não ficarem com alturas diferentes. */
@@ -39,7 +41,7 @@ export function KpiSubtitulo({ texto }: { texto: string }) {
  * close to `StatCard` but with an uppercase label and an optional
  * secondary "sub" line under the value, matching the source layout.
  */
-export function KpiTile({ label, value, icon, tint, delta, sub, subDuasLinhas }: KpiTileProps) {
+export function KpiTile({ label, value, icon, tint, delta, sub, subDuasLinhas, tooltip }: KpiTileProps) {
   const Icon = ICONS[icon];
   return (
     <Card className="min-w-0">
@@ -62,7 +64,16 @@ export function KpiTile({ label, value, icon, tint, delta, sub, subDuasLinhas }:
           </span>
         )}
       </div>
-      <p className="truncate text-xs font-semibold uppercase tracking-wide text-t1">{label}</p>
+      <div className="flex items-center gap-1.5">
+        <p className="truncate text-xs font-semibold uppercase tracking-wide text-t1">{label}</p>
+        {tooltip && (
+          <Tooltip label={tooltip}>
+            <span className="inline-flex h-3.5 w-3.5 shrink-0 cursor-help items-center justify-center rounded-full border border-line text-[8px] font-bold leading-none text-t2">
+              ⓘ
+            </span>
+          </Tooltip>
+        )}
+      </div>
       <AnimatedNumber value={value} className="mt-1.5 block truncate text-2xl font-extrabold tracking-tight text-t0" />
       {sub && (subDuasLinhas ? <KpiSubtitulo texto={sub} /> : <p className="mt-0.5 truncate text-[11.5px] text-t2">{sub}</p>)}
     </Card>

@@ -36,11 +36,11 @@ export function BlocoKpisEquipe({
           Variações em relação a <span className="font-semibold text-t1">{comparadoA}</span>
         </p>
       )}
-      <div className="grid grid-cols-2 gap-4">
-        <KpiTile label="Faturamento" value={faturamento.valor} icon="dollar" tint="acc" delta={faturamento.delta} />
-        <KpiTile label="Atendimentos" value={atendimentos.valor} icon="users" tint="info" delta={atendimentos.delta} />
-        <KpiTile label="Ticket médio" value={ticket.valor} icon="card" tint="ok" delta={ticket.delta} />
-        <KpiTile label="P.A." value={pa.valor} icon="layers" tint="warn" delta={pa.delta} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiTile label="Faturamento" value={faturamento.valor} icon="dollar" tint="acc" delta={faturamento.delta} tooltip="Receita bruta total da equipe no período." />
+        <KpiTile label="Atendimentos" value={atendimentos.valor} icon="users" tint="info" delta={atendimentos.delta} tooltip="Total de vendas/atendimentos realizados." />
+        <KpiTile label="Ticket médio" value={ticket.valor} icon="card" tint="ok" delta={ticket.delta} tooltip="Valor médio por atendimento (Faturamento ÷ Atendimentos)." />
+        <KpiTile label="P.A." value={pa.valor} icon="layers" tint="warn" delta={pa.delta} tooltip="Peças/itens por atendimento (Itens ÷ Atendimentos)." />
       </div>
     </div>
   );

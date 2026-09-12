@@ -270,6 +270,8 @@ function KpiCard({ kpi, Icon }: { kpi: VisaoKpi; Icon: () => React.JSX.Element }
       value={kpi.valor}
       icon={<Icon />}
       delta={kpi.delta}
+      sub={kpi.sub}
+      tooltip={kpi.tooltip}
       sparkline={kpi.serie && kpi.serie.length > 1 ? <Sparkline data={kpi.serie} /> : undefined}
     />
   );

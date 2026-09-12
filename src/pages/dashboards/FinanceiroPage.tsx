@@ -284,6 +284,8 @@ function KpiCard({ kpi, Icon }: { kpi: FinanceiroKpi; Icon: () => React.JSX.Elem
       value={kpi.valor}
       icon={<Icon />}
       delta={kpi.delta}
+      sub={kpi.sub}
+      tooltip={kpi.tooltip}
       sparkline={kpi.serie && kpi.serie.length > 1 ? <Sparkline data={kpi.serie} /> : undefined}
     />
   );
