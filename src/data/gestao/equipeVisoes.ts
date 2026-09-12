@@ -593,7 +593,7 @@ function primeiroNome(nomeCompleto: string): string {
 /* ------------------------- Visão loja ------------------------- */
 
 function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: PeriodoResolvido, competencia: string, metaAtiva: boolean): EquipeView {
-  const filialId = escopo.filialId;
+  const filialId = escopo.filialIds.length === 1 ? escopo.filialIds[0] : filiais[0]?.id ?? "";
   const filial = filialPorId(filialId);
   const ant = periodoAnterior(periodo);
   // KPIs de desempenho: período filtrado (AD-046).
@@ -663,7 +663,7 @@ function visaoRede(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
 
   const vendedorasFlat: VendedoraLinha[] = [];
   const lojas: LojaEquipeResumo[] = filiais.map((f, i) => {
-    const escopoLoja: Escopo = { ...escopo, filialId: f.id };
+    const escopoLoja: Escopo = { ...escopo, filialIds: [f.id] };
     const vLoja = visaoLoja(escopoLoja, periodo, periodoMeta, competencia, metaAtiva);
     const linhas = vLoja.vendedoras ?? [];
     vendedorasFlat.push(...linhas);
@@ -721,7 +721,7 @@ let premiacaoRede: number | null = null;
 if (metaAtiva) {
   let parteEscada = 0;
   for (const f of filiais) {
-    const vLoja = visaoLoja({ ...escopo, filialId: f.id }, periodo, periodoMeta, competencia, metaAtiva);
+    const vLoja = visaoLoja({ ...escopo, filialIds: [f.id] }, periodo, periodoMeta, competencia, metaAtiva);
     const escadaLoja = premiacaoEscada(f.id, competencia, vLoja.vendedoras ?? []);
     if (escadaLoja !== null) parteEscada += escadaLoja;
   }
@@ -813,11 +813,12 @@ export function montarEquipeView(escopo: Escopo): EquipeView {
   const periodo = resolverPeriodo(escopo.periodo);
   const competencia = competenciaDaEquipe(periodo);
   const periodoMeta = periodoDaCompetencia(competencia);
-  const filiaisEscopo = escopo.filialId === "todas" ? filiais : [filialPorId(escopo.filialId)];
+  const ehRede = escopo.filialIds.length === 0;
+  const filiaisEscopo = ehRede ? filiais : escopo.filialIds.map((id) => filialPorId(id)).filter(Boolean) as Filial[];
   // Meta ativa = existe meta cadastrada na competência (não depende mais do filtro).
   const metaAtiva = filiaisEscopo.some((f) => Boolean(metaDaFilial(f.id, competencia)));
 
-  const v = escopo.filialId === "todas" ? visaoRede(escopo, periodo, periodoMeta, competencia, metaAtiva) : visaoLoja(escopo, periodo, periodoMeta, competencia, metaAtiva);
+  const v = ehRede ? visaoRede(escopo, periodo, periodoMeta, competencia, metaAtiva) : visaoLoja(escopo, periodo, periodoMeta, competencia, metaAtiva);
 
   if (metaAtiva && !periodoBateComCompetencia(periodo, competencia)) {
     v.avisoCompetencia = `KPIs do topo seguem o período filtrado. Meta, escada e desafios são de ${mesAno(`${competencia}-01`)}.`;

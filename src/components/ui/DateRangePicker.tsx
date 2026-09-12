@@ -127,7 +127,6 @@ export function DateRangePicker({
   }
 
   function ehDentro(dia: Date): boolean {
-    const [a, b] = draftStart ? [draftStart, draftStart] : value ?? [dia, dia];
     const lo = draftStart ?? (value ? value[0] : dia);
     const hi = value ? value[1] : dia;
     if (!draftStart && value) return dia > value[0] && dia < value[1];

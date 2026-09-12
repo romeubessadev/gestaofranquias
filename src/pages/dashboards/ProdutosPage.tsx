@@ -6,7 +6,6 @@ import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarProdutosView, type ProdutosKpi } from "@/data/gestao/dashboard";
 import { brl, num } from "@/lib/formato";
 import { deIso } from "@/lib/formato";
-import { categorias } from "@/data/gestao/filiais";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 
 const IconFat = () => (
@@ -252,7 +251,7 @@ export default function ProdutosPage() {
   );
 }
 
-function KpiCard({ kpi, Icon }: { kpi: ProdutosKpi; Icon: () => JSX.Element }) {
+function KpiCard({ kpi, Icon }: { kpi: ProdutosKpi; Icon: () => React.JSX.Element }) {
   return (
     <StatCard
       label={kpi.label}

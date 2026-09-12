@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { Checkbox } from "@/components/ui";
 import type { Filial } from "@/data/gestao/filiais";
 import type { Escopo } from "@/data/gestao/dashboard";
 import { cn } from "@/lib/cn";

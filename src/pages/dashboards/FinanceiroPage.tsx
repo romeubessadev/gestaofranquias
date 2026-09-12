@@ -277,7 +277,7 @@ export default function FinanceiroPage() {
 }
 
 /** StatCard wrapper com tooltip ⓘ e sparkline de tendência. */
-function KpiCard({ kpi, Icon }: { kpi: FinanceiroKpi; Icon: () => JSX.Element }) {
+function KpiCard({ kpi, Icon }: { kpi: FinanceiroKpi; Icon: () => React.JSX.Element }) {
   return (
     <StatCard
       label={kpi.label}

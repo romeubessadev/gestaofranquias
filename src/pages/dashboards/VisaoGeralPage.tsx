@@ -5,7 +5,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, BarChart, DonutChart, Gauge, Sparkline } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarVisaoGeralView, type VisaoKpi } from "@/data/gestao/dashboard";
-import { brl, num } from "@/lib/formato";
+import { brl } from "@/lib/formato";
 import { deIso } from "@/lib/formato";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 
@@ -263,7 +263,7 @@ export default function VisaoGeralPage() {
   );
 }
 
-function KpiCard({ kpi, Icon }: { kpi: VisaoKpi; Icon: () => JSX.Element }) {
+function KpiCard({ kpi, Icon }: { kpi: VisaoKpi; Icon: () => React.JSX.Element }) {
   return (
     <StatCard
       label={kpi.label}

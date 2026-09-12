@@ -9,7 +9,7 @@ import { montarLojaView } from "./dashboard";
 import type { Escopo } from "./dashboard";
 
 function escopo(filialId: string = "f1", periodo: Escopo["periodo"] = { tipo: "esteMes" }): Escopo {
-  return { filialId, periodo, divisao: null };
+  return { filialIds: [filialId], periodo, divisao: null };
 }
 
 describe("T8: integração — Equipe e Visão geral concordam (EQUIP-01)", () => {

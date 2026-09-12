@@ -6,10 +6,10 @@ const SalesDashboardPage = lazyPage(() => import("./SalesDashboardPage"), "Sales
 const ProjectDashboardPage = lazyPage(() => import("./ProjectDashboardPage"), "ProjectDashboardPage");
 const SaasDashboardPage = lazyPage(() => import("./SaasDashboardPage"), "SaasDashboardPage");
 const BiDashboardPage = lazyPage(() => import("./BiDashboardPage"), "BiDashboardPage");
-const FinanceiroPage = lazyPage(() => import("./FinanceiroPage"), "FinanceiroPage");
-const ProdutosPage = lazyPage(() => import("./ProdutosPage"), "ProdutosPage");
-const TurnosPage = lazyPage(() => import("./TurnosPage"), "TurnosPage");
-const VisaoGeralPage = lazyPage(() => import("./VisaoGeralPage"), "VisaoGeralPage");
+const FinanceiroPage = lazyPage(() => import("./FinanceiroPage"), "default");
+const ProdutosPage = lazyPage(() => import("./ProdutosPage"), "default");
+const TurnosPage = lazyPage(() => import("./TurnosPage"), "default");
+const VisaoGeralPage = lazyPage(() => import("./VisaoGeralPage"), "default");
 
 /**
  * NOTE: paths.dashboards.{crm,ecommerce,finance,logistics} and the marketing

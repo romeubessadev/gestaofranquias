@@ -7,7 +7,7 @@ import { agregadoDoDia, diaVendas, lojaAberta, pesoDia } from "./vendas";
 import { fimDoMes, intervaloDias, somarDias } from "@/lib/formato";
 
 function escopo(filialId: string = "todas", periodo: Escopo["periodo"] = { tipo: "esteMes" }): Escopo {
-  return { filialId, periodo, divisao: null };
+  return { filialIds: filialId === "todas" ? [] : [filialId], periodo, divisao: null };
 }
 
 function realizadoAcumulado(filialId: string, competencia: string, ate: string): number {
@@ -282,7 +282,7 @@ describe("T5: mix com margem (LOJA-04 AC 10)", () => {
 
   it("mix respeita a marca (divisão) selecionada", () => {
     // f2 tem temWpink: true (categoria Suplementos é WPINK).
-    const v = montarLojaView({ filialId: "f2", periodo: { tipo: "esteMes" }, divisao: "WPINK" });
+    const v = montarLojaView({ filialIds: ["f2"], periodo: { tipo: "esteMes" }, divisao: "WPINK" });
     if (!v.mix) return;
     const itens = v.mix.itens.filter((i) => i.receita > 0);
     if (itens.length === 0) return; // sem dados da divisão no período — válido como ausência
@@ -360,7 +360,7 @@ describe("régua: rede, loja única e dia", () => {
   });
 
   it("loja + marca: régua adapta para participação da marca (não some) — AD-047", () => {
-    const v = montarLojaView({ filialId: "f2", periodo: { tipo: "esteMes" }, divisao: "WPINK" });
+    const v = montarLojaView({ filialIds: ["f2"], periodo: { tipo: "esteMes" }, divisao: "WPINK" });
     expect(v.regua).not.toBeNull();
     expect(v.regua!.length).toBe(1);
     expect(v.reguaTitulo).toContain("Wpink");

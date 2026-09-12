@@ -7,7 +7,7 @@ import { HOJE_ISO } from "./relogio";
 import type { Escopo } from "./dashboard";
 
 function escopo(filialId: string = "todas", periodo: Escopo["periodo"] = { tipo: "esteMes" }): Escopo {
-  return { filialId, periodo, divisao: null };
+  return { filialIds: filialId === "todas" ? [] : [filialId], periodo, divisao: null };
 }
 
 /** "R$ 185,0k", "R$ 2.345,67" → número aproximado; para comparação tolerante. */

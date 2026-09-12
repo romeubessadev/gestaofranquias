@@ -8,11 +8,10 @@
  * AD-048 — KPIs com subtítulo só do próprio indicador; gráfico compara
  * períodos no mesmo eixo (padrão Finance / Revenue vs expenses).
  */
-import { categorias, filiais, filialPorId, tarefas, turnos, type Divisao, type Filial } from "./filiais";
-import { metaDaFilial } from "./metas";
+import { categorias, filiais, tarefas, turnos, type Divisao, type Filial } from "./filiais";
 import { AGORA, ATUALIZADO_AS, HOJE_ISO, HORA_ATUAL, INTERVALO_SYNC_MIN, ULTIMO_SYNC } from "./relogio";
 import { agregadoDoDia, diaVendas, diasVendas, lojaAberta, pesoDia, somarAgregados, type Agregado } from "./vendas";
-import { brl, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, inicioDoMes, intervaloDias, mesAno, num, pct, somarDias } from "@/lib/formato";
+import { brl, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, inicioDoMes, intervaloDias, mesAno, pct, somarDias } from "@/lib/formato";
 import type { TintKey } from "@/pages/dashboards/icons";
 import { montarLeituraLoja } from "./leitura";
 
@@ -447,7 +446,8 @@ function esperadoDia(f: Filial, iso: string, divisao: Divisao | null): number {
 
 /** R$ 85,3k — valor curto, pra não quebrar componente. R$ 1,2M a partir de 1 milhão. Abaixo de R$ 10.000, valor cheio — R$ 3.022, não R$ 3k, que esconderia precisão que cabe na tela. Sem ",0" à toa: só mostra casa decimal quando ela diz algo (283k, não 283,0k). */
 /** Formata número inteiro com separador de milhar (ex.: 5778 → "5.778"). */
-export function num(v: number): string {
+export function num(v: number, casas?: number): string {
+  if (casas !== undefined) return v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
   return Math.round(v).toLocaleString("pt-BR");
 }
 
@@ -1420,7 +1420,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
   const vsRotulo = temComp ? ant.rotulo : undefined;
 
   // Séries de tendência (últimos 7 pontos do período, ou 7 dias se período curto).
-  const serieFaturamento = seriesTendencia(fs, periodo, divisao).faturamento.slice(-7);
+  const serieFaturamento = (seriesTendencia(fs, periodo, divisao).faturamento ?? []).slice(-7);
   const serieCmv = serieFaturamento.map((_, i) => {
     const frac = custoAtual / (atual.faturamento || 1);
     return Math.round(serieFaturamento[i] * frac);
@@ -1572,7 +1572,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
  * TELA PRODUTOS — camada de dados (montarProdutosView)
  * ================================================================ */
 
-import { produtosDaCategoria, type ProdutoResumo } from "./produtos";
+import { type ProdutoResumo } from "./produtos";
 
 export interface ProdutosKpi {
   label: string;
@@ -1853,7 +1853,7 @@ export function montarTurnosView(escopo: Escopo, turnoFiltro: string | null = nu
     let faturamento = 0;
     let vendas = 0;
     for (const f of fs) {
-      if (f.id !== turno.filialId && escopo.filialId !== "todas") continue;
+      if (f.id !== turno.filialId && escopo.filialIds.length > 0 && !escopo.filialIds.includes(f.id)) continue;
       for (const iso of intervaloDias(periodo.inicio, periodo.fim)) {
         const dv = diaVendas(f.id, iso);
         if (!dv) continue;
@@ -1887,7 +1887,7 @@ export function montarTurnosView(escopo: Escopo, turnoFiltro: string | null = nu
     for (const turno of turnosUnicos) {
       let fat = 0;
       for (const f of fs) {
-        if (f.id !== turno.filialId && escopo.filialId !== "todas") continue;
+        if (f.id !== turno.filialId && escopo.filialIds.length > 0 && !escopo.filialIds.includes(f.id)) continue;
         const dv = diaVendas(f.id, iso);
         if (!dv) continue;
         for (const h of horasDoTurno(turno)) {
@@ -2035,8 +2035,6 @@ export function montarTurnosView(escopo: Escopo, turnoFiltro: string | null = nu
  * TELA VISÃO GERAL — camada de dados (montarVisaoGeralView)
  * ================================================================ */
 
-import { metaDaFilial } from "./metas";
-import { produtosDaCategoria } from "./produtos";
 import { colaboradoresDaFilial } from "./equipe";
 
 export interface VisaoKpi {
@@ -2105,13 +2103,12 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
   const custoAtual = custoPeriodo(fs, periodo.inicio, periodo.fim, divisao).cmv;
   const lucroAtual = atual.faturamento - custoAtual;
   const margemAtual = divSeguro(lucroAtual, atual.faturamento) * 100;
-  const ticketAtual = divSeguro(atual.faturamento, atual.atendimentos);
-
   // Período anterior para deltas
   const ant = periodoAnterior(periodo);
-  const anterior = somarAgregados(fs.map((f) => agregadoPeriodo(f, ant.inicio, ant.fim, divisao, ant.horaMax)));
+  const anterior = somarAgregados(fs.map((f) => agregadoPeriodo(f, ant.inicio, ant.fim, divisao)));
   const custoAnterior = custoPeriodo(fs, ant.inicio, ant.fim, divisao).cmv;
   const lucroAnterior = anterior.faturamento - custoAnterior;
+  const ticketAtual = divSeguro(atual.faturamento, atual.atendimentos);
   const ticketAnterior = divSeguro(anterior.faturamento, anterior.atendimentos);
   const temComp = anterior.atendimentos > 0;
   const vsRotulo = temComp ? ant.rotulo : undefined;

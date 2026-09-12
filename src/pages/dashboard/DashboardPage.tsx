@@ -38,7 +38,7 @@ export function DashboardPage() {
                 regua={v.regua}
                 titulo={v.reguaTitulo}
                 modoMarca={Boolean(escopo.divisao)}
-                onEscolher={(id) => mudar({ ...escopo, filialId: id, divisao: null })}
+                onEscolher={(id) => mudar({ ...escopo, filialIds: [id], divisao: null })}
               />
             )}
           </div>
@@ -50,7 +50,7 @@ export function DashboardPage() {
             regua={v.regua}
             titulo={v.reguaTitulo}
             modoMarca={Boolean(escopo.divisao)}
-            onEscolher={(id) => mudar({ ...escopo, filialId: id, divisao: null })}
+            onEscolher={(id) => mudar({ ...escopo, filialIds: [id], divisao: null })}
           />
         )}
 

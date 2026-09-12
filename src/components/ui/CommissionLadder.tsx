@@ -35,8 +35,6 @@ export function CommissionLadder({
 }) {
   // Ordena os degraus do menor pro maior (Meta → Super → Hiper).
   const ordenados = [...degraus].sort((a, b) => a.valor - b.valor);
-  // O maior degrau define o teto da barra (100%).
-  const teto = ordenados.length > 0 ? ordenados[ordenados.length - 1].valor : 1;
   // Degrau atual: o último cujo valor foi atingido (realizado >= valor).
   const indiceAtual = ordenados.reduce((acc, d, i) => (realizado >= d.valor ? i : acc), -1);
 

@@ -48,8 +48,9 @@ function Aba({ ativo, onClick, children }: { ativo: boolean; onClick: () => void
 export function SeletorEscopo({ escopo, onChange }: { escopo: Escopo; onChange: (e: Escopo) => void }) {
   const sessao = useSessaoAtiva();
   const minhas = filiais.filter((f) => sessao.filiais.includes(f.id));
-  const filialAtual = escopo.filialId === "todas" ? null : filiais.find((f) => f.id === escopo.filialId);
-  const mostraDivisao = escopo.filialId === "todas" ? minhas.some((f) => f.temWpink) : Boolean(filialAtual?.temWpink);
+  const ehRede = escopo.filialIds.length === 0;
+  const filialAtual = ehRede ? null : filiais.find((f) => f.id === escopo.filialIds[0]);
+  const mostraDivisao = ehRede ? minhas.some((f) => f.temWpink) : Boolean(filialAtual?.temWpink);
 
   function trocarPeriodo(p: PeriodoTipo) {
     onChange({ ...escopo, periodo: p === "personalizado" ? { tipo: p, inicio: somarDias(HOJE_ISO, -13), fim: HOJE_ISO } : { tipo: p } });
