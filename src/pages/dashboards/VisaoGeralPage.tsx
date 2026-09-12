@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, StatCard, Segmented, DateRangePicker, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { AreaLineChart, BarChart, DonutChart, Gauge, Sparkline } from "@/components/charts";
+import { AreaLineChart, BarChart, DonutChart, Gauge } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarVisaoGeralView, type VisaoKpi } from "@/data/gestao/dashboard";
 import { brl } from "@/lib/formato";

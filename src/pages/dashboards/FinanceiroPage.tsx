@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { Card, CardHeader, CardTitle, StatCard, Segmented, DateRangePicker, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { AreaLineChart, BarChart, StackedBarChart, DonutChart, Sparkline } from "@/components/charts";
+import { AreaLineChart, BarChart, StackedBarChart, DonutChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarFinanceiroView, type FinanceiroKpi } from "@/data/gestao/dashboard";
 import { brl } from "@/lib/formato";
