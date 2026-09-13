@@ -4,7 +4,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { BarChartWithGoalLine, DonutChart, Gauge } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarVisaoGeralView, type VisaoKpi } from "@/data/gestao/dashboard";
-import { brl, brlK } from "@/lib/formato";
+import { brlK } from "@/lib/formato";
 import { deIso } from "@/lib/formato";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 
