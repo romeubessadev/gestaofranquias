@@ -2099,7 +2099,7 @@ export interface VisaoGeralView {
   evolucao: EvolucaoPonto[];
   formasPagamento: FormaPagamentoFat[];
   topVendedoras: (TopItem & { sub?: string })[];
-  topProdutos: TopItem[];
+  topProdutos: (TopItem & { sub?: string })[];
 }
 
 export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
@@ -2315,20 +2315,21 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     .slice(0, 5)
     .map((v) => ({ nome: v.nome, valor: v.fat, sub: `${v.vendas} vendas` }));
 
-  // Top 3 Produtos
-  const prodMap = new Map<string, { nome: string; fat: number }>();
+  // Top 5 Produtos
+  const prodMap = new Map<string, { nome: string; fat: number; itens: number }>();
   for (const cat of [...catMap.entries()].map(([id, c]) => ({ id, ...c }))) {
     const prods = produtosDaCategoria(cat.id, `${periodo.inicio}|${divisao ?? ""}`, cat.faturamento, 0, 0);
     for (const p of prods) {
-      const acc = prodMap.get(p.codProduto) ?? { nome: p.nome, fat: 0 };
+      const acc = prodMap.get(p.codProduto) ?? { nome: p.nome, fat: 0, itens: 0 };
       acc.fat += p.receita;
+      acc.itens += p.itens;
       prodMap.set(p.codProduto, acc);
     }
   }
-  const topProdutos: TopItem[] = [...prodMap.values()]
+  const topProdutos: (TopItem & { sub?: string })[] = [...prodMap.values()]
     .sort((a, b) => b.fat - a.fat)
-    .slice(0, 3)
-    .map((p) => ({ nome: p.nome, valor: p.fat }));
+    .slice(0, 5)
+    .map((p) => ({ nome: p.nome, valor: p.fat, sub: `${p.itens} itens vendidos` }));
 
   return {
     escopo,

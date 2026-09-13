@@ -183,12 +183,12 @@ export default function VisaoGeralPage() {
       </Card>
 
       {/* Par: Categoria vs Meta + Dia da Semana vs Meta */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <div className="flex items-center gap-1.5">
               <CardTitle>Categoria vs Meta</CardTitle>
-              <Tooltip label="Faturamento realizado por categoria comparado à meta proporcional. Clique → drill para Produtos.">
+              <Tooltip label="Faturamento realizado por categoria comparado à meta proporcional do período.">
                 <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
               </Tooltip>
             </div>
@@ -208,7 +208,7 @@ export default function VisaoGeralPage() {
           <CardHeader>
             <div className="flex items-center gap-1.5">
               <CardTitle>Dia da Semana vs Meta</CardTitle>
-              <Tooltip label="Faturamento médio por dia da semana comparado à meta diária. Clique → drill para Turnos.">
+              <Tooltip label="Faturamento médio por dia da semana comparado à meta diária do período.">
                 <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
               </Tooltip>
             </div>
@@ -227,7 +227,7 @@ export default function VisaoGeralPage() {
       </div>
 
       {/* Par: Evolução vs Meta + Forma de Pagamento */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <div className="flex items-center gap-1.5">
@@ -297,8 +297,8 @@ export default function VisaoGeralPage() {
         </Card>
       </div>
 
-      {/* Par: Top 3 Vendedoras + Top 3 Produtos */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* Par: Top Vendedoras + Top Produtos */}
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-1.5">
@@ -335,15 +335,36 @@ export default function VisaoGeralPage() {
         </Card>
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Top 3 Produtos</CardTitle>
-              <Tooltip label="Os 3 produtos que mais venderam no período. Clique → drill para Produtos.">
-                <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-              </Tooltip>
+            <div className="flex items-center justify-between gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <CardTitle>Top Produtos</CardTitle>
+                <Tooltip label="Os produtos que mais faturaram no período selecionado.">
+                  <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                </Tooltip>
+              </div>
+              <span className="rounded-full bg-acc-soft px-2 py-0.5 text-[10px] font-bold text-acc">Top {view.topProdutos.length}</span>
             </div>
           </CardHeader>
-          <div className="px-4 pb-4">
-            <RankingCompacto items={view.topProdutos} formatValue={brl} onClick={() => navigate("/dashboard/produtos")} />
+          <div className="flex flex-col gap-1 px-4 pb-4">
+            {view.topProdutos.map((p, idx) => {
+              const iniciais = p.nome.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
+              const cores = ["var(--ok)", "var(--info)", "var(--warn)", "var(--acc)", "var(--bad)"];
+              const corAvatar = cores[idx % cores.length];
+              return (
+                <div key={p.nome} className="flex items-center gap-3 rounded-lg px-1 py-2 transition-colors hover:bg-bg-inset/50">
+                  <span className="w-4 shrink-0 text-center text-[12px] font-bold text-t2">{idx + 1}</span>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: corAvatar }}>{iniciais || "?"}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold text-t0" title={p.nome}>{p.nome}</p>
+                    {p.sub && <p className="truncate text-[11px] text-t2">{p.sub}</p>}
+                  </div>
+                  <span className="shrink-0 text-[13px] font-bold text-ok">{brl(p.valor)}</span>
+                </div>
+              );
+            })}
+            {view.topProdutos.length === 0 && (
+              <span className="py-4 text-center text-[12px] text-t2">Sem dados no período.</span>
+            )}
           </div>
         </Card>
       </div>
