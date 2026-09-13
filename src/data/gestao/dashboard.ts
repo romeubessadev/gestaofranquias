@@ -2147,11 +2147,10 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     {
       label: "Faturamento",
       valor: brlK(atual.faturamento),
-      sub: metaTotal > 0
-        ? `Meta: ${brlK(metaTotal)}`
-        : `${num(atual.itens)} itens vendidos`,
+      sub: metaTotal > 0 ? `Meta: ${brlK(metaTotal)}` : undefined,
       delta: temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
       serie: serieFat,
+      tooltip: "Receita bruta total no período selecionado.",
       },
     {
       label: "CMV (custo)",
