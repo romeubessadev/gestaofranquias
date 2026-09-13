@@ -369,7 +369,7 @@ function pctDelta(atual: number, anterior: number): number {
 }
 
 /** Delta pronto para o KpiTile do template: sem sinal no texto, a seta já indica. */
-export function kpiDelta(atual: number, anterior: number, vs?: string): { value: string; positive: boolean; vs?: string; diff?: string } | undefined {
+export function kpiDelta(atual: number, anterior: number, vs?: string, monetario = true): { value: string; positive: boolean; vs?: string; diff?: string } | undefined {
   if (anterior <= 0) return undefined;
   const v = pctDelta(atual, anterior);
   const casas = Math.abs(v) < 10 ? 1 : 0;
@@ -379,7 +379,7 @@ export function kpiDelta(atual: number, anterior: number, vs?: string): { value:
     value: fmtDelta(v, casas).replace(/^[+−]/, ""),
     positive: v >= 0,
     ...(vs ? { vs } : {}),
-    ...(diferenca > 0 ? { diff: brl(diferenca) } : {}),
+    ...(monetario && diferenca > 0 ? { diff: brl(diferenca) } : {}),
   };
 }
 
@@ -901,7 +901,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
   const vsRotulo = temComparacao ? ant.rotulo : undefined;
   const series = seriesTendencia(fs, periodo, divisao);
   const kpiTicket: KpiValor = { valor: brl(ticket), delta: temComparacao ? kpiDelta(ticket, ticketAnt, vsRotulo) : undefined, serie: series.ticket };
-  const kpiPA: KpiValor = { valor: num(pa, 2), delta: temComparacao ? kpiDelta(pa, paAnt, vsRotulo) : undefined, serie: series.pa };
+  const kpiPA: KpiValor = { valor: num(pa, 2), delta: temComparacao ? kpiDelta(pa, paAnt, vsRotulo, false) : undefined, serie: series.pa };
 
   // Meta é sempre mensal. Divisão ou período cruzando meses desligam.
   const competencia = periodo.granularidade === "mes" ? periodo.inicio.slice(0, 7) : HOJE_ISO.slice(0, 7);
@@ -922,7 +922,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
 
   const kpiAtendimentos: KpiValor = {
     valor: num(atual.atendimentos),
-    delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined,
+    delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo, false) : undefined,
     serie: series.atendimentos,
     sub: periodo.granularidade !== "dia" && nDiasPeriodo > 0 ? `média ${num(atual.atendimentos / nDiasPeriodo, 0)}/dia` : undefined,
   };
@@ -1712,7 +1712,7 @@ export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | nul
     {
       label: "Itens vendidos",
       valor: num(totalItens),
-      delta: temComp ? kpiDelta(totalItens, antTotalItens, vsRotulo) : undefined,
+      delta: temComp ? kpiDelta(totalItens, antTotalItens, vsRotulo, false) : undefined,
     },
   ];
 
@@ -2164,7 +2164,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
       label: "Vendas",
       valor: num(atual.atendimentos),
       sub: `${num(atual.itens)} itens vendidos`,
-      delta: temComp ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined,
+      delta: temComp ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo, false) : undefined,
     },
     {
       label: "Ticket Médio",

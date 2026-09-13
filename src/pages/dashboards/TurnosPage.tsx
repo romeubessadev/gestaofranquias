@@ -153,7 +153,7 @@ export default function TurnosPage() {
             <select
               value={escopo.divisao ?? ""}
               onChange={(e) => onMarcaChange(e.target.value ? e.target.value as "WEPINK" | "WPINK" : null)}
-              className="h-10 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3.5 text-[13px] font-semibold text-t1 transition-colors hover:border-acc focus:border-acc focus:outline-none"
+              className="h-10 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3.5 text-[13px] font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none"
             >
               <option value="">Todas as marcas</option>
               <option value="WEPINK">WEPINK</option>
@@ -162,7 +162,7 @@ export default function TurnosPage() {
             <select
               value={turnoFiltro ?? ""}
               onChange={(e) => setTurnoFiltro(e.target.value || null)}
-              className="h-10 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3.5 text-[13px] font-semibold text-t1 transition-colors hover:border-acc focus:border-acc focus:outline-none"
+              className="h-10 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3.5 text-[13px] font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none"
             >
               <option value="">Todos os turnos</option>
               {view.turnosDisponiveis.map((t) => (
