@@ -2098,7 +2098,7 @@ export interface VisaoGeralView {
   diaVsMeta: DiaVsMeta[];
   evolucao: EvolucaoPonto[];
   formasPagamento: FormaPagamentoFat[];
-  topVendedoras: (TopItem & { sub?: string })[];
+  topVendedoras: (TopItem & { sub?: string; ticketMedio?: number })[];
   topProdutos: (TopItem & { sub?: string })[];
 }
 
@@ -2310,10 +2310,15 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
       }
     }
   }
-  const topVendedoras: (TopItem & { sub?: string })[] = [...vendMap.values()]
+  const topVendedoras: (TopItem & { sub?: string; ticketMedio?: number })[] = [...vendMap.values()]
     .sort((a, b) => b.fat - a.fat)
     .slice(0, 5)
-    .map((v) => ({ nome: v.nome, valor: v.fat, sub: `${v.vendas} vendas` }));
+    .map((v) => ({
+      nome: v.nome,
+      valor: v.fat,
+      sub: `${v.vendas} vendas`,
+      ticketMedio: v.vendas > 0 ? v.fat / v.vendas : 0,
+    }));
 
   // Top 5 Produtos
   const prodMap = new Map<string, { nome: string; fat: number; itens: number }>();

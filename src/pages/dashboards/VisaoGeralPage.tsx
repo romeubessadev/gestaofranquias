@@ -317,7 +317,12 @@ export default function VisaoGeralPage() {
                     <p className="truncate text-[13px] font-semibold text-t0">{v.nome}</p>
                     {v.sub && <p className="truncate text-[11px] text-t2">{v.sub}</p>}
                   </div>
-                  <span className="shrink-0 text-[13px] font-bold text-ok">{brl(v.valor)}</span>
+                  <div className="shrink-0 text-right">
+                    <span className="block text-[13px] font-bold text-ok">{brl(v.valor)}</span>
+                    {v.ticketMedio != null && v.ticketMedio > 0 && (
+                      <span className="block text-[10px] text-t2">T.M. {brl(v.ticketMedio)}</span>
+                    )}
+                  </div>
                 </div>
               );
             })}
