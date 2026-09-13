@@ -10,7 +10,7 @@ export interface PageHeaderProps {
 
 export function PageHeader({ crumbs, title, subtitle, actions }: PageHeaderProps) {
   return (
-    <div className="mb-6">
+    <div className="mb-4">
       {crumbs && <Breadcrumbs items={crumbs} />}
       <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">

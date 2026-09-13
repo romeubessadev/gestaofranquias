@@ -2148,8 +2148,8 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
       label: "Faturamento",
       valor: brlK(atual.faturamento),
       sub: metaTotal > 0
-        ? `Meta: ${brlK(metaTotal)} · ${num(atual.atendimentos)} vendas`
-        : `${num(atual.atendimentos)} vendas · ${num(atual.itens)} itens`,
+        ? `Meta: ${brlK(metaTotal)}`
+        : `${num(atual.itens)} itens vendidos`,
       delta: temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
       serie: serieFat,
       },
