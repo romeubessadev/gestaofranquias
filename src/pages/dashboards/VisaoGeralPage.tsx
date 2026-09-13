@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { StackedBarChart, DonutChart, Gauge } from "@/components/charts";
+import { BarChartWithGoalLine, DonutChart, Gauge } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarVisaoGeralView, type VisaoKpi } from "@/data/gestao/dashboard";
 import { brl } from "@/lib/formato";
@@ -162,26 +162,24 @@ export default function VisaoGeralPage() {
             <div className="flex items-center gap-1.5">
               <CardTitle>Categoria vs Meta</CardTitle>
               <Tooltip label="Faturamento realizado por categoria comparado à meta proporcional do período.">
-                <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
               </Tooltip>
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
-            <StackedBarChart
+            <BarChartWithGoalLine
               data={view.categoriaVsMeta.map((c) => ({
                 label: c.categoria.length > 8 ? c.categoria.slice(0, 7) + "…" : c.categoria,
-                Realizado: c.realizado,
-                Restante: Math.max(0, c.meta - c.realizado),
+                value: c.realizado,
+                goal: c.meta,
               }))}
-              keys={["Realizado", "Restante"]}
-              colors={["var(--acc)", "var(--bg-inset)"]}
               height={200}
-              showValues
+              color="var(--acc)"
               formatValue={brl}
             />
             <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
               <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--bg-inset)] border border-line" /> Meta restante</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-[var(--t2)]" /> Meta</span>
             </div>
           </div>
         </Card>
@@ -190,26 +188,24 @@ export default function VisaoGeralPage() {
             <div className="flex items-center gap-1.5">
               <CardTitle>Dia da Semana vs Meta</CardTitle>
               <Tooltip label="Faturamento médio por dia da semana comparado à meta diária do período.">
-                <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
               </Tooltip>
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
-            <StackedBarChart
+            <BarChartWithGoalLine
               data={view.diaVsMeta.map((d) => ({
                 label: d.dia,
-                Realizado: d.realizado,
-                Restante: Math.max(0, d.meta - d.realizado),
+                value: d.realizado,
+                goal: d.meta,
               }))}
-              keys={["Realizado", "Restante"]}
-              colors={["var(--info)", "var(--bg-inset)"]}
               height={200}
-              showValues
+              color="var(--info)"
               formatValue={brl}
             />
             <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
               <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--info)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--bg-inset)] border border-line" /> Meta restante</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-[var(--t2)]" /> Meta</span>
             </div>
           </div>
         </Card>
@@ -222,26 +218,24 @@ export default function VisaoGeralPage() {
             <div className="flex items-center gap-1.5">
               <CardTitle>Evolução do Faturamento vs Meta</CardTitle>
               <Tooltip label="Realizado acumulado, meta acumulada e projeção de fechamento. Responde: vou bater a meta até o fim do mês?">
-                <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
               </Tooltip>
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
-            <StackedBarChart
+            <BarChartWithGoalLine
               data={view.evolucao.map((e) => ({
                 label: e.label,
-                Realizado: e.realizado,
-                Restante: Math.max(0, e.meta - e.realizado),
+                value: e.realizado,
+                goal: e.meta,
               }))}
-              keys={["Realizado", "Restante"]}
-              colors={["var(--ok)", "var(--bg-inset)"]}
               height={200}
-              showValues
+              color="var(--ok)"
               formatValue={brl}
             />
             <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
               <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--ok)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--bg-inset)] border border-line" /> Meta restante</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-[var(--t2)]" /> Meta</span>
             </div>
           </div>
         </Card>
