@@ -1,8 +1,7 @@
 import { useMemo, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { AreaLineChart, BarChart, DonutChart, Gauge } from "@/components/charts";
+import { StackedBarChart, DonutChart, Gauge } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarVisaoGeralView, type VisaoKpi } from "@/data/gestao/dashboard";
 import { brl } from "@/lib/formato";
@@ -37,31 +36,6 @@ const IconTicket = () => (
 );
 
 const KPI_ICONS = [IconFat, IconCmv, IconVendas, IconTicket];
-
-/** BarChart horizontal compacto para Top 3 rankings. */
-function RankingCompacto({ items, formatValue, onClick }: { items: { nome: string; valor: number }[]; formatValue: (v: number) => string; onClick?: () => void }) {
-  const max = Math.max(...items.map((i) => i.valor), 1);
-  return (
-    <div className={`flex flex-col gap-2 ${onClick ? "cursor-pointer" : ""}`} onClick={onClick}>
-      {items.map((item, idx) => (
-        <div key={item.nome} className="flex items-center gap-3">
-          <span className="w-5 shrink-0 text-[11px] font-bold text-t2">{idx + 1}.</span>
-          <span className="w-[120px] shrink-0 truncate text-[11px] font-semibold text-t1" title={item.nome}>{item.nome}</span>
-          <div className="flex flex-1 items-center gap-2">
-            <div className="h-4 flex-1 overflow-hidden rounded-md bg-bg-inset">
-              <div
-                className="h-full rounded-md bg-[var(--acc)] transition-all"
-                style={{ width: `${Math.max(2, (item.valor / max) * 100)}%` }}
-              />
-            </div>
-            <span className="shrink-0 text-[11px] font-bold text-t0">{formatValue(item.valor)}</span>
-          </div>
-        </div>
-      ))}
-      {items.length === 0 && <span className="text-[11px] text-t2">Sem dados no período.</span>}
-    </div>
-  );
-}
 
 /** Cores distintas para cada KPI card (hero). */
 const KPI_COLORS = [
@@ -194,13 +168,21 @@ export default function VisaoGeralPage() {
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
-            <BarChart
-              data={view.categoriaVsMeta.map((c) => ({ label: c.categoria, value: c.realizado }))}
+            <StackedBarChart
+              data={view.categoriaVsMeta.map((c) => ({
+                label: c.categoria.length > 8 ? c.categoria.slice(0, 7) + "…" : c.categoria,
+                Realizado: c.realizado,
+                Restante: Math.max(0, c.meta - c.realizado),
+              }))}
+              keys={["Realizado", "Restante"]}
+              colors={["var(--acc)", "var(--bg-inset)"]}
               height={200}
+              showValues
               formatValue={brl}
             />
             <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
               <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /> Realizado</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--bg-inset)] border border-line" /> Meta restante</span>
             </div>
           </div>
         </Card>
@@ -214,13 +196,21 @@ export default function VisaoGeralPage() {
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
-            <BarChart
-              data={view.diaVsMeta.map((d) => ({ label: d.dia, value: d.realizado }))}
+            <StackedBarChart
+              data={view.diaVsMeta.map((d) => ({
+                label: d.dia,
+                Realizado: d.realizado,
+                Restante: Math.max(0, d.meta - d.realizado),
+              }))}
+              keys={["Realizado", "Restante"]}
+              colors={["var(--info)", "var(--bg-inset)"]}
               height={200}
+              showValues
               formatValue={brl}
             />
             <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--info)]" /> Média realizada</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--info)]" /> Realizado</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--bg-inset)] border border-line" /> Meta restante</span>
             </div>
           </div>
         </Card>
@@ -238,18 +228,21 @@ export default function VisaoGeralPage() {
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
-            <AreaLineChart
-              data={view.evolucao.map((e) => e.realizado)}
-              compareData={view.evolucao.map((e) => e.meta)}
-              labels={view.evolucao.map((e) => e.label)}
-              color="var(--acc)"
-              compareColor="var(--t2)"
+            <StackedBarChart
+              data={view.evolucao.map((e) => ({
+                label: e.label,
+                Realizado: e.realizado,
+                Restante: Math.max(0, e.meta - e.realizado),
+              }))}
+              keys={["Realizado", "Restante"]}
+              colors={["var(--ok)", "var(--bg-inset)"]}
               height={200}
+              showValues
               formatValue={brl}
             />
             <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border border-[var(--t2)]" /> Meta</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--ok)]" /> Realizado</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--bg-inset)] border border-line" /> Meta restante</span>
             </div>
           </div>
         </Card>
