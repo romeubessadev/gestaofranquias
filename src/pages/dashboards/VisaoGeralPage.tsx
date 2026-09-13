@@ -4,7 +4,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { BarChartWithGoalLine, DonutChart, Gauge } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarVisaoGeralView, type VisaoKpi } from "@/data/gestao/dashboard";
-import { brl } from "@/lib/formato";
+import { brl, brlK } from "@/lib/formato";
 import { deIso } from "@/lib/formato";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 
@@ -139,7 +139,7 @@ export default function VisaoGeralPage() {
             <Gauge
               key={g.nome}
               value={Math.round(g.pct)}
-              label={`${g.nome} · ${brl(g.alvo)}`}
+              label={`${g.nome} · ${brlK(g.alvo)}`}
               color={g.pct >= 100 ? "var(--ok)" : g.pct >= 70 ? "var(--acc)" : "var(--bad)"}
             />
           ))}
@@ -175,7 +175,7 @@ export default function VisaoGeralPage() {
               }))}
               height={200}
               color="var(--acc)"
-              formatValue={brl}
+              formatValue={brlK}
             />
             <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
               <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /> Realizado</span>
@@ -201,7 +201,7 @@ export default function VisaoGeralPage() {
               }))}
               height={200}
               color="var(--info)"
-              formatValue={brl}
+              formatValue={brlK}
             />
             <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
               <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--info)]" /> Realizado</span>
@@ -231,7 +231,7 @@ export default function VisaoGeralPage() {
               }))}
               height={200}
               color="var(--ok)"
-              formatValue={brl}
+              formatValue={brlK}
             />
             <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
               <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--ok)]" /> Realizado</span>
@@ -244,7 +244,7 @@ export default function VisaoGeralPage() {
             <div className="flex items-center gap-1.5">
               <CardTitle>Forma de Pagamento</CardTitle>
               <Tooltip label="Distribuição do faturamento por forma de pagamento no período selecionado.">
-                <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
               </Tooltip>
             </div>
           </CardHeader>
@@ -261,14 +261,14 @@ export default function VisaoGeralPage() {
                   <DonutChart
                     segments={segmentos}
                     centerLabel="Total"
-                    centerValue={brl(total)}
+                    centerValue={brlK(total)}
                   />
                   <div className="mt-4 flex flex-col gap-2 border-t border-line pt-3">
                     {view.formasPagamento.map((f) => (
                       <div key={f.forma} className="flex items-center gap-2 text-[12.5px]">
                         <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: f.cor }} />
                         <span className="flex-1 truncate text-t1">{f.forma}</span>
-                        <span className="font-bold text-t0">{brl(f.valor)}</span>
+                        <span className="font-bold text-t0">{brlK(f.valor)}</span>
                         <span className="w-10 shrink-0 text-right text-t2">{total > 0 ? `${Math.round((f.valor / total) * 100)}%` : "0%"}</span>
                       </div>
                     ))}
@@ -311,9 +311,9 @@ export default function VisaoGeralPage() {
                     {v.sub && <p className="truncate text-[11px] text-t2">{v.sub}</p>}
                   </div>
                   <div className="shrink-0 text-right">
-                    <span className="block text-[13px] font-bold text-ok">{brl(v.valor)}</span>
+                    <span className="block text-[13px] font-bold text-ok">{brlK(v.valor)}</span>
                     {v.ticketMedio != null && v.ticketMedio > 0 && (
-                      <span className="block text-[10px] text-t2">T.M. {brl(v.ticketMedio)}</span>
+                      <span className="block text-[10px] text-t2">T.M. {brlK(v.ticketMedio)}</span>
                     )}
                   </div>
                 </div>
@@ -365,7 +365,7 @@ export default function VisaoGeralPage() {
                         </div>
                       </td>
                       <td className="py-2.5 pr-2 text-right text-[12px] font-semibold text-t1">{p.sub?.replace(" itens", "") ?? "—"}</td>
-                      <td className="py-2.5 pr-2 text-right text-[12px] font-bold text-t0">{brl(p.valor)}</td>
+                      <td className="py-2.5 pr-2 text-right text-[12px] font-bold text-t0">{brlK(p.valor)}</td>
                       <td className="py-2.5 text-right">
                         {p.trend != null ? (
                           <span className={`text-[11px] font-bold ${p.trend >= 0 ? "text-ok" : "text-bad"}`}>

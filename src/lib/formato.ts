@@ -8,6 +8,14 @@ export function brl(v: number): string {
   return brlInteiro.format(v);
 }
 
+/** R$ 1,2K · R$ 84K · R$ 1,2M — compacto para cards e gráficos. */
+export function brlK(v: number): string {
+  const abs = Math.abs(v);
+  if (abs >= 1_000_000) return `R$ ${(v / 1_000_000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}M`;
+  if (abs >= 1_000) return `R$ ${(v / 1_000).toLocaleString("pt-BR", { minimumFractionDigits: abs >= 10_000 ? 0 : 1, maximumFractionDigits: abs >= 10_000 ? 0 : 1 })}K`;
+  return brlInteiro.format(v);
+}
+
 /** R$ 84.210,37 — com centavos, para conferência. */
 export function brlCent(v: number): string {
   return brlCentavos.format(v);
