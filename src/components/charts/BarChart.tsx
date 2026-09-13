@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 export interface BarDatum {
   label: string;
   value: number;
@@ -36,7 +38,7 @@ export function BarChart({ data, height = 220, color = "var(--acc)", formatValue
   );
 }
 
-/** Barras de realizado + linha tracejada horizontal indicando a meta. Responsivo para mobile. */
+/** Barras de realizado + bolinha de meta por período com tooltip. Meta variável por barra. Responsivo para mobile. */
 export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)", goalColor = "var(--t2)", formatValue = (v: number) => String(v) }: {
   data: { label: string; value: number; goal: number }[];
   height?: number;
@@ -44,54 +46,75 @@ export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)",
   goalColor?: string;
   formatValue?: (v: number) => string;
 }) {
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const maxVal = Math.max(...data.map((d) => Math.max(d.value, d.goal)), 1);
-  const goalVal = data.length > 0 ? data[0].goal : 0;
-  // Largura mínima por barra para evitar compressão no mobile
-  const minBarWidth = 48;
+  const minBarWidth = 56;
   const needsScroll = data.length * minBarWidth > 320;
+  // Área útil do gráfico (descontando label superior ~16px e label inferior ~18px)
+  const chartArea = height - 34;
 
   return (
     <div className="overflow-x-auto -mx-1 px-1">
       <div className="relative flex items-stretch gap-2 sm:gap-3" style={{ height, minWidth: needsScroll ? data.length * minBarWidth : undefined }}>
-        {/* Linha tracejada da meta com label */}
-        {goalVal > 0 && (
-          <>
-            <div
-              className="pointer-events-none absolute left-0 right-0 z-10 border-t-2 border-dashed"
-              style={{
-                bottom: `calc(${(goalVal / maxVal) * 100}% * (1 - 38px / ${height}px) + 20px)`,
-                borderColor: goalColor,
-              }}
-            />
-            <span
-              className="pointer-events-none absolute right-0 z-20 rounded bg-bg-3 px-1.5 py-0.5 text-[9px] font-bold text-t2"
-              style={{
-                bottom: `calc(${(goalVal / maxVal) * 100}% * (1 - 38px / ${height}px) + 20px - 8px)`,
-              }}
-            >
-              Meta {formatValue(goalVal)}
-            </span>
-          </>
-        )}
-        {data.map((d, i) => (
-          <div key={d.label} className="flex min-w-[36px] flex-1 flex-col items-center gap-1.5">
-            <span className="whitespace-nowrap text-[9px] font-bold text-t1 sm:text-[10.5px]">{formatValue(d.value)}</span>
-            <div className="flex w-full flex-1 items-end">
-              <div
-                className="w-full rounded-t-[6px] transition-all sm:rounded-t-[8px]"
-                style={{
-                  height: `${(d.value / maxVal) * 100}%`,
-                  background: d.value >= d.goal ? "var(--ok)" : color,
-                  minHeight: 4,
-                  transformOrigin: "bottom",
-                  animation: `velaGrowY .55s cubic-bezier(.22,.61,.36,1) ${i * 0.05}s both`,
-                }}
-              />
+        {data.map((d, i) => {
+          const barPct = (d.value / maxVal) * 100;
+          const goalPct = (d.goal / maxVal) * 100;
+          const achieved = d.goal > 0 && d.value >= d.goal;
+          return (
+            <div key={d.label} className="relative flex min-w-[44px] flex-1 flex-col items-center gap-1">
+              {/* Valor realizado acima da barra */}
+              <span className="whitespace-nowrap text-[9px] font-bold text-t1 sm:text-[10px]">{formatValue(d.value)}</span>
+              {/* Área da barra + bolinha da meta */}
+              <div className="relative flex w-full flex-1 items-end">
+                {/* Barra de realizado */}
+                <div
+                  className="w-full rounded-t-[6px] transition-all sm:rounded-t-[8px]"
+                  style={{
+                    height: `${barPct}%`,
+                    background: achieved ? "var(--ok)" : color,
+                    minHeight: 4,
+                    transformOrigin: "bottom",
+                    animation: `velaGrowY .55s cubic-bezier(.22,.61,.36,1) ${i * 0.05}s both`,
+                  }}
+                />
+                {/* Bolinha da meta — posicionada na altura da meta dentro da coluna */}
+                {d.goal > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveIdx(activeIdx === i ? null : i)}
+                    className="absolute left-1/2 z-20 flex h-4 w-4 -translate-x-1/2 items-center justify-center rounded-full border-2 transition-transform hover:scale-125"
+                    style={{
+                      bottom: `calc(${goalPct}% - 8px)`,
+                      borderColor: goalColor,
+                      background: achieved ? "var(--ok)" : "var(--bg-3)",
+                    }}
+                    aria-label={`Meta: ${formatValue(d.goal)}`}
+                  >
+                    <span className="h-1 w-1 rounded-full" style={{ background: goalColor }} />
+                  </button>
+                )}
+                {/* Tooltip ao clicar na bolinha */}
+                {activeIdx === i && d.goal > 0 && (
+                  <div className="absolute bottom-full left-1/2 z-30 mb-1 -translate-x-1/2 whitespace-nowrap rounded-lg border border-line bg-bg-3 px-2.5 py-1.5 text-[10px] shadow-lg">
+                    <p className="font-bold text-t0">{d.label}</p>
+                    <p className="text-t1">Realizado: <span className="font-bold text-ok">{formatValue(d.value)}</span></p>
+                    <p className="text-t1">Meta: <span className="font-bold" style={{ color: goalColor }}>{formatValue(d.goal)}</span></p>
+                    {d.goal > 0 && (
+                      <p className="text-t2">{achieved ? "✅ Atingida" : `Faltam ${formatValue(d.goal - d.value)}`}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* Label do eixo X */}
+              <span className="truncate text-[9px] font-semibold text-t2 sm:text-[10px]">{d.label}</span>
             </div>
-            <span className="truncate text-[9px] font-semibold text-t2 sm:text-[10.5px]">{d.label}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
+      {/* Fechar tooltip ao clicar fora */}
+      {activeIdx !== null && (
+        <div className="fixed inset-0 z-10" onClick={() => setActiveIdx(null)} />
+      )}
     </div>
   );
 }
