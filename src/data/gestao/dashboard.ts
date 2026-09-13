@@ -2099,7 +2099,7 @@ export interface VisaoGeralView {
   evolucao: EvolucaoPonto[];
   formasPagamento: FormaPagamentoFat[];
   topVendedoras: (TopItem & { sub?: string; ticketMedio?: number })[];
-  topProdutos: (TopItem & { sub?: string })[];
+  topProdutos: (TopItem & { sub?: string; categoria?: string; trend?: number })[];
 }
 
 export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
@@ -2320,21 +2320,41 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
       ticketMedio: v.vendas > 0 ? v.fat / v.vendas : 0,
     }));
 
-  // Top 5 Produtos
-  const prodMap = new Map<string, { nome: string; fat: number; itens: number }>();
-  for (const cat of [...catMap.entries()].map(([id, c]) => ({ id, ...c }))) {
-    const prods = produtosDaCategoria(cat.id, `${periodo.inicio}|${divisao ?? ""}`, cat.faturamento, 0, 0);
+  // Top 5 Produtos (com categoria e trend)
+  const prodMap = new Map<string, { nome: string; fat: number; itens: number; categoriaNome: string }>();
+  for (const [catId, c] of catMap.entries()) {
+    const cat = categorias.find((x) => x.id === catId);
+    if (!cat) continue;
+    const prods = produtosDaCategoria(cat.id, `${periodo.inicio}|${divisao ?? ""}`, c.faturamento, 0, 0);
     for (const p of prods) {
-      const acc = prodMap.get(p.codProduto) ?? { nome: p.nome, fat: 0, itens: 0 };
+      const acc = prodMap.get(p.codProduto) ?? { nome: p.nome, fat: 0, itens: 0, categoriaNome: cat.nome };
       acc.fat += p.receita;
       acc.itens += p.itens;
       prodMap.set(p.codProduto, acc);
     }
   }
-  const topProdutos: (TopItem & { sub?: string })[] = [...prodMap.values()]
-    .sort((a, b) => b.fat - a.fat)
-    .slice(0, 5)
-    .map((p) => ({ nome: p.nome, valor: p.fat, sub: `${p.itens} itens vendidos` }));
+  // Calcular trend comparando com período anterior
+  const prodMapAnt = new Map<string, number>();
+  for (const [catId, c] of catMap.entries()) {
+    const prodsAnt = produtosDaCategoria(catId, `${ant.inicio}|${divisao ?? ""}`, c.faturamento * 0.85, 0, 0);
+    for (const p of prodsAnt) {
+      prodMapAnt.set(p.codProduto, (prodMapAnt.get(p.codProduto) ?? 0) + p.receita);
+    }
+  }
+  const topProdutos: (TopItem & { sub?: string; categoria?: string; trend?: number })[] = [...prodMap.entries()]
+    .map(([cod, p]) => {
+      const fatAnt = prodMapAnt.get(cod) ?? 0;
+      const trendPct = fatAnt > 0 ? ((p.fat - fatAnt) / fatAnt) * 100 : null;
+      return {
+        nome: p.nome,
+        valor: p.fat,
+        sub: `${p.itens} itens`,
+        categoria: p.categoriaNome,
+        trend: trendPct != null ? Math.round(trendPct) : undefined,
+      };
+    })
+    .sort((a, b) => b.valor - a.valor)
+    .slice(0, 5);
 
   return {
     escopo,

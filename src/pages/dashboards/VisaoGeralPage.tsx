@@ -342,26 +342,53 @@ export default function VisaoGeralPage() {
               <span className="rounded-full bg-acc-soft px-2 py-0.5 text-[10px] font-bold text-acc">Top {view.topProdutos.length}</span>
             </div>
           </CardHeader>
-          <div className="flex flex-col gap-1 px-4 pb-4">
-            {view.topProdutos.map((p, idx) => {
-              const iniciais = p.nome.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
-              const cores = ["var(--ok)", "var(--info)", "var(--warn)", "var(--acc)", "var(--bad)"];
-              const corAvatar = cores[idx % cores.length];
-              return (
-                <div key={p.nome} className="flex items-center gap-3 rounded-lg px-1 py-2 transition-colors hover:bg-bg-inset/50">
-                  <span className="w-4 shrink-0 text-center text-[12px] font-bold text-t2">{idx + 1}</span>
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: corAvatar }}>{iniciais || "?"}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold text-t0" title={p.nome}>{p.nome}</p>
-                    {p.sub && <p className="truncate text-[11px] text-t2">{p.sub}</p>}
-                  </div>
-                  <span className="shrink-0 text-[13px] font-bold text-ok">{brl(p.valor)}</span>
-                </div>
-              );
-            })}
-            {view.topProdutos.length === 0 && (
-              <span className="py-4 text-center text-[12px] text-t2">Sem dados no período.</span>
-            )}
+          <div className="overflow-x-auto px-4 pb-4">
+            <table className="w-full min-w-[480px] text-left text-[12px]">
+              <thead>
+                <tr className="border-b border-line text-[10px] font-bold uppercase tracking-wide text-t2">
+                  <th className="py-2 pr-2 w-6">#</th>
+                  <th className="py-2 pr-2">Produto</th>
+                  <th className="py-2 pr-2 text-right">Qtd</th>
+                  <th className="py-2 pr-2 text-right">Faturamento</th>
+                  <th className="py-2 text-right">Trend</th>
+                </tr>
+              </thead>
+              <tbody>
+                {view.topProdutos.map((p, idx) => {
+                  const iniciais = p.nome.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
+                  const cores = ["var(--ok)", "var(--info)", "var(--warn)", "var(--acc)", "var(--bad)"];
+                  const corAvatar = cores[idx % cores.length];
+                  return (
+                    <tr key={p.nome} className="border-b border-line/50 last:border-0 hover:bg-bg-inset/50">
+                      <td className="py-2.5 pr-2 text-center text-[12px] font-bold text-t2">{idx + 1}</td>
+                      <td className="py-2.5 pr-2">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: corAvatar }}>{iniciais || "?"}</span>
+                          <div className="min-w-0">
+                            <p className="truncate text-[12px] font-semibold text-t0" title={p.nome}>{p.nome}</p>
+                            {p.categoria && <p className="truncate text-[10px] text-t2">{p.categoria}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-2.5 pr-2 text-right text-[12px] font-semibold text-t1">{p.sub?.replace(" itens", "") ?? "—"}</td>
+                      <td className="py-2.5 pr-2 text-right text-[12px] font-bold text-t0">{brl(p.valor)}</td>
+                      <td className="py-2.5 text-right">
+                        {p.trend != null ? (
+                          <span className={`text-[11px] font-bold ${p.trend >= 0 ? "text-ok" : "text-bad"}`}>
+                            {p.trend >= 0 ? "+" : ""}{p.trend}%
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-t2">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {view.topProdutos.length === 0 && (
+                  <tr><td colSpan={5} className="py-4 text-center text-[12px] text-t2">Sem dados no período.</td></tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </Card>
       </div>
