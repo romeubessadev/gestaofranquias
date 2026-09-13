@@ -36,7 +36,7 @@ export function AppShell() {
   const temChat = sessao.papel === "GESTOR" || sessao.papel === "GERENTE";
 
   return (
-    <div className="tela-cheia flex w-full bg-bg-0 text-t0">
+    <div className="tela-cheia flex w-full overflow-x-hidden bg-bg-0 text-t0">
       <Sidebar collapsed={collapsed} />
       <MobileDrawer open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
 
