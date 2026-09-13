@@ -297,7 +297,7 @@ export default function VisaoGeralPage() {
               <div className="flex items-center gap-1.5">
                 <CardTitle>Top Vendedoras</CardTitle>
                 <Tooltip label="As vendedoras que mais faturaram no período selecionado.">
-                  <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
                 </Tooltip>
               </div>
               <span className="rounded-full bg-acc-soft px-2 py-0.5 text-[10px] font-bold text-acc">Top {view.topVendedoras.length}</span>
@@ -336,7 +336,7 @@ export default function VisaoGeralPage() {
               <div className="flex items-center gap-1.5">
                 <CardTitle>Top Produtos</CardTitle>
                 <Tooltip label="Os produtos que mais faturaram no período selecionado.">
-                  <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
                 </Tooltip>
               </div>
               <span className="rounded-full bg-acc-soft px-2 py-0.5 text-[10px] font-bold text-acc">Top {view.topProdutos.length}</span>
