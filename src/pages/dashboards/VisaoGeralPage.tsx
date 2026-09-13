@@ -122,10 +122,10 @@ export default function VisaoGeralPage() {
               <span className={`inline-block h-2 w-2 rounded-full ${minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
               {rotuloAtualizacao}
             </span>
-            <Button variant="secondary" size="sm" onClick={forcarAtualizacao} disabled={refreshing}
+            <Button variant="secondary" size="md" onClick={forcarAtualizacao} disabled={refreshing}
               icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
             />
-            <Button variant="primary" size="sm" onClick={() => window.print()}
+            <Button variant="primary" size="md" onClick={() => window.print()}
               icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>}
             >
               Exportar PDF
@@ -134,7 +134,7 @@ export default function VisaoGeralPage() {
             <select
               value={escopo.divisao ?? ""}
               onChange={(e) => onMarcaChange(e.target.value ? e.target.value as "WEPINK" | "WPINK" : null)}
-              className="h-9 rounded-[var(--radius-vela-sm)] border border-line bg-bg-inset px-3 text-xs font-semibold text-t1 transition-colors hover:border-acc focus:border-acc focus:outline-none"
+              className="h-10 rounded-[var(--radius-vela-sm)] border border-line bg-bg-inset px-3.5 text-[13px] font-semibold text-t1 transition-colors hover:border-acc focus:border-acc focus:outline-none"
             >
               <option value="">Todas as marcas</option>
               <option value="WEPINK">WEPINK</option>
