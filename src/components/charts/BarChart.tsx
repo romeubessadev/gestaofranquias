@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 export interface BarDatum {
   label: string;
@@ -38,7 +38,7 @@ export function BarChart({ data, height = 220, color = "var(--acc)", formatValue
   );
 }
 
-/** Barras de realizado + bolinha de meta por período com tooltip. Meta variável por barra. Linha tracejada conectando bolinhas. Responsivo para mobile. */
+/** Barras de realizado + bolinha de meta por período com tooltip. Meta variável por barra. Linha tracejada conectando bolinhas. Tooltip auto-posicionado. Responsivo para mobile. */
 export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)", goalColor = "var(--t2)", formatValue = (v: number) => String(v) }: {
   data: { label: string; value: number; goal: number }[];
   height?: number;
@@ -47,25 +47,60 @@ export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)",
   formatValue?: (v: number) => string;
 }) {
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
   const maxVal = Math.max(...data.map((d) => Math.max(d.value, d.goal)), 1);
   const minBarWidth = 56;
   const needsScroll = data.length * minBarWidth > 320;
-  // Espaçamento reservado: topo para valor (~16px) + base para label (~18px)
   const topPad = 16;
   const botPad = 18;
   const chartH = height - topPad - botPad;
 
-  // Calcular posições Y das bolinhas para a linha tracejada SVG
   const goalPoints = data.map((d, i) => {
     const x = data.length <= 1 ? 50 : (i / (data.length - 1)) * 100;
     const y = d.goal > 0 ? 100 - (d.goal / maxVal) * 100 : 100;
     return { x, y };
   });
 
+  // Auto-posicionamento do tooltip: mede após render e corrige se ultrapassar bordas
+  useEffect(() => {
+    if (activeIdx === null || !tooltipRef.current || !containerRef.current) return;
+    const tip = tooltipRef.current;
+    const container = containerRef.current;
+    const tipRect = tip.getBoundingClientRect();
+    const contRect = container.getBoundingClientRect();
+    const adjust: React.CSSProperties = {};
+    // Topo: se tooltip ultrapassa o topo do container, move para baixo da bolinha
+    if (tipRect.top < contRect.top) {
+      adjust.top = "auto";
+      adjust.bottom = "auto";
+      const d = data[activeIdx];
+      const goalPct = (d.goal / maxVal) * 100;
+      adjust.top = `calc(${100 - goalPct}% + 12px)`;
+    }
+    // Esquerda: se ultrapassa a esquerda
+    if (tipRect.left < contRect.left) {
+      adjust.left = "0";
+      adjust.transform = "none";
+    }
+    // Direita: se ultrapassa a direita
+    if (tipRect.right > contRect.right) {
+      adjust.right = "0";
+      adjust.left = "auto";
+      adjust.transform = "none";
+    }
+    setTooltipStyle(adjust);
+  }, [activeIdx, data, maxVal]);
+
+  // Reset tooltip style quando fecha
+  useEffect(() => {
+    if (activeIdx === null) setTooltipStyle({});
+  }, [activeIdx]);
+
   return (
-    <div className="overflow-x-auto -mx-1 px-1">
+    <div ref={containerRef} className="overflow-x-auto -mx-1 px-1">
       <div className="relative flex items-stretch gap-2 sm:gap-3" style={{ height, minWidth: needsScroll ? data.length * minBarWidth : undefined }}>
-        {/* SVG overlay: linha tracejada conectando as bolinhas de meta */}
         {data.length > 1 && data.some((d) => d.goal > 0) && (
           <svg
             className="pointer-events-none absolute z-10"
@@ -89,11 +124,8 @@ export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)",
           const achieved = d.goal > 0 && d.value >= d.goal;
           return (
             <div key={d.label} className="relative flex min-w-[44px] flex-1 flex-col items-center gap-1">
-              {/* Valor realizado acima da barra */}
               <span className="whitespace-nowrap text-[9px] font-bold text-t1 sm:text-[10px]">{formatValue(d.value)}</span>
-              {/* Área da barra + bolinha da meta */}
               <div className="relative flex w-full flex-1 items-end overflow-visible">
-                {/* Barra de realizado */}
                 <div
                   className="w-full rounded-t-[6px] transition-all sm:rounded-t-[8px]"
                   style={{
@@ -104,7 +136,6 @@ export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)",
                     animation: `velaGrowY .55s cubic-bezier(.22,.61,.36,1) ${i * 0.05}s both`,
                   }}
                 />
-                {/* Bolinha da meta */}
                 {d.goal > 0 && (
                   <button
                     type="button"
@@ -120,31 +151,24 @@ export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)",
                     <span className="h-1 w-1 rounded-full" style={{ background: goalColor }} />
                   </button>
                 )}
-                {/* Tooltip ao clicar na bolinha — ajusta alinhamento nas extremidades */}
-                {activeIdx === i && d.goal > 0 && (() => {
-                  const isFirst = i === 0;
-                  const isLast = i === data.length - 1;
-                  const posClass = isFirst ? "left-0" : isLast ? "right-0" : "left-1/2 -translate-x-1/2";
-                  return (
-                    <div
-                      className={`absolute z-30 whitespace-nowrap rounded-lg border border-line bg-bg-3 px-2.5 py-1.5 text-[10px] shadow-lg ${posClass}`}
-                      style={{ bottom: `calc(${goalPct}% + 12px)` }}
-                    >
-                      <p className="font-bold text-t0">{d.label}</p>
-                      <p className="text-t1">Realizado: <span className="font-bold text-ok">{formatValue(d.value)}</span></p>
-                      <p className="text-t1">Meta: <span className="font-bold" style={{ color: goalColor }}>{formatValue(d.goal)}</span></p>
-                      <p className="text-t2">{achieved ? "✅ Atingida" : `Faltam ${formatValue(Math.max(0, d.goal - d.value))}`}</p>
-                    </div>
-                  );
-                })()}
+                {activeIdx === i && d.goal > 0 && (
+                  <div
+                    ref={tooltipRef}
+                    className="absolute left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-lg border border-line bg-bg-3 px-2.5 py-1.5 text-[10px] shadow-lg"
+                    style={{ bottom: `calc(${goalPct}% + 12px)`, ...tooltipStyle }}
+                  >
+                    <p className="font-bold text-t0">{d.label}</p>
+                    <p className="text-t1">Realizado: <span className="font-bold text-ok">{formatValue(d.value)}</span></p>
+                    <p className="text-t1">Meta: <span className="font-bold" style={{ color: goalColor }}>{formatValue(d.goal)}</span></p>
+                    <p className="text-t2">{achieved ? "✅ Atingida" : `Faltam ${formatValue(Math.max(0, d.goal - d.value))}`}</p>
+                  </div>
+                )}
               </div>
-              {/* Label do eixo X */}
               <span className="truncate text-[9px] font-semibold text-t2 sm:text-[10px]">{d.label}</span>
             </div>
           );
         })}
       </div>
-      {/* Fechar tooltip ao clicar fora */}
       {activeIdx !== null && (
         <div className="fixed inset-0 z-10" onClick={() => setActiveIdx(null)} />
       )}
