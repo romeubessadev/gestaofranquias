@@ -120,18 +120,23 @@ export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)",
                     <span className="h-1 w-1 rounded-full" style={{ background: goalColor }} />
                   </button>
                 )}
-                {/* Tooltip ao clicar na bolinha — posicionado acima com overflow visible */}
-                {activeIdx === i && d.goal > 0 && (
-                  <div
-                    className="absolute left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-lg border border-line bg-bg-3 px-2.5 py-1.5 text-[10px] shadow-lg"
-                    style={{ bottom: `calc(${goalPct}% + 12px)` }}
-                  >
-                    <p className="font-bold text-t0">{d.label}</p>
-                    <p className="text-t1">Realizado: <span className="font-bold text-ok">{formatValue(d.value)}</span></p>
-                    <p className="text-t1">Meta: <span className="font-bold" style={{ color: goalColor }}>{formatValue(d.goal)}</span></p>
-                    <p className="text-t2">{achieved ? "✅ Atingida" : `Faltam ${formatValue(Math.max(0, d.goal - d.value))}`}</p>
-                  </div>
-                )}
+                {/* Tooltip ao clicar na bolinha — ajusta alinhamento nas extremidades */}
+                {activeIdx === i && d.goal > 0 && (() => {
+                  const isFirst = i === 0;
+                  const isLast = i === data.length - 1;
+                  const posClass = isFirst ? "left-0" : isLast ? "right-0" : "left-1/2 -translate-x-1/2";
+                  return (
+                    <div
+                      className={`absolute z-30 whitespace-nowrap rounded-lg border border-line bg-bg-3 px-2.5 py-1.5 text-[10px] shadow-lg ${posClass}`}
+                      style={{ bottom: `calc(${goalPct}% + 12px)` }}
+                    >
+                      <p className="font-bold text-t0">{d.label}</p>
+                      <p className="text-t1">Realizado: <span className="font-bold text-ok">{formatValue(d.value)}</span></p>
+                      <p className="text-t1">Meta: <span className="font-bold" style={{ color: goalColor }}>{formatValue(d.goal)}</span></p>
+                      <p className="text-t2">{achieved ? "✅ Atingida" : `Faltam ${formatValue(Math.max(0, d.goal - d.value))}`}</p>
+                    </div>
+                  );
+                })()}
               </div>
               {/* Label do eixo X */}
               <span className="truncate text-[9px] font-semibold text-t2 sm:text-[10px]">{d.label}</span>
