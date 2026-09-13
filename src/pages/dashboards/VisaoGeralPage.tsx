@@ -115,7 +115,7 @@ export default function VisaoGeralPage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Visão Geral" }]}
         title="Visão Geral"
-        subtitle="Resumo executivo do desempenho da loja no período selecionado."
+        subtitle="Uma visão consolidada dos principais indicadores, metas e desempenho da operação."
         actions={
           <>
             <span className="flex items-center gap-1.5 text-[12px] text-t2">

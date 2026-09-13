@@ -143,7 +143,7 @@ export function DateRangePicker({
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "flex h-10 min-w-0 items-center gap-2.5 rounded-[var(--radius-vela-sm)] border bg-bg-inset px-3.5 text-left transition-colors",
-          open || value ? "border-acc" : "border-line hover:border-acc",
+          open ? "border-acc" : "border-line hover:border-acc",
         )}
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={value ? "var(--acc)" : "var(--t2)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">

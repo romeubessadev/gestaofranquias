@@ -10,7 +10,7 @@ export function Tooltip({ label, children, side = "top" }: { label: string; chil
       {show && (
         <span
           className={cn(
-            "pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 w-max max-w-[min(90vw,400px)] break-words rounded-md bg-bg-3 border border-line px-2.5 py-1.5 text-[11px] font-semibold text-t0 shadow-[var(--shadow-vela)] animate-vela-fade",
+            "pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 max-w-[85vw] sm:max-w-[400px] break-words text-center rounded-md bg-bg-3 border border-line px-2.5 py-1.5 text-[11px] font-semibold text-t0 shadow-[var(--shadow-vela)] animate-vela-fade",
             side === "top" ? "bottom-full mb-2" : "top-full mt-2",
           )}
         >
