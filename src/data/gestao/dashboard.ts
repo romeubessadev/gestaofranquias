@@ -2098,7 +2098,7 @@ export interface VisaoGeralView {
   diaVsMeta: DiaVsMeta[];
   evolucao: EvolucaoPonto[];
   formasPagamento: FormaPagamentoFat[];
-  topVendedoras: TopItem[];
+  topVendedoras: (TopItem & { sub?: string })[];
   topProdutos: TopItem[];
 }
 
@@ -2294,7 +2294,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     }));
 
   // Top 3 Vendedoras
-  const vendMap = new Map<string, { nome: string; fat: number }>();
+  const vendMap = new Map<string, { nome: string; fat: number; vendas: number }>();
   for (const f of fs) {
     const cols = colaboradoresDaFilial(f.id);
     for (const iso of diasPeriodo) {
@@ -2303,16 +2303,17 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
       for (const [colId, ag] of Object.entries(dv.porVendedora)) {
         const col = cols.find((c) => c.id === colId);
         if (!col) continue;
-        const acc = vendMap.get(colId) ?? { nome: col.nome, fat: 0 };
+        const acc = vendMap.get(colId) ?? { nome: col.nome, fat: 0, vendas: 0 };
         acc.fat += ag.faturamento;
+        acc.vendas += ag.atendimentos;
         vendMap.set(colId, acc);
       }
     }
   }
-  const topVendedoras: TopItem[] = [...vendMap.values()]
+  const topVendedoras: (TopItem & { sub?: string })[] = [...vendMap.values()]
     .sort((a, b) => b.fat - a.fat)
-    .slice(0, 3)
-    .map((v) => ({ nome: v.nome, valor: v.fat }));
+    .slice(0, 5)
+    .map((v) => ({ nome: v.nome, valor: v.fat, sub: `${v.vendas} vendas` }));
 
   // Top 3 Produtos
   const prodMap = new Map<string, { nome: string; fat: number }>();

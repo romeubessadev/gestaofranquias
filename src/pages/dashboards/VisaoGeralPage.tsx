@@ -301,15 +301,36 @@ export default function VisaoGeralPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Top 3 Vendedoras</CardTitle>
-              <Tooltip label="As 3 vendedoras que mais venderam no período. Clique → drill para Equipe.">
-                <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-              </Tooltip>
+            <div className="flex items-center justify-between gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <CardTitle>Top Vendedoras</CardTitle>
+                <Tooltip label="As vendedoras que mais faturaram no período selecionado.">
+                  <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                </Tooltip>
+              </div>
+              <span className="rounded-full bg-acc-soft px-2 py-0.5 text-[10px] font-bold text-acc">Top {view.topVendedoras.length}</span>
             </div>
           </CardHeader>
-          <div className="px-4 pb-4">
-            <RankingCompacto items={view.topVendedoras} formatValue={brl} onClick={() => navigate("/equipe")} />
+          <div className="flex flex-col gap-1 px-4 pb-4">
+            {view.topVendedoras.map((v, idx) => {
+              const iniciais = v.nome.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("");
+              const cores = ["var(--acc)", "var(--info)", "var(--warn)", "var(--ok)", "var(--bad)"];
+              const corAvatar = cores[idx % cores.length];
+              return (
+                <div key={v.nome} className="flex items-center gap-3 rounded-lg px-1 py-2 transition-colors hover:bg-bg-inset/50">
+                  <span className="w-4 shrink-0 text-center text-[12px] font-bold text-t2">{idx + 1}</span>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: corAvatar }}>{iniciais || "?"}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold text-t0">{v.nome}</p>
+                    {v.sub && <p className="truncate text-[11px] text-t2">{v.sub}</p>}
+                  </div>
+                  <span className="shrink-0 text-[13px] font-bold text-ok">{brl(v.valor)}</span>
+                </div>
+              );
+            })}
+            {view.topVendedoras.length === 0 && (
+              <span className="py-4 text-center text-[12px] text-t2">Sem dados no período.</span>
+            )}
           </div>
         </Card>
         <Card>
