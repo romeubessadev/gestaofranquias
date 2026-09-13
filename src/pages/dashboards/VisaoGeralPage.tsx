@@ -47,7 +47,6 @@ const KPI_COLORS = [
 
 export default function VisaoGeralPage() {
   const { escopo, mudar } = useEscopo();
-  const navigate = useNavigate();
   const view = useMemo(() => montarVisaoGeralView(escopo), [escopo]);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
