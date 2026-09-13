@@ -38,7 +38,7 @@ export function BarChart({ data, height = 220, color = "var(--acc)", formatValue
   );
 }
 
-/** Barras de realizado + bolinha de meta por período com tooltip. Meta variável por barra. Responsivo para mobile. */
+/** Barras de realizado + bolinha de meta por período com tooltip. Meta variável por barra. Linha tracejada conectando bolinhas. Responsivo para mobile. */
 export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)", goalColor = "var(--t2)", formatValue = (v: number) => String(v) }: {
   data: { label: string; value: number; goal: number }[];
   height?: number;
@@ -50,10 +50,39 @@ export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)",
   const maxVal = Math.max(...data.map((d) => Math.max(d.value, d.goal)), 1);
   const minBarWidth = 56;
   const needsScroll = data.length * minBarWidth > 320;
+  // Espaçamento reservado: topo para valor (~16px) + base para label (~18px)
+  const topPad = 16;
+  const botPad = 18;
+  const chartH = height - topPad - botPad;
+
+  // Calcular posições Y das bolinhas para a linha tracejada SVG
+  const goalPoints = data.map((d, i) => {
+    const x = data.length <= 1 ? 50 : (i / (data.length - 1)) * 100;
+    const y = d.goal > 0 ? 100 - (d.goal / maxVal) * 100 : 100;
+    return { x, y };
+  });
 
   return (
     <div className="overflow-x-auto -mx-1 px-1">
       <div className="relative flex items-stretch gap-2 sm:gap-3" style={{ height, minWidth: needsScroll ? data.length * minBarWidth : undefined }}>
+        {/* SVG overlay: linha tracejada conectando as bolinhas de meta */}
+        {data.length > 1 && data.some((d) => d.goal > 0) && (
+          <svg
+            className="pointer-events-none absolute z-10"
+            style={{ top: topPad, bottom: botPad, left: 0, right: 0, width: "100%", height: chartH }}
+            preserveAspectRatio="none"
+            viewBox="0 0 100 100"
+          >
+            <polyline
+              points={goalPoints.filter((_, i) => data[i].goal > 0).map((p) => `${p.x},${p.y}`).join(" ")}
+              fill="none"
+              stroke={goalColor}
+              strokeWidth="0.8"
+              strokeDasharray="2,2"
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+        )}
         {data.map((d, i) => {
           const barPct = (d.value / maxVal) * 100;
           const goalPct = (d.goal / maxVal) * 100;
@@ -63,7 +92,7 @@ export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)",
               {/* Valor realizado acima da barra */}
               <span className="whitespace-nowrap text-[9px] font-bold text-t1 sm:text-[10px]">{formatValue(d.value)}</span>
               {/* Área da barra + bolinha da meta */}
-              <div className="relative flex w-full flex-1 items-end">
+              <div className="relative flex w-full flex-1 items-end overflow-visible">
                 {/* Barra de realizado */}
                 <div
                   className="w-full rounded-t-[6px] transition-all sm:rounded-t-[8px]"
@@ -75,11 +104,11 @@ export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)",
                     animation: `velaGrowY .55s cubic-bezier(.22,.61,.36,1) ${i * 0.05}s both`,
                   }}
                 />
-                {/* Bolinha da meta — posicionada na altura da meta dentro da coluna */}
+                {/* Bolinha da meta */}
                 {d.goal > 0 && (
                   <button
                     type="button"
-                    onClick={() => setActiveIdx(activeIdx === i ? null : i)}
+                    onClick={(e) => { e.stopPropagation(); setActiveIdx(activeIdx === i ? null : i); }}
                     className="absolute left-1/2 z-20 flex h-4 w-4 -translate-x-1/2 items-center justify-center rounded-full border-2 transition-transform hover:scale-125"
                     style={{
                       bottom: `calc(${goalPct}% - 8px)`,
@@ -91,15 +120,16 @@ export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)",
                     <span className="h-1 w-1 rounded-full" style={{ background: goalColor }} />
                   </button>
                 )}
-                {/* Tooltip ao clicar na bolinha */}
+                {/* Tooltip ao clicar na bolinha — posicionado acima com overflow visible */}
                 {activeIdx === i && d.goal > 0 && (
-                  <div className="absolute bottom-full left-1/2 z-30 mb-1 -translate-x-1/2 whitespace-nowrap rounded-lg border border-line bg-bg-3 px-2.5 py-1.5 text-[10px] shadow-lg">
+                  <div
+                    className="absolute left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-lg border border-line bg-bg-3 px-2.5 py-1.5 text-[10px] shadow-lg"
+                    style={{ bottom: `calc(${goalPct}% + 12px)` }}
+                  >
                     <p className="font-bold text-t0">{d.label}</p>
                     <p className="text-t1">Realizado: <span className="font-bold text-ok">{formatValue(d.value)}</span></p>
                     <p className="text-t1">Meta: <span className="font-bold" style={{ color: goalColor }}>{formatValue(d.goal)}</span></p>
-                    {d.goal > 0 && (
-                      <p className="text-t2">{achieved ? "✅ Atingida" : `Faltam ${formatValue(d.goal - d.value)}`}</p>
-                    )}
+                    <p className="text-t2">{achieved ? "✅ Atingida" : `Faltam ${formatValue(Math.max(0, d.goal - d.value))}`}</p>
                   </div>
                 )}
               </div>

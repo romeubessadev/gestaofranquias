@@ -179,7 +179,7 @@ export default function VisaoGeralPage() {
             />
             <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
               <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-[var(--t2)]" /> Meta</span>
+              <span className="flex items-center gap-1"><span className="inline-flex h-3 w-3 items-center justify-center rounded-full border-2 border-dashed border-[var(--t2)]"><span className="h-1 w-1 rounded-full bg-[var(--t2)]" /></span> Meta</span>
             </div>
           </div>
         </Card>
@@ -205,7 +205,7 @@ export default function VisaoGeralPage() {
             />
             <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
               <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--info)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-[var(--t2)]" /> Meta</span>
+              <span className="flex items-center gap-1"><span className="inline-flex h-3 w-3 items-center justify-center rounded-full border-2 border-dashed border-[var(--t2)]"><span className="h-1 w-1 rounded-full bg-[var(--t2)]" /></span> Meta</span>
             </div>
           </div>
         </Card>
@@ -235,7 +235,7 @@ export default function VisaoGeralPage() {
             />
             <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
               <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--ok)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-[var(--t2)]" /> Meta</span>
+              <span className="flex items-center gap-1"><span className="inline-flex h-3 w-3 items-center justify-center rounded-full border-2 border-dashed border-[var(--t2)]"><span className="h-1 w-1 rounded-full bg-[var(--t2)]" /></span> Meta</span>
             </div>
           </div>
         </Card>
