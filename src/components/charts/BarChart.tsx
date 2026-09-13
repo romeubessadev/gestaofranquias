@@ -63,34 +63,37 @@ export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)",
     return { x, y };
   });
 
-  // Auto-posicionamento do tooltip: mede após render e corrige se ultrapassar bordas
+  // Auto-posicionamento do tooltip: usa requestAnimationFrame para medir após paint (resolve bug do 1º clique)
   useEffect(() => {
-    if (activeIdx === null || !tooltipRef.current || !containerRef.current) return;
-    const tip = tooltipRef.current;
-    const container = containerRef.current;
-    const tipRect = tip.getBoundingClientRect();
-    const contRect = container.getBoundingClientRect();
-    const adjust: React.CSSProperties = {};
-    // Topo: se tooltip ultrapassa o topo do container, move para baixo da bolinha
-    if (tipRect.top < contRect.top) {
-      adjust.top = "auto";
-      adjust.bottom = "auto";
-      const d = data[activeIdx];
-      const goalPct = (d.goal / maxVal) * 100;
-      adjust.top = `calc(${100 - goalPct}% + 12px)`;
-    }
-    // Esquerda: se ultrapassa a esquerda
-    if (tipRect.left < contRect.left) {
-      adjust.left = "0";
-      adjust.transform = "none";
-    }
-    // Direita: se ultrapassa a direita
-    if (tipRect.right > contRect.right) {
-      adjust.right = "0";
-      adjust.left = "auto";
-      adjust.transform = "none";
-    }
-    setTooltipStyle(adjust);
+    if (activeIdx === null) { setTooltipStyle({}); return; }
+    const raf = requestAnimationFrame(() => {
+      if (!tooltipRef.current || !containerRef.current) return;
+      const tip = tooltipRef.current;
+      const container = containerRef.current;
+      const tipRect = tip.getBoundingClientRect();
+      const contRect = container.getBoundingClientRect();
+      const adjust: React.CSSProperties = {};
+      // Topo: se tooltip ultrapassa o topo do viewport/container, move para baixo da bolinha
+      if (tipRect.top < contRect.top + 4) {
+        adjust.bottom = "auto";
+        const d = data[activeIdx];
+        const goalPct = (d.goal / maxVal) * 100;
+        adjust.top = `calc(${100 - goalPct}% + 12px)`;
+      }
+      // Esquerda: se ultrapassa a esquerda do container
+      if (tipRect.left < contRect.left + 4) {
+        adjust.left = "0";
+        adjust.transform = "none";
+      }
+      // Direita: se ultrapassa a direita do container
+      if (tipRect.right > contRect.right - 4) {
+        adjust.right = "0";
+        adjust.left = "auto";
+        adjust.transform = "none";
+      }
+      setTooltipStyle(adjust);
+    });
+    return () => cancelAnimationFrame(raf);
   }, [activeIdx, data, maxVal]);
 
   // Reset tooltip style quando fecha
@@ -100,7 +103,7 @@ export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)",
 
   return (
     <div ref={containerRef} className="overflow-x-auto -mx-1 px-1">
-      <div className="relative flex items-stretch gap-2 sm:gap-3" style={{ height, minWidth: needsScroll ? data.length * minBarWidth : undefined }}>
+      <div className="relative flex items-stretch gap-2 px-2 sm:gap-3 sm:px-3" style={{ height, minWidth: needsScroll ? data.length * minBarWidth : undefined }}>
         {data.length > 1 && data.some((d) => d.goal > 0) && (
           <svg
             className="pointer-events-none absolute z-10"
