@@ -50,8 +50,6 @@ export function BarChartWithGoalLine({ data, height = 220, color = "var(--acc)",
   const maxVal = Math.max(...data.map((d) => Math.max(d.value, d.goal)), 1);
   const minBarWidth = 56;
   const needsScroll = data.length * minBarWidth > 320;
-  // Área útil do gráfico (descontando label superior ~16px e label inferior ~18px)
-  const chartArea = height - 34;
 
   return (
     <div className="overflow-x-auto -mx-1 px-1">
