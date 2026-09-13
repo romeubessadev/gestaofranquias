@@ -344,7 +344,7 @@ export default function VisaoGeralPage() {
                   <th className="py-2 pr-2">Produto</th>
                   <th className="py-2 pr-2 text-right">Qtd</th>
                   <th className="py-2 pr-2 text-right">Faturamento</th>
-                  <th className="py-2 text-right">Trend</th>
+                  <th className="py-2 text-right">Vs Anterior</th>
                 </tr>
               </thead>
               <tbody>
