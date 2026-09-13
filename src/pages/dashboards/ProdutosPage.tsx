@@ -103,7 +103,7 @@ export default function ProdutosPage() {
   const catsDisponiveis = view.categorias.map((c) => ({ label: c.nome, value: c.categoriaId }));
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6">
+    <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
         crumbs={[{ label: "Dashboard",to: "/dashboard/visao-geral" }, {label: "Produtos" }]}
         title="Produtos"

@@ -130,7 +130,7 @@ export default function TurnosPage() {
   const melhorTurno = view.kpisPorTurno.reduce((a, b) => (a.faturamento > b.faturamento ? a : b), view.kpisPorTurno[0]);
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6">
+    <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
         crumbs={[{ label: "Dashboard",to: "/dashboard/visao-geral" }, {label: "Turnos" }]}
         title="Turnos"
