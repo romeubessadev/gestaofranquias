@@ -296,9 +296,9 @@ export default function VisaoGeralPage() {
               </div>
               <button
                 onClick={() => navigate("/equipe")}
-                className="text-[11px] font-semibold text-acc hover:text-acc/80 transition-colors"
+                className="text-[12px] font-semibold text-acc hover:underline transition-colors"
               >
-                Ver mais →
+                Ver mais
               </button>
             </div>
           </CardHeader>
