@@ -33,7 +33,7 @@ function buildSmoothPath(points: { x: number; y: number }[]) {
 
 const PAD_X = 8;
 const PAD_TOP = 12;
-const LABEL_H = 22;
+const LABEL_H = 24;
 
 function toPoints(data: number[], width: number, chartH: number, min: number, range: number) {
   return data.map((v, i) => ({
@@ -71,38 +71,35 @@ export function AreaLineChart({
     };
   }, [data, compareData, chartH]);
 
-  // Decide quais labels mostrar (evita sobreposição: mostra no máximo ~7)
-  const maxLabels = 7;
-  const step = Math.max(1, Math.ceil(labels?.length ?? 0 / maxLabels));
-  const visibleLabels = labels ? labels.map((l, i) => (i % step === 0 || i === labels.length - 1 ? l : "")) : [];
+  const linePath = buildSmoothPath(points);
+  const areaPath = `${linePath} L ${points[points.length - 1].x} ${PAD_TOP + chartH} L ${points[0].x} ${PAD_TOP + chartH} Z`;
+  const comparePath = comparePoints ? buildSmoothPath(comparePoints) : "";
+  const active = hoverIdx !== null ? points[hoverIdx] : null;
 
-  // Scroll horizontal quando há muitos pontos (>10) para evitar compressão
-  const minPointWidth = 50;
-  const needsScroll = data.length > 10;
-  const scrollWidth = needsScroll ? Math.max(width, data.length * minPointWidth) : width;
-  const actualPoints = needsScroll ? toPoints(data, scrollWidth, chartH, min, max - min || 1) : points;
-  const actualComparePoints = needsScroll && comparePoints ? toPoints(compareData!, scrollWidth, chartH, min, max - min || 1) : comparePoints;
-  const actualLinePath = buildSmoothPath(actualPoints);
-  const actualAreaPath = `${actualLinePath} L ${actualPoints[actualPoints.length - 1].x} ${PAD_TOP + chartH} L ${actualPoints[0].x} ${PAD_TOP + chartH} Z`;
-  const actualComparePath = actualComparePoints ? buildSmoothPath(actualComparePoints) : "";
-  const actualActive = hoverIdx !== null ? actualPoints[hoverIdx] : null;
-
-  function handleMoveScroll(e: React.MouseEvent<SVGSVGElement>) {
+  function handleMove(e: React.MouseEvent<SVGSVGElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
-    const relX = ((e.clientX - rect.left) / rect.width) * scrollWidth;
-    const idx = Math.round(((relX - PAD_X) / (scrollWidth - PAD_X * 2)) * Math.max(data.length - 1, 0));
+    const relX = ((e.clientX - rect.left) / rect.width) * width;
+    const idx = Math.round(((relX - PAD_X) / (width - PAD_X * 2)) * Math.max(data.length - 1, 0));
     setHoverIdx(Math.min(data.length - 1, Math.max(0, idx)));
   }
 
+  // Decide quais labels mostrar (evita sobreposição: mostra no máximo ~7)
+  const maxLabels = 7;
+  const step = Math.max(1, Math.ceil((labels?.length ?? 0) / maxLabels));
+  const visibleLabelIndices = labels
+    ? labels.map((_, i) => (i % step === 0 || i === labels.length - 1 ? i : -1)).filter((i) => i >= 0)
+    : [];
+
   return (
-    <div className="relative w-full overflow-x-auto" style={{ height }}>
+    <div className="relative w-full" style={{ height }}>
+      {/* SVG do gráfico — sem labels dentro para evitar distorção */}
       <svg
-        viewBox={`0 0 ${scrollWidth} ${height}`}
-        className="vela-reveal h-full"
-        style={{ width: needsScroll ? scrollWidth : "100%", minWidth: needsScroll ? scrollWidth : undefined }}
+        viewBox={`0 0 ${width} ${height - LABEL_H}`}
+        className="vela-reveal h-full w-full"
         preserveAspectRatio="none"
-        onMouseMove={handleMoveScroll}
+        onMouseMove={handleMove}
         onMouseLeave={() => setHoverIdx(null)}
+        style={{ height: height - LABEL_H }}
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -111,50 +108,55 @@ export function AreaLineChart({
           </linearGradient>
         </defs>
         {/* Linha de meta (tracejada) */}
-        {actualComparePath && <path d={actualComparePath} fill="none" stroke={compareColor} strokeWidth="2" strokeLinecap="round" strokeDasharray="6 4" vectorEffect="non-scaling-stroke" />}
+        {comparePath && <path d={comparePath} fill="none" stroke={compareColor} strokeWidth="2" strokeLinecap="round" strokeDasharray="6 4" vectorEffect="non-scaling-stroke" />}
         {/* Área preenchida */}
-        {showArea && <path d={actualAreaPath} fill={`url(#${gradientId})`} />}
+        {showArea && <path d={areaPath} fill={`url(#${gradientId})`} />}
         {/* Linha principal */}
-        <path d={actualLinePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        <path d={linePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
         {/* Hover indicator */}
-        {actualActive && (
+        {active && (
           <g>
-            <line x1={actualActive.x} y1={PAD_TOP} x2={actualActive.x} y2={PAD_TOP + chartH} stroke="var(--line)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-            {actualComparePoints && hoverIdx !== null && (
-              <circle cx={actualComparePoints[hoverIdx].x} cy={actualComparePoints[hoverIdx].y} r="4" fill={compareColor} stroke="var(--bg-2)" strokeWidth="2" />
+            <line x1={active.x} y1={PAD_TOP} x2={active.x} y2={PAD_TOP + chartH} stroke="var(--line)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+            {comparePoints && hoverIdx !== null && (
+              <circle cx={comparePoints[hoverIdx].x} cy={comparePoints[hoverIdx].y} r="4" fill={compareColor} stroke="var(--bg-2)" strokeWidth="2" />
             )}
-            <circle cx={actualActive.x} cy={actualActive.y} r="5" fill={color} stroke="var(--bg-2)" strokeWidth="2" />
+            <circle cx={active.x} cy={active.y} r="5" fill={color} stroke="var(--bg-2)" strokeWidth="2" />
           </g>
         )}
         {/* Valores diretos nos pontos */}
-        {showValues && actualPoints.map((p, i) => (
+        {showValues && points.map((p, i) => (
           <text key={i} x={p.x} y={p.y - 8} textAnchor="middle" fontSize="9" fontWeight="700" fill={color} style={{ pointerEvents: "none" }}>
             {formatValue(data[i])}
           </text>
         ))}
-        {/* Labels do eixo X */}
-        {visibleLabels.length > 0 && visibleLabels.map((l, i) => l ? (
-          <text
-            key={i}
-            x={actualPoints[i]?.x ?? 0}
-            y={height - 4}
-            textAnchor="middle"
-            fontSize="10"
-            fontWeight="600"
-            fill="var(--t2)"
-            style={{ pointerEvents: "none" }}
-          >
-            {l}
-          </text>
-        ) : null)}
       </svg>
+
+      {/* Labels do eixo X como HTML — posicionamento preciso sem distorção do SVG */}
+      {labels && labels.length > 0 && (
+        <div className="relative mt-1" style={{ height: LABEL_H - 4 }}>
+          {visibleLabelIndices.map((i) => (
+            <span
+              key={i}
+              className="absolute text-[10px] font-semibold text-t2"
+              style={{
+                left: `${((points[i]?.x ?? 0) / width) * 100}%`,
+                transform: "translateX(-50%)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {labels[i]}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Tooltip flutuante */}
-      {actualActive && hoverIdx !== null && (
+      {active && hoverIdx !== null && (
         <div
           className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-line bg-bg-3 px-3 py-2 text-[11px] shadow-lg"
           style={{
-            left: `${(actualActive.x / scrollWidth) * 100}%`,
-            top: `${(actualActive.y / height) * 100}%`,
+            left: `${(active.x / width) * 100}%`,
+            top: `${(active.y / (height - LABEL_H)) * (height - LABEL_H) / height * 100}%`,
             marginTop: -10,
           }}
         >
