@@ -2098,7 +2098,7 @@ export interface VisaoGeralView {
   diaVsMeta: DiaVsMeta[];
   evolucao: EvolucaoPonto[];
   formasPagamento: FormaPagamentoFat[];
-  topVendedoras: (TopItem & { sub?: string; ticketMedio?: number })[];
+  topVendedoras: (TopItem & { sub?: string; ticketMedio?: number; pctMeta?: number })[];
   topProdutos: (TopItem & { sub?: string; categoria?: string; trend?: number })[];
 }
 
@@ -2294,7 +2294,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
       cor: CORES_FORMAS[forma] ?? "var(--t2)",
     }));
 
-  // Top 3 Vendedoras
+  // Top 5 Vendedoras (com % da meta individual)
   const vendMap = new Map<string, { nome: string; fat: number; vendas: number }>();
   for (const f of fs) {
     const cols = colaboradoresDaFilial(f.id);
@@ -2311,14 +2311,20 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
       }
     }
   }
-  const topVendedoras: (TopItem & { sub?: string; ticketMedio?: number })[] = [...vendMap.values()]
+  // Meta individual = meta total da loja / nº de vendedoras ativas
+  const metasFs = fs.map((f) => metaDaFilial(f.id, periodo.competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+  const metaTotalLoja = metasFs.reduce((s, m) => s + m.valorLoja, 0);
+  const numVendedoras = vendMap.size || 1;
+  const metaIndividual = metaTotalLoja / numVendedoras;
+  const topVendedoras: (TopItem & { sub?: string; ticketMedio?: number; pctMeta?: number })[] = [...vendMap.values()]
     .sort((a, b) => b.fat - a.fat)
     .slice(0, 5)
     .map((v) => ({
       nome: v.nome,
       valor: v.fat,
-      sub: `${v.vendas} vendas`,
+      sub: `${v.vendas} vendas · ${metaIndividual > 0 ? Math.round((v.fat / metaIndividual) * 100) : 0}% of target`,
       ticketMedio: v.vendas > 0 ? v.fat / v.vendas : 0,
+      pctMeta: metaIndividual > 0 ? Math.min(100, (v.fat / metaIndividual) * 100) : 0,
     }));
 
   // Top 5 Produtos (com categoria e trend)

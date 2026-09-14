@@ -286,32 +286,47 @@ export default function VisaoGeralPage() {
           <CardHeader>
             <div className="flex items-center justify-between gap-1.5">
               <div className="flex items-center gap-1.5">
-                <CardTitle>Top Vendedoras</CardTitle>
-                <Tooltip label="As vendedoras que mais faturaram no período selecionado.">
+                <CardTitle>Top 5 Vendedoras</CardTitle>
+                <Tooltip label="As 5 vendedoras que mais faturaram no período. Barra = % da meta individual (meta total ÷ nº vendedoras).">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
                 </Tooltip>
               </div>
-              <span className="rounded-full bg-acc-soft px-2 py-0.5 text-[10px] font-bold text-acc">Top {view.topVendedoras.length}</span>
             </div>
           </CardHeader>
-          <div className="flex flex-col gap-1 px-4 pb-4">
+          <div className="flex flex-col gap-3 px-4 pb-4">
             {view.topVendedoras.map((v, idx) => {
               const iniciais = v.nome.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("");
               const cores = ["var(--acc)", "var(--info)", "var(--warn)", "var(--ok)", "var(--bad)"];
               const corAvatar = cores[idx % cores.length];
+              const pct = v.pctMeta ?? 0;
               return (
-                <div key={v.nome} className="flex items-center gap-3 rounded-lg px-1 py-2 transition-colors hover:bg-bg-inset/50">
-                  <span className="w-4 shrink-0 text-center text-[12px] font-bold text-t2">{idx + 1}</span>
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: corAvatar }}>{iniciais || "?"}</span>
+                <div key={v.nome} className="flex items-start gap-3">
+                  <span className="mt-1 w-4 shrink-0 text-center text-[12px] font-bold text-t2">{idx + 1}</span>
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: corAvatar }}>{iniciais || "?"}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold text-t0">{v.nome}</p>
-                    {v.sub && <p className="truncate text-[11px] text-t2">{v.sub}</p>}
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <span className="block text-[13px] font-bold text-ok">{brlK(v.valor)}</span>
-                    {v.ticketMedio != null && v.ticketMedio > 0 && (
-                      <span className="block text-[10px] text-t2">T.M. {brlK(v.ticketMedio)}</span>
-                    )}
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-[13px] font-semibold text-t0">{v.nome}</p>
+                      <span className="shrink-0 text-[13px] font-bold text-ok">{brlK(v.valor)}</span>
+                    </div>
+                    {/* Barra de progresso — % da meta individual */}
+                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-bg-inset">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${Math.max(2, pct)}%`, background: pct >= 100 ? "var(--ok)" : corAvatar }}
+                      />
+                    </div>
+                    {/* Métricas abaixo da barra */}
+                    <div className="mt-1 flex items-center gap-2 text-[10px] text-t2">
+                      <span>{v.sub?.split("·")[0]?.trim() ?? ""}</span>
+                      <span>·</span>
+                      <span className={pct >= 100 ? "font-semibold text-ok" : ""}>{Math.round(pct)}% of target</span>
+                      {v.ticketMedio != null && v.ticketMedio > 0 && (
+                        <>
+                          <span>·</span>
+                          <span>T.M. {brlK(v.ticketMedio)}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
