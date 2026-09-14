@@ -71,18 +71,6 @@ export function AreaLineChart({
     };
   }, [data, compareData, chartH]);
 
-  const linePath = buildSmoothPath(points);
-  const areaPath = `${linePath} L ${points[points.length - 1].x} ${PAD_TOP + chartH} L ${points[0].x} ${PAD_TOP + chartH} Z`;
-  const comparePath = comparePoints ? buildSmoothPath(comparePoints) : "";
-  const active = hoverIdx !== null ? points[hoverIdx] : null;
-
-  function handleMove(e: React.MouseEvent<SVGSVGElement>) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const relX = ((e.clientX - rect.left) / rect.width) * width;
-    const idx = Math.round(((relX - PAD_X) / (width - PAD_X * 2)) * Math.max(data.length - 1, 0));
-    setHoverIdx(Math.min(data.length - 1, Math.max(0, idx)));
-  }
-
   // Decide quais labels mostrar (evita sobreposição: mostra no máximo ~7)
   const maxLabels = 7;
   const step = Math.max(1, Math.ceil(labels?.length ?? 0 / maxLabels));
