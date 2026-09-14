@@ -967,8 +967,8 @@ Regra geral: **KPIs em 4 colunas no desktop**, widget central em largura total, 
 | Faturamento por Dia da Semana vs Meta | `BarChart` (horizontal, agrupado) | ✅ Composição (+ `showValues`) |
 | Evolução do Faturamento vs Meta | `AreaLineChart` (3 séries: realizado/meta/projeção) + toggle | ✅ Composição (+ `showValues`) |
 | Faturamento por Forma de Pagamento | `DonutChart` | ✅ Reusa |
-| Top 3 Vendedoras | `BarChart` (horizontal compacto) ou lista com `ProgressBar` | ✅ Composição (+ `showValues`) — drill p/ Equipe |
-| Top 3 Produtos | `BarChart` (horizontal compacto) ou lista com `ProgressBar` | ✅ Composição (+ `showValues`) — drill p/ Produtos |
+| Top Vendedoras | Lista com avatar + `ProgressBar` (% da meta) + métricas (vendas · % da meta · T.M.) + link "Ver mais →" | ✅ Implementado — drill p/ Equipe (`/equipe`) |
+| Top Produtos | `BarChart` (horizontal compacto) ou lista com `ProgressBar` | ✅ Composição (+ `showValues`) — drill p/ Produtos |
 > **Nenhum componente novo além dos 3 já decididos** (`DateRangePicker`, `Segmented`, `CommissionLadder` — este último não entra aqui). Tudo é composição do que já existe no Vela.
 ### Perguntas de decisão que esta tela responde
 1. **"Como está o mês num olhar só?"** → 4 KPIs + Atingimento da Meta (3 gauges) no topo.

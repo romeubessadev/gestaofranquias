@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, DonutChart, Gauge } from "@/components/charts";
@@ -74,6 +75,8 @@ export default function VisaoGeralPage() {
   function onMarcaChange(v: "WEPINK" | "WPINK" | null) {
     mudar({ ...escopo, divisao: v });
   }
+
+  const navigate = useNavigate();
 
   const forcarAtualizacao = useCallback(() => {
     setRefreshing(true);
@@ -286,11 +289,17 @@ export default function VisaoGeralPage() {
           <CardHeader>
             <div className="flex items-center justify-between gap-1.5">
               <div className="flex items-center gap-1.5">
-                <CardTitle>Top 5 Vendedoras</CardTitle>
-                <Tooltip label="As 5 vendedoras que mais faturaram no período. Barra = % da meta individual (meta total ÷ nº vendedoras).">
+                <CardTitle>Top Vendedoras</CardTitle>
+                <Tooltip label="As vendedoras que mais faturaram no período. Barra = % da meta individual (meta total ÷ nº vendedoras).">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
                 </Tooltip>
               </div>
+              <button
+                onClick={() => navigate("/equipe")}
+                className="text-[11px] font-semibold text-acc hover:text-acc/80 transition-colors"
+              >
+                Ver mais →
+              </button>
             </div>
           </CardHeader>
           <div className="flex flex-col gap-3 px-4 pb-4">
