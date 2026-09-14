@@ -170,7 +170,7 @@ export default function VisaoGeralPage() {
             <AreaLineChart
               data={view.categoriaVsMeta.map((c) => c.realizado)}
               compareData={view.categoriaVsMeta.map((c) => c.meta)}
-              labels={view.categoriaVsMeta.map((c) => c.categoria.length > 8 ? c.categoria.slice(0, 7) + "…" : c.categoria)}
+              labels={view.categoriaVsMeta.map((c) => c.categoria)}
               color="var(--acc)"
               compareColor="var(--t2)"
               height={200}
