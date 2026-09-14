@@ -2213,23 +2213,25 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     })
     .sort((a, b) => b.realizado - a.realizado);
 
-  // Faturamento por Dia da Semana vs Meta
-  const diasSemanaNomes = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  // Faturamento por Dia da Semana vs Meta (ordem Seg→Dom)
+  const diasSemanaNomes = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  // getDay(): 0=Dom, 1=Seg, ..., 6=Sáb → mapear para índice Seg=0, Ter=1, ..., Dom=6
+  const dowToIdx = (dow: number) => (dow === 0 ? 6 : dow - 1);
   const diaAgg: Record<number, { fat: number; count: number }> = {};
   for (const iso of intervaloDias(periodo.inicio, periodo.fim)) {
-    const dow = deIso(iso).getDay();
-    if (!diaAgg[dow]) diaAgg[dow] = { fat: 0, count: 0 };
+    const idx = dowToIdx(deIso(iso).getDay());
+    if (!diaAgg[idx]) diaAgg[idx] = { fat: 0, count: 0 };
     for (const f of fs) {
       const dv = diaVendas(f.id, iso);
       if (!dv) continue;
       if (divisao) {
         const divAg = dv.porDivisao[divisao];
-        diaAgg[dow].fat += divAg?.faturamento ?? 0;
+        diaAgg[idx].fat += divAg?.faturamento ?? 0;
       } else {
-        diaAgg[dow].fat += dv.total.faturamento;
+        diaAgg[idx].fat += dv.total.faturamento;
       }
     }
-    diaAgg[dow].count += 1;
+    diaAgg[idx].count += 1;
   }
   const metaDiaria = metaTotal > 0 ? metaTotal / 7 : 0;
   const diaVsMeta: DiaVsMeta[] = diasSemanaNomes.map((nome, i) => ({

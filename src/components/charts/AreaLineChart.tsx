@@ -88,13 +88,32 @@ export function AreaLineChart({
   const step = Math.max(1, Math.ceil(labels?.length ?? 0 / maxLabels));
   const visibleLabels = labels ? labels.map((l, i) => (i % step === 0 || i === labels.length - 1 ? l : "")) : [];
 
+  // Scroll horizontal quando há muitos pontos (>10) para evitar compressão
+  const minPointWidth = 50;
+  const needsScroll = data.length > 10;
+  const scrollWidth = needsScroll ? Math.max(width, data.length * minPointWidth) : width;
+  const actualPoints = needsScroll ? toPoints(data, scrollWidth, chartH, min, max - min || 1) : points;
+  const actualComparePoints = needsScroll && comparePoints ? toPoints(compareData!, scrollWidth, chartH, min, max - min || 1) : comparePoints;
+  const actualLinePath = buildSmoothPath(actualPoints);
+  const actualAreaPath = `${actualLinePath} L ${actualPoints[actualPoints.length - 1].x} ${PAD_TOP + chartH} L ${actualPoints[0].x} ${PAD_TOP + chartH} Z`;
+  const actualComparePath = actualComparePoints ? buildSmoothPath(actualComparePoints) : "";
+  const actualActive = hoverIdx !== null ? actualPoints[hoverIdx] : null;
+
+  function handleMoveScroll(e: React.MouseEvent<SVGSVGElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relX = ((e.clientX - rect.left) / rect.width) * scrollWidth;
+    const idx = Math.round(((relX - PAD_X) / (scrollWidth - PAD_X * 2)) * Math.max(data.length - 1, 0));
+    setHoverIdx(Math.min(data.length - 1, Math.max(0, idx)));
+  }
+
   return (
-    <div className="relative w-full" style={{ height }}>
+    <div className="relative w-full overflow-x-auto" style={{ height }}>
       <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="vela-reveal h-full w-full"
+        viewBox={`0 0 ${scrollWidth} ${height}`}
+        className="vela-reveal h-full"
+        style={{ width: needsScroll ? scrollWidth : "100%", minWidth: needsScroll ? scrollWidth : undefined }}
         preserveAspectRatio="none"
-        onMouseMove={handleMove}
+        onMouseMove={handleMoveScroll}
         onMouseLeave={() => setHoverIdx(null)}
       >
         <defs>
@@ -104,23 +123,23 @@ export function AreaLineChart({
           </linearGradient>
         </defs>
         {/* Linha de meta (tracejada) */}
-        {comparePath && <path d={comparePath} fill="none" stroke={compareColor} strokeWidth="2" strokeLinecap="round" strokeDasharray="6 4" vectorEffect="non-scaling-stroke" />}
+        {actualComparePath && <path d={actualComparePath} fill="none" stroke={compareColor} strokeWidth="2" strokeLinecap="round" strokeDasharray="6 4" vectorEffect="non-scaling-stroke" />}
         {/* Área preenchida */}
-        {showArea && <path d={areaPath} fill={`url(#${gradientId})`} />}
+        {showArea && <path d={actualAreaPath} fill={`url(#${gradientId})`} />}
         {/* Linha principal */}
-        <path d={linePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        <path d={actualLinePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
         {/* Hover indicator */}
-        {active && (
+        {actualActive && (
           <g>
-            <line x1={active.x} y1={PAD_TOP} x2={active.x} y2={PAD_TOP + chartH} stroke="var(--line)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-            {comparePoints && hoverIdx !== null && (
-              <circle cx={comparePoints[hoverIdx].x} cy={comparePoints[hoverIdx].y} r="4" fill={compareColor} stroke="var(--bg-2)" strokeWidth="2" />
+            <line x1={actualActive.x} y1={PAD_TOP} x2={actualActive.x} y2={PAD_TOP + chartH} stroke="var(--line)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+            {actualComparePoints && hoverIdx !== null && (
+              <circle cx={actualComparePoints[hoverIdx].x} cy={actualComparePoints[hoverIdx].y} r="4" fill={compareColor} stroke="var(--bg-2)" strokeWidth="2" />
             )}
-            <circle cx={active.x} cy={active.y} r="5" fill={color} stroke="var(--bg-2)" strokeWidth="2" />
+            <circle cx={actualActive.x} cy={actualActive.y} r="5" fill={color} stroke="var(--bg-2)" strokeWidth="2" />
           </g>
         )}
         {/* Valores diretos nos pontos */}
-        {showValues && points.map((p, i) => (
+        {showValues && actualPoints.map((p, i) => (
           <text key={i} x={p.x} y={p.y - 8} textAnchor="middle" fontSize="9" fontWeight="700" fill={color} style={{ pointerEvents: "none" }}>
             {formatValue(data[i])}
           </text>
@@ -129,7 +148,7 @@ export function AreaLineChart({
         {visibleLabels.length > 0 && visibleLabels.map((l, i) => l ? (
           <text
             key={i}
-            x={points[i]?.x ?? 0}
+            x={actualPoints[i]?.x ?? 0}
             y={height - 4}
             textAnchor="middle"
             fontSize="10"
@@ -142,12 +161,12 @@ export function AreaLineChart({
         ) : null)}
       </svg>
       {/* Tooltip flutuante */}
-      {active && hoverIdx !== null && (
+      {actualActive && hoverIdx !== null && (
         <div
           className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-line bg-bg-3 px-3 py-2 text-[11px] shadow-lg"
           style={{
-            left: `${(active.x / width) * 100}%`,
-            top: `${(active.y / height) * 100}%`,
+            left: `${(actualActive.x / scrollWidth) * 100}%`,
+            top: `${(actualActive.y / height) * 100}%`,
             marginTop: -10,
           }}
         >
