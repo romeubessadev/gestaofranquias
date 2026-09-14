@@ -134,22 +134,29 @@ export function AreaLineChart({
           ))}
         </svg>
 
-        {/* Labels do eixo X como HTML — todos visíveis, scroll resolve sobreposição */}
+        {/* Labels do eixo X como HTML — primeiro/último alinhados às bordas para não cortar */}
         {labels && labels.length > 0 && (
           <div className="relative mt-1" style={{ height: LABEL_H - 4 }}>
-            {visibleLabelIndices.map((i) => (
-              <span
-                key={i}
-                className="absolute text-[10px] font-semibold text-t2"
-                style={{
-                  left: `${((points[i]?.x ?? 0) / svgW) * 100}%`,
-                  transform: "translateX(-50%)",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {labels[i]}
-              </span>
-            ))}
+            {visibleLabelIndices.map((i) => {
+              const isFirst = i === 0;
+              const isLast = i === labels.length - 1;
+              let tx = "-50%";
+              if (isFirst) tx = "0";
+              else if (isLast) tx = "-100%";
+              return (
+                <span
+                  key={i}
+                  className="absolute text-[10px] font-semibold text-t2"
+                  style={{
+                    left: `${((points[i]?.x ?? 0) / svgW) * 100}%`,
+                    transform: `translateX(${tx})`,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {labels[i]}
+                </span>
+              );
+            })}
           </div>
         )}
 
