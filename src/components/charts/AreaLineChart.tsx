@@ -150,7 +150,7 @@ export function AreaLineChart({
         </div>
       )}
 
-      {/* Tooltip flutuante com clamp nas laterais */}
+      {/* Tooltip flutuante com clamp nas laterais e largura fixa */}
       {active && hoverIdx !== null && (() => {
         const leftPct = (active.x / width) * 100;
         // Clamp: se muito perto da esquerda, alinha à esquerda; se muito perto da direita, alinha à direita
@@ -165,6 +165,8 @@ export function AreaLineChart({
               top: `${(active.y / (height - LABEL_H)) * 100}%`,
               marginTop: -10,
               transform: `translateX(${translateX})`,
+              minWidth: 80,
+              whiteSpace: "nowrap",
             }}
           >
           {labels?.[hoverIdx] ? <span className="mb-1 block text-[10px] font-semibold text-t2">{labels[hoverIdx]}</span> : null}
