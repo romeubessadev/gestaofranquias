@@ -296,7 +296,7 @@ export default function VisaoGeralPage() {
               </div>
               <button
                 onClick={() => navigate("/equipe")}
-                className="text-[12px] font-semibold text-acc hover:underline transition-colors"
+                className="text-[13px] font-semibold text-acc hover:text-acc/80 transition-colors"
               >
                 Ver mais
               </button>
@@ -354,7 +354,12 @@ export default function VisaoGeralPage() {
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
                 </Tooltip>
               </div>
-              <span className="rounded-full bg-acc-soft px-2 py-0.5 text-[10px] font-bold text-acc">Top {view.topProdutos.length}</span>
+              <button
+                onClick={() => navigate("/dashboard/produtos")}
+                className="text-[13px] font-semibold text-acc hover:text-acc/80 transition-colors"
+              >
+                Ver mais
+              </button>
             </div>
           </CardHeader>
           <div className="overflow-x-auto px-4 pb-4">
@@ -363,9 +368,9 @@ export default function VisaoGeralPage() {
                 <tr className="border-b border-line text-[10px] font-bold uppercase tracking-wide text-t2">
                   <th className="py-2 pr-2 w-6">#</th>
                   <th className="py-2 pr-2">Produto</th>
-                  <th className="py-2 pr-2 text-right">Qtd</th>
+                  <th className="py-2 pr-2 text-right">Vendas</th>
                   <th className="py-2 pr-2 text-right">Faturamento</th>
-                  <th className="py-2 text-right">Vs Anterior</th>
+                  <th className="py-2 text-right">Trend</th>
                 </tr>
               </thead>
               <tbody>
