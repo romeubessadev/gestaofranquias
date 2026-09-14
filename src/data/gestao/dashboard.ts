@@ -2312,8 +2312,8 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     }
   }
   // Meta individual = meta total da loja / nº de vendedoras ativas
-  const competencia = periodo.inicio.slice(0, 7); // YYYY-MM
-  const metasFs = fs.map((f) => metaDaFilial(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+  const competenciaMeta = periodo.inicio.slice(0, 7); // YYYY-MM
+  const metasFs = fs.map((f) => metaDaFilial(f.id, competenciaMeta)).filter((m): m is NonNullable<typeof m> => Boolean(m));
   const metaTotalLoja = metasFs.reduce((s, m) => s + m.valorLoja, 0);
   const numVendedoras = vendMap.size || 1;
   const metaIndividual = metaTotalLoja / numVendedoras;
