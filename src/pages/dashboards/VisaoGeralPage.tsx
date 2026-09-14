@@ -284,13 +284,11 @@ export default function VisaoGeralPage() {
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between gap-1.5">
-              <div className="flex items-center gap-1.5">
-                <CardTitle>Top Vendedoras</CardTitle>
-              </div>
+            <div className="flex w-full items-center justify-between gap-1.5">
+              <CardTitle>Top Vendedoras</CardTitle>
               <button
                 onClick={() => navigate("/equipe")}
-                className="text-[13px] font-semibold text-acc hover:text-acc/80 transition-colors"
+                className="cursor-pointer text-[13px] font-semibold text-acc hover:text-acc/80 transition-colors"
               >
                 Ver mais
               </button>
@@ -341,13 +339,11 @@ export default function VisaoGeralPage() {
         </Card>
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between gap-1.5">
-              <div className="flex items-center gap-1.5">
-                <CardTitle>Top Produtos</CardTitle>
-              </div>
+            <div className="flex w-full items-center justify-between gap-1.5">
+              <CardTitle>Top Produtos</CardTitle>
               <button
                 onClick={() => navigate("/dashboard/produtos")}
-                className="text-[13px] font-semibold text-acc hover:text-acc/80 transition-colors"
+                className="cursor-pointer text-[13px] font-semibold text-acc hover:text-acc/80 transition-colors"
               >
                 Ver mais
               </button>
