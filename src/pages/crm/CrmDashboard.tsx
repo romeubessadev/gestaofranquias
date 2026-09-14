@@ -160,7 +160,7 @@ export function CrmDashboard() {
                     <span className="font-mono text-[13px] font-extrabold text-ok">{r.value}</span>
                   </div>
                   <ProgressBar value={r.pct} height={5} />
-                  <span className="text-[11px] text-t2">{r.deals} deals · {r.pct}% of target</span>
+                  <span className="text-[11px] text-t2">{r.deals} deals · {r.pct}% da meta</span>
                 </div>
               </div>
             ))}

@@ -25,7 +25,7 @@ export function KpiAnalyticsPage() {
               <Gauge value={k.pct} label={`${k.value} / ${k.target}`} color={k.color} />
             </div>
             <div className="mt-2 flex items-center justify-between text-[11.5px]">
-              <span className="text-t2">{k.pct}% of target</span>
+              <span className="text-t2">{k.pct}% da meta</span>
               <span className={k.trendPositive ? "font-bold text-ok" : "font-bold text-bad"}>{k.trend}</span>
             </div>
           </Card>

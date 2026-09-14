@@ -319,7 +319,7 @@ export default function VisaoGeralPage() {
                     <div className="mt-1 flex items-center gap-2 text-[10px] text-t2">
                       <span>{v.sub?.split("·")[0]?.trim() ?? ""}</span>
                       <span>·</span>
-                      <span className={pct >= 100 ? "font-semibold text-ok" : ""}>{Math.round(pct)}% of target</span>
+                      <span className={pct >= 100 ? "font-semibold text-ok" : ""}>{Math.round(pct)}% da meta</span>
                       {v.ticketMedio != null && v.ticketMedio > 0 && (
                         <>
                           <span>·</span>

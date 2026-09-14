@@ -2323,7 +2323,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     .map((v) => ({
       nome: v.nome,
       valor: v.fat,
-      sub: `${v.vendas} vendas · ${metaIndividual > 0 ? Math.round((v.fat / metaIndividual) * 100) : 0}% of target`,
+      sub: `${v.vendas} vendas · ${metaIndividual > 0 ? Math.round((v.fat / metaIndividual) * 100) : 0}% da meta`,
       ticketMedio: v.vendas > 0 ? v.fat / v.vendas : 0,
       pctMeta: metaIndividual > 0 ? Math.min(100, (v.fat / metaIndividual) * 100) : 0,
     }));
