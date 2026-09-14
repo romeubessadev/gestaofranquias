@@ -2260,7 +2260,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     acumMeta += metaPorDia;
     const proj = iso <= HOJE_ISO && fracaoAcum > 0 ? acumRealizado / fracaoAcum * (fracaoAcum + (diasPeriodo.length - diasPeriodo.indexOf(iso) - 1) * (fracaoAcum / (diasPeriodo.indexOf(HOJE_ISO) + 1 || 1))) : null;
     return {
-      label: iso.slice(5), // MM-DD
+      label: (() => { const d = deIso(iso); const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]; return `${String(d.getDate()).padStart(2,"0")} ${meses[d.getMonth()]}`; })(),
       realizado: acumRealizado,
       meta: acumMeta,
       projecao: proj,
