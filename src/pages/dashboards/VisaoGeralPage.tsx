@@ -370,7 +370,7 @@ export default function VisaoGeralPage() {
                       <td className="py-2.5 pr-2 text-center text-[12px] font-bold text-t2">{idx + 1}</td>
                       <td className="py-2.5 pr-2">
                         <div className="flex items-center gap-2.5">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: corAvatar }}>{iniciais || "?"}</span>
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold" style={{ background: `color-mix(in srgb, ${corAvatar} 15%, transparent)`, color: corAvatar }}>{iniciais || "?"}</span>
                           <div className="min-w-0">
                             <p className="truncate text-[12px] font-semibold text-t0" title={p.nome}>{p.nome}</p>
                             {p.categoria && <p className="truncate text-[10px] text-t2">{p.categoria}</p>}
