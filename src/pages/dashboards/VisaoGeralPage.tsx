@@ -243,9 +243,6 @@ export default function VisaoGeralPage() {
           <CardHeader>
             <div className="flex items-center gap-1.5">
               <CardTitle>Forma de Pagamento</CardTitle>
-              <Tooltip label="Distribuição do faturamento por forma de pagamento no período selecionado.">
-                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
-              </Tooltip>
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
@@ -290,9 +287,6 @@ export default function VisaoGeralPage() {
             <div className="flex items-center justify-between gap-1.5">
               <div className="flex items-center gap-1.5">
                 <CardTitle>Top Vendedoras</CardTitle>
-                <Tooltip label="As vendedoras que mais faturaram no período. Barra = % da meta individual (meta total ÷ nº vendedoras).">
-                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
-                </Tooltip>
               </div>
               <button
                 onClick={() => navigate("/equipe")}
@@ -327,14 +321,14 @@ export default function VisaoGeralPage() {
                     {/* Métricas abaixo da barra */}
                     <div className="mt-1 flex items-center gap-2 text-[10px] text-t2">
                       <span>{v.sub?.split("·")[0]?.trim() ?? ""}</span>
-                      <span>·</span>
-                      <span className={pct >= 100 ? "font-semibold text-ok" : ""}>{Math.round(pct)}% da meta</span>
                       {v.ticketMedio != null && v.ticketMedio > 0 && (
                         <>
                           <span>·</span>
                           <span>T.M. {brlK(v.ticketMedio)}</span>
                         </>
                       )}
+                      <span>·</span>
+                      <span className={pct >= 100 ? "font-semibold text-ok" : ""}>{Math.round(pct)}% da meta</span>
                     </div>
                   </div>
                 </div>
@@ -350,9 +344,6 @@ export default function VisaoGeralPage() {
             <div className="flex items-center justify-between gap-1.5">
               <div className="flex items-center gap-1.5">
                 <CardTitle>Top Produtos</CardTitle>
-                <Tooltip label="Os produtos que mais faturaram no período selecionado.">
-                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
-                </Tooltip>
               </div>
               <button
                 onClick={() => navigate("/dashboard/produtos")}
