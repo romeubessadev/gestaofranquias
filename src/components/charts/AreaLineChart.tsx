@@ -110,8 +110,8 @@ export function AreaLineChart({
               <stop offset="100%" stopColor={color} stopOpacity="0.02" />
             </linearGradient>
           </defs>
-          {/* Linha de meta (tracejada) */}
-          {comparePath && <path d={comparePath} fill="none" stroke={compareColor} strokeWidth="2" strokeLinecap="round" strokeDasharray="6 4" vectorEffect="non-scaling-stroke" />}
+          {/* Linha de meta (sólida, cor secundária — estilo Revenue vs Expenses) */}
+          {comparePath && <path d={comparePath} fill="none" stroke={compareColor} strokeWidth="2.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
           {/* Área preenchida */}
           {showArea && <path d={areaPath} fill={`url(#${gradientId})`} />}
           {/* Linha principal */}

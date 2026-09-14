@@ -166,20 +166,20 @@ export default function VisaoGeralPage() {
               </Tooltip>
             </div>
           </CardHeader>
+          <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pt-1 text-[11px]">
+            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /><span className="font-semibold text-t2">Realizado</span> <span className="font-bold text-t0">{brlK(view.categoriaVsMeta.reduce((s, c) => s + c.realizado, 0))}</span></span>
+            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--warn)]" /><span className="font-semibold text-t2">Meta</span> <span className="font-bold text-t0">{brlK(view.categoriaVsMeta.reduce((s, c) => s + c.meta, 0))}</span></span>
+          </div>
           <div className="overflow-hidden px-4 pb-4">
             <AreaLineChart
               data={view.categoriaVsMeta.map((c) => c.realizado)}
               compareData={view.categoriaVsMeta.map((c) => c.meta)}
               labels={view.categoriaVsMeta.map((c) => c.categoria)}
               color="var(--acc)"
-              compareColor="var(--t2)"
+              compareColor="var(--warn)"
               height={200}
               formatValue={brlK}
             />
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-semibold text-t2">
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-[var(--t2)]" /> Meta</span>
-            </div>
           </div>
         </Card>
         <Card>
@@ -191,20 +191,20 @@ export default function VisaoGeralPage() {
               </Tooltip>
             </div>
           </CardHeader>
+          <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pt-1 text-[11px]">
+            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--info)]" /><span className="font-semibold text-t2">Realizado</span> <span className="font-bold text-t0">{brlK(view.diaVsMeta.reduce((s, d) => s + d.realizado, 0))}</span></span>
+            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--warn)]" /><span className="font-semibold text-t2">Meta</span> <span className="font-bold text-t0">{brlK(view.diaVsMeta.reduce((s, d) => s + d.meta, 0))}</span></span>
+          </div>
           <div className="overflow-hidden px-4 pb-4">
             <AreaLineChart
               data={view.diaVsMeta.map((d) => d.realizado)}
               compareData={view.diaVsMeta.map((d) => d.meta)}
               labels={view.diaVsMeta.map((d) => d.dia)}
               color="var(--info)"
-              compareColor="var(--t2)"
+              compareColor="var(--warn)"
               height={200}
               formatValue={brlK}
             />
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-semibold text-t2">
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--info)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-[var(--t2)]" /> Meta</span>
-            </div>
           </div>
         </Card>
       </div>
@@ -220,20 +220,20 @@ export default function VisaoGeralPage() {
               </Tooltip>
             </div>
           </CardHeader>
+          <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pt-1 text-[11px]">
+            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--ok)]" /><span className="font-semibold text-t2">Realizado</span> <span className="font-bold text-t0">{brlK(view.evolucao.reduce((s, e) => s + e.realizado, 0))}</span></span>
+            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--warn)]" /><span className="font-semibold text-t2">Meta</span> <span className="font-bold text-t0">{brlK(view.evolucao.reduce((s, e) => s + e.meta, 0))}</span></span>
+          </div>
           <div className="overflow-hidden px-4 pb-4">
             <AreaLineChart
               data={view.evolucao.map((e) => e.realizado)}
               compareData={view.evolucao.map((e) => e.meta)}
               labels={view.evolucao.map((e) => e.label)}
               color="var(--ok)"
-              compareColor="var(--t2)"
+              compareColor="var(--warn)"
               height={200}
               formatValue={brlK}
             />
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-semibold text-t2">
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--ok)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-[var(--t2)]" /> Meta</span>
-            </div>
           </div>
         </Card>
         <Card>
