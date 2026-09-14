@@ -37,9 +37,12 @@ export function BarChart({ data, height = 220, color = "var(--acc)", formatValue
 }
 
 /**
- * Barras empilhadas: realizado (colorido) + meta restante (cinza).
- * Estilo cards-metas.png — valor da meta na legenda, não abaixo de cada barra.
- * Sem dots, sem tooltips, sem scroll issues, sem sobreposição de texto. Puro CSS/flex.
+ * Barras lado-a-lado: realizado (colorido) vs meta (contorno tracejado).
+ * Inspirado em referencia01.png — cada período mostra 2 barras adjacentes:
+ *   - Esquerda: realizado (preenchido, cor do tema)
+ *   - Direita: meta (contorno tracejado, fundo transparente)
+ * Valores acima de cada barra. Verde quando realizado >= meta.
+ * Sem dots, sem tooltips, sem sobreposição. Leitura imediata.
  */
 export function StackedBarWithGoal({ data, height = 200, color = "var(--acc)", formatValue = (v: number) => String(v) }: {
   data: { label: string; value: number; goal: number }[];
@@ -50,41 +53,47 @@ export function StackedBarWithGoal({ data, height = 200, color = "var(--acc)", f
   const maxVal = Math.max(...data.map((d) => Math.max(d.value, d.goal)), 1);
 
   return (
-    <div className="flex items-stretch gap-2 sm:gap-3" style={{ height }}>
+    <div className="flex items-stretch gap-1.5 sm:gap-2.5" style={{ height }}>
       {data.map((d, i) => {
         const achieved = d.goal > 0 && d.value >= d.goal;
-        const restante = Math.max(0, d.goal - d.value);
-        const realizedPct = (d.value / maxVal) * 100;
-        const restPct = (restante / maxVal) * 100;
+        const realPct = (d.value / maxVal) * 100;
+        const goalPct = d.goal > 0 ? (d.goal / maxVal) * 100 : 0;
         return (
-          <div key={d.label} className="flex min-w-[36px] flex-1 flex-col items-center gap-1">
-            {/* Valor realizado acima da barra */}
-            <span className="whitespace-nowrap text-[9px] font-bold text-t1 sm:text-[10px]">{formatValue(d.value)}</span>
-            {/* Barra empilhada: realizado embaixo + restante em cima */}
-            <div
-              className="flex w-full flex-1 flex-col-reverse items-stretch overflow-hidden rounded-t-[6px] sm:rounded-t-[8px]"
-              style={{ transformOrigin: "bottom", animation: `velaGrowY .55s cubic-bezier(.22,.61,.36,1) ${i * 0.05}s both` }}
-            >
-              {/* Realizado */}
+          <div key={d.label} className="flex min-w-[48px] flex-1 flex-col items-center gap-1">
+            {/* Valores acima das barras */}
+            <div className="flex w-full items-end justify-center gap-0.5">
+              <span className="whitespace-nowrap text-[8px] font-bold text-t1 sm:text-[9px]">{formatValue(d.value)}</span>
+              {d.goal > 0 && (
+                <span className="whitespace-nowrap text-[8px] font-medium text-t2 sm:text-[9px]">{formatValue(d.goal)}</span>
+              )}
+            </div>
+            {/* Par de barras: realizado + meta */}
+            <div className="flex w-full flex-1 items-end justify-center gap-[2px]">
+              {/* Barra realizado */}
               <div
+                className="flex-1 rounded-t-[4px] sm:rounded-t-[6px]"
                 style={{
-                  height: `${realizedPct}%`,
+                  height: `${Math.max(realPct, d.value > 0 ? 2 : 0)}%`,
                   background: achieved ? "var(--ok)" : color,
-                  minHeight: d.value > 0 ? 4 : 0,
+                  transformOrigin: "bottom",
+                  animation: `velaGrowY .55s cubic-bezier(.22,.61,.36,1) ${i * 0.05}s both`,
                 }}
               />
-              {/* Meta restante (cinza) */}
-              {restante > 0 && (
+              {/* Barra meta (contorno tracejado) */}
+              {d.goal > 0 && (
                 <div
+                  className="flex-1 rounded-t-[4px] border-2 border-dashed sm:rounded-t-[6px]"
                   style={{
-                    height: `${restPct}%`,
-                    background: "var(--bg-inset)",
-                    minHeight: 2,
+                    height: `${Math.max(goalPct, 2)}%`,
+                    borderColor: achieved ? "var(--ok)" : "var(--t2)",
+                    background: "transparent",
+                    transformOrigin: "bottom",
+                    animation: `velaGrowY .55s cubic-bezier(.22,.61,.36,1) ${i * 0.05 + 0.1}s both`,
                   }}
                 />
               )}
             </div>
-            {/* Apenas o label do eixo X — sem valor da meta para evitar sobreposição */}
+            {/* Label do eixo X */}
             <span className="truncate text-[9px] font-semibold text-t2 sm:text-[10px]">{d.label}</span>
           </div>
         );

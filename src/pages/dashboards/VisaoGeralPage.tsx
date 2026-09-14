@@ -178,11 +178,8 @@ export default function VisaoGeralPage() {
               formatValue={brlK}
             />
             <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-semibold text-t2">
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--bg-inset)] border border-line" /> Meta restante</span>
-              {view.categoriaVsMeta.length > 0 && view.categoriaVsMeta[0].meta > 0 && (
-                <span className="text-t1">Meta total: <span className="font-bold text-t0">{brlK(view.categoriaVsMeta.reduce((s, c) => s + c.meta, 0))}</span></span>
-              )}
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-[var(--acc)]" /> Realizado</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm border-2 border-dashed border-[var(--t2)]" /> Meta</span>
             </div>
           </div>
         </Card>
@@ -207,11 +204,8 @@ export default function VisaoGeralPage() {
               formatValue={brlK}
             />
             <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-semibold text-t2">
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--info)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--bg-inset)] border border-line" /> Meta restante</span>
-              {view.diaVsMeta.length > 0 && view.diaVsMeta[0].meta > 0 && (
-                <span className="text-t1">Meta/dia: <span className="font-bold text-t0">{brlK(view.diaVsMeta[0].meta)}</span></span>
-              )}
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-[var(--info)]" /> Realizado</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm border-2 border-dashed border-[var(--t2)]" /> Meta</span>
             </div>
           </div>
         </Card>
@@ -240,11 +234,8 @@ export default function VisaoGeralPage() {
               formatValue={brlK}
             />
             <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-semibold text-t2">
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--ok)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--bg-inset)] border border-line" /> Meta restante</span>
-              {view.evolucao.length > 0 && view.evolucao[0].meta > 0 && (
-                <span className="text-t1">Meta/periodo: <span className="font-bold text-t0">{brlK(view.evolucao[0].meta)}</span></span>
-              )}
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-[var(--ok)]" /> Realizado</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm border-2 border-dashed border-[var(--t2)]" /> Meta</span>
             </div>
           </div>
         </Card>
