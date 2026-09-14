@@ -150,16 +150,23 @@ export function AreaLineChart({
         </div>
       )}
 
-      {/* Tooltip flutuante */}
-      {active && hoverIdx !== null && (
-        <div
-          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-line bg-bg-3 px-3 py-2 text-[11px] shadow-lg"
-          style={{
-            left: `${(active.x / width) * 100}%`,
-            top: `${(active.y / (height - LABEL_H)) * (height - LABEL_H) / height * 100}%`,
-            marginTop: -10,
-          }}
-        >
+      {/* Tooltip flutuante com clamp nas laterais */}
+      {active && hoverIdx !== null && (() => {
+        const leftPct = (active.x / width) * 100;
+        // Clamp: se muito perto da esquerda, alinha à esquerda; se muito perto da direita, alinha à direita
+        let translateX = "-50%";
+        if (leftPct < 15) translateX = "0";
+        else if (leftPct > 85) translateX = "-100%";
+        return (
+          <div
+            className="pointer-events-none absolute z-10 -translate-y-full rounded-lg border border-line bg-bg-3 px-3 py-2 text-[11px] shadow-lg"
+            style={{
+              left: `${leftPct}%`,
+              top: `${(active.y / (height - LABEL_H)) * 100}%`,
+              marginTop: -10,
+              transform: `translateX(${translateX})`,
+            }}
+          >
           {labels?.[hoverIdx] ? <span className="mb-1 block text-[10px] font-semibold text-t2">{labels[hoverIdx]}</span> : null}
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
@@ -172,7 +179,8 @@ export function AreaLineChart({
             </span>
           )}
         </div>
-      )}
+        );
+      })()}
       <span className="sr-only">
         Range {formatValue(min)} to {formatValue(max)}
       </span>
