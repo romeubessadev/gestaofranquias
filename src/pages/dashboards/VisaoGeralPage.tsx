@@ -259,19 +259,11 @@ export default function VisaoGeralPage() {
                     segments={segmentos}
                     centerLabel="Total"
                     centerValue={brlK(total)}
+                    formatValue={brlK}
                   />
-                  <div className="mt-4 flex flex-col gap-2 border-t border-line pt-3">
-                    {view.formasPagamento.map((f) => (
-                      <div key={f.forma} className="flex items-center gap-2 text-[12.5px]">
-                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: f.cor }} />
-                        <span className="flex-1 truncate text-t1">{f.forma}</span>
-                        <span className="font-bold text-t0">{brlK(f.valor)}</span>
-                        <span className="w-10 shrink-0 text-right text-t2">{total > 0 ? `${Math.round((f.valor / total) * 100)}%` : "0%"}</span>
-                      </div>
-                    ))}
-                    {view.formasPagamento.length === 0 && (
-                      <span className="py-2 text-center text-[12px] text-t2">Sem dados no período.</span>
-                    )}
+                  {view.formasPagamento.length === 0 && (
+                    <span className="py-2 text-center text-[12px] text-t2">Sem dados no período.</span>
+                  )}
                   </div>
                 </>
               );
