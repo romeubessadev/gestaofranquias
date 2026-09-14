@@ -38,8 +38,8 @@ export function BarChart({ data, height = 220, color = "var(--acc)", formatValue
 
 /**
  * Barras empilhadas: realizado (colorido) + meta restante (cinza).
- * Estilo cards-metas.png — valor da meta visível abaixo de cada barra.
- * Sem dots, sem tooltips, sem scroll issues. Puro CSS/flex.
+ * Estilo cards-metas.png — valor da meta na legenda, não abaixo de cada barra.
+ * Sem dots, sem tooltips, sem scroll issues, sem sobreposição de texto. Puro CSS/flex.
  */
 export function StackedBarWithGoal({ data, height = 200, color = "var(--acc)", formatValue = (v: number) => String(v) }: {
   data: { label: string; value: number; goal: number }[];
@@ -84,13 +84,8 @@ export function StackedBarWithGoal({ data, height = 200, color = "var(--acc)", f
                 />
               )}
             </div>
-            {/* Label + valor da meta abaixo */}
+            {/* Apenas o label do eixo X — sem valor da meta para evitar sobreposição */}
             <span className="truncate text-[9px] font-semibold text-t2 sm:text-[10px]">{d.label}</span>
-            {d.goal > 0 && (
-              <span className="whitespace-nowrap text-[8px] font-medium text-t2 sm:text-[9px]">
-                Meta {formatValue(d.goal)}
-              </span>
-            )}
           </div>
         );
       })}
