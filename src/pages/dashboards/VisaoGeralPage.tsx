@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { StackedBarWithGoal, DonutChart, Gauge } from "@/components/charts";
+import { AreaLineChart, DonutChart, Gauge } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarVisaoGeralView, type VisaoKpi } from "@/data/gestao/dashboard";
 import { brlK } from "@/lib/formato";
@@ -166,20 +166,19 @@ export default function VisaoGeralPage() {
               </Tooltip>
             </div>
           </CardHeader>
-          <div className="px-4 pb-4">
-            <StackedBarWithGoal
-              data={view.categoriaVsMeta.map((c) => ({
-                label: c.categoria.length > 8 ? c.categoria.slice(0, 7) + "…" : c.categoria,
-                value: c.realizado,
-                goal: c.meta,
-              }))}
-              height={200}
+          <div className="overflow-hidden px-4 pb-4">
+            <AreaLineChart
+              data={view.categoriaVsMeta.map((c) => c.realizado)}
+              compareData={view.categoriaVsMeta.map((c) => c.meta)}
+              labels={view.categoriaVsMeta.map((c) => c.categoria.length > 8 ? c.categoria.slice(0, 7) + "…" : c.categoria)}
               color="var(--acc)"
+              compareColor="var(--t2)"
+              height={200}
               formatValue={brlK}
             />
             <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-semibold text-t2">
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-[var(--acc)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm border-2 border-dashed border-[var(--t2)]" /> Meta</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /> Realizado</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-[var(--t2)]" /> Meta</span>
             </div>
           </div>
         </Card>
@@ -192,20 +191,19 @@ export default function VisaoGeralPage() {
               </Tooltip>
             </div>
           </CardHeader>
-          <div className="px-4 pb-4">
-            <StackedBarWithGoal
-              data={view.diaVsMeta.map((d) => ({
-                label: d.dia,
-                value: d.realizado,
-                goal: d.meta,
-              }))}
-              height={200}
+          <div className="overflow-hidden px-4 pb-4">
+            <AreaLineChart
+              data={view.diaVsMeta.map((d) => d.realizado)}
+              compareData={view.diaVsMeta.map((d) => d.meta)}
+              labels={view.diaVsMeta.map((d) => d.dia)}
               color="var(--info)"
+              compareColor="var(--t2)"
+              height={200}
               formatValue={brlK}
             />
             <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-semibold text-t2">
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-[var(--info)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm border-2 border-dashed border-[var(--t2)]" /> Meta</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--info)]" /> Realizado</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-[var(--t2)]" /> Meta</span>
             </div>
           </div>
         </Card>
@@ -222,20 +220,19 @@ export default function VisaoGeralPage() {
               </Tooltip>
             </div>
           </CardHeader>
-          <div className="px-4 pb-4">
-            <StackedBarWithGoal
-              data={view.evolucao.map((e) => ({
-                label: e.label,
-                value: e.realizado,
-                goal: e.meta,
-              }))}
-              height={200}
+          <div className="overflow-hidden px-4 pb-4">
+            <AreaLineChart
+              data={view.evolucao.map((e) => e.realizado)}
+              compareData={view.evolucao.map((e) => e.meta)}
+              labels={view.evolucao.map((e) => e.label)}
               color="var(--ok)"
+              compareColor="var(--t2)"
+              height={200}
               formatValue={brlK}
             />
             <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-semibold text-t2">
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-[var(--ok)]" /> Realizado</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm border-2 border-dashed border-[var(--t2)]" /> Meta</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--ok)]" /> Realizado</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-[var(--t2)]" /> Meta</span>
             </div>
           </div>
         </Card>
