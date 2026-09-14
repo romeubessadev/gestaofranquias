@@ -53,31 +53,17 @@ export function DonutChart({ segments, size = 160, thickness = 24, centerLabel, 
             </div>
           )}
         </div>
-        {/* Legenda lateral: cor + nome + percentual bold */}
+        {/* Legenda lateral: cor + nome + valor bold + percentual (estilo Expense breakdown do Vela) */}
         <div className="flex flex-col gap-2.5">
           {segments.map((seg) => (
             <div key={seg.label} className="flex items-center gap-2.5 text-[12.5px]">
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: seg.color }} />
               <span className="text-t1">{seg.label}</span>
-              <span className="font-bold text-t0">{Math.round((seg.value / total) * 100)}%</span>
+              <span className="font-bold text-t0">{formatValue ? formatValue(seg.value) : seg.value.toLocaleString("pt-BR")}</span>
+              <span className="text-t2">{Math.round((seg.value / total) * 100)}%</span>
             </div>
           ))}
         </div>
-      </div>
-      {/* Legenda inferior: cor + nome + valor + percentual (estilo Vela) */}
-      <div className="flex w-full flex-col gap-1.5 border-t border-line pt-3">
-        {segments.map((seg) => (
-          <div key={seg.label} className="flex items-center justify-between text-[12px]">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: seg.color }} />
-              <span className="text-t1">{seg.label}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="font-bold text-t0">{formatValue ? formatValue(seg.value) : seg.value.toLocaleString("pt-BR")}</span>
-              <span className="w-8 text-right text-t2">{Math.round((seg.value / total) * 100)}%</span>
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );
