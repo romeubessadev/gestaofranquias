@@ -35,7 +35,7 @@ const PAD_X = 12;
 const PAD_TOP = 12;
 const LABEL_H = 24;
 /** Largura mínima por ponto — garante espaço para labels sem corte */
-const MIN_POINT_W = 80;
+const MIN_POINT_W = 110;
 
 function toPoints(data: number[], svgW: number, chartH: number, min: number, range: number) {
   return data.map((v, i) => ({
@@ -160,20 +160,23 @@ export function AreaLineChart({
           </div>
         )}
 
-        {/* Tooltip flutuante com clamp nas laterais */}
+        {/* Tooltip flutuante com clamp nas laterais e no topo */}
         {active && hoverIdx !== null && (() => {
           const leftPct = (active.x / svgW) * 100;
+          const topPct = (active.y / (height - LABEL_H)) * 100;
           let translateX = "-50%";
           if (leftPct < 15) translateX = "0";
           else if (leftPct > 85) translateX = "-100%";
+          // Clamp vertical: se muito perto do topo, mostra abaixo do ponto em vez de acima
+          const flipDown = topPct < 20;
           return (
             <div
-              className="pointer-events-none absolute z-10 -translate-y-full rounded-lg border border-line bg-bg-3 px-3 py-2 text-[11px] shadow-lg"
+              className="pointer-events-none absolute z-10 rounded-lg border border-line bg-bg-3 px-3 py-2 text-[11px] shadow-lg"
               style={{
                 left: `${leftPct}%`,
-                top: `${(active.y / (height - LABEL_H)) * 100}%`,
-                marginTop: -10,
-                transform: `translateX(${translateX})`,
+                top: `${topPct}%`,
+                marginTop: flipDown ? 14 : -10,
+                transform: `translateX(${translateX})${flipDown ? "" : " translateY(-100%)"}`,
                 minWidth: 80,
                 whiteSpace: "nowrap",
               }}
