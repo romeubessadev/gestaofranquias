@@ -38,6 +38,9 @@ const IconTicket = () => (
 
 const KPI_ICONS = [IconFat, IconCmv, IconVendas, IconTicket];
 
+/** Cores fixas para as lojas no donut e barras do Ranking de Lojas. */
+const CORES_LOJAS = ["var(--acc)", "var(--info)", "var(--ok)", "var(--warn)", "var(--bad)"];
+
 /** Cores distintas para cada KPI card (hero). */
 const KPI_COLORS = [
   { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
@@ -271,40 +274,59 @@ export default function VisaoGeralPage() {
       {/* Linha: Ranking de Lojas + Forma de Pagamento */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="flex flex-col">
-          <CardHeader>
+          <div className="mb-1 flex items-center justify-between">
             <CardTitle>Ranking de Lojas</CardTitle>
-          </CardHeader>
-          <div className="flex flex-1 flex-col gap-2.5 px-4 pb-4">
-            {view.rankingLojas.map((loja, idx) => {
-              const pct = loja.pctMeta ?? 0;
-              const trend = loja.trend;
-              return (
-                <div key={loja.nome} className="rounded-xl bg-bg-inset p-3">
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: idx === 0 ? "var(--ok)" : idx === 1 ? "var(--info)" : "var(--acc)" }}>
-                        {idx + 1}
-                      </span>
-                      <span className="text-[13px] font-bold text-t0">{loja.nome}</span>
-                    </div>
-                    <span className="font-mono text-[13px] font-extrabold text-t0">{brlK(loja.valor)}</span>
-                  </div>
-                  <ProgressBar value={pct} color={pct >= 100 ? "var(--ok)" : pct >= 70 ? "var(--acc)" : "var(--warn)"} />
-                  <span className="mt-0.5 text-[11px] font-semibold text-t2">
-                    {Math.round(pct)}% da meta
-                    {trend != null && (
-                      <span className="ml-1" style={{ color: trend >= 0 ? "var(--ok)" : "var(--bad)" }}>
-                        {trend >= 0 ? "+" : ""}{trend}%
-                      </span>
-                    )}
-                  </span>
-                </div>
-              );
-            })}
-            {view.rankingLojas.length === 0 && (
-              <span className="py-6 text-center text-[12px] text-t2">Sem dados no período.</span>
-            )}
           </div>
+          <p className="mb-2 text-[12.5px] text-t2">Participação no faturamento da rede</p>
+          {view.rankingLojas.length === 0 ? (
+            <span className="py-6 text-center text-[12px] text-t2">Sem dados no período.</span>
+          ) : (
+            <>
+              <div className="flex flex-1 flex-col items-center justify-center">
+                <DonutChart
+                  segments={view.rankingLojas.map((l, i) => ({
+                    label: l.nome,
+                    value: l.valor,
+                    color: CORES_LOJAS[i % CORES_LOJAS.length],
+                  }))}
+                  size={148}
+                  thickness={20}
+                  centerLabel="Total rede"
+                  centerValue={brlK(view.rankingLojas.reduce((s, l) => s + l.valor, 0))}
+                  formatValue={brlK}
+                />
+              </div>
+              <div className="mt-4 flex flex-col gap-3">
+                {view.rankingLojas.map((loja, idx) => {
+                  const pct = loja.pctMeta ?? 0;
+                  const trend = loja.trend;
+                  const cor = CORES_LOJAS[idx % CORES_LOJAS.length];
+                  return (
+                    <div key={loja.nome} className="rounded-xl bg-bg-inset p-3">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="flex items-center gap-2 text-[13px] font-bold text-t0">
+                          <span className="h-2.5 w-2.5 rounded-[4px]" style={{ background: cor }} />
+                          {idx + 1}. {loja.nome}
+                        </span>
+                        <span className="font-mono text-[13px] font-extrabold text-t0">{brlK(loja.valor)}</span>
+                      </div>
+                      <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-bg-2">
+                        <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct)}%`, background: cor }} />
+                      </div>
+                      <span className="text-[11px] font-semibold text-t2">
+                        {Math.round(pct)}% da meta
+                        {trend != null && (
+                          <span className="ml-1" style={{ color: trend >= 0 ? "var(--ok)" : "var(--bad)" }}>
+                            {trend >= 0 ? "+" : ""}{trend}%
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </Card>
         <Card className="flex flex-col">
           <CardHeader>
