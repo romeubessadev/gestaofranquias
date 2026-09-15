@@ -277,7 +277,7 @@ export default function VisaoGeralPage() {
           <div className="mb-1 flex items-center justify-between">
             <CardTitle>Ranking de Lojas</CardTitle>
           </div>
-          <p className="mb-2 text-[12.5px] text-t2">Participação no faturamento da rede</p>
+          <p className="mb-2 text-[12.5px] text-t2">Participação no faturamento do grupo</p>
           {view.rankingLojas.length === 0 ? (
             <span className="py-6 text-center text-[12px] text-t2">Sem dados no período.</span>
           ) : (
@@ -291,9 +291,10 @@ export default function VisaoGeralPage() {
                   }))}
                   size={148}
                   thickness={20}
-                  centerLabel="Total rede"
+                  centerLabel="Total grupo"
                   centerValue={brlK(view.rankingLojas.reduce((s, l) => s + l.valor, 0))}
                   formatValue={brlK}
+                  showLegendValue={false}
                 />
               </div>
               <div className="mt-4 flex flex-col gap-3">
