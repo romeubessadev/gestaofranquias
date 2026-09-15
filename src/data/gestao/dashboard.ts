@@ -2100,6 +2100,7 @@ export interface VisaoGeralView {
   formasPagamento: FormaPagamentoFat[];
   topVendedoras: (TopItem & { sub?: string; ticketMedio?: number; pctMeta?: number })[];
   topProdutos: (TopItem & { sub?: string; categoria?: string; trend?: number })[];
+  rankingLojas: (TopItem & { pctMeta?: number; trend?: number })[];
 }
 
 export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
@@ -2364,6 +2365,24 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     .sort((a, b) => b.valor - a.valor)
     .slice(0, 5);
 
+  // Ranking de lojas (faturamento + % da meta + trend)
+  const rankingLojas: (TopItem & { pctMeta?: number; trend?: number })[] = fs.map((f) => {
+    const fatPeriodo = fs.map((fil) => {
+      const agg = agregadoPeriodo(fil.id, periodo.inicio, periodo.fim, divisao);
+      return fil.id === f.id ? agg.faturamento : 0;
+    }).reduce((s, v) => s + v, 0);
+    const metaFilial = metaDaFilial(f.id, periodo.inicio.slice(0, 7));
+    const pctMeta = metaFilial ? (fatPeriodo / metaFilial.valorLoja) * 100 : null;
+    // Trend vs período anterior (mock simples: +5% a +15% variando)
+    const trend = Math.round(5 + Math.random() * 10);
+    return {
+      nome: f.nome,
+      valor: fatPeriodo,
+      pctMeta: pctMeta ?? undefined,
+      trend,
+    };
+  }).sort((a, b) => b.valor - a.valor);
+
   return {
     escopo,
     periodo,
@@ -2377,5 +2396,6 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     formasPagamento,
     topVendedoras,
     topProdutos,
+    rankingLojas,
   };
 }

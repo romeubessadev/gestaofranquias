@@ -158,7 +158,63 @@ export default function VisaoGeralPage() {
         )}
       </Card>
 
-      {/* Par: Categoria vs Meta + Dia da Semana vs Meta */}
+      {/* Linha: Atingimento da Meta + Evolução do Faturamento vs Meta */}
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.7fr]">
+        {view.gauges.length > 0 && (
+          <Card className="flex flex-col">
+            <div className="mb-1 flex items-center justify-between">
+              <CardTitle>Atingimento da Meta</CardTitle>
+              <Tooltip label="Percentual atingido em cada faixa de meta (Meta, Super Meta, Hiper Meta). Responde: vou bater a meta este mês?">
+                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+              </Tooltip>
+            </div>
+            <p className="mb-2 text-[12.5px] text-t2">Progresso por faixa de meta</p>
+            <div className="flex flex-wrap items-end justify-center gap-4 px-4 pb-4">
+              {view.gauges.map((g) => (
+                <Gauge
+                  key={g.nome}
+                  value={Math.round(g.pct)}
+                  label={`${g.nome} · ${brlK(g.alvo)}`}
+                  color={g.pct >= 100 ? "var(--ok)" : g.pct >= 70 ? "var(--acc)" : "var(--bad)"}
+                />
+              ))}
+            </div>
+            {(view.faltamParaMeta || view.projecaoFechamento) && (
+              <div className="mt-1 flex flex-col items-center gap-1 pb-4 text-center text-[12px]">
+                {view.faltamParaMeta && <span className="font-semibold text-t0">{view.faltamParaMeta}</span>}
+                {view.projecaoFechamento && <span className="text-t1">{view.projecaoFechamento}</span>}
+              </div>
+            )}
+          </Card>
+        )}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-1.5">
+              <CardTitle>Evolução do Faturamento vs Meta</CardTitle>
+              <Tooltip label="Realizado acumulado, meta acumulada e projeção de fechamento. Responde: vou bater a meta até o fim do mês?">
+                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
+              </Tooltip>
+            </div>
+          </CardHeader>
+          <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pt-1 text-[11px]">
+            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--ok)]" /><span className="font-semibold text-t2">Realizado</span> <span className="font-bold text-t0">{brlK(view.evolucao.reduce((s, e) => s + e.realizado, 0))}</span></span>
+            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--warn)]" /><span className="font-semibold text-t2">Meta</span> <span className="font-bold text-t0">{brlK(view.evolucao.reduce((s, e) => s + e.meta, 0))}</span></span>
+          </div>
+          <div className="overflow-hidden px-4 pb-4">
+            <AreaLineChart
+              data={view.evolucao.map((e) => e.realizado)}
+              compareData={view.evolucao.map((e) => e.meta)}
+              labels={view.evolucao.map((e) => e.label)}
+              color="var(--ok)"
+              compareColor="var(--warn)"
+              height={200}
+              formatValue={brlK}
+            />
+          </div>
+        </Card>
+      </div>
+
+      {/* Linha: Categoria vs Meta + Dia da Semana vs Meta */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -212,31 +268,42 @@ export default function VisaoGeralPage() {
         </Card>
       </div>
 
-      {/* Par: Evolução vs Meta + Forma de Pagamento */}
+      {/* Linha: Ranking de Lojas + Forma de Pagamento */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Evolução do Faturamento vs Meta</CardTitle>
-              <Tooltip label="Realizado acumulado, meta acumulada e projeção de fechamento. Responde: vou bater a meta até o fim do mês?">
-                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
-              </Tooltip>
-            </div>
+            <CardTitle>Ranking de Lojas</CardTitle>
           </CardHeader>
-          <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pt-1 text-[11px]">
-            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--ok)]" /><span className="font-semibold text-t2">Realizado</span> <span className="font-bold text-t0">{brlK(view.evolucao.reduce((s, e) => s + e.realizado, 0))}</span></span>
-            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--warn)]" /><span className="font-semibold text-t2">Meta</span> <span className="font-bold text-t0">{brlK(view.evolucao.reduce((s, e) => s + e.meta, 0))}</span></span>
-          </div>
-          <div className="overflow-hidden px-4 pb-4">
-            <AreaLineChart
-              data={view.evolucao.map((e) => e.realizado)}
-              compareData={view.evolucao.map((e) => e.meta)}
-              labels={view.evolucao.map((e) => e.label)}
-              color="var(--ok)"
-              compareColor="var(--warn)"
-              height={200}
-              formatValue={brlK}
-            />
+          <div className="flex flex-1 flex-col gap-2.5 px-4 pb-4">
+            {view.rankingLojas.map((loja, idx) => {
+              const pct = loja.pctMeta ?? 0;
+              const trend = loja.trend;
+              return (
+                <div key={loja.nome} className="rounded-xl bg-bg-inset p-3">
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: idx === 0 ? "var(--ok)" : idx === 1 ? "var(--info)" : "var(--acc)" }}>
+                        {idx + 1}
+                      </span>
+                      <span className="text-[13px] font-bold text-t0">{loja.nome}</span>
+                    </div>
+                    <span className="font-mono text-[13px] font-extrabold text-t0">{brlK(loja.valor)}</span>
+                  </div>
+                  <ProgressBar value={pct} color={pct >= 100 ? "var(--ok)" : pct >= 70 ? "var(--acc)" : "var(--warn)"} />
+                  <span className="mt-0.5 text-[11px] font-semibold text-t2">
+                    {Math.round(pct)}% da meta
+                    {trend != null && (
+                      <span className="ml-1" style={{ color: trend >= 0 ? "var(--ok)" : "var(--bad)" }}>
+                        {trend >= 0 ? "+" : ""}{trend}%
+                      </span>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+            {view.rankingLojas.length === 0 && (
+              <span className="py-6 text-center text-[12px] text-t2">Sem dados no período.</span>
+            )}
           </div>
         </Card>
         <Card className="flex flex-col">
