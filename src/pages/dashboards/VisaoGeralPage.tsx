@@ -341,15 +341,15 @@ export default function VisaoGeralPage() {
               </button>
             </div>
           </CardHeader>
-          <div className="overflow-x-auto px-4 pb-4">
-            <table className="w-full min-w-[480px] text-left text-[12px]">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] border-collapse text-sm">
               <thead>
-                <tr className="border-b border-line text-[10px] font-bold uppercase tracking-wide text-t2">
-                  <th className="py-2 pr-2 w-6">#</th>
-                  <th className="py-2 pr-2">Produto</th>
-                  <th className="py-2 pr-2 text-right">Vendas</th>
-                  <th className="py-2 pr-2 text-right">Faturamento</th>
-                  <th className="py-2 text-right">Trend</th>
+                <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
+                  <th className="px-1 pb-3 text-left font-bold">#</th>
+                  <th className="px-1 pb-3 text-left font-bold">Produto</th>
+                  <th className="px-1 pb-3 text-right font-bold">Vendas</th>
+                  <th className="px-1 pb-3 text-right font-bold">Faturamento</th>
+                  <th className="px-1 pb-3 text-right font-bold">Vs anterior</th>
                 </tr>
               </thead>
               <tbody>
@@ -358,33 +358,27 @@ export default function VisaoGeralPage() {
                   const cores = ["var(--ok)", "var(--info)", "var(--warn)", "var(--acc)", "var(--bad)"];
                   const corAvatar = cores[idx % cores.length];
                   return (
-                    <tr key={p.nome} className="border-b border-line/50 last:border-0 hover:bg-bg-inset/50">
-                      <td className="py-2.5 pr-2 text-center text-[12px] font-bold text-t2">{idx + 1}</td>
-                      <td className="py-2.5 pr-2">
-                        <div className="flex items-center gap-2.5">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold" style={{ background: `color-mix(in srgb, ${corAvatar} 15%, transparent)`, color: corAvatar }}>{iniciais || "?"}</span>
+                    <tr key={p.nome} className="border-b border-line last:border-b-0">
+                      <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
+                      <td className="px-1 py-3">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] text-[13px] font-extrabold" style={{ background: `color-mix(in srgb, ${corAvatar} 15%, transparent)`, color: corAvatar }}>{iniciais || "?"}</span>
                           <div className="min-w-0">
-                            <p className="truncate text-[12px] font-semibold text-t0" title={p.nome}>{p.nome}</p>
-                            {p.categoria && <p className="truncate text-[10px] text-t2">{p.categoria}</p>}
+                            <p className="truncate text-[13px] font-bold text-t0">{p.nome}</p>
+                            {p.categoria && <p className="text-[11px] text-t2">{p.categoria}</p>}
                           </div>
                         </div>
                       </td>
-                      <td className="py-2.5 pr-2 text-right text-[12px] font-semibold text-t1">{p.sub?.replace(" itens", "") ?? "—"}</td>
-                      <td className="py-2.5 pr-2 text-right text-[12px] font-bold text-t0">{brlK(p.valor)}</td>
-                      <td className="py-2.5 text-right">
-                        {p.trend != null ? (
-                          <span className={`text-[11px] font-bold ${p.trend >= 0 ? "text-ok" : "text-bad"}`}>
-                            {p.trend >= 0 ? "+" : ""}{p.trend}%
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-t2">—</span>
-                        )}
+                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{p.sub?.replace(" itens", "") ?? "—"}</td>
+                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlK(p.valor)}</td>
+                      <td className="px-1 py-3 text-right text-xs font-bold" style={{ color: p.trend != null ? (p.trend >= 0 ? "var(--ok)" : "var(--bad)") : undefined }}>
+                        {p.trend != null ? `${p.trend >= 0 ? "+" : ""}${p.trend}%` : "—"}
                       </td>
                     </tr>
                   );
                 })}
                 {view.topProdutos.length === 0 && (
-                  <tr><td colSpan={5} className="py-4 text-center text-[12px] text-t2">Sem dados no período.</td></tr>
+                  <tr><td colSpan={5} className="px-1 py-3 text-center text-[13px] text-t2">Sem dados no período.</td></tr>
                 )}
               </tbody>
             </table>
