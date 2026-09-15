@@ -2370,8 +2370,9 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     const fatPeriodo = agregadoPeriodo(f, periodo.inicio, periodo.fim, divisao).faturamento;
     const metaFilial = metaDaFilial(f.id, periodo.inicio.slice(0, 7));
     const pctMeta = metaFilial ? (fatPeriodo / metaFilial.valorLoja) * 100 : null;
-    // Trend vs período anterior (mock simples: +5% a +15% variando)
-    const trend = Math.round(5 + Math.random() * 10);
+    // Trend real: faturamento do período vs período anterior
+    const fatAnterior = agregadoPeriodo(f, ant.inicio, ant.fim, divisao).faturamento;
+    const trend = fatAnterior > 0 ? Math.round(((fatPeriodo - fatAnterior) / fatAnterior) * 100) : undefined;
     return {
       nome: f.nome,
       valor: fatPeriodo,

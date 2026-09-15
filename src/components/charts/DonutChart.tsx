@@ -61,7 +61,7 @@ export function DonutChart({ segments, size = 160, thickness = 24, centerLabel, 
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: seg.color }} />
               <span className="text-t1">{seg.label}</span>
               {showLegendValue && <span className="font-bold text-t0">{formatValue ? formatValue(seg.value) : seg.value.toLocaleString("pt-BR")}</span>}
-              <span className="text-t2">{Math.round((seg.value / total) * 100)}%</span>
+              <span className="text-[11.5px] font-semibold text-t2">{Math.round((seg.value / total) * 100)}%</span>
             </div>
           ))}
         </div>
