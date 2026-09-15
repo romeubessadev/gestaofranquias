@@ -239,35 +239,46 @@ export default function VisaoGeralPage() {
             />
           </div>
         </Card>
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Forma de Pagamento</CardTitle>
-            </div>
-          </CardHeader>
-          <div className="px-4 pb-4">
-            {(() => {
-              const total = view.formasPagamento.reduce((s, f) => s + f.valor, 0);
-              const segmentos = view.formasPagamento.map((f) => ({
-                label: f.forma,
-                value: f.valor,
-                color: f.cor,
-              }));
-              return (
-                <>
+        <Card padding="lg" className="flex flex-col">
+          <div className="mb-1 flex items-center justify-between">
+            <CardTitle>Forma de Pagamento</CardTitle>
+          </div>
+          {(() => {
+            const total = view.formasPagamento.reduce((s, f) => s + f.valor, 0);
+            const segmentos = view.formasPagamento.map((f) => ({
+              label: f.forma,
+              value: f.valor,
+              color: f.cor,
+            }));
+            if (view.formasPagamento.length === 0) {
+              return <span className="py-6 text-center text-[12px] text-t2">Sem dados no período.</span>;
+            }
+            return (
+              <>
+                <div className="mx-auto my-2">
                   <DonutChart
                     segments={segmentos}
                     centerLabel="Total"
                     centerValue={brlK(total)}
                     formatValue={brlK}
                   />
-                  {view.formasPagamento.length === 0 && (
-                    <span className="py-2 text-center text-[12px] text-t2">Sem dados no período.</span>
-                  )}
-                </>
-              );
-            })()}
-          </div>
+                </div>
+                <div className="mt-2 flex flex-col gap-2">
+                  {view.formasPagamento.map((f) => {
+                    const pct = total > 0 ? Math.round((f.valor / total) * 100) : 0;
+                    return (
+                      <div key={f.forma} className="flex items-center gap-2.5">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: f.cor }} />
+                        <span className="flex-1 text-[12.5px] font-semibold text-t1">{f.forma}</span>
+                        <span className="font-mono text-[12.5px] font-bold text-t0">{brlK(f.valor)}</span>
+                        <span className="min-w-[32px] text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
         </Card>
       </div>
 
