@@ -254,16 +254,14 @@ export default function VisaoGeralPage() {
               return <span className="py-6 text-center text-[12px] text-t2">Sem dados no período.</span>;
             }
             return (
-              <>
-                <div className="mx-auto my-2">
-                  <DonutChart
-                    segments={segmentos}
-                    centerLabel="Total"
-                    centerValue={brlK(total)}
-                    formatValue={brlK}
-                  />
-                </div>
-              </>
+              <div className="flex flex-1 flex-col items-center justify-center gap-2">
+                <DonutChart
+                  segments={segmentos}
+                  centerLabel="Total"
+                  centerValue={brlK(total)}
+                  formatValue={brlK}
+                />
+              </div>
             );
           })()}
         </Card>
