@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button } from "@/components/ui";
+import { Avatar, Card, CardHeader, CardTitle, ProgressBar, StatCard, DateRangePicker, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, DonutChart, Gauge } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
@@ -285,30 +285,20 @@ export default function VisaoGeralPage() {
               </button>
             </div>
           </CardHeader>
-          <div className="flex flex-col gap-3 px-4 pb-4">
+          <div className="flex flex-col gap-4 px-4 pb-4">
             {view.topVendedoras.map((v, idx) => {
-              const iniciais = v.nome.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("");
-              const cores = ["var(--acc)", "var(--info)", "var(--warn)", "var(--ok)", "var(--bad)"];
-              const corAvatar = cores[idx % cores.length];
               const pct = v.pctMeta ?? 0;
               return (
-                <div key={v.nome} className="flex items-start gap-3">
-                  <span className="mt-1 w-4 shrink-0 text-center text-[12px] font-bold text-t2">{idx + 1}</span>
-                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: corAvatar }}>{iniciais || "?"}</span>
+                <div key={v.nome} className="flex items-center gap-3">
+                  <span className="w-5 text-center text-sm font-extrabold text-t1">{idx + 1}</span>
+                  <Avatar name={v.nome} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-[13px] font-semibold text-t0">{v.nome}</p>
-                      <span className="shrink-0 text-[13px] font-bold text-ok">{brlK(v.valor)}</span>
+                    <div className="mb-1 flex items-baseline justify-between">
+                      <span className="text-[13px] font-bold text-t0">{v.nome}</span>
+                      <span className="font-mono text-[13px] font-extrabold text-ok">{brlK(v.valor)}</span>
                     </div>
-                    {/* Barra de progresso — % da meta individual */}
-                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-bg-inset">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${Math.max(2, pct)}%`, background: pct >= 100 ? "var(--ok)" : corAvatar }}
-                      />
-                    </div>
-                    {/* Métricas abaixo da barra */}
-                    <div className="mt-1 flex items-center gap-2 text-[10px] text-t2">
+                    <ProgressBar value={pct} height={5} />
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-t2">
                       <span>{v.sub?.split("·")[0]?.trim() ?? ""}</span>
                       {v.ticketMedio != null && v.ticketMedio > 0 && (
                         <>
