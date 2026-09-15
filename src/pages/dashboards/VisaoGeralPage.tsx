@@ -239,10 +239,10 @@ export default function VisaoGeralPage() {
             />
           </div>
         </Card>
-        <Card padding="lg" className="flex flex-col">
-          <div className="mb-1 flex items-center justify-between">
+        <Card className="flex flex-col">
+          <CardHeader>
             <CardTitle>Forma de Pagamento</CardTitle>
-          </div>
+          </CardHeader>
           {(() => {
             const total = view.formasPagamento.reduce((s, f) => s + f.valor, 0);
             const segmentos = view.formasPagamento.map((f) => ({
