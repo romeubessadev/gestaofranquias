@@ -264,7 +264,6 @@ export default function VisaoGeralPage() {
                   {view.formasPagamento.length === 0 && (
                     <span className="py-2 text-center text-[12px] text-t2">Sem dados no período.</span>
                   )}
-                  </div>
                 </>
               );
             })()}
