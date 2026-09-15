@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Avatar, Card, CardHeader, CardTitle, ProgressBar, StatCard, DateRangePicker, PageHeader, Button } from "@/components/ui";
+import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, StatCard, DateRangePicker, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, DonutChart, Gauge } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
@@ -276,6 +276,7 @@ export default function VisaoGeralPage() {
         <Card className="flex flex-col">
           <div className="mb-1 flex items-center justify-between">
             <CardTitle>Ranking de Lojas</CardTitle>
+            <Badge variant="accent">{brlK(view.rankingLojas.reduce((s, l) => s + l.valor, 0))} total</Badge>
           </div>
           <p className="mb-2 text-[12.5px] text-t2">Participação no faturamento do grupo</p>
           {view.rankingLojas.length === 0 ? (
@@ -307,7 +308,7 @@ export default function VisaoGeralPage() {
                       <div className="mb-1.5 flex items-center justify-between">
                         <span className="flex items-center gap-2 text-[13px] font-bold text-t0">
                           <span className="h-2.5 w-2.5 rounded-[4px]" style={{ background: cor }} />
-                          {idx + 1}. {loja.nome}
+                          {loja.nome}
                         </span>
                         <span className="font-mono text-[13px] font-extrabold text-t0">{brlK(loja.valor)}</span>
                       </div>
@@ -318,7 +319,7 @@ export default function VisaoGeralPage() {
                         {Math.round(pct)}% da meta
                         {trend != null && (
                           <span className="ml-1" style={{ color: trend >= 0 ? "var(--ok)" : "var(--bad)" }}>
-                            {trend >= 0 ? "+" : ""}{trend}%
+                            · {trend >= 0 ? "+" : ""}{trend}% vs anterior
                           </span>
                         )}
                       </span>
