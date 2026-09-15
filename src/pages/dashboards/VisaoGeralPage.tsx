@@ -263,19 +263,6 @@ export default function VisaoGeralPage() {
                     formatValue={brlK}
                   />
                 </div>
-                <div className="mt-2 flex flex-col gap-2">
-                  {view.formasPagamento.map((f) => {
-                    const pct = total > 0 ? Math.round((f.valor / total) * 100) : 0;
-                    return (
-                      <div key={f.forma} className="flex items-center gap-2.5">
-                        <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: f.cor }} />
-                        <span className="flex-1 text-[12.5px] font-semibold text-t1">{f.forma}</span>
-                        <span className="font-mono text-[12.5px] font-bold text-t0">{brlK(f.valor)}</span>
-                        <span className="min-w-[32px] text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
-                      </div>
-                    );
-                  })}
-                </div>
               </>
             );
           })()}
