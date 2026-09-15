@@ -2367,10 +2367,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
 
   // Ranking de lojas (faturamento + % da meta + trend)
   const rankingLojas: (TopItem & { pctMeta?: number; trend?: number })[] = fs.map((f) => {
-    const fatPeriodo = fs.map((fil) => {
-      const agg = agregadoPeriodo(fil.id, periodo.inicio, periodo.fim, divisao);
-      return fil.id === f.id ? agg.faturamento : 0;
-    }).reduce((s, v) => s + v, 0);
+    const fatPeriodo = agregadoPeriodo(f, periodo.inicio, periodo.fim, divisao).faturamento;
     const metaFilial = metaDaFilial(f.id, periodo.inicio.slice(0, 7));
     const pctMeta = metaFilial ? (fatPeriodo / metaFilial.valorLoja) * 100 : null;
     // Trend vs período anterior (mock simples: +5% a +15% variando)
