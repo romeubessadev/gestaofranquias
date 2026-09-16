@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import type { Filial } from "@/data/gestao/filiais";
 import type { Escopo } from "@/data/gestao/dashboard";
 import { Avatar } from "@/components/ui";
+import { StoreIcon } from "@/pages/dashboards/icons";
 import { cn } from "@/lib/cn";
 
 /**
@@ -41,10 +42,7 @@ export function SeletorLoja({ escopo, onChange, minhas }: { escopo: Escopo; onCh
           <Avatar name={filialAtual.fantasia} size="sm" />
         ) : (
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-3 text-t2">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
+            <StoreIcon size={15} />
           </span>
         )}
         <div className="min-w-0 flex-1">
@@ -71,10 +69,7 @@ export function SeletorLoja({ escopo, onChange, minhas }: { escopo: Escopo; onCh
             )}
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-3 text-t2">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                <polyline points="9 22 9 12 15 12 15 22" />
-              </svg>
+              <StoreIcon size={15} />
             </span>
             <div className="min-w-0 flex-1">
               <p className={cn("truncate text-[13px] font-bold", ehTodas ? "text-acc" : "text-t0")}>Todas as lojas</p>
