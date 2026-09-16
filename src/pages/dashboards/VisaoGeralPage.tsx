@@ -206,9 +206,11 @@ export default function VisaoGeralPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-1.5">
-                <CardTitle>Evolução do Faturamento vs Meta</CardTitle>
+                <CardTitle>Faturamento vs Meta</CardTitle>
                 <Tooltip label="Realizado acumulado e meta acumulada. Responde: vou bater a meta até o fim do mês?">
-                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+                    ?
+                  </span>
                 </Tooltip>
               </div>
               <div className="mt-2.5 flex flex-wrap gap-5">
@@ -252,7 +254,9 @@ export default function VisaoGeralPage() {
               <div className="flex items-center gap-1.5">
                 <CardTitle>Categoria vs Meta</CardTitle>
                 <Tooltip label="Faturamento realizado por categoria comparado à meta proporcional do período.">
-                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+                    ?
+                  </span>
                 </Tooltip>
               </div>
               <div className="mt-2.5 flex flex-wrap gap-5">
@@ -292,7 +296,9 @@ export default function VisaoGeralPage() {
               <div className="flex items-center gap-1.5">
                 <CardTitle>Dia da Semana vs Meta</CardTitle>
                 <Tooltip label="Faturamento médio por dia da semana comparado à meta diária do período.">
-                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+                    ?
+                  </span>
                 </Tooltip>
               </div>
               <div className="mt-2.5 flex flex-wrap gap-5">
