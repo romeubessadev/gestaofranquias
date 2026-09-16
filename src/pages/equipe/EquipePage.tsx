@@ -178,7 +178,7 @@ export function EquipePage() {
         {v.metaAtiva && v.desafios && v.desafios.length > 0 && <BlocoDesafios desafios={v.desafios} />}
         {v.metaAtiva && (!v.desafios || v.desafios.length === 0) && (
           <Card>
-            <EmptyState icon="🎯" title="Sem desafios ativos" description={`Nenhum desafio cadastrado para ${mesAno(`${v.competencia}-01`)}.`} />
+            <EmptyState icon="🎯" title="Sem desafios" description={`Nenhum desafio cadastrado para ${mesAno(`${v.competencia}-01`)}.`} />
           </Card>
         )}
       </div>

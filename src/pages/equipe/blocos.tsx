@@ -368,9 +368,11 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
   return (
     <Card padding="lg">
       <div className="mb-4">
-        <CardTitle>Desafios ativos</CardTitle>
+        <CardTitle>Desafios</CardTitle>
         <p className="mt-1 text-[12.5px] text-t2">
-          {desafios.length} desafio{desafios.length === 1 ? "" : "s"} na competência.
+          {desafios.length === 0
+            ? "Nenhum desafio nesta competência."
+            : `${desafios.length} desafio${desafios.length === 1 ? "" : "s"} da competência.`}
         </p>
       </div>
 
@@ -402,7 +404,7 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
               <span className="font-bold text-warn">🎁 {brl(d.premio)}</span>
             </div>
 
-            <div className="max-h-[260px] space-y-2.5 overflow-y-auto">
+            <div className="max-h-[260px] space-y-2.5 overflow-y-auto border-t border-line pt-3">
               {d.ranking.map((p, idx) => (
                 <div key={p.colaboradorId} className="flex items-center gap-2">
                   <span className={`w-6 shrink-0 text-[12px] font-extrabold ${idx === 0 ? "text-warn" : "text-t2"}`}>
