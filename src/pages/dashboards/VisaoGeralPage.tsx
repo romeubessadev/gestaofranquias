@@ -49,6 +49,18 @@ const KPI_COLORS = [
   { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
 ];
 
+/** Badge "+X% vs período" — mesmo padrão do Revenue vs expenses. */
+function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string } }) {
+  if (!delta) return null;
+  return (
+    <Badge variant={delta.positive ? "success" : "danger"}>
+      {delta.positive ? "+" : "−"}
+      {delta.value}
+      {delta.vs ? ` vs ${delta.vs}` : ""}
+    </Badge>
+  );
+}
+
 export default function VisaoGeralPage() {
   const { escopo, mudar } = useEscopo();
   const view = useMemo(() => montarVisaoGeralView(escopo), [escopo]);
@@ -218,6 +230,7 @@ export default function VisaoGeralPage() {
                 </div>
               </div>
             </div>
+            <BadgeVsAnterior delta={view.deltaFaturamento} />
           </div>
           <AreaLineChart
             data={view.evolucao.map((e) => e.realizado)}
@@ -261,6 +274,7 @@ export default function VisaoGeralPage() {
                 </div>
               </div>
             </div>
+            <BadgeVsAnterior delta={view.deltaFaturamento} />
           </div>
           <AreaLineChart
             data={view.categoriaVsMeta.map((c) => c.realizado)}
@@ -300,6 +314,7 @@ export default function VisaoGeralPage() {
                 </div>
               </div>
             </div>
+            <BadgeVsAnterior delta={view.deltaFaturamento} />
           </div>
           <AreaLineChart
             data={view.diaVsMeta.map((d) => d.realizado)}

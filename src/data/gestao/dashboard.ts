@@ -2094,6 +2094,8 @@ export interface VisaoGeralView {
   gauges: GaugeMeta[];
   faltamParaMeta: string | null;
   projecaoFechamento: string | null;
+  /** Delta do faturamento vs período anterior (badge dos cards de gráfico). */
+  deltaFaturamento?: { value: string; positive: boolean; vs?: string };
   categoriaVsMeta: CategoriaVsMeta[];
   diaVsMeta: DiaVsMeta[];
   evolucao: EvolucaoPonto[];
@@ -2388,6 +2390,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     gauges,
     faltamParaMeta,
     projecaoFechamento,
+    deltaFaturamento: temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
     categoriaVsMeta,
     diaVsMeta,
     evolucao,
