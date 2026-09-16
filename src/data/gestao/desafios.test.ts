@@ -62,6 +62,15 @@ describe("T1: desafios ativos (EQUIP-05)", () => {
     expect(progressoIndividual(d, "c09")).toBe(0);
   });
 
+  it("progresso de quantidade/produto é sempre unidade inteira", () => {
+    for (const d of desafiosAtivos("2026-09").filter((x) => x.unidade === "un")) {
+      for (const id of d.participantes) {
+        const p = progressoIndividual(d, id);
+        expect(Number.isInteger(p)).toBe(true);
+      }
+    }
+  });
+
   it("cada desafio tem janela inicio/fim válida na competência", () => {
     for (const d of desafiosAtivos("2026-09")) {
       expect(d.inicio <= d.fim).toBe(true);

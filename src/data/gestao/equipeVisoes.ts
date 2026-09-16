@@ -16,7 +16,7 @@ import { HOJE_ISO, HORA_ATUAL } from "./relogio";
 import { agregadoDoDia, diaVendas, lojaAberta, somarAgregados, type Agregado } from "./vendas";
 import { filialPorId, filiais, turnos, type Filial } from "./filiais";
 import { brlK, curvaReceita, kpiDelta, periodoAnterior, resolverPeriodo, type Escopo, type PeriodoResolvido, type EstadoBloco } from "./dashboard";
-import { brl, brlCent, fimDoMes, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
+import { brl, fimDoMes, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
 import type { TintKey } from "@/pages/dashboards/icons";
 
 const PALETA_LOJAS: TintKey[] = ["acc", "ok", "info", "warn", "bad"];
@@ -498,10 +498,9 @@ const EMOJI_TIPO: Record<Desafio["tipo"], string> = {
 };
 
 function fmtValorDesafio(v: number, d: Desafio): string {
-  if (d.tipo === "ticket" || d.unidade === "R$") return brlCent(v);
+  if (d.tipo === "ticket" || d.tipo === "faturamento" || d.unidade === "R$") return brlK(v);
   if (d.tipo === "pa" || d.unidade === "x") return num(v, v % 1 !== 0 ? 2 : 0);
-  if (d.tipo === "faturamento") return brl(v);
-  return num(v, v % 1 !== 0 ? 1 : 0);
+  return num(Math.round(v), 0);
 }
 
 function fmtProgressoRotulo(progresso: number, piso: number, d: Desafio): string {
@@ -561,9 +560,9 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     d.tipo === "pa"
       ? `Atingir ${num(d.alvoIndividual, 2)}`
       : d.tipo === "ticket" || d.unidade === "R$"
-        ? `Atingir ${brlCent(d.alvoIndividual)}`
+        ? `Atingir ${brlK(d.alvoIndividual)}`
         : d.tipo === "faturamento"
-          ? `Vender ${brl(d.alvoIndividual)}`
+          ? `Vender ${brlK(d.alvoIndividual)}`
           : d.tipo === "produto"
             ? `Vender mais (mín. ${num(piso, 0)} un)`
             : `Vender ${num(d.alvoIndividual, 0)} un`;
@@ -573,7 +572,7 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
       : d.unidade === "un"
         ? `${num(d.minimo, 0)} un`
         : d.tipo === "ticket" || d.unidade === "R$"
-          ? brlCent(d.minimo)
+          ? brlK(d.minimo)
           : num(d.minimo, d.minimo % 1 !== 0 ? 2 : 0);
 
   let statusLabel: DesafioView["statusLabel"];

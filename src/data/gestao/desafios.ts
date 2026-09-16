@@ -169,8 +169,9 @@ export function progressoIndividual(d: Desafio, colaboradorId: string): number {
     const base = d.alvoIndividual * (diasDecorridos / diasTotais) * (0.65 + r() * 1.1);
     return Math.max(0, Math.round(base));
   }
+  // quantidade / produto: unidades inteiras (não existe 8,1 un)
   const diasDecorridos = 15;
   const diasTotais = 31;
   const base = d.alvoIndividual * (diasDecorridos / diasTotais) * (0.65 + r() * 1.1);
-  return Math.max(0, Math.round(base * 10) / 10);
+  return Math.max(0, Math.round(base));
 }

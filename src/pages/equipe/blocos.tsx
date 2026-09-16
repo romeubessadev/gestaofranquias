@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { Avatar, Badge, Card, CardHeader, CardTitle, DataTable, EmptyState, ProgressBar, StatCard, type DataTableColumn } from "@/components/ui";
 import { Sparkline } from "@/components/charts";
-import { brl, brlCent, num } from "@/lib/formato";
+import { brl, brlK, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/blocos";
 import type { DesafioView, EquipeView, LojaEquipeResumo, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
@@ -354,10 +354,9 @@ function lojaCurta(fantasia: string): string {
 }
 
 function fmtMinimo(v: number, unidade: DesafioView["unidade"], tipo: DesafioView["tipo"]): string {
-  if (tipo === "ticket" || unidade === "R$") return brlCent(v);
+  if (tipo === "ticket" || tipo === "faturamento" || unidade === "R$") return brlK(v);
   if (tipo === "pa" || unidade === "x") return num(v, v % 1 !== 0 ? 2 : 0);
-  if (tipo === "faturamento") return brl(v);
-  return `${num(v, 0)} un`;
+  return `${num(Math.round(v), 0)} un`;
 }
 
 function IconRelogio() {
