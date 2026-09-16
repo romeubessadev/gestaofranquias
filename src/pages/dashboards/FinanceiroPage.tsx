@@ -44,16 +44,18 @@ const TipHelp = ({ label }: { label: string }) => (
   </Tooltip>
 );
 
-/** Badge "+X% vs período" — mesmo padrão da Visão Geral. */
-function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string } }) {
+/** Badge de delta — só % no chip; base do comparativo no tooltip (igual StatCard). */
+function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; diff?: string } }) {
   if (!delta) return null;
-  return (
+  const badge = (
     <Badge variant={delta.positive ? "success" : "danger"}>
       {delta.positive ? "+" : "−"}
       {delta.value}
-      {delta.vs ? ` vs ${delta.vs}` : ""}
     </Badge>
   );
+  if (!delta.vs) return badge;
+  const tip = `Comparado a ${delta.vs}: ${delta.positive ? "acima" : "abaixo"}${delta.diff ? ` (${delta.diff})` : ""}`;
+  return <Tooltip label={tip}>{badge}</Tooltip>;
 }
 
 const KPI_ICONS = [IconFat, IconCmv, IconLucro, IconMargem];

@@ -72,7 +72,8 @@ Decisões fechadas (gestor + revisão). Pronto para implementar.
 | Original | Final |
 |---|---|
 | `vs os N dias anteriores` | `vs N dias anteriores` |
-| Demais padrões `{+/-}% vs {rótulo}` | **manter** |
+| Badge dos cards (`+X% vs ago`) | Só `+X%` / `−X%` no chip; base no tooltip `Comparado a {rótulo}: acima/abaixo` (igual KPI/`StatCard`) |
+| Demais padrões `{+/-}% vs {rótulo}` nos KPIs | **manter** (% no chip + tooltip) |
 
 ---
 
