@@ -18,7 +18,7 @@ export function Pagination({ page, totalPages, onChange }: PaginationProps) {
         onClick={() => onChange(page - 1)}
         className="h-9 rounded-[10px] border border-line px-3 text-[12.5px] font-semibold text-t1 hover:bg-bg-3 disabled:opacity-40"
       >
-        Prev
+        Anterior
       </button>
       <div className="flex items-center gap-1">
         {pages.map((p, i) => (
@@ -41,7 +41,7 @@ export function Pagination({ page, totalPages, onChange }: PaginationProps) {
         onClick={() => onChange(page + 1)}
         className="h-9 rounded-[10px] border border-line px-3 text-[12.5px] font-semibold text-t1 hover:bg-bg-3 disabled:opacity-40"
       >
-        Next
+        Próxima
       </button>
     </div>
   );
