@@ -153,7 +153,14 @@ export default function VisaoGeralPage() {
           if (!meta) {
             return (
               <Card>
-                <CardTitle className="mb-4">Atingimento da Meta</CardTitle>
+                <div className="mb-4 flex items-center gap-1.5">
+                  <CardTitle>Atingimento da Meta</CardTitle>
+                  <Tooltip label="Quanto da meta do mês já foi atingido e quanto ainda falta.">
+                    <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+                      ?
+                    </span>
+                  </Tooltip>
+                </div>
                 <span className="py-8 text-center text-[13px] text-t2">Nenhuma meta cadastrada para o período.</span>
               </Card>
             );
@@ -164,7 +171,14 @@ export default function VisaoGeralPage() {
           const projecaoValor = view.projecaoFechamento?.replace(/^Projeção:\s*/i, "") ?? "—";
           return (
             <Card>
-              <CardTitle className="mb-4">Atingimento da Meta</CardTitle>
+              <div className="mb-4 flex items-center gap-1.5">
+                <CardTitle>Atingimento da Meta</CardTitle>
+                <Tooltip label="Quanto da meta do mês já foi atingido e quanto ainda falta.">
+                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+                    ?
+                  </span>
+                </Tooltip>
+              </div>
               <div className="relative mx-auto mb-4 h-[150px] w-[150px]">
                 <RadialProgress value={pct} size={150} stroke={15} color={cor} trackColor="var(--bg-inset)" label="da meta" />
               </div>

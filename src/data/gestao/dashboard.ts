@@ -2315,7 +2315,8 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
       sub: metaTotal > 0 ? `Meta: ${brlK(metaTotal)}` : undefined,
       delta: temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
       serie: serieFat,
-      },
+      tooltip: "Total faturado no período selecionado.",
+    },
     {
       label: "CMV",
       valor: brlK(custoAtual),
@@ -2328,6 +2329,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
       valor: num(atual.atendimentos),
       sub: `${num(atual.itens)} itens vendidos`,
       delta: temComp ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo, false) : undefined,
+      tooltip: "Quantidade de vendas realizadas no período selecionado.",
     },
     {
       label: "Ticket Médio",
