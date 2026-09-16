@@ -199,6 +199,8 @@ export default function VisaoGeralPage() {
           }
           const pct = Math.round(meta.pct);
           const cor = pct >= 100 ? "var(--ok)" : pct >= 70 ? "var(--acc)" : "var(--bad)";
+          const faltamValor = Math.max(0, meta.alvo - meta.realizado);
+          const projecaoValor = view.projecaoFechamento?.replace(/^Projeção:\s*/i, "") ?? "—";
           return (
             <Card>
               <div className="mb-4 flex items-center gap-1.5">
@@ -209,27 +211,27 @@ export default function VisaoGeralPage() {
                   </span>
                 </Tooltip>
               </div>
-              <div className="mx-auto mb-4 flex justify-center">
+              <div className="relative mx-auto mb-4 h-[150px] w-[150px]">
                 <RadialProgress value={pct} size={150} stroke={15} color={cor} trackColor="var(--bg-inset)" label="da meta" />
               </div>
               <div className="flex flex-col gap-2.5">
-                <div className="flex justify-between gap-3">
+                <div className="flex justify-between">
                   <span className="text-[12.5px] text-t2">Faturamento</span>
                   <span className="text-[13px] font-bold text-t0">{brlK(meta.realizado)}</span>
                 </div>
-                <div className="flex justify-between gap-3">
+                <div className="flex justify-between">
                   <span className="text-[12.5px] text-t2">Meta do mês</span>
                   <span className={`text-[13px] font-bold ${pct < 100 ? "text-warn" : "text-ok"}`}>{brlK(meta.alvo)}</span>
                 </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-[12.5px] text-t2">
-                    {view.faltamParaMeta && pct < 100 ? "Faltam" : "Projeção"}
+                <div className="flex justify-between">
+                  <span className="text-[12.5px] text-t2">Faltam para Meta do Mês</span>
+                  <span className={`text-[13px] font-bold ${faltamValor > 0 ? "text-warn" : "text-ok"}`}>
+                    {faltamValor > 0 ? brlK(faltamValor) : "Atingida"}
                   </span>
-                  <span className="text-right text-[13px] font-bold text-t0">
-                    {view.faltamParaMeta && pct < 100
-                      ? view.faltamParaMeta.replace(/^Faltam\s+/i, "")
-                      : (view.projecaoFechamento?.replace(/^Projeção:\s*/i, "") ?? "—")}
-                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[12.5px] text-t2">Projeção</span>
+                  <span className="text-[13px] font-bold text-t0">{projecaoValor}</span>
                 </div>
               </div>
             </Card>
