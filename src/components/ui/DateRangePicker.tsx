@@ -34,7 +34,7 @@ export const QUICK_RANGES_PADRAO: QuickRange[] = [
   { label: "Mês passado", resolve: (h) => [new Date(h.getFullYear(), h.getMonth() - 1, 1), new Date(h.getFullYear(), h.getMonth(), 0)] },
 ];
 
-const DOW_PT = ["Do", "Se", "Te", "Qu", "Qi", "Sx", "Sa"];
+const DOW_PT = ["D", "S", "T", "Q", "Q", "S", "S"];
 const MESES_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 const MESES_CURTO = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -164,7 +164,7 @@ export function DateRangePicker({
         <div className="absolute left-0 top-full z-50 mt-2 flex w-[min(92vw,640px)] flex-col gap-4 rounded-[14px] border border-line bg-bg-2 p-4 shadow-[var(--shadow-vela)] sm:flex-row">
           {/* Quick ranges */}
           <div className="flex shrink-0 flex-row flex-wrap gap-2 sm:w-[150px] sm:flex-col sm:flex-nowrap">
-            <span className="mb-0.5 hidden text-[11px] font-bold uppercase tracking-wide text-t2 sm:block">Atalhos</span>
+            <span className="mb-0.5 hidden text-[11px] font-bold uppercase tracking-wide text-t2 sm:block">Períodos rápidos</span>
             {quickRanges.map((qr) => (
               <button
                 key={qr.label}

@@ -555,7 +555,7 @@ export function periodoAnterior(periodo: PeriodoResolvido): { inicio: string; fi
   }
   const n = intervaloDias(periodo.inicio, periodo.fim).length;
   const fim = somarDias(periodo.inicio, -1);
-  return { inicio: somarDias(fim, -(n - 1)), fim, rotulo: `os ${n} dias anteriores` };
+  return { inicio: somarDias(fim, -(n - 1)), fim, rotulo: `${n} dias anteriores` };
 }
 
 /** "15/09/2026" para um único dia, "01/09/2026 – 07/09/2026" para um intervalo. */
@@ -2153,27 +2153,28 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
       sub: metaTotal > 0 ? `Meta: ${brlK(metaTotal)}` : undefined,
       delta: temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
       serie: serieFat,
-      tooltip: "Receita bruta total no período selecionado.",
+      tooltip: "Total faturado no período selecionado.",
       },
     {
-      label: "CMV (custo)",
+      label: "CMV",
       valor: brlK(custoAtual),
-      sub: `CMV% ${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}%`,
+      sub: `CMV ${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}%`,
       delta: temComp ? kpiDelta(custoAtual, custoAnterior, vsRotulo) : undefined,
-      tooltip: "Quanto custou a mercadoria vendida no período. Se subir mais que o faturamento, corrói a margem.",
+      tooltip: "Mostra quanto do faturamento foi consumido pelo custo dos produtos vendidos. Quanto maior o percentual de CMV, maior a pressão sobre a margem.",
     },
     {
-      label: "Vendas",
+      label: "Nº de vendas",
       valor: num(atual.atendimentos),
       sub: `${num(atual.itens)} itens vendidos`,
       delta: temComp ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo, false) : undefined,
+      tooltip: "Quantidade de vendas realizadas no período selecionado.",
     },
     {
       label: "Ticket Médio",
       valor: brl(ticketAtual),
       sub: `PA ${divSeguro(atual.itens, atual.atendimentos).toFixed(2)}`,
       delta: temComp ? kpiDelta(ticketAtual, ticketAnterior, vsRotulo) : undefined,
-      tooltip: "Valor médio gasto por cada atendimento realizado.",
+      tooltip: "Valor médio faturado por venda no período selecionado.",
     },
   ];
 
@@ -2191,7 +2192,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     gauges.push({ nome: "Meta", pct: Math.min(100, atingMeta), alvo: metaTotal, realizado: atual.faturamento });
   }
 
-  const faltamParaMeta = faltam > 0 ? `Faltam ${brl(faltam)} pra bater a Meta do mês` : metaTotal > 0 ? "Meta atingida! 🎉" : null;
+  const faltamParaMeta = faltam > 0 ? `Faltam ${brl(faltam)} para atingir a Meta do mês` : metaTotal > 0 ? "Meta atingida" : null;
   const projecaoFechamento = projetado > 0 ? `Projeção: ~${brlK(projetado)} (${projPct.toFixed(0)}% da meta)` : null;
 
   // Faturamento por Categoria vs Meta

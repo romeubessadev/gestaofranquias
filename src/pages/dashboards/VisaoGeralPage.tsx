@@ -99,14 +99,14 @@ export default function VisaoGeralPage() {
   }, []);
 
   const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
-  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} minuto${minutosAtras !== 1 ? "s" : ""}`;
+  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} min`;
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Visão Geral" }]}
         title="Visão Geral"
-        subtitle="Uma visão consolidada dos principais indicadores, metas e desempenho da operação."
+        subtitle="Principais indicadores, metas e desempenho da operação."
         actions={
           <>
             <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
@@ -151,7 +151,7 @@ export default function VisaoGeralPage() {
             <div>
               <div className="flex items-center gap-1.5">
                 <CardTitle>Faturamento vs Meta</CardTitle>
-                <Tooltip label="Realizado acumulado e meta acumulada. Responde: vou bater a meta até o fim do mês?">
+                <Tooltip label="Compare o ritmo do faturamento com a meta acumulada e identifique se a operação está acima ou abaixo do esperado.">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
@@ -195,7 +195,7 @@ export default function VisaoGeralPage() {
             return (
               <Card>
                 <CardTitle className="mb-4">Atingimento da Meta</CardTitle>
-                <span className="py-8 text-center text-[13px] text-t2">Sem meta cadastrada para o período.</span>
+                <span className="py-8 text-center text-[13px] text-t2">Nenhuma meta cadastrada para o período.</span>
               </Card>
             );
           }
@@ -207,7 +207,7 @@ export default function VisaoGeralPage() {
             <Card>
               <div className="mb-4 flex items-center gap-1.5">
                 <CardTitle>Atingimento da Meta</CardTitle>
-                <Tooltip label="Percentual do faturamento frente à Meta do mês. Responde: estou no ritmo de bater a meta?">
+                <Tooltip label="Quanto da meta do mês já foi atingido e quanto ainda falta.">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
@@ -228,7 +228,7 @@ export default function VisaoGeralPage() {
                 <div className="flex justify-between">
                   <span className="text-[12.5px] text-t2">Faltam</span>
                   <span className={`text-[13px] font-bold ${faltamValor > 0 ? "text-warn" : "text-ok"}`}>
-                    {faltamValor > 0 ? brlK(faltamValor) : "Atingida"}
+                    {faltamValor > 0 ? brlK(faltamValor) : "Meta atingida"}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -247,8 +247,8 @@ export default function VisaoGeralPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-1.5">
-                <CardTitle>Categoria vs Meta</CardTitle>
-                <Tooltip label="Faturamento realizado por categoria comparado à meta proporcional do período.">
+                <CardTitle>Categorias vs Meta</CardTitle>
+                <Tooltip label="Compare o faturamento de cada categoria com sua meta no período e identifique onde estão os maiores desvios.">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
@@ -290,7 +290,7 @@ export default function VisaoGeralPage() {
             <div>
               <div className="flex items-center gap-1.5">
                 <CardTitle>Dia da Semana vs Meta</CardTitle>
-                <Tooltip label="Faturamento médio por dia da semana comparado à meta diária do período.">
+                <Tooltip label="Compare o faturamento médio de cada dia da semana com a meta diária e identifique os dias de maior e menor desempenho.">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
@@ -329,15 +329,22 @@ export default function VisaoGeralPage() {
         </Card>
       </div>
 
-      {/* Linha: Ranking de Lojas + Forma de Pagamento */}
+      {/* Linha: Ranking de Lojas + Formas de Pagamento */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="flex flex-col">
           <div className="mb-1 flex items-center justify-between">
-            <CardTitle>Ranking de Lojas</CardTitle>
-            <Badge variant="accent">{brlK(view.rankingLojas.reduce((s, l) => s + l.valor, 0))} total</Badge>
+            <div className="flex items-center gap-1.5">
+              <CardTitle>Ranking de Lojas</CardTitle>
+              <Tooltip label="Lojas ordenadas pelo faturamento no período selecionado.">
+                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+                  ?
+                </span>
+              </Tooltip>
+            </div>
+            <Badge variant="accent">Total {brlK(view.rankingLojas.reduce((s, l) => s + l.valor, 0))}</Badge>
           </div>
           {view.rankingLojas.length === 0 ? (
-            <span className="py-6 text-center text-[12px] text-t2">Sem dados no período.</span>
+            <span className="py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
           ) : (
             (() => {
               const total = view.rankingLojas.reduce((s, l) => s + l.valor, 0) || 1;
@@ -386,7 +393,7 @@ export default function VisaoGeralPage() {
         </Card>
         <Card className="flex flex-col">
           <CardHeader>
-            <CardTitle>Forma de Pagamento</CardTitle>
+            <CardTitle>Formas de Pagamento</CardTitle>
           </CardHeader>
           {(() => {
             const total = view.formasPagamento.reduce((s, f) => s + f.valor, 0);
@@ -396,7 +403,7 @@ export default function VisaoGeralPage() {
               color: f.cor,
             }));
             if (view.formasPagamento.length === 0) {
-              return <span className="py-6 text-center text-[12px] text-t2">Sem dados no período.</span>;
+              return <span className="py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>;
             }
             return (
               <div className="flex flex-1 flex-col items-center justify-center gap-2">
@@ -423,7 +430,7 @@ export default function VisaoGeralPage() {
                 onClick={() => navigate("/equipe")}
                 className="cursor-pointer text-[13px] font-semibold text-acc hover:text-acc/80 transition-colors"
               >
-                Ver mais
+                Ver equipe
               </button>
             </div>
           </CardHeader>
@@ -445,7 +452,7 @@ export default function VisaoGeralPage() {
                       {v.ticketMedio != null && v.ticketMedio > 0 && (
                         <>
                           <span>·</span>
-                          <span>T.M. {brlK(v.ticketMedio)}</span>
+                          <span>Ticket {brlK(v.ticketMedio)}</span>
                         </>
                       )}
                       <span>·</span>
@@ -456,7 +463,7 @@ export default function VisaoGeralPage() {
               );
             })}
             {view.topVendedoras.length === 0 && (
-              <span className="py-4 text-center text-[12px] text-t2">Sem dados no período.</span>
+              <span className="py-4 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
             )}
           </div>
         </Card>
@@ -468,7 +475,7 @@ export default function VisaoGeralPage() {
                 onClick={() => navigate("/dashboard/produtos")}
                 className="cursor-pointer text-[13px] font-semibold text-acc hover:text-acc/80 transition-colors"
               >
-                Ver mais
+                Ver produtos
               </button>
             </div>
           </CardHeader>
@@ -478,9 +485,9 @@ export default function VisaoGeralPage() {
                 <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
                   <th className="px-1 pb-3 text-left font-bold">#</th>
                   <th className="px-1 pb-3 text-left font-bold">Produto</th>
-                  <th className="px-1 pb-3 text-right font-bold">Vendas</th>
+                  <th className="px-1 pb-3 text-right font-bold">Itens vendidos</th>
                   <th className="px-1 pb-3 text-right font-bold">Faturamento</th>
-                  <th className="px-1 pb-3 text-right font-bold">Vs anterior</th>
+                  <th className="px-1 pb-3 text-right font-bold">Variação</th>
                 </tr>
               </thead>
               <tbody>
@@ -509,7 +516,7 @@ export default function VisaoGeralPage() {
                   );
                 })}
                 {view.topProdutos.length === 0 && (
-                  <tr><td colSpan={5} className="px-1 py-3 text-center text-[13px] text-t2">Sem dados no período.</td></tr>
+                  <tr><td colSpan={5} className="px-1 py-3 text-center text-[13px] text-t2">Sem dados no período selecionado.</td></tr>
                 )}
               </tbody>
             </table>
