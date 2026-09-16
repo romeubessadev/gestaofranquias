@@ -282,52 +282,52 @@ export default function VisaoGeralPage() {
           {view.rankingLojas.length === 0 ? (
             <span className="py-6 text-center text-[12px] text-t2">Sem dados no período.</span>
           ) : (
-            <>
-              <div className="flex flex-1 flex-col items-center justify-center">
-                <DonutChart
-                  segments={view.rankingLojas.map((l, i) => ({
-                    label: l.nome,
-                    value: l.valor,
-                    color: CORES_LOJAS[i % CORES_LOJAS.length],
-                  }))}
-                  size={148}
-                  thickness={20}
-                  centerLabel="Total grupo"
-                  centerValue={brlK(view.rankingLojas.reduce((s, l) => s + l.valor, 0))}
-                  formatValue={brlK}
-                  showLegendValue={false}
-                />
-              </div>
-              <div className="mt-4 flex flex-col gap-3">
-                {view.rankingLojas.map((loja, idx) => {
-                  const pct = loja.pctMeta ?? 0;
-                  const trend = loja.trend;
-                  const cor = CORES_LOJAS[idx % CORES_LOJAS.length];
-                  return (
-                    <div key={loja.nome} className="rounded-xl bg-bg-inset p-3">
-                      <div className="mb-1.5 flex items-center justify-between">
-                        <span className="flex items-center gap-2 text-[13px] font-bold text-t0">
-                          <span className="h-2.5 w-2.5 rounded-[4px]" style={{ background: cor }} />
-                          {loja.nome}
-                        </span>
-                        <span className="font-mono text-[13px] font-extrabold text-t0">{brlK(loja.valor)}</span>
-                      </div>
-                      <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-bg-2">
-                        <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct)}%`, background: cor }} />
-                      </div>
-                      <span className="text-[11px] font-semibold text-t2">
-                        {Math.round(pct)}% da meta
-                        {trend != null && (
-                          <span className="ml-1" style={{ color: trend >= 0 ? "var(--ok)" : "var(--bad)" }}>
-                            · {trend >= 0 ? "+" : ""}{trend}% vs anterior
+            (() => {
+              const totalGrupo = view.rankingLojas.reduce((s, l) => s + l.valor, 0) || 1;
+              return (
+                <>
+                  <div className="flex flex-1 flex-col items-center justify-center">
+                    <DonutChart
+                      segments={view.rankingLojas.map((l, i) => ({
+                        label: l.nome,
+                        value: l.valor,
+                        color: CORES_LOJAS[i % CORES_LOJAS.length],
+                      }))}
+                      size={148}
+                      thickness={20}
+                      centerLabel="Total grupo"
+                      centerValue={brlK(totalGrupo)}
+                      formatValue={brlK}
+                    />
+                  </div>
+                  <div className="mt-4 flex flex-col gap-3">
+                    {view.rankingLojas.map((loja, idx) => {
+                      const participacao = Math.round((loja.valor / totalGrupo) * 100);
+                      const pctMeta = loja.pctMeta != null ? Math.round(loja.pctMeta) : null;
+                      const cor = CORES_LOJAS[idx % CORES_LOJAS.length];
+                      return (
+                        <div key={loja.nome} className="rounded-xl bg-bg-inset p-3">
+                          <div className="mb-1.5 flex items-center justify-between">
+                            <span className="flex items-center gap-2 text-[13px] font-bold text-t0">
+                              <span className="h-2.5 w-2.5 rounded-[4px]" style={{ background: cor }} />
+                              {loja.nome}
+                            </span>
+                            <span className="font-mono text-[13px] font-extrabold text-t0">{brlK(loja.valor)}</span>
+                          </div>
+                          <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-bg-2">
+                            <div className="h-full rounded-full" style={{ width: `${participacao}%`, background: cor }} />
+                          </div>
+                          <span className="text-[11px] font-semibold text-t2">
+                            {pctMeta != null ? `${pctMeta}% da meta · ` : ""}
+                            {participacao}% do grupo
                           </span>
-                        )}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()
           )}
         </Card>
         <Card className="flex flex-col">
