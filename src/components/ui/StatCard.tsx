@@ -47,7 +47,7 @@ export function StatCard({ label, value, icon, iconColor = "var(--acc)", iconBg 
       <div className="mt-4 flex items-center gap-1.5">
         <p className="truncate text-xs font-bold uppercase tracking-wide text-t1">{label}</p>
         {tooltip && (
-          <Tooltip label={tooltip}>
+          <Tooltip label={tooltip} side="bottom">
             <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
               ?
             </span>
