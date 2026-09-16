@@ -383,28 +383,42 @@ export default function VisaoGeralPage() {
           <CardHeader>
             <CardTitle>Formas de Pagamento</CardTitle>
           </CardHeader>
-          {(() => {
-            const total = view.formasPagamento.reduce((s, f) => s + f.valor, 0);
-            const segmentos = view.formasPagamento.map((f) => ({
-              label: f.forma,
-              value: f.valor,
-              color: f.cor,
-            }));
-            if (view.formasPagamento.length === 0) {
-              return <span className="py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>;
-            }
-            return (
-              <div className="flex flex-1 flex-col items-center justify-center gap-2">
-                <DonutChart
-                  segments={segmentos}
-                  centerLabel="Total"
-                  centerValue={brlK(total)}
-                  formatValue={brlK}
-                  showLegendValue
-                />
-              </div>
-            );
-          })()}
+          {view.formasPagamento.length === 0 ? (
+            <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+          ) : (
+            (() => {
+              const total = view.formasPagamento.reduce((s, f) => s + f.valor, 0) || 1;
+              return (
+                <div className="flex flex-1 flex-col justify-center px-4 pb-4">
+                  {/* Padrão Expense breakdown — igual Financeiro */}
+                  <div className="mx-auto my-2">
+                    <DonutChart
+                      segments={view.formasPagamento.map((f) => ({
+                        label: f.forma,
+                        value: f.valor,
+                        color: f.cor,
+                      }))}
+                      centerLabel="Total"
+                      centerValue={brlK(total)}
+                    />
+                  </div>
+                  <div className="mt-2 flex flex-col gap-2">
+                    {view.formasPagamento.map((f) => {
+                      const pct = Math.round((f.valor / total) * 100);
+                      return (
+                        <div key={f.forma} className="flex items-center gap-2.5">
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: f.cor }} />
+                          <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{f.forma}</span>
+                          <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlK(f.valor)}</span>
+                          <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()
+          )}
         </Card>
       </div>
 

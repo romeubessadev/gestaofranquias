@@ -137,6 +137,7 @@ Decisões fechadas (gestor + revisão). Pronto para implementar.
 |---|---|
 | Título | `Formas de Pagamento` |
 | Empty | `Sem dados no período selecionado.` |
+| Padrão | Igual Financeiro (Expense breakdown): donut centralizado + lista com cor · forma · R$ · % |
 
 ---
 
