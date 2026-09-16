@@ -1,8 +1,8 @@
 import { useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, StatCard, DateRangePicker, PageHeader, Button } from "@/components/ui";
+import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { AreaLineChart, DonutChart, Gauge } from "@/components/charts";
+import { AreaLineChart, DonutChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarVisaoGeralView, type VisaoKpi } from "@/data/gestao/dashboard";
 import { brlK } from "@/lib/formato";
@@ -142,37 +142,8 @@ export default function VisaoGeralPage() {
         ))}
       </div>
 
-      {/* Linha: Atingimento da Meta + Faturamento vs Meta */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.7fr]">
-        {view.gauges.length > 0 && (
-          <Card className="flex flex-col">
-            <div className="mb-1 flex items-center justify-between">
-              <CardTitle>Atingimento da Meta</CardTitle>
-              <Tooltip label="Percentual do faturamento da loja/rede em cada faixa de meta do mês (Meta, Super Meta, Hiper Meta). Não é contagem de vendedoras.">
-                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
-                  ?
-                </span>
-              </Tooltip>
-            </div>
-            <p className="mb-2 text-[12.5px] text-t2">Progresso por faixa de meta do mês</p>
-            <div className="flex flex-wrap items-end justify-center gap-4 px-4 pb-4">
-              {view.gauges.map((g) => (
-                <Gauge
-                  key={g.nome}
-                  value={Math.round(g.pct)}
-                  label={`${g.nome} · ${brlK(g.alvo)}`}
-                  color={g.pct >= 100 ? "var(--ok)" : g.pct >= 70 ? "var(--acc)" : "var(--bad)"}
-                />
-              ))}
-            </div>
-            {(view.faltamParaMeta || view.projecaoFechamento) && (
-              <div className="mt-1 flex flex-col items-center gap-1 pb-4 text-center text-[12px]">
-                {view.faltamParaMeta && <span className="font-semibold text-t0">{view.faltamParaMeta}</span>}
-                {view.projecaoFechamento && <span className="text-t1">{view.projecaoFechamento}</span>}
-              </div>
-            )}
-          </Card>
-        )}
+      {/* Linha: Faturamento vs Meta + Atingimento da Meta (padrão On-time delivery) */}
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
         <Card padding="lg">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -215,6 +186,55 @@ export default function VisaoGeralPage() {
             showAxisLabels
           />
         </Card>
+
+        {(() => {
+          const meta = view.gauges.find((g) => g.nome === "Meta") ?? view.gauges[0];
+          if (!meta) {
+            return (
+              <Card>
+                <CardTitle className="mb-4">Atingimento da Meta</CardTitle>
+                <span className="py-8 text-center text-[13px] text-t2">Sem meta cadastrada para o período.</span>
+              </Card>
+            );
+          }
+          const pct = Math.round(meta.pct);
+          const cor = pct >= 100 ? "var(--ok)" : pct >= 70 ? "var(--acc)" : "var(--bad)";
+          return (
+            <Card>
+              <div className="mb-4 flex items-center gap-1.5">
+                <CardTitle>Atingimento da Meta</CardTitle>
+                <Tooltip label="Percentual do faturamento frente à Meta do mês. Responde: estou no ritmo de bater a meta?">
+                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+                    ?
+                  </span>
+                </Tooltip>
+              </div>
+              <div className="mx-auto mb-4 flex justify-center">
+                <RadialProgress value={pct} size={150} stroke={15} color={cor} trackColor="var(--bg-inset)" label="da meta" />
+              </div>
+              <div className="flex flex-col gap-2.5">
+                <div className="flex justify-between gap-3">
+                  <span className="text-[12.5px] text-t2">Faturamento</span>
+                  <span className="text-[13px] font-bold text-t0">{brlK(meta.realizado)}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-[12.5px] text-t2">Meta do mês</span>
+                  <span className={`text-[13px] font-bold ${pct < 100 ? "text-warn" : "text-ok"}`}>{brlK(meta.alvo)}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-[12.5px] text-t2">
+                    {view.faltamParaMeta && pct < 100 ? "Faltam" : "Projeção"}
+                  </span>
+                  <span className="text-right text-[13px] font-bold text-t0">
+                    {view.faltamParaMeta && pct < 100
+                      ? view.faltamParaMeta.replace(/^Faltam\s+/i, "")
+                      : (view.projecaoFechamento?.replace(/^Projeção:\s*/i, "") ?? "—")}
+                  </span>
+                </div>
+              </div>
+            </Card>
+          );
+        })()}
       </div>
 
       {/* Linha: Categoria vs Meta + Dia da Semana vs Meta */}
