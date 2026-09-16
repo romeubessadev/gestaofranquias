@@ -4,7 +4,7 @@
  * Badge, Avatar, EmptyState e o padrão EstadoBloco da Visão geral.
  */
 import { useState } from "react";
-import { Avatar, AvatarGroup, Badge, Card, CardHeader, CardTitle, DataTable, EmptyState, ProgressBar, StatCard, type DataTableColumn } from "@/components/ui";
+import { Avatar, Badge, Card, CardHeader, CardTitle, DataTable, EmptyState, ProgressBar, StatCard, type DataTableColumn } from "@/components/ui";
 import { Sparkline } from "@/components/charts";
 import { brl, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
@@ -355,22 +355,16 @@ const PRAZO_TOM: Record<DesafioView["prazoTom"], string> = {
   muted: "text-t2",
 };
 
-const STATUS_BAR: Record<DesafioView["statusVariant"], string> = {
-  success: "var(--ok)",
-  danger: "var(--bad)",
-  warning: "var(--warn)",
-  neutral: "var(--t2)",
-};
-
 function lojaCurta(fantasia: string): string {
   return fantasia.replace(/^Shopping\s+/i, "");
 }
 
+function fmtMinimo(v: number, unidade: "un" | "x"): string {
+  if (unidade === "x") return num(v, v % 1 !== 0 ? 2 : 0);
+  return `${num(v, 0)} un`;
+}
+
 export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
-  const [abertos, setAbertos] = useState<Record<string, boolean>>({});
-
-  const toggle = (id: string) => setAbertos((prev) => ({ ...prev, [id]: !prev[id] }));
-
   return (
     <Card padding="lg">
       <div className="mb-4">
@@ -381,105 +375,62 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {desafios.map((d) => {
-          const aberto = !!abertos[d.id];
-          const barColor = STATUS_BAR[d.statusVariant];
-          const pct = Math.round(Math.min(100, d.progressoPct));
-          return (
-            <div
-              key={d.id}
-              role="button"
-              tabIndex={0}
-              className="cursor-pointer rounded-[var(--radius-vela-lg)] border border-line bg-bg-inset p-5 transition-colors hover:border-line-2"
-              onClick={() => toggle(d.id)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  toggle(d.id);
-                }
-              }}
-            >
-              <div className="mb-3.5 flex items-center gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-acc-soft text-xl" aria-hidden>
-                  {d.emoji}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14.5px] font-bold text-t0">{d.nome}</p>
-                  <p className="mt-0.5 truncate text-[11.5px] text-t2">{d.tipoTexto}</p>
-                </div>
-                <Badge variant={d.statusVariant}>{d.statusLabel}</Badge>
-              </div>
-
-              <p className="mb-3.5 line-clamp-2 text-[12.5px] leading-relaxed text-t1">{d.descricao}</p>
-
-              <div className="mb-2 flex items-center gap-2.5">
-                <div className="flex-1">
-                  <ProgressBar value={pct} color={barColor} height={7} />
-                </div>
-                <span className="font-mono text-xs font-bold" style={{ color: barColor }}>
-                  {pct}%
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between border-t border-line pt-3">
-                <AvatarGroup names={d.ranking.map((p) => p.nome)} max={3} />
-                <div className="flex items-center gap-3">
-                  <span className="text-[11.5px] text-t2">
-                    {d.engajadas}/{d.participantes} engajadas
+        {desafios.map((d) => (
+          <div key={d.id} className="flex flex-col rounded-[var(--radius-vela-lg)] border border-line bg-bg-inset p-5">
+            <div className="mb-3 flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-acc-soft text-xl" aria-hidden>
+                {d.emoji}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[14.5px] font-bold leading-snug text-t0">{d.nome}</p>
+                  <span className={`shrink-0 text-[11.5px] font-bold ${PRAZO_TOM[d.prazoTom]}`}>
+                    {d.prazoTom === "muted" ? "Pra começar" : d.diasRestantes === 0 ? "Encerra hoje" : `${d.diasRestantes}d`}
                   </span>
-                  <span className={`text-[11.5px] font-bold ${PRAZO_TOM[d.prazoTom]}`}>
-                    {d.prazoTom === "muted" ? "Pra começar" : d.diasRestantes === 0 ? "Encerra hoje" : `${d.diasRestantes}d restantes`}
-                  </span>
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className={`shrink-0 text-t2 transition-transform ${aberto ? "rotate-180" : ""}`}
-                    aria-hidden
-                  >
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
                 </div>
+                <p className="mt-1 text-[12px] leading-snug text-t2">{d.objetivo}</p>
               </div>
+            </div>
 
-              {aberto && (
-                <div
-                  className="mt-3 max-h-[260px] space-y-2.5 overflow-y-auto border-t border-line pt-3 animate-vela-fade"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {d.ranking.map((p, idx) => (
-                    <div key={p.colaboradorId} className="flex items-center gap-2">
-                      <span className={`w-6 shrink-0 text-[12px] font-extrabold ${idx === 0 ? "text-warn" : "text-t2"}`}>
-                        {idx + 1}º
-                      </span>
-                      <Avatar name={p.nome} size="xs" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[12.5px] font-semibold text-t0">{p.nome.split(" ")[0]}</p>
-                        <p className="truncate text-[10.5px] text-t2">
-                          {p.turno} · {lojaCurta(p.loja)}
-                        </p>
-                      </div>
-                      <div className="w-[64px] shrink-0 sm:w-[80px]">
-                        <ProgressBar
-                          value={Math.min(100, p.progressoPct)}
-                          height={5}
-                          color={p.status === "atingiu" ? "var(--ok)" : "var(--acc)"}
-                        />
-                      </div>
-                      <span className="w-8 shrink-0 text-right text-[11px] font-semibold text-t2">{num(p.progressoPct, 0)}%</span>
-                    </div>
-                  ))}
-                  {d.ranking.length === 0 && (
-                    <p className="py-3 text-center text-[12.5px] text-t2">Sem participantes no escopo.</p>
-                  )}
+            <div className="mb-3.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-t2">
+              <span>
+                Meta: <span className="font-bold text-t0">{d.metaRotulo}</span>
+              </span>
+              <span>
+                Mínimo: <span className="font-bold text-t0">{fmtMinimo(d.minimo, d.unidade)}</span>
+              </span>
+              <span className="font-bold text-warn">🎁 {brl(d.premio)}</span>
+            </div>
+
+            <div className="max-h-[260px] space-y-2.5 overflow-y-auto">
+              {d.ranking.map((p, idx) => (
+                <div key={p.colaboradorId} className="flex items-center gap-2">
+                  <span className={`w-6 shrink-0 text-[12px] font-extrabold ${idx === 0 ? "text-warn" : "text-t2"}`}>
+                    {idx + 1}º
+                  </span>
+                  <Avatar name={p.nome} size="xs" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12.5px] font-semibold text-t0">{p.nome.split(" ")[0]}</p>
+                    <p className="truncate text-[10.5px] text-t2">
+                      {p.turno} · {lojaCurta(p.loja)}
+                    </p>
+                  </div>
+                  <div className="w-[64px] shrink-0 sm:w-[80px]">
+                    <ProgressBar
+                      value={Math.min(100, p.progressoPct)}
+                      height={5}
+                      color={p.status === "atingiu" ? "var(--ok)" : "var(--acc)"}
+                    />
+                  </div>
+                  <span className="w-8 shrink-0 text-right text-[11px] font-semibold text-t2">{num(p.progressoPct, 0)}%</span>
                 </div>
+              ))}
+              {d.ranking.length === 0 && (
+                <p className="py-3 text-center text-[12.5px] text-t2">Sem participantes no escopo.</p>
               )}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </Card>
   );

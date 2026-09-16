@@ -63,7 +63,7 @@ export const desafios: Desafio[] = [
   {
     id: "d-perfumaria",
     nome: "Perfumaria — 3 acima de R$ 150",
-    objetivo: "Quem vender 3 perfumes acima de R$ 150 ganha o prêmio.",
+    objetivo: "Quem vender 3 perfumes acima de R$ 150 (mínimo 3 unidades) ganha R$ 80,00.",
     tipo: "produto",
     alvoIndividual: 3,
     unidade: "un",
@@ -75,7 +75,7 @@ export const desafios: Desafio[] = [
   {
     id: "d-bodycream",
     nome: "Body Cream — acima de 15 un",
-    objetivo: "Quem vender mais Body Cream (mínimo 15 unidades) ganha o prêmio.",
+    objetivo: "Quem vender mais Body Cream (mínimo 15 unidades) ganha R$ 50,00.",
     tipo: "produto",
     alvoIndividual: 15,
     unidade: "un",
@@ -87,7 +87,7 @@ export const desafios: Desafio[] = [
   {
     id: "d-pa",
     nome: "P.A. acima de 1,90",
-    objetivo: "Quem mantiver P.A. acima de 1,90 no mês ganha o prêmio.",
+    objetivo: "Quem mantiver P.A. acima de 1,90 no mês (mínimo 1,90) ganha R$ 60,00.",
     tipo: "pa",
     alvoIndividual: 1.9,
     unidade: "x",
@@ -99,7 +99,7 @@ export const desafios: Desafio[] = [
   {
     id: "d-ticket",
     nome: "Ticket médio acima de R$ 185",
-    objetivo: "Quem mantiver ticket médio acima de R$ 185 ganha o prêmio.",
+    objetivo: "Quem mantiver ticket médio acima de R$ 185 (mínimo R$ 185) ganha R$ 100,00.",
     tipo: "ticket",
     alvoIndividual: 185,
     unidade: "x",
