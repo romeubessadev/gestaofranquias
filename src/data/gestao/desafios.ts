@@ -1,12 +1,20 @@
 /**
- * Desafios da competência (mock determinístico). Tipos reais do negócio:
- * Produto, P.A. e Ticket médio — nunca em reais (regra da futura tela de
- * Configurações · Desafios). Cada desafio tem janela própria (inicio/fim)
- * para status Ativo / Encerrado / A começar.
+ * Desafios da competência (mock determinístico).
+ *
+ * Tipos:
+ * - quantidade — meta fixa em unidades (ex.: vender 3)
+ * - produto — quem vende mais unidades (com mínimo opcional)
+ * - faturamento — quem vende mais em R$ (com mínimo opcional)
+ * - pa — índice P.A. (peças/atendimento)
+ * - ticket — ticket médio em R$
+ *
+ * Nunca em reais como tipo de premiação (prêmio é o único campo monetário
+ * de recompensa). Cada desafio tem janela própria (inicio/fim).
  */
 import { colaboradores, vendedorElegivel } from "./equipe";
 
-export type TipoDesafio = "produto" | "pa" | "ticket";
+export type TipoDesafio = "produto" | "quantidade" | "faturamento" | "pa" | "ticket";
+export type UnidadeDesafio = "un" | "x" | "R$";
 
 export interface Desafio {
   id: string;
@@ -14,9 +22,14 @@ export interface Desafio {
   /** Frase curta do objetivo (o que precisa fazer). */
   objetivo: string;
   tipo: TipoDesafio;
-  /** Alvo por participante: 15 un, 1.90 de P.A., 185 de ticket. */
+  /** Alvo / piso por participante (un, índice ou R$). */
   alvoIndividual: number;
-  unidade: "un" | "x";
+  /**
+   * Mínimo para valer o desafio. null = sem piso separado (usa o alvo).
+   * Em "vender mais", é o piso para concorrer; o ranking ordena pelo realizado.
+   */
+  minimo: number | null;
+  unidade: UnidadeDesafio;
   /** R$ por participante que fechar o desafio. */
   premio: number;
   /** "AAAA-MM" */
@@ -25,7 +38,7 @@ export interface Desafio {
   inicio: string;
   /** Fim da janela do desafio (ISO), inclusive. */
   fim: string;
-  /** Produto/categoria alvo (tipo produto), quando aplicável. */
+  /** Produto/categoria alvo (tipo produto/quantidade), quando aplicável. */
   produtoId: number | null;
   participantes: string[];
 }
@@ -70,8 +83,9 @@ export const desafios: Desafio[] = [
     id: "d-perfumaria",
     nome: "Perfumaria — 3 acima de R$ 150",
     objetivo: "Quem vender 3 perfumes acima de R$ 150 (mínimo 3 unidades) ganha R$ 80,00.",
-    tipo: "produto",
+    tipo: "quantidade",
     alvoIndividual: 3,
+    minimo: 3,
     unidade: "un",
     premio: 80,
     competencia: "2026-09",
@@ -82,10 +96,11 @@ export const desafios: Desafio[] = [
   },
   {
     id: "d-bodycream",
-    nome: "Body Cream — acima de 15 un",
+    nome: "Body Cream — quem vender mais",
     objetivo: "Quem vender mais Body Cream (mínimo 15 unidades) ganha R$ 50,00.",
     tipo: "produto",
     alvoIndividual: 15,
+    minimo: 15,
     unidade: "un",
     premio: 50,
     competencia: "2026-09",
@@ -100,6 +115,7 @@ export const desafios: Desafio[] = [
     objetivo: "Quem mantiver P.A. acima de 1,90 no mês (mínimo 1,90) ganha R$ 60,00.",
     tipo: "pa",
     alvoIndividual: 1.9,
+    minimo: 1.9,
     unidade: "x",
     premio: 60,
     competencia: "2026-09",
@@ -114,7 +130,8 @@ export const desafios: Desafio[] = [
     objetivo: "Quem mantiver ticket médio acima de R$ 185 (mínimo R$ 185) ganha R$ 100,00.",
     tipo: "ticket",
     alvoIndividual: 185,
-    unidade: "x",
+    minimo: 185,
+    unidade: "R$",
     premio: 100,
     competencia: "2026-09",
     inicio: "2026-09-20",
@@ -129,21 +146,30 @@ export function desafiosAtivos(competencia: string): Desafio[] {
   return desafios.filter((d) => d.competencia === competencia);
 }
 
+/** Piso efetivo: minimo configurado ou o próprio alvo. */
+export function pisoDoDesafio(d: Desafio): number {
+  return d.minimo ?? d.alvoIndividual;
+}
+
 /**
  * Progresso individual do participante no desafio, até agora (relógio do mock:
- * 15/09, 14h). produto: un vendidas; pa/ticket: valor do índice.
+ * 15/09, 14h). un/R$: realizado; pa/ticket: valor do índice.
  * Determinístico pela chave desafio|participante.
  */
 export function progressoIndividual(d: Desafio, colaboradorId: string): number {
   if (!d.participantes.includes(colaboradorId)) return 0;
   const r = prng(hash(`${d.id}|${colaboradorId}`));
-  // Fração do alvo já alcançada: ~metade do mês decorrida (15 dias de 31),
-  // algumas pessoas à frente e outras atrás. Índice fica perto do alvo.
   if (d.tipo === "pa" || d.tipo === "ticket") {
     const fator = 0.95 + (r() * 2 - 1) * 0.25;
     return Math.round(d.alvoIndividual * fator * 100) / 100;
   }
-  const diasDecorridos = 15; // 1–15/set abertos, coerente com HOJE_ISO/HORA_ATUAL
+  if (d.tipo === "faturamento") {
+    const diasDecorridos = 15;
+    const diasTotais = 31;
+    const base = d.alvoIndividual * (diasDecorridos / diasTotais) * (0.65 + r() * 1.1);
+    return Math.max(0, Math.round(base));
+  }
+  const diasDecorridos = 15;
   const diasTotais = 31;
   const base = d.alvoIndividual * (diasDecorridos / diasTotais) * (0.65 + r() * 1.1);
   return Math.max(0, Math.round(base * 10) / 10);

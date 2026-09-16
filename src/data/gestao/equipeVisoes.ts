@@ -11,12 +11,12 @@
  */
 import { vendedorElegivel, colaboradoresDaFilial, colaboradorPorId, type Colaborador } from "./equipe";
 import { metaDaFilial, type Degrau } from "./metas";
-import { desafiosAtivos, progressoIndividual, type Desafio } from "./desafios";
+import { desafiosAtivos, progressoIndividual, pisoDoDesafio, type Desafio } from "./desafios";
 import { HOJE_ISO, HORA_ATUAL } from "./relogio";
 import { agregadoDoDia, diaVendas, lojaAberta, somarAgregados, type Agregado } from "./vendas";
 import { filialPorId, filiais, turnos, type Filial } from "./filiais";
 import { brlK, curvaReceita, kpiDelta, periodoAnterior, resolverPeriodo, type Escopo, type PeriodoResolvido, type EstadoBloco } from "./dashboard";
-import { brl, fimDoMes, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
+import { brl, brlCent, fimDoMes, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
 import type { TintKey } from "@/pages/dashboards/icons";
 
 const PALETA_LOJAS: TintKey[] = ["acc", "ok", "info", "warn", "bad"];
@@ -226,8 +226,11 @@ export interface DesafioParticipanteView {
   /** Nome do turno (Manhã/Tarde) ou "—" se sem turno. */
   turno: string;
   progresso: number;
+  /** Piso/alvo contra o qual a barra é medida. */
   alvo: number;
   progressoPct: number;
+  /** Ex.: "8/15 un" · "1,85/1,90" · "R$ 178/R$ 185". */
+  progressoRotulo: string;
   status: "atingiu" | "quase" | "abaixo" | "nao_comecou";
 }
 
@@ -239,12 +242,14 @@ export interface DesafioView {
   objetivo: string;
   /** Ex.: "Vender 15 un" / "Atingir 1,90". */
   metaRotulo: string;
-  /** Valor mínimo para valer o desafio (mesmo alvo individual no mock). */
-  minimo: number;
+  /** Valor mínimo configurado (null = sem piso explícito). */
+  minimo: number | null;
+  /** Se há mínimo discriminado no card (minimo != null). */
+  temMinimo: boolean;
   tipo: Desafio["tipo"];
   emoji: string;
   alvoIndividual: number;
-  unidade: "un" | "x";
+  unidade: Desafio["unidade"];
   premio: number;
   participantes: number;
   engajadas: number;
@@ -471,6 +476,8 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
 
 const TIPO_TEXTO: Record<Desafio["tipo"], string> = {
   produto: "Produto",
+  quantidade: "Quantidade",
+  faturamento: "Faturamento",
   pa: "P.A.",
   ticket: "Ticket médio",
 };
@@ -484,9 +491,25 @@ const EMOJI_DESAFIO: Record<string, string> = {
 
 const EMOJI_TIPO: Record<Desafio["tipo"], string> = {
   produto: "🧴",
+  quantidade: "📦",
+  faturamento: "💰",
   pa: "📊",
   ticket: "🎫",
 };
+
+function fmtValorDesafio(v: number, d: Desafio): string {
+  if (d.tipo === "ticket" || d.unidade === "R$") return brlCent(v);
+  if (d.tipo === "pa" || d.unidade === "x") return num(v, v % 1 !== 0 ? 2 : 0);
+  if (d.tipo === "faturamento") return brl(v);
+  return num(v, v % 1 !== 0 ? 1 : 0);
+}
+
+function fmtProgressoRotulo(progresso: number, piso: number, d: Desafio): string {
+  const a = fmtValorDesafio(progresso, d);
+  const b = fmtValorDesafio(piso, d);
+  if (d.unidade === "un") return `${a}/${b} un`;
+  return `${a}/${b}`;
+}
 
 function statusParticipante(progresso: number, alvo: number): DesafioParticipanteView["status"] {
   if (progresso <= 0) return "nao_comecou";
@@ -511,7 +534,7 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
   const linhas: DesafioParticipanteView[] = ids.map((id) => {
     const c = colaboradorPorId(id);
     const progresso = progressoIndividual(d, id);
-    const alvo = d.alvoIndividual;
+    const piso = pisoDoDesafio(d);
     const turnoNome = c?.turnoId ? turnos.find((t) => t.id === c.turnoId)?.nome ?? "—" : "—";
     const lojaNome = c ? filialPorId(c.filialId).fantasia : "—";
     return {
@@ -520,26 +543,38 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
       loja: lojaNome,
       turno: turnoNome,
       progresso,
-      alvo,
-      progressoPct: alvo > 0 ? Math.min(100, (progresso / alvo) * 100) : 0,
-      status: statusParticipante(progresso, alvo),
+      alvo: piso,
+      progressoPct: piso > 0 ? Math.min(100, (progresso / piso) * 100) : 0,
+      progressoRotulo: fmtProgressoRotulo(progresso, piso, d),
+      status: statusParticipante(progresso, piso),
     };
   });
   const progressoAgregado = linhas.reduce((s, p) => s + p.progresso, 0);
-  const alvoAgregado = d.alvoIndividual * ids.length;
+  const piso = pisoDoDesafio(d);
+  const alvoAgregado = piso * ids.length;
   const projetado = diasDecorridos > 0 ? (progressoAgregado / diasDecorridos) * diasTotais : 0;
   const semEngajamento = progressoAgregado <= 0;
   const ranking = [...linhas].sort(
-    (a, b) => ORDEM_STATUS[a.status] - ORDEM_STATUS[b.status] || b.progressoPct - a.progressoPct,
+    (a, b) => ORDEM_STATUS[a.status] - ORDEM_STATUS[b.status] || b.progresso - a.progresso || b.progressoPct - a.progressoPct,
   );
   const metaRotulo =
-    d.unidade === "x"
-      ? `Atingir ${num(d.alvoIndividual, d.alvoIndividual % 1 !== 0 ? 2 : 0)}`
-      : `Vender ${num(d.alvoIndividual, 0)} ${d.unidade}`;
+    d.tipo === "pa"
+      ? `Atingir ${num(d.alvoIndividual, 2)}`
+      : d.tipo === "ticket" || d.unidade === "R$"
+        ? `Atingir ${brlCent(d.alvoIndividual)}`
+        : d.tipo === "faturamento"
+          ? `Vender ${brl(d.alvoIndividual)}`
+          : d.tipo === "produto"
+            ? `Vender mais (mín. ${num(piso, 0)} un)`
+            : `Vender ${num(d.alvoIndividual, 0)} un`;
   const minimoRotulo =
-    d.unidade === "x"
-      ? num(d.alvoIndividual, d.alvoIndividual % 1 !== 0 ? 2 : 0)
-      : `${num(d.alvoIndividual, 0)} ${d.unidade}`;
+    d.minimo == null
+      ? null
+      : d.unidade === "un"
+        ? `${num(d.minimo, 0)} un`
+        : d.tipo === "ticket" || d.unidade === "R$"
+          ? brlCent(d.minimo)
+          : num(d.minimo, d.minimo % 1 !== 0 ? 2 : 0);
 
   let statusLabel: DesafioView["statusLabel"];
   let statusVariant: DesafioView["statusVariant"];
@@ -567,14 +602,18 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
   }
 
   const fechaNoRitmo = semEngajamento || statusLabel !== "Ativo" ? false : projetado >= alvoAgregado;
-  const descricao = `${d.objetivo} Meta: ${metaRotulo}. Mínimo: ${minimoRotulo}. Prêmio: ${brl(d.premio)}.`;
+  const descricao =
+    minimoRotulo != null
+      ? `${d.objetivo} Meta: ${metaRotulo}. Mínimo: ${minimoRotulo}. Prêmio: ${brl(d.premio)}.`
+      : `${d.objetivo} Meta: ${metaRotulo}. Prêmio: ${brl(d.premio)}.`;
   return {
     id: d.id,
     nome: d.nome,
     descricao,
     objetivo: d.objetivo,
     metaRotulo,
-    minimo: d.alvoIndividual,
+    minimo: d.minimo,
+    temMinimo: d.minimo != null,
     tipo: d.tipo,
     emoji: EMOJI_DESAFIO[d.id] ?? EMOJI_TIPO[d.tipo],
     alvoIndividual: d.alvoIndividual,

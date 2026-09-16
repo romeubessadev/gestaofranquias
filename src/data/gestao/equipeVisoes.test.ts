@@ -436,19 +436,19 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
         d.ranking.reduce((s, p) => s + p.progresso, 0),
         6,
       );
-      expect(d.alvoAgregado).toBe(d.alvoIndividual * d.participantes);
+      expect(d.alvoAgregado).toBe((d.minimo ?? d.alvoIndividual) * d.participantes);
       expect(d.ranking.length).toBe(d.participantes);
       expect(d.descricao).toContain(d.objetivo);
       expect(d.metaRotulo).toBeTruthy();
-      expect(d.minimo).toBe(d.alvoIndividual);
+      expect(d.minimo).not.toBeNull();
+      expect(d.temMinimo).toBe(true);
       expect(d.diasRestantes).toBeGreaterThanOrEqual(0);
       expect(d.prazoRotulo).toBeTruthy();
-      expect(d.prazoTom).toMatch(/^(ok|bad|muted)$/);
       expect(["Ativo", "Encerrado", "A começar"]).toContain(d.statusLabel);
-      expect(d.progressoPct).toBeGreaterThanOrEqual(0);
       for (const p of d.ranking) {
         expect(p.loja).toBeTruthy();
         expect(p.turno).toBeTruthy();
+        expect(p.progressoRotulo).toContain("/");
       }
     }
   });
@@ -486,6 +486,7 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
       competencia: "2026-09",
       inicio: "2026-09-01",
       fim: "2026-09-30",
+      minimo: 10,
       produtoId: null,
       participantes: ["c01", "c02"],
     };

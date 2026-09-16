@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { Avatar, Badge, Card, CardHeader, CardTitle, DataTable, EmptyState, ProgressBar, StatCard, type DataTableColumn } from "@/components/ui";
 import { Sparkline } from "@/components/charts";
-import { brl, num } from "@/lib/formato";
+import { brl, brlCent, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/blocos";
 import type { DesafioView, EquipeView, LojaEquipeResumo, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
@@ -353,8 +353,10 @@ function lojaCurta(fantasia: string): string {
   return fantasia.replace(/^Shopping\s+/i, "");
 }
 
-function fmtMinimo(v: number, unidade: "un" | "x"): string {
-  if (unidade === "x") return num(v, v % 1 !== 0 ? 2 : 0);
+function fmtMinimo(v: number, unidade: DesafioView["unidade"], tipo: DesafioView["tipo"]): string {
+  if (tipo === "ticket" || unidade === "R$") return brlCent(v);
+  if (tipo === "pa" || unidade === "x") return num(v, v % 1 !== 0 ? 2 : 0);
+  if (tipo === "faturamento") return brl(v);
   return `${num(v, 0)} un`;
 }
 
@@ -405,9 +407,11 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
               <span>
                 Meta: <span className="font-bold text-t0">{d.metaRotulo}</span>
               </span>
-              <span>
-                Mínimo: <span className="font-bold text-t0">{fmtMinimo(d.minimo, d.unidade)}</span>
-              </span>
+              {d.temMinimo && d.minimo != null && (
+                <span>
+                  Mínimo: <span className="font-bold text-t0">{fmtMinimo(d.minimo, d.unidade, d.tipo)}</span>
+                </span>
+              )}
               <span>
                 Prêmio: <span className="font-bold text-ok">{brl(d.premio)}</span>
               </span>
@@ -424,7 +428,8 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
                       {p.turno} · {lojaCurta(p.loja)}
                     </p>
                   </div>
-                  <div className="w-[64px] shrink-0 sm:w-[80px]">
+                  <span className="shrink-0 font-mono text-[11px] font-semibold tabular-nums text-t1">{p.progressoRotulo}</span>
+                  <div className="w-[56px] shrink-0 sm:w-[72px]">
                     <ProgressBar
                       value={Math.min(100, p.progressoPct)}
                       height={5}
