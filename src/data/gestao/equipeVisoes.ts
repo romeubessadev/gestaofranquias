@@ -9,7 +9,7 @@
  * permanecem visíveis. Os 4 KPIs de desempenho obedecem ao período filtrado.
  * Quando o período ≠ competência, um aviso deixa o recorte explícito.
  */
-import { vendedorElegivel, colaboradoresDaFilial, type Colaborador } from "./equipe";
+import { vendedorElegivel, colaboradoresDaFilial, colaboradorPorId, type Colaborador } from "./equipe";
 import { metaDaFilial, type Degrau } from "./metas";
 import { desafiosAtivos, progressoIndividual, type Desafio } from "./desafios";
 import { HOJE_ISO, HORA_ATUAL } from "./relogio";
@@ -218,10 +218,20 @@ export interface VendedoraLinha {
   semMeta: boolean;
 }
 
+export interface DesafioParticipanteView {
+  colaboradorId: string;
+  nome: string;
+  progresso: number;
+  alvo: number;
+  progressoPct: number;
+  status: "atingiu" | "quase" | "abaixo" | "nao_comecou";
+}
+
 export interface DesafioView {
   id: string;
   nome: string;
   tipo: Desafio["tipo"];
+  emoji: string;
   alvoIndividual: number;
   unidade: "un" | "x";
   premio: number;
@@ -230,12 +240,18 @@ export interface DesafioView {
   progressoAgregado: number;
   alvoAgregado: number;
   progressoPct: number;
+  /** Projeção linear do agregado até o fim do período. */
+  projetadoAgregado: number;
   /** Projeção linear até o fim do período alcança o alvo agregado. */
   fechaNoRitmo: boolean;
   /** Ninguém fez progresso ainda: estado "sem engajamento" (EQUIP-05 AC 3). */
   semEngajamento: boolean;
   /** Rótulo curto do tipo pro filtro visual da tabela. */
   tipoTexto: string;
+  /** Participantes com progresso > 0, ordenados: atingiu → quase → abaixo. */
+  ranking: DesafioParticipanteView[];
+  /** Quem zerou, agrupado numa linha. */
+  naoComecaram: { nomes: string[]; count: number } | null;
 }
 
 export interface LojaEquipeResumo {
@@ -441,28 +457,80 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
 
 const TIPO_TEXTO: Record<Desafio["tipo"], string> = { produto: "Produto", quantidade: "Quantidade", indice: "Índice" };
 
+const EMOJI_DESAFIO: Record<string, string> = {
+  "d-perfumaria": "🌸",
+  "d-bodycream": "🔥",
+  "d-pa": "📈",
+  "d-protocolo": "🎁",
+  "d-serum": "✨",
+  "d-ticket": "💳",
+};
+
+const EMOJI_TIPO: Record<Desafio["tipo"], string> = {
+  produto: "🧴",
+  quantidade: "📦",
+  indice: "📊",
+};
+
+function statusParticipante(progresso: number, alvo: number): DesafioParticipanteView["status"] {
+  if (progresso <= 0) return "nao_comecou";
+  if (progresso >= alvo) return "atingiu";
+  if (alvo > 0 && progresso / alvo >= 0.8) return "quase";
+  return "abaixo";
+}
+
+const ORDEM_STATUS: Record<DesafioParticipanteView["status"], number> = {
+  atingiu: 0,
+  quase: 1,
+  abaixo: 2,
+  nao_comecou: 3,
+};
+
 /** Veredito de ritmo: projeção linear do progresso agregado até o fim do período. */
-function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number): DesafioView {
-  const progressos = d.participantes.map((id) => progressoIndividual(d, id));
-  const progressoAgregado = progressos.reduce((s, p) => s + p, 0);
-  const alvoAgregado = d.alvoIndividual * d.participantes.length;
+function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, filiaisIds: string[]): DesafioView {
+  const ids = d.participantes.filter((id) => {
+    const c = colaboradorPorId(id);
+    return c && filiaisIds.includes(c.filialId);
+  });
+  const linhas: DesafioParticipanteView[] = ids.map((id) => {
+    const progresso = progressoIndividual(d, id);
+    const alvo = d.alvoIndividual;
+    return {
+      colaboradorId: id,
+      nome: colaboradorPorId(id)?.nome ?? id,
+      progresso,
+      alvo,
+      progressoPct: alvo > 0 ? Math.min(100, (progresso / alvo) * 100) : 0,
+      status: statusParticipante(progresso, alvo),
+    };
+  });
+  const progressoAgregado = linhas.reduce((s, p) => s + p.progresso, 0);
+  const alvoAgregado = d.alvoIndividual * ids.length;
   const projetado = diasDecorridos > 0 ? (progressoAgregado / diasDecorridos) * diasTotais : 0;
   const semEngajamento = progressoAgregado <= 0;
+  const comProgresso = linhas
+    .filter((p) => p.status !== "nao_comecou")
+    .sort((a, b) => ORDEM_STATUS[a.status] - ORDEM_STATUS[b.status] || b.progressoPct - a.progressoPct);
+  const zeradas = linhas.filter((p) => p.status === "nao_comecou");
   return {
     id: d.id,
     nome: d.nome,
     tipo: d.tipo,
+    emoji: EMOJI_DESAFIO[d.id] ?? EMOJI_TIPO[d.tipo],
     alvoIndividual: d.alvoIndividual,
     unidade: d.unidade,
     premio: d.premio,
-    participantes: d.participantes.length,
-    engajadas: progressos.filter((p) => p > 0).length,
+    participantes: ids.length,
+    engajadas: comProgresso.length,
     progressoAgregado,
     alvoAgregado,
     progressoPct: alvoAgregado > 0 ? (progressoAgregado / alvoAgregado) * 100 : 0,
+    projetadoAgregado: projetado,
     fechaNoRitmo: semEngajamento ? false : projetado >= alvoAgregado,
     semEngajamento,
     tipoTexto: TIPO_TEXTO[d.tipo],
+    ranking: comProgresso,
+    naoComecaram: zeradas.length > 0 ? { nomes: zeradas.map((p) => p.nome.split(" ")[0] ?? p.nome), count: zeradas.length } : null,
   };
 }
 
@@ -474,7 +542,10 @@ function diasAbertosDaCompetencia(competencia: string, filiaisIds: string[]): { 
   return { decorridos, totais: abertos.length };
 }
 
-/* ------------------------- Premiação projetada (EQUIP-04/05) ------------------------- */
+function desafiosViewDaCompetencia(competencia: string, filiaisIds: string[]): DesafioView[] {
+  const { decorridos, totais } = diasAbertosDaCompetencia(competencia, filiaisIds);
+  return desafiosAtivos(competencia).map((d) => desafioView(d, decorridos, totais, filiaisIds));
+}
 
 /**
  * Fonte 1 — escada de metas da filial (EQUIP-04): realizado de cada vendedora
@@ -675,11 +746,6 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
       desafios: metaAtiva ? (desafiosAtivos(competencia).length > 0 ? "disponivel" : "sem_dados") : "indisponivel",
     },
   };
-}
-
-function desafiosViewDaCompetencia(competencia: string, filiaisIds: string[]): DesafioView[] {
-  const { decorridos, totais } = diasAbertosDaCompetencia(competencia, filiaisIds);
-  return desafiosAtivos(competencia).map((d) => desafioView(d, decorridos, totais));
 }
 
 /* ------------------------- Visão rede (EQUIP-07) ------------------------- */

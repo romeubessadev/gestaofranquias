@@ -9,7 +9,7 @@ import { Sparkline } from "@/components/charts";
 import { brl, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/blocos";
-import type { DesafioView, EquipeView, LojaEquipeResumo, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
+import type { DesafioParticipanteView, DesafioView, EquipeView, LojaEquipeResumo, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
 import { cn } from "@/lib/cn";
 import { ICONS } from "@/pages/dashboards/icons";
 
@@ -355,77 +355,176 @@ const ROTULO_TIPO: Record<DesafioView["tipo"], { texto: string; variant: "accent
   indice: { texto: "Índice", variant: "warning" },
 };
 
+const TINT_TIPO: Record<DesafioView["tipo"], { bg: string; fg: string }> = {
+  produto: { bg: "var(--acc-soft)", fg: "var(--acc)" },
+  quantidade: { bg: "rgba(59,130,246,0.12)", fg: "var(--info)" },
+  indice: { bg: "rgba(245,158,11,0.12)", fg: "var(--warn)" },
+};
+
+const STATUS_DESAFIO: Record<
+  DesafioParticipanteView["status"],
+  { texto: string; variant: "success" | "warning" | "danger" | "neutral" }
+> = {
+  atingiu: { texto: "✓ atingiu", variant: "success" },
+  quase: { texto: "↗ quase", variant: "warning" },
+  abaixo: { texto: "↘ abaixo", variant: "danger" },
+  nao_comecou: { texto: "○ não começou", variant: "neutral" },
+};
+
+function fmtProgresso(v: number, unidade: "un" | "x"): string {
+  if (unidade === "x") return num(v, v % 1 !== 0 ? 2 : 0);
+  return num(v, v % 1 !== 0 ? 1 : 0);
+}
+
 export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
   const foraDoRitmo = desafios.filter((d) => !d.fechaNoRitmo && !d.semEngajamento).length;
-  const colunas: DataTableColumn<DesafioView>[] = [
-    {
-      key: "desafio",
-      header: "Desafio",
-      render: (d) => (
-        <div className="min-w-0">
-          <p className="truncate text-[13px] font-bold text-t0">{d.nome}</p>
-          <p className="mt-0.5 text-[11px] text-t2">
-            alvo {num(d.alvoIndividual, d.alvoIndividual % 1 !== 0 ? 2 : 0)} {d.unidade} · prêmio {brl(d.premio)} · <Badge variant={ROTULO_TIPO[d.tipo].variant}>{ROTULO_TIPO[d.tipo].texto}</Badge>
-          </p>
-        </div>
-      ),
-    },
-    {
-      key: "progresso",
-      header: "Progresso",
-      width: "180px",
-      render: (d) => (
-        <div>
-          <ProgressBar value={Math.min(100, d.progressoPct)} height={6} color={d.fechaNoRitmo || d.semEngajamento ? "var(--acc)" : "var(--warn)"} />
-          <p className="mt-1 text-[11px] text-t2">
-            {num(d.progressoAgregado, d.progressoAgregado % 1 !== 0 ? 1 : 0)} de {num(d.alvoAgregado, 0)} {d.unidade} · {num(d.progressoPct, 0)}%
-          </p>
-        </div>
-      ),
-    },
-    {
-      key: "engajadas",
-      header: "Engajadas",
-      align: "center",
-      hideBelow: "sm",
-      render: (d) =>
-        d.semEngajamento ? (
-          <Badge variant="neutral">sem engajamento</Badge>
-        ) : (
-          <span className="text-[12.5px] font-semibold text-t0">
-            {d.engajadas} de {d.participantes}
-          </span>
-        ),
-    },
-    {
-      key: "ritmo",
-      header: "Ritmo",
-      align: "right",
-      render: (d) =>
-        d.semEngajamento ? (
-          <Badge variant="neutral">sem progresso</Badge>
-        ) : d.fechaNoRitmo ? (
-          <Badge variant="success">fecha no ritmo</Badge>
-        ) : (
-          <Badge variant="danger">não fecha</Badge>
-        ),
-    },
-  ];
 
   return (
-    <Card>
-      <CardHeader>
-        <div>
-          <CardTitle>Desafios ativos</CardTitle>
-          <p className="mt-1 text-[12.5px] text-t2">
-            {foraDoRitmo > 0
-              ? `${num(foraDoRitmo, 0)} desafio${foraDoRitmo > 1 ? "s" : ""} não fecham no ritmo atual.`
-              : "Todos os desafios fecham no ritmo atual."}
-          </p>
-        </div>
-      </CardHeader>
-      <DataTable columns={colunas} data={desafios} rowKey={(d) => d.id} emptyMessage="Sem desafios ativos na competência." />
-    </Card>
+    <div className="flex flex-col gap-4">
+      <div>
+        <CardTitle>Desafios ativos</CardTitle>
+        <p className="mt-1 text-[12.5px] text-t2">
+          {foraDoRitmo > 0
+            ? `${num(foraDoRitmo, 0)} desafio${foraDoRitmo > 1 ? "s" : ""} não fecham no ritmo atual.`
+            : "Todos os desafios fecham no ritmo atual."}
+        </p>
+      </div>
+
+      {desafios.map((d) => {
+        const tint = TINT_TIPO[d.tipo];
+        const barraCor = d.semEngajamento ? "var(--t2)" : d.fechaNoRitmo ? "var(--acc)" : "var(--warn)";
+        return (
+          <Card key={d.id} padding="lg">
+            <div className="mb-4 flex flex-wrap items-start gap-3">
+              <span
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px] text-[22px]"
+                style={{ background: tint.bg, color: tint.fg }}
+                aria-hidden
+              >
+                {d.emoji}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[15px] font-bold text-t0">{d.nome}</p>
+                  <Badge variant={ROTULO_TIPO[d.tipo].variant}>{ROTULO_TIPO[d.tipo].texto}</Badge>
+                </div>
+                <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-t2">
+                  <span>
+                    Meta:{" "}
+                    <span className="font-bold text-t0">
+                      {fmtProgresso(d.alvoIndividual, d.unidade)} {d.unidade}
+                    </span>
+                  </span>
+                  <span>
+                    Prêmio: <span className="font-bold text-warn">{brl(d.premio)}</span>
+                  </span>
+                  <span>
+                    {d.engajadas}/{d.participantes} engajadas
+                  </span>
+                </p>
+              </div>
+              {d.semEngajamento ? (
+                <Badge variant="neutral">sem engajamento</Badge>
+              ) : d.fechaNoRitmo ? (
+                <Badge variant="success">fecha no ritmo</Badge>
+              ) : (
+                <Badge variant="danger">não fecha</Badge>
+              )}
+            </div>
+
+            <div className="mb-4">
+              <ProgressBar value={Math.min(100, d.progressoPct)} height={8} color={barraCor} />
+              <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[11.5px] text-t2">
+                <span>
+                  {fmtProgresso(d.progressoAgregado, d.unidade)} de {fmtProgresso(d.alvoAgregado, d.unidade)} {d.unidade} ·{" "}
+                  {num(d.progressoPct, 0)}%
+                </span>
+                {!d.semEngajamento && (
+                  <span>
+                    Projeta {fmtProgresso(d.projetadoAgregado, d.unidade)} {d.unidade} até o fim
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="overflow-x-auto border-t border-line pt-3">
+              <table className="w-full min-w-[520px] border-collapse text-sm">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wide text-t2">
+                    <th className="pb-2 pr-2 text-left font-bold">#</th>
+                    <th className="pb-2 pr-2 text-left font-bold">Vendedora</th>
+                    <th className="pb-2 pr-2 text-left font-bold">Progresso</th>
+                    <th className="pb-2 pr-2 text-right font-bold">{d.unidade === "x" ? "Índice" : "Un."}</th>
+                    <th className="pb-2 text-right font-bold">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.ranking.map((p, idx) => {
+                    const st = STATUS_DESAFIO[p.status];
+                    return (
+                      <tr key={p.colaboradorId} className="border-t border-line">
+                        <td className={`py-2.5 pr-2 text-[13px] font-extrabold ${idx === 0 ? "text-warn" : "text-t2"}`}>
+                          {idx + 1}º
+                        </td>
+                        <td className="py-2.5 pr-2">
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <Avatar name={p.nome} size="sm" />
+                            <p className="truncate text-[13px] font-bold text-t0">{p.nome}</p>
+                          </div>
+                        </td>
+                        <td className="py-2.5 pr-2">
+                          <div className="flex min-w-[120px] items-center gap-2">
+                            <div className="min-w-0 flex-1">
+                              <ProgressBar
+                                value={Math.min(100, p.progressoPct)}
+                                height={6}
+                                color={p.status === "atingiu" ? "var(--ok)" : p.status === "quase" ? "var(--warn)" : "var(--acc)"}
+                              />
+                            </div>
+                            <span className="w-9 shrink-0 text-right text-[11px] font-semibold text-t2">{num(p.progressoPct, 0)}%</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 pr-2 text-right font-mono text-[12.5px] font-bold text-t0">
+                          {fmtProgresso(p.progresso, d.unidade)}/{fmtProgresso(p.alvo, d.unidade)}
+                        </td>
+                        <td className="py-2.5 text-right">
+                          <Badge variant={st.variant}>{st.texto}</Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {d.naoComecaram && (
+                    <tr className="border-t border-line">
+                      <td className="py-2.5 pr-2 text-[13px] font-extrabold text-t2">—</td>
+                      <td className="py-2.5 pr-2" colSpan={2}>
+                        <p className="text-[13px] font-semibold text-t1">
+                          {d.naoComecaram.nomes.slice(0, 4).join(", ")}
+                          {d.naoComecaram.count > 4 ? ` e mais ${d.naoComecaram.count - 4}` : ""}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-t2">não começaram</p>
+                      </td>
+                      <td className="py-2.5 pr-2 text-right font-mono text-[12.5px] text-t2">
+                        0/{fmtProgresso(d.alvoIndividual, d.unidade)}
+                      </td>
+                      <td className="py-2.5 text-right">
+                        <Badge variant="neutral">○ não começou</Badge>
+                      </td>
+                    </tr>
+                  )}
+                  {d.ranking.length === 0 && !d.naoComecaram && (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-[13px] text-t2">
+                        Sem participantes no escopo.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        );
+      })}
+    </div>
   );
 }
 

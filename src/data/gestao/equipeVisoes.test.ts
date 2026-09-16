@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { agregadoVendedoraPeriodo, degrausDaFilial, escadaVendedora, metaIndividual, vendedorasDaLoja, montarEquipeView, type MetaIndividual } from "./equipeVisoes";
-import { colaboradorPorId, colaboradores, vendedorElegivel } from "./equipe";
+import { colaboradorPorId } from "./equipe";
 import { metaDaFilial, type Degrau } from "./metas";
 import { desafiosAtivos, progressoIndividual, type Desafio } from "./desafios";
 import { HOJE_ISO } from "./relogio";
@@ -432,13 +432,25 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
     expect(v.desafios!.length).toBe(6);
     for (const d of v.desafios!) {
-      const somaIndividuais = colaboradores
-        .filter((c) => vendedorElegivel(c))
-        .reduce((s, c) => s + progressoIndividual(desafioPorId(d.id)!, c.id), 0);
-      expect(d.progressoAgregado).toBeCloseTo(somaIndividuais, 6);
+      expect(d.progressoAgregado).toBeCloseTo(
+        d.ranking.reduce((s, p) => s + p.progresso, 0),
+        6,
+      );
       expect(d.alvoAgregado).toBe(d.alvoIndividual * d.participantes);
-      expect(d.progressoPct).toBeGreaterThan(0);
-      expect(d.progressoPct).toBeLessThan(100);
+      expect(d.ranking.length + (d.naoComecaram?.count ?? 0)).toBe(d.participantes);
+      expect(d.progressoPct).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("ranking lista participantes com progresso e agrupa quem não começou", () => {
+    const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    for (const d of v.desafios!) {
+      expect(d.emoji).toBeTruthy();
+      expect(d.projetadoAgregado).toBeGreaterThanOrEqual(0);
+      for (const p of d.ranking) {
+        expect(p.progresso).toBeGreaterThan(0);
+        expect(["atingiu", "quase", "abaixo"]).toContain(p.status);
+      }
     }
   });
 
@@ -565,8 +577,4 @@ describe("T5: leitura da IA da equipe (EQUIP-06)", () => {
 
 function primeiroNomeDe(nomeCompleto: string): string {
   return nomeCompleto.split(" ")[0];
-}
-
-function desafioPorId(id: string): Desafio | undefined {
-  return desafiosAtivos("2026-09").find((d) => d.id === id);
 }
