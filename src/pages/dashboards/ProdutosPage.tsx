@@ -400,7 +400,7 @@ export default function ProdutosPage() {
 
       {/* Tabela de Produtos — Data Table flat + Total + cards mobile */}
       <Card className="mt-4" padding="none">
-        <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex items-center gap-1.5">
             <CardTitle>Desempenho por Produto</CardTitle>
             <TipHelp label="Compare faturamento, custo, margem e volume para entender o desempenho de cada produto no mix." />

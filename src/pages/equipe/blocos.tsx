@@ -6,12 +6,21 @@
 import { useState } from "react";
 import { Avatar, Badge, Card, CardHeader, CardTitle, DataTable, EmptyState, ProgressBar, StatCard, type DataTableColumn } from "@/components/ui";
 import { Sparkline } from "@/components/charts";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { brl, brlK, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/blocos";
 import type { DesafioView, EquipeView, LojaEquipeResumo, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
 import { cn } from "@/lib/cn";
 import { ICONS } from "@/pages/dashboards/icons";
+
+const TipHelp = ({ label }: { label: string }) => (
+  <Tooltip label={label}>
+    <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 transition-colors hover:text-t1">
+      ?
+    </span>
+  </Tooltip>
+);
 
 /* ------------------------- KPIs do topo ------------------------- */
 
@@ -368,16 +377,27 @@ function IconRelogio() {
   );
 }
 
+function resumoStatusDesafios(desafios: DesafioView[]): string {
+  if (desafios.length === 0) return "Nenhum desafio nesta competência.";
+  const ativos = desafios.filter((d) => d.statusLabel === "Ativo").length;
+  const aComecar = desafios.filter((d) => d.statusLabel === "A começar").length;
+  const encerrados = desafios.filter((d) => d.statusLabel === "Encerrado").length;
+  const partes: string[] = [];
+  if (ativos > 0) partes.push(`${ativos} ativo${ativos === 1 ? "" : "s"}`);
+  if (aComecar > 0) partes.push(`${aComecar} a começar`);
+  if (encerrados > 0) partes.push(`${encerrados} encerrado${encerrados === 1 ? "" : "s"}`);
+  return partes.join(" · ");
+}
+
 export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
   return (
     <Card padding="lg">
       <div className="mb-4">
-        <CardTitle>Desafios</CardTitle>
-        <p className="mt-1 text-[12.5px] text-t2">
-          {desafios.length === 0
-            ? "Nenhum desafio nesta competência."
-            : `${desafios.length} desafio${desafios.length === 1 ? "" : "s"} da competência.`}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <CardTitle>Desafios</CardTitle>
+          <TipHelp label="Campanhas com prêmio para quem bate a meta no período. Acompanhe progresso por vendedora, status e prazo." />
+        </div>
+        <p className="mt-1 text-[12.5px] text-t2">{resumoStatusDesafios(desafios)}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
