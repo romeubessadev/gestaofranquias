@@ -349,12 +349,6 @@ export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
 
 /* ------------------------- Desafios ------------------------- */
 
-const PRAZO_TOM: Record<DesafioView["prazoTom"], string> = {
-  ok: "text-ok",
-  bad: "text-bad",
-  muted: "text-t2",
-};
-
 function lojaCurta(fantasia: string): string {
   return fantasia.replace(/^Shopping\s+/i, "");
 }
@@ -362,6 +356,15 @@ function lojaCurta(fantasia: string): string {
 function fmtMinimo(v: number, unidade: "un" | "x"): string {
   if (unidade === "x") return num(v, v % 1 !== 0 ? 2 : 0);
   return `${num(v, 0)} un`;
+}
+
+function IconRelogio() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
 }
 
 export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
@@ -386,9 +389,13 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-[14.5px] font-bold leading-snug text-t0">{d.nome}</p>
-                  <span className={`shrink-0 text-[11.5px] font-bold ${PRAZO_TOM[d.prazoTom]}`}>
-                    {d.prazoTom === "muted" ? "Pra começar" : d.diasRestantes === 0 ? "Encerra hoje" : `${d.diasRestantes}d`}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <Badge variant={d.statusVariant}>{d.statusLabel}</Badge>
+                    <Badge variant={d.statusVariant} className="gap-1">
+                      <IconRelogio />
+                      {d.prazoRotulo}
+                    </Badge>
+                  </div>
                 </div>
                 <p className="mt-1 text-[12px] leading-snug text-t2">{d.objetivo}</p>
               </div>
@@ -401,15 +408,15 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
               <span>
                 Mínimo: <span className="font-bold text-t0">{fmtMinimo(d.minimo, d.unidade)}</span>
               </span>
-              <span className="font-bold text-warn">🎁 {brl(d.premio)}</span>
+              <span>
+                Prêmio: <span className="font-bold text-ok">{brl(d.premio)}</span>
+              </span>
             </div>
 
             <div className="max-h-[260px] space-y-2.5 overflow-y-auto border-t border-line pt-3">
               {d.ranking.map((p, idx) => (
                 <div key={p.colaboradorId} className="flex items-center gap-2">
-                  <span className={`w-6 shrink-0 text-[12px] font-extrabold ${idx === 0 ? "text-warn" : "text-t2"}`}>
-                    {idx + 1}º
-                  </span>
+                  <span className="w-6 shrink-0 text-[12px] font-extrabold text-t2">{idx + 1}º</span>
                   <Avatar name={p.nome} size="xs" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[12.5px] font-semibold text-t0">{p.nome.split(" ")[0]}</p>

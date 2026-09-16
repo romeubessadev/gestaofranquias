@@ -1,9 +1,8 @@
 /**
- * Desafios ativos da competência (mock determinístico). Tipos reais do
- * negócio: Produto, P.A. e Ticket médio — nunca em reais (regra da futura
- * tela de Configurações · Desafios). O progresso de cada participante é
- * gerado com a mesma técnica de ruído do gerador de vendas: mesma entrada,
- * mesmo valor, em qualquer dia de validação.
+ * Desafios da competência (mock determinístico). Tipos reais do negócio:
+ * Produto, P.A. e Ticket médio — nunca em reais (regra da futura tela de
+ * Configurações · Desafios). Cada desafio tem janela própria (inicio/fim)
+ * para status Ativo / Encerrado / A começar.
  */
 import { colaboradores, vendedorElegivel } from "./equipe";
 
@@ -22,6 +21,10 @@ export interface Desafio {
   premio: number;
   /** "AAAA-MM" */
   competencia: string;
+  /** Início da janela do desafio (ISO). */
+  inicio: string;
+  /** Fim da janela do desafio (ISO), inclusive. */
+  fim: string;
   /** Produto/categoria alvo (tipo produto), quando aplicável. */
   produtoId: number | null;
   participantes: string[];
@@ -58,7 +61,10 @@ const ATIVAS_SETEMBRO = colaboradores
   )
   .map((c) => c.id);
 
-/** Desafios da competência corrente do mock (setembro/2026) — tipicamente 4. */
+/**
+ * Desafios de setembro/2026 — tipicamente 4, com status mistos no relógio
+ * do mock (HOJE = 2026-09-15): encerrado, ativo, ativo, a começar.
+ */
 export const desafios: Desafio[] = [
   {
     id: "d-perfumaria",
@@ -69,6 +75,8 @@ export const desafios: Desafio[] = [
     unidade: "un",
     premio: 80,
     competencia: "2026-09",
+    inicio: "2026-09-01",
+    fim: "2026-09-10",
     produtoId: 1,
     participantes: ["c01", "c02", "c07", "c11", "c12", "c14"],
   },
@@ -81,6 +89,8 @@ export const desafios: Desafio[] = [
     unidade: "un",
     premio: 50,
     competencia: "2026-09",
+    inicio: "2026-09-01",
+    fim: "2026-09-30",
     produtoId: 3,
     participantes: ["c01", "c03", "c04", "c08", "c13", "c15", "c17"],
   },
@@ -93,6 +103,8 @@ export const desafios: Desafio[] = [
     unidade: "x",
     premio: 60,
     competencia: "2026-09",
+    inicio: "2026-09-01",
+    fim: "2026-09-30",
     produtoId: null,
     participantes: ATIVAS_SETEMBRO,
   },
@@ -105,12 +117,14 @@ export const desafios: Desafio[] = [
     unidade: "x",
     premio: 100,
     competencia: "2026-09",
+    inicio: "2026-09-20",
+    fim: "2026-09-30",
     produtoId: null,
     participantes: ATIVAS_SETEMBRO,
   },
 ];
 
-/** Desafios ativos na competência. Sem desafios: lista vazia (a tela segue). */
+/** Desafios da competência. Sem desafios: lista vazia (a tela segue). */
 export function desafiosAtivos(competencia: string): Desafio[] {
   return desafios.filter((d) => d.competencia === competencia);
 }

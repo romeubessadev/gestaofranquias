@@ -442,8 +442,9 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
       expect(d.metaRotulo).toBeTruthy();
       expect(d.minimo).toBe(d.alvoIndividual);
       expect(d.diasRestantes).toBeGreaterThanOrEqual(0);
+      expect(d.prazoRotulo).toBeTruthy();
       expect(d.prazoTom).toMatch(/^(ok|bad|muted)$/);
-      expect(d.statusLabel).toBeTruthy();
+      expect(["Ativo", "Encerrado", "A começar"]).toContain(d.statusLabel);
       expect(d.progressoPct).toBeGreaterThanOrEqual(0);
       for (const p of d.ranking) {
         expect(p.loja).toBeTruthy();
@@ -483,6 +484,8 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
       unidade: "un",
       premio: 40,
       competencia: "2026-09",
+      inicio: "2026-09-01",
+      fim: "2026-09-30",
       produtoId: null,
       participantes: ["c01", "c02"],
     };
@@ -494,12 +497,17 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
     expect(soma).toBe(0);
   });
 
-  it("veredito de ritmo: projeção linear decide fechaNoRitmo (com margem do mock)", () => {
+  it("status temporal cobre ativo, encerrado e a começar; ritmo só em ativos", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    const labels = new Set(v.desafios!.map((d) => d.statusLabel));
+    expect(labels.has("Ativo")).toBe(true);
+    expect(labels.has("Encerrado")).toBe(true);
+    expect(labels.has("A começar")).toBe(true);
     for (const d of v.desafios!) {
-      // 15 dias de 31 decorridos: projeta linear. Mock gerou ~47% do alvo com
-      // ruído; veredito pode ser true ou false, mas o pct precisa bater com a
-      // projeção: fechaNoRitmo <=> progressoPct >= ~47%.
+      if (d.statusLabel !== "Ativo") {
+        expect(d.fechaNoRitmo).toBe(false);
+        continue;
+      }
       const pct = d.progressoPct;
       const diasDecorridos = 15;
       const diasTotais = 30;

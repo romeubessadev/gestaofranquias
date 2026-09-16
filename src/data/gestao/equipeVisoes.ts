@@ -255,13 +255,15 @@ export interface DesafioView {
   fechaNoRitmo: boolean;
   semEngajamento: boolean;
   tipoTexto: string;
-  /** Dias abertos restantes na competência (incluindo hoje). */
+  /** Dias restantes (ativo), dias até começar (agendado) ou 0 (encerrado). */
   diasRestantes: number;
-  /** Tom do prazo: ok=em andamento, bad=acabando, muted=pra começar. */
+  /** Rótulo do badge de prazo: "15d" · "Em 5d" · "Encerrado". */
+  prazoRotulo: string;
+  /** Tom do prazo: ok=ativo, muted=a começar, bad=encerrado. */
   prazoTom: "ok" | "bad" | "muted";
-  /** Badge de ritmo no header (estilo Projects status). */
-  statusLabel: string;
-  statusVariant: "success" | "danger" | "neutral" | "warning";
+  /** Status temporal do desafio. */
+  statusLabel: "Ativo" | "Encerrado" | "A começar";
+  statusVariant: "success" | "danger" | "neutral" | "warning" | "info";
   /** Todos os participantes, ordenados: atingiu → quase → abaixo → não começou. */
   ranking: DesafioParticipanteView[];
 }
@@ -500,7 +502,7 @@ const ORDEM_STATUS: Record<DesafioParticipanteView["status"], number> = {
   nao_comecou: 3,
 };
 
-/** Veredito de ritmo: projeção linear do progresso agregado até o fim do período. */
+/** Veredito de ritmo + status temporal pela janela inicio/fim do desafio. */
 function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, filiaisIds: string[]): DesafioView {
   const ids = d.participantes.filter((id) => {
     const c = colaboradorPorId(id);
@@ -538,12 +540,33 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     d.unidade === "x"
       ? num(d.alvoIndividual, d.alvoIndividual % 1 !== 0 ? 2 : 0)
       : `${num(d.alvoIndividual, 0)} ${d.unidade}`;
-  const restantes = diasDecorridos > 0 ? Math.max(0, diasTotais - diasDecorridos + 1) : diasTotais;
-  const prazoTom: DesafioView["prazoTom"] =
-    diasDecorridos === 0 ? "muted" : restantes <= 3 || (diasTotais > 0 && restantes / diasTotais <= 0.15) ? "bad" : "ok";
-  const fechaNoRitmo = semEngajamento ? false : projetado >= alvoAgregado;
-  const statusLabel = semEngajamento ? "A iniciar" : fechaNoRitmo ? "No ritmo" : "Em risco";
-  const statusVariant: DesafioView["statusVariant"] = semEngajamento ? "neutral" : fechaNoRitmo ? "success" : "danger";
+
+  let statusLabel: DesafioView["statusLabel"];
+  let statusVariant: DesafioView["statusVariant"];
+  let prazoTom: DesafioView["prazoTom"];
+  let diasRestantes: number;
+  let prazoRotulo: string;
+  if (HOJE_ISO < d.inicio) {
+    statusLabel = "A começar";
+    statusVariant = "info";
+    prazoTom = "muted";
+    diasRestantes = intervaloDias(HOJE_ISO, d.inicio).length - 1;
+    prazoRotulo = diasRestantes <= 0 ? "Começa hoje" : `Em ${diasRestantes}d`;
+  } else if (HOJE_ISO > d.fim) {
+    statusLabel = "Encerrado";
+    statusVariant = "neutral";
+    prazoTom = "bad";
+    diasRestantes = 0;
+    prazoRotulo = "0d";
+  } else {
+    statusLabel = "Ativo";
+    statusVariant = "success";
+    prazoTom = "ok";
+    diasRestantes = intervaloDias(HOJE_ISO, d.fim).length;
+    prazoRotulo = diasRestantes === 1 ? "1d" : `${diasRestantes}d`;
+  }
+
+  const fechaNoRitmo = semEngajamento || statusLabel !== "Ativo" ? false : projetado >= alvoAgregado;
   const descricao = `${d.objetivo} Meta: ${metaRotulo}. Mínimo: ${minimoRotulo}. Prêmio: ${brl(d.premio)}.`;
   return {
     id: d.id,
@@ -566,7 +589,8 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     fechaNoRitmo,
     semEngajamento,
     tipoTexto: TIPO_TEXTO[d.tipo],
-    diasRestantes: restantes,
+    diasRestantes,
+    prazoRotulo,
     prazoTom,
     statusLabel,
     statusVariant,

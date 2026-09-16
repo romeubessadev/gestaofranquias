@@ -61,4 +61,12 @@ describe("T1: desafios ativos (EQUIP-05)", () => {
     }
     expect(progressoIndividual(d, "c09")).toBe(0);
   });
+
+  it("cada desafio tem janela inicio/fim válida na competência", () => {
+    for (const d of desafiosAtivos("2026-09")) {
+      expect(d.inicio <= d.fim).toBe(true);
+      expect(d.inicio.startsWith("2026-09")).toBe(true);
+      expect(d.fim.startsWith("2026-09")).toBe(true);
+    }
+  });
 });
