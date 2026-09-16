@@ -285,11 +285,15 @@ export default function ProdutosPage() {
           </div>
           <BadgeVsAnterior delta={view.kpis[0]?.delta} />
         </div>
-        <BarChart
-          data={view.categorias.map((c) => ({ label: c.nome, value: c.faturamento }))}
-          height={200}
-          formatValue={brlK}
-        />
+        <div className="overflow-x-auto">
+          <div className="min-w-[520px]">
+            <BarChart
+              data={view.categorias.map((c) => ({ label: c.nome, value: c.faturamento }))}
+              height={200}
+              formatValue={brlK}
+            />
+          </div>
+        </div>
       </Card>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
