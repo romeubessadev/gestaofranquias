@@ -287,12 +287,12 @@ export default function FinanceiroPage() {
             <CardTitle>Formas de Pagamento</CardTitle>
           </CardHeader>
           {view.formasPagamento.length === 0 ? (
-            <span className="py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+            <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
           ) : (
             (() => {
               const total = view.formasPagamento.reduce((s, f) => s + f.valor, 0) || 1;
               return (
-                <div className="px-4 pb-4">
+                <div className="flex flex-1 flex-col justify-center px-4 pb-4">
                   {/* Padrão Expense breakdown (FinanceDashboard) */}
                   <div className="mx-auto my-2">
                     <DonutChart
