@@ -41,21 +41,21 @@ Decisões fechadas (gestor + revisão). Pronto para implementar.
 |---|---|
 | Label | `Faturamento` |
 | Sub | `Meta: {R$}` (manter) |
-| Tooltip | `Total faturado no período selecionado.` |
+| Tooltip | **sem `?`** |
 
 ### CMV
 | Elemento | Final |
 |---|---|
 | Label | `CMV` |
-| Sub | `CMV {N}%` (não `CMV% {N}%`) |
+| Sub | `CMV {N}%` |
 | Tooltip | `Mostra quanto do faturamento foi consumido pelo custo dos produtos vendidos. Quanto maior o percentual de CMV, maior a pressão sobre a margem.` |
 
-### Nº de vendas *(era “Vendas”)*
+### Nº de vendas
 | Elemento | Final |
 |---|---|
 | Label | `Nº de vendas` |
 | Sub | `{N} itens vendidos` |
-| Tooltip | `Quantidade de vendas realizadas no período selecionado.` |
+| Tooltip | **sem `?`** |
 
 ### Ticket Médio
 | Elemento | Final |
@@ -63,6 +63,10 @@ Decisões fechadas (gestor + revisão). Pronto para implementar.
 | Label | `Ticket Médio` |
 | Sub | `PA {N}` |
 | Tooltip | `Valor médio faturado por venda no período selecionado.` |
+
+### Layout (linha meta)
+- **Atingimento da Meta** (esquerda, `1fr`) → **Faturamento vs Meta** (direita, `1.6fr`)
+- Sem `?` em Atingimento da Meta e Ranking de Lojas
 
 ### Deltas
 | Original | Final |
@@ -87,7 +91,7 @@ Decisões fechadas (gestor + revisão). Pronto para implementar.
 | Elemento | Final |
 |---|---|
 | Título | `Atingimento da Meta` |
-| Tooltip | `Quanto da meta do mês já foi atingido e quanto ainda falta.` |
+| Tooltip | **sem `?`** |
 | `da meta` / `Faturamento` / `Meta do mês` / `Faltam` / `Projeção` | **manter** |
 | Valor quando bateu | `Meta atingida` (não só `Atingida`) |
 | Empty | `Nenhuma meta cadastrada para o período.` |
@@ -122,7 +126,7 @@ Decisões fechadas (gestor + revisão). Pronto para implementar.
 | Título | `Ranking de Lojas` |
 | Badge | `Total {R$}` |
 | Empty | `Sem dados no período selecionado.` |
-| Tooltip opcional | `Lojas ordenadas pelo faturamento no período selecionado.` *(só se a ordenação for por faturamento)* |
+| Tooltip | **sem `?`** |
 
 ---
 

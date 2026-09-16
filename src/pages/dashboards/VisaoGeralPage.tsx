@@ -144,8 +144,52 @@ export default function VisaoGeralPage() {
         ))}
       </div>
 
-      {/* Linha: Faturamento vs Meta + Atingimento da Meta (padrão On-time delivery) */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
+      {/* Linha: Atingimento da Meta + Faturamento vs Meta */}
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.6fr]">
+        {(() => {
+          const meta = view.gauges.find((g) => g.nome === "Meta") ?? view.gauges[0];
+          if (!meta) {
+            return (
+              <Card>
+                <CardTitle className="mb-4">Atingimento da Meta</CardTitle>
+                <span className="py-8 text-center text-[13px] text-t2">Nenhuma meta cadastrada para o período.</span>
+              </Card>
+            );
+          }
+          const pct = Math.round(meta.pct);
+          const cor = pct >= 100 ? "var(--ok)" : pct >= 70 ? "var(--acc)" : "var(--bad)";
+          const faltamValor = Math.max(0, meta.alvo - meta.realizado);
+          const projecaoValor = view.projecaoFechamento?.replace(/^Projeção:\s*/i, "") ?? "—";
+          return (
+            <Card>
+              <CardTitle className="mb-4">Atingimento da Meta</CardTitle>
+              <div className="relative mx-auto mb-4 h-[150px] w-[150px]">
+                <RadialProgress value={pct} size={150} stroke={15} color={cor} trackColor="var(--bg-inset)" label="da meta" />
+              </div>
+              <div className="flex flex-col gap-2.5">
+                <div className="flex justify-between">
+                  <span className="text-[12.5px] text-t2">Faturamento</span>
+                  <span className="text-[13px] font-bold text-t0">{brlK(meta.realizado)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[12.5px] text-t2">Meta do mês</span>
+                  <span className={`text-[13px] font-bold ${pct < 100 ? "text-warn" : "text-ok"}`}>{brlK(meta.alvo)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[12.5px] text-t2">Faltam</span>
+                  <span className={`text-[13px] font-bold ${faltamValor > 0 ? "text-warn" : "text-ok"}`}>
+                    {faltamValor > 0 ? brlK(faltamValor) : "Meta atingida"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[12.5px] text-t2">Projeção</span>
+                  <span className="text-[13px] font-bold text-t0">{projecaoValor}</span>
+                </div>
+              </div>
+            </Card>
+          );
+        })()}
+
         <Card padding="lg">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -188,57 +232,6 @@ export default function VisaoGeralPage() {
             showAxisLabels
           />
         </Card>
-
-        {(() => {
-          const meta = view.gauges.find((g) => g.nome === "Meta") ?? view.gauges[0];
-          if (!meta) {
-            return (
-              <Card>
-                <CardTitle className="mb-4">Atingimento da Meta</CardTitle>
-                <span className="py-8 text-center text-[13px] text-t2">Nenhuma meta cadastrada para o período.</span>
-              </Card>
-            );
-          }
-          const pct = Math.round(meta.pct);
-          const cor = pct >= 100 ? "var(--ok)" : pct >= 70 ? "var(--acc)" : "var(--bad)";
-          const faltamValor = Math.max(0, meta.alvo - meta.realizado);
-          const projecaoValor = view.projecaoFechamento?.replace(/^Projeção:\s*/i, "") ?? "—";
-          return (
-            <Card>
-              <div className="mb-4 flex items-center gap-1.5">
-                <CardTitle>Atingimento da Meta</CardTitle>
-                <Tooltip label="Quanto da meta do mês já foi atingido e quanto ainda falta.">
-                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
-                    ?
-                  </span>
-                </Tooltip>
-              </div>
-              <div className="relative mx-auto mb-4 h-[150px] w-[150px]">
-                <RadialProgress value={pct} size={150} stroke={15} color={cor} trackColor="var(--bg-inset)" label="da meta" />
-              </div>
-              <div className="flex flex-col gap-2.5">
-                <div className="flex justify-between">
-                  <span className="text-[12.5px] text-t2">Faturamento</span>
-                  <span className="text-[13px] font-bold text-t0">{brlK(meta.realizado)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[12.5px] text-t2">Meta do mês</span>
-                  <span className={`text-[13px] font-bold ${pct < 100 ? "text-warn" : "text-ok"}`}>{brlK(meta.alvo)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[12.5px] text-t2">Faltam</span>
-                  <span className={`text-[13px] font-bold ${faltamValor > 0 ? "text-warn" : "text-ok"}`}>
-                    {faltamValor > 0 ? brlK(faltamValor) : "Meta atingida"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[12.5px] text-t2">Projeção</span>
-                  <span className="text-[13px] font-bold text-t0">{projecaoValor}</span>
-                </div>
-              </div>
-            </Card>
-          );
-        })()}
       </div>
 
       {/* Linha: Categoria vs Meta + Dia da Semana vs Meta */}
@@ -333,14 +326,7 @@ export default function VisaoGeralPage() {
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="flex flex-col">
           <div className="mb-1 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Ranking de Lojas</CardTitle>
-              <Tooltip label="Lojas ordenadas pelo faturamento no período selecionado.">
-                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
-                  ?
-                </span>
-              </Tooltip>
-            </div>
+            <CardTitle>Ranking de Lojas</CardTitle>
             <Badge variant="accent">Total {brlK(view.rankingLojas.reduce((s, l) => s + l.valor, 0))}</Badge>
           </div>
           {view.rankingLojas.length === 0 ? (
