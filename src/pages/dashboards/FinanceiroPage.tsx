@@ -281,7 +281,7 @@ export default function FinanceiroPage() {
       </div>
 
       {/* Par: Formas de Pagamento + Custos Fixos/Franquia */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="flex flex-col">
           <CardHeader>
             <CardTitle>Formas de Pagamento</CardTitle>
@@ -292,37 +292,28 @@ export default function FinanceiroPage() {
             (() => {
               const total = view.formasPagamento.reduce((s, f) => s + f.valor, 0) || 1;
               return (
-                <div className="flex flex-1 flex-col px-4 pb-4">
-                  <div className="flex flex-1 flex-col items-center justify-center">
+                <div className="px-4 pb-4">
+                  {/* Padrão Expense breakdown (FinanceDashboard) */}
+                  <div className="mx-auto my-2">
                     <DonutChart
                       segments={view.formasPagamento.map((f) => ({
                         label: f.forma,
                         value: f.valor,
                         color: f.cor,
                       }))}
-                      size={148}
-                      thickness={20}
                       centerLabel="Total"
                       centerValue={brlK(total)}
                     />
                   </div>
-                  {/* Detalhe com barra — densifica o card (padrão Ranking de Lojas) */}
-                  <div className="mt-4 flex flex-col gap-2.5">
+                  <div className="mt-2 flex flex-col gap-2">
                     {view.formasPagamento.map((f) => {
                       const pct = Math.round((f.valor / total) * 100);
                       return (
-                        <div key={f.forma} className="rounded-xl bg-bg-inset p-3">
-                          <div className="mb-1.5 flex items-center justify-between gap-2">
-                            <span className="flex min-w-0 items-center gap-2 text-[13px] font-bold text-t0">
-                              <span className="h-2.5 w-2.5 shrink-0 rounded-[4px]" style={{ background: f.cor }} />
-                              <span className="truncate">{f.forma}</span>
-                            </span>
-                            <span className="shrink-0 font-mono text-[13px] font-extrabold text-t0">{brlK(f.valor)}</span>
-                          </div>
-                          <div className="mb-1 h-1.5 overflow-hidden rounded-full bg-bg-2">
-                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: f.cor }} />
-                          </div>
-                          <span className="text-[11px] font-semibold text-t2">{pct}% do faturamento</span>
+                        <div key={f.forma} className="flex items-center gap-2.5">
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: f.cor }} />
+                          <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{f.forma}</span>
+                          <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlK(f.valor)}</span>
+                          <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
                         </div>
                       );
                     })}
@@ -340,7 +331,7 @@ export default function FinanceiroPage() {
               <TipHelp label="O que sobra do lucro bruto depois de aluguel, royalties e taxa de marketing — o resultado operacional do período." />
             </div>
           </CardHeader>
-          <div className="flex flex-1 flex-col justify-center px-4 pb-4">
+          <div className="px-4 pb-4">
             {view.custosFixosFranquia.map((linha) => {
               const estilo = estiloLinhaCusto(linha);
               return (
