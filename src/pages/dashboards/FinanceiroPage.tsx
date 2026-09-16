@@ -134,12 +134,12 @@ export default function FinanceiroPage() {
         ))}
       </div>
 
-      {/* Widget central — Custo, Lucro e Margem */}
+      {/* Widget central — CMV, Lucro e Margem */}
       <Card className="mt-4">
         <CardHeader>
           <div className="flex items-center gap-1.5">
-            <CardTitle>Custo, Lucro e Margem</CardTitle>
-            <TipHelp label="Evolução mensal do custo dos produtos (CMV), lucro bruto e margem percentual." />
+            <CardTitle>CMV, Lucro e Margem</CardTitle>
+            <TipHelp label="Acompanhe se o lucro bruto acompanha o faturamento ou se o CMV está pressionando a margem ao longo dos meses." />
           </div>
         </CardHeader>
         <div className="px-4 pb-4">
@@ -166,9 +166,9 @@ export default function FinanceiroPage() {
             />
           </div>
           <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
-            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--bad)]" /> Custo</span>
-            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--ok)]" /> Lucro</span>
-            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /> % Margem</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--bad)]" /> CMV</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--ok)]" /> Lucro bruto</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /> Margem</span>
           </div>
         </div>
       </Card>
@@ -179,7 +179,7 @@ export default function FinanceiroPage() {
           <CardHeader>
             <div className="flex items-center gap-1.5">
               <CardTitle>Faturamento vs Ticket Médio</CardTitle>
-              <TipHelp label="Comparativo mensal entre faturamento total e ticket médio por venda." />
+              <TipHelp label="Mostra se o faturamento sobe por mais volume de vendas ou por ticket médio maior." />
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
@@ -194,7 +194,7 @@ export default function FinanceiroPage() {
             />
             <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
               <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /> Faturamento</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--info)]" /> Ticket ×100</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--info)]" /> Ticket Médio (×100)</span>
             </div>
           </div>
         </Card>
@@ -202,8 +202,8 @@ export default function FinanceiroPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-1.5">
-              <CardTitle>Itens Vendidos vs Preço Médio</CardTitle>
-              <TipHelp label="Quantidade de itens vendidos vs preço médio por item (PA). Responde: estou vendendo mais unidades ou só mais caro?" />
+              <CardTitle>Itens vs Preço Médio</CardTitle>
+              <TipHelp label="Indica se o período vendeu mais unidades ou itens com preço médio maior (valor médio por item)." />
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
@@ -244,7 +244,7 @@ export default function FinanceiroPage() {
           <CardHeader>
             <div className="flex items-center gap-1.5">
               <CardTitle>Custos Fixos e Franquia</CardTitle>
-              <TipHelp label="Lucro bruto menos custos fixos e da franquia — resultado operacional do período." />
+              <TipHelp label="O que sobra do lucro bruto depois de aluguel, royalties e taxa de marketing — o resultado operacional do período." />
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
@@ -278,7 +278,7 @@ export default function FinanceiroPage() {
         <CardHeader>
           <div className="flex items-center gap-1.5">
             <CardTitle>Evolução Mensal</CardTitle>
-            <TipHelp label="Faturamento, custo, lucro, margem e ticket médio dos últimos meses." />
+            <TipHelp label="Resumo mensal de faturamento, CMV, lucro bruto, margem e ticket médio." />
           </div>
         </CardHeader>
         <div className="overflow-x-auto px-4 pb-4">
@@ -288,7 +288,7 @@ export default function FinanceiroPage() {
                 <th className="py-2 pr-3">Mês</th>
                 <th className="py-2 pr-3 text-right">Faturamento</th>
                 <th className="py-2 pr-3 text-right">CMV</th>
-                <th className="py-2 pr-3 text-right">Lucro</th>
+                <th className="py-2 pr-3 text-right">Lucro bruto</th>
                 <th className="py-2 pr-3 text-right">Margem</th>
                 <th className="py-2 text-right">Ticket Médio</th>
               </tr>
