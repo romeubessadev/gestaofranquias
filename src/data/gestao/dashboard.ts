@@ -1360,15 +1360,32 @@ const CORES_FORMAS: Record<string, string> = {
   Dinheiro: "var(--warn)",
 };
 
+/** Percentuais mockados de custos variáveis sobre faturamento (parametrização futura). */
+const PCT_CUSTOS_FIXOS = {
+  aluguelShopping: 5,
+  royaltiesWepink: 5,
+  royaltiesWpink: 5,
+  taxaMktWepink: 2,
+  taxaMktWpink: 2,
+} as const;
+
 /** Custos fixos e franquia mockados por filial (mensais). Na futura aba DRE viram CRUD. */
-function custosFixosDaFilial(f: Filial): { aluguelFixo: number; aluguelPct: number; royalties: number; taxaMktWepink: number; taxaMktWpink: number } {
+function custosFixosDaFilial(f: Filial): {
+  aluguelFixo: number;
+  aluguelPct: number;
+  royaltiesWepink: number;
+  royaltiesWpink: number;
+  taxaMktWepink: number;
+  taxaMktWpink: number;
+} {
   // Valores base proporcionais ao porte da filial (baseDia dos parâmetros de vendas).
   const base = f.id === "f1" ? 6100 : 3450;
   const fator = base / 5000;
   return {
     aluguelFixo: Math.round(18000 * fator),
     aluguelPct: Math.round(9000 * fator),
-    royalties: Math.round(12000 * fator),
+    royaltiesWepink: Math.round(7000 * fator),
+    royaltiesWpink: Math.round(5000 * fator),
     taxaMktWepink: Math.round(6000 * fator),
     taxaMktWpink: Math.round(4000 * fator),
   };
@@ -1507,22 +1524,30 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
       const c = custosFixosDaFilial(f);
       acc.aluguelFixo += c.aluguelFixo;
       acc.aluguelPct += c.aluguelPct;
-      acc.royalties += c.royalties;
+      acc.royaltiesWepink += c.royaltiesWepink;
+      acc.royaltiesWpink += c.royaltiesWpink;
       acc.taxaMktWepink += c.taxaMktWepink;
       acc.taxaMktWpink += c.taxaMktWpink;
       return acc;
     },
-    { aluguelFixo: 0, aluguelPct: 0, royalties: 0, taxaMktWepink: 0, taxaMktWpink: 0 },
+    { aluguelFixo: 0, aluguelPct: 0, royaltiesWepink: 0, royaltiesWpink: 0, taxaMktWepink: 0, taxaMktWpink: 0 },
   );
-  const totalCustosFixos = custosAgg.aluguelFixo + custosAgg.aluguelPct + custosAgg.royalties + custosAgg.taxaMktWepink + custosAgg.taxaMktWpink;
+  const totalCustosFixos =
+    custosAgg.aluguelFixo +
+    custosAgg.aluguelPct +
+    custosAgg.royaltiesWepink +
+    custosAgg.royaltiesWpink +
+    custosAgg.taxaMktWepink +
+    custosAgg.taxaMktWpink;
   const resultadoOperacional = lucroAtual - totalCustosFixos;
   const custosFixosFranquia: LinhaCustoFixo[] = [
     { rotulo: "Lucro bruto", valor: lucroAtual },
     { rotulo: "Aluguel fixo", valor: custosAgg.aluguelFixo },
-    { rotulo: "Aluguel % shopping", valor: custosAgg.aluguelPct },
-    { rotulo: "Royalties", valor: custosAgg.royalties },
-    { rotulo: "Taxa marketing WEPINK", valor: custosAgg.taxaMktWepink },
-    { rotulo: "Taxa marketing WPINK", valor: custosAgg.taxaMktWpink },
+    { rotulo: `Aluguel % shopping (${PCT_CUSTOS_FIXOS.aluguelShopping}%)`, valor: custosAgg.aluguelPct },
+    { rotulo: `Royalties WEPINK (${PCT_CUSTOS_FIXOS.royaltiesWepink}%)`, valor: custosAgg.royaltiesWepink },
+    { rotulo: `Royalties WPINK (${PCT_CUSTOS_FIXOS.royaltiesWpink}%)`, valor: custosAgg.royaltiesWpink },
+    { rotulo: `Taxa de marketing WEPINK (${PCT_CUSTOS_FIXOS.taxaMktWepink}%)`, valor: custosAgg.taxaMktWepink },
+    { rotulo: `Taxa de marketing WPINK (${PCT_CUSTOS_FIXOS.taxaMktWpink}%)`, valor: custosAgg.taxaMktWpink },
     { rotulo: "Total custos fixos", valor: totalCustosFixos, ehTotal: true },
     { rotulo: "Resultado operacional", valor: resultadoOperacional, ehResultado: true },
   ];

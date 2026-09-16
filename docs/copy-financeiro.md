@@ -80,7 +80,7 @@ Fase 1 (chrome + KPIs compartilhados) + fase 2 (cards exclusivos).
 |---|---|
 | Título | `Custos Fixos e Franquia` |
 | Tooltip | `O que sobra do lucro bruto depois de aluguel, royalties e taxa de marketing — o resultado operacional do período.` |
-| Linhas | **manter** (`Lucro bruto`, `Aluguel fixo`, `Aluguel % shopping`, `Royalties`, `Taxa marketing WEPINK/WPINK`, `Total custos fixos`, `Resultado operacional`) |
+| Linhas | **com % mockado** — `Aluguel % shopping (5%)`, `Royalties WEPINK (5%)`, `Royalties WPINK (5%)`, `Taxa de marketing WEPINK (2%)`, `Taxa de marketing WPINK (2%)` + `Aluguel fixo` sem % |
 
 ---
 
