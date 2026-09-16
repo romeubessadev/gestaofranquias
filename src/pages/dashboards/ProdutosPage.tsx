@@ -200,11 +200,11 @@ export default function ProdutosPage() {
       "Faturamento",
       "CMV",
       "Lucro bruto",
-      "% Margem",
+      "Margem",
       "CMV %",
-      "Qtd vendas",
+      "Nº de vendas",
       "Ticket médio",
-      "Qtd itens",
+      "Itens vendidos",
     ];
     const rows = linhasTabela.map((p) => [
       csvCell(p.nome),
@@ -235,7 +235,7 @@ export default function ProdutosPage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Produtos" }]}
         title="Produtos"
-        subtitle="Mix de produtos, categorias e margens da loja."
+        subtitle="Desempenho, margem e composição do mix de produtos."
         actions={
           <>
             <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
@@ -277,7 +277,7 @@ export default function ProdutosPage() {
           <div>
             <div className="flex items-center gap-1.5">
               <CardTitle>Faturamento por Categoria</CardTitle>
-              <TipHelp label="Quanto cada categoria faturou no período. A % margem de cada uma está na tabela abaixo." />
+              <TipHelp label="Identifique quais categorias mais contribuem para o faturamento e como o mix está distribuído entre elas." />
             </div>
             <p className="mt-1.5 text-2xl font-extrabold text-t0">
               {view.kpis[0]?.valor ?? brlK(view.categorias.reduce((s, c) => s + c.faturamento, 0))}
@@ -299,10 +299,7 @@ export default function ProdutosPage() {
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Top Linhas de Produto</CardTitle>
-              <TipHelp label="Ranking das linhas de produto por faturamento no período." />
-            </div>
+            <CardTitle>Top Linhas de Produto</CardTitle>
           </CardHeader>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[420px] border-collapse text-sm">
@@ -349,17 +346,14 @@ export default function ProdutosPage() {
         <Card>
           <CardHeader>
             <div className="flex w-full items-center justify-between gap-1.5">
-              <div className="flex items-center gap-1.5">
-                <CardTitle>Top Produtos</CardTitle>
-                <TipHelp label="Ranking dos produtos mais vendidos. Escolha a métrica de ordenação." />
-              </div>
+              <CardTitle>Top Produtos</CardTitle>
               <select
                 value={rankingOrd}
                 onChange={(e) => setRankingOrd(e.target.value as RankingOrd)}
                 className={filtroSelectClass}
               >
                 <option value="faturamento">Faturamento</option>
-                <option value="itens">Qtd Vendida</option>
+                <option value="itens">Itens vendidos</option>
                 <option value="margem">Margem</option>
               </select>
             </div>
@@ -408,13 +402,13 @@ export default function ProdutosPage() {
       <Card className="mt-4" padding="none">
         <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex items-center gap-1.5">
-            <CardTitle>Tabela de Produtos</CardTitle>
-            <TipHelp label="Lista de produtos com busca, filtro por categoria e ordenação. O Total soma todos os produtos do filtro atual — não só a página." />
+            <CardTitle>Desempenho por Produto</CardTitle>
+            <TipHelp label="Compare faturamento, custo, margem e volume para entender o desempenho de cada produto no mix." />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="search"
-              placeholder="Pesquisar produto…"
+              placeholder="Buscar produto…"
               value={buscaTabela}
               onChange={(e) => setBuscaTabela(e.target.value)}
               className={cn(filtroSelectClass, "sm:w-48")}
@@ -448,11 +442,11 @@ export default function ProdutosPage() {
                   <ThSort label="Faturamento" active={sortKey === "faturamento"} dir={sortDir} onClick={() => toggleSort("faturamento")} />
                   <ThSort label="CMV" active={sortKey === "cmv"} dir={sortDir} onClick={() => toggleSort("cmv")} />
                   <ThSort label="Lucro bruto" active={sortKey === "lucro"} dir={sortDir} onClick={() => toggleSort("lucro")} />
-                  <ThSort label="% Margem" active={sortKey === "margemPct"} dir={sortDir} onClick={() => toggleSort("margemPct")} />
+                  <ThSort label="Margem" active={sortKey === "margemPct"} dir={sortDir} onClick={() => toggleSort("margemPct")} />
                   <ThSort label="CMV %" active={sortKey === "cmvPct"} dir={sortDir} onClick={() => toggleSort("cmvPct")} />
-                  <ThSort label="Qtd vendas" active={sortKey === "qtdVendas"} dir={sortDir} onClick={() => toggleSort("qtdVendas")} />
+                  <ThSort label="Nº de vendas" active={sortKey === "qtdVendas"} dir={sortDir} onClick={() => toggleSort("qtdVendas")} />
                   <ThSort label="Ticket médio" active={sortKey === "ticketMedio"} dir={sortDir} onClick={() => toggleSort("ticketMedio")} />
-                  <ThSort label="Qtd itens" active={sortKey === "itens"} dir={sortDir} onClick={() => toggleSort("itens")} />
+                  <ThSort label="Itens vendidos" active={sortKey === "itens"} dir={sortDir} onClick={() => toggleSort("itens")} />
                 </tr>
               </thead>
               <tbody>
@@ -472,7 +466,10 @@ export default function ProdutosPage() {
                 ))}
                 <tr className="border-t-2 border-line bg-bg-inset">
                   <td colSpan={2} className="px-3 py-3 text-[13.5px] font-extrabold text-t0">
-                    Total
+                    <span className="inline-flex items-center gap-1">
+                      Total do filtro
+                      <TipHelp label="Soma de todos os produtos do filtro atual — não só a página." />
+                    </span>
                     <span className="ml-2 text-[11px] font-semibold text-t2">
                       ({num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"})
                     </span>
@@ -507,7 +504,7 @@ export default function ProdutosPage() {
           {linhasTabela.length > 0 && (
             <div className="rounded-xl border border-line bg-bg-3 p-3.5">
               <p className="text-[11px] font-bold uppercase tracking-wide text-t2">
-                Total · {num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"}
+                Total do filtro · {num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"}
               </p>
               <GradeMetricas m={totalTabela} className="mt-2" destaque />
             </div>
@@ -640,11 +637,11 @@ function GradeMetricas({
     { label: "Faturamento", value: <span className={val}>{brl(m.faturamento)}</span> },
     { label: "CMV", value: <span className={val}>{brl(m.cmv)}</span> },
     { label: "Lucro bruto", value: <span className={cn(val, "text-ok")}>{brl(m.lucro)}</span> },
-    { label: "% Margem", value: <span className={val}>{m.margemPct.toFixed(0)}%</span> },
+    { label: "Margem", value: <span className={val}>{m.margemPct.toFixed(0)}%</span> },
     { label: "CMV %", value: <span className={val}>{m.cmvPct.toFixed(0)}%</span> },
-    { label: "Qtd vendas", value: <span className={val}>{num(m.qtdVendas)}</span> },
+    { label: "Nº de vendas", value: <span className={val}>{num(m.qtdVendas)}</span> },
     { label: "Ticket médio", value: <span className={val}>{brl(m.ticketMedio)}</span> },
-    { label: "Qtd itens", value: <span className={val}>{num(m.itens)}</span> },
+    { label: "Itens vendidos", value: <span className={val}>{num(m.itens)}</span> },
   ];
   return (
     <div className={cn("grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11.5px]", className)}>

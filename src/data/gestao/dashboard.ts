@@ -1860,13 +1860,13 @@ export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | nul
       label: "Lucro bruto",
       valor: brlK(totalLucro),
       delta: temComp ? kpiDelta(totalLucro, antTotalLucro, vsRotulo) : undefined,
-      tooltip: "O que sobra do faturamento após descontar o custo dos produtos vendidos.",
+      tooltip: "Quanto sobra do faturamento após descontar o CMV.",
     },
     {
       label: "Margem",
       valor: pct(totalMargem),
       delta: temComp ? kpiDeltaPp(totalMargem, antTotalMargem, vsRotulo) : undefined,
-      tooltip: "Percentual de lucro sobre o faturamento. Quanto maior, melhor.",
+      tooltip: "Percentual do faturamento que permanece como lucro bruto após o CMV.",
     },
     {
       label: "Itens vendidos",
