@@ -438,11 +438,17 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
       );
       expect(d.alvoAgregado).toBe(d.alvoIndividual * d.participantes);
       expect(d.ranking.length).toBe(d.participantes);
-      expect(d.objetivo).toBeTruthy();
+      expect(d.descricao).toContain(d.objetivo);
       expect(d.metaRotulo).toBeTruthy();
       expect(d.minimo).toBe(d.alvoIndividual);
       expect(d.diasRestantes).toBeGreaterThanOrEqual(0);
+      expect(d.prazoTom).toMatch(/^(ok|bad|muted)$/);
+      expect(d.statusLabel).toBeTruthy();
       expect(d.progressoPct).toBeGreaterThanOrEqual(0);
+      for (const p of d.ranking) {
+        expect(p.loja).toBeTruthy();
+        expect(p.turno).toBeTruthy();
+      }
     }
   });
 

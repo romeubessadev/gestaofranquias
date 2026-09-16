@@ -14,7 +14,7 @@ import { metaDaFilial, type Degrau } from "./metas";
 import { desafiosAtivos, progressoIndividual, type Desafio } from "./desafios";
 import { HOJE_ISO, HORA_ATUAL } from "./relogio";
 import { agregadoDoDia, diaVendas, lojaAberta, somarAgregados, type Agregado } from "./vendas";
-import { filialPorId, filiais, type Filial } from "./filiais";
+import { filialPorId, filiais, turnos, type Filial } from "./filiais";
 import { brlK, curvaReceita, kpiDelta, periodoAnterior, resolverPeriodo, type Escopo, type PeriodoResolvido, type EstadoBloco } from "./dashboard";
 import { brl, fimDoMes, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
 import type { TintKey } from "@/pages/dashboards/icons";
@@ -221,6 +221,10 @@ export interface VendedoraLinha {
 export interface DesafioParticipanteView {
   colaboradorId: string;
   nome: string;
+  /** Fantasia da loja — útil na visão rede. */
+  loja: string;
+  /** Nome do turno (Manhã/Tarde) ou "—" se sem turno. */
+  turno: string;
   progresso: number;
   alvo: number;
   progressoPct: number;
@@ -230,6 +234,8 @@ export interface DesafioParticipanteView {
 export interface DesafioView {
   id: string;
   nome: string;
+  /** Objetivo + meta + mínimo + prêmio concatenados (estilo Projects.desc). */
+  descricao: string;
   objetivo: string;
   /** Ex.: "Vender 15 un" / "Atingir 1,90". */
   metaRotulo: string;
@@ -251,6 +257,11 @@ export interface DesafioView {
   tipoTexto: string;
   /** Dias abertos restantes na competência (incluindo hoje). */
   diasRestantes: number;
+  /** Tom do prazo: ok=em andamento, bad=acabando, muted=pra começar. */
+  prazoTom: "ok" | "bad" | "muted";
+  /** Badge de ritmo no header (estilo Projects status). */
+  statusLabel: string;
+  statusVariant: "success" | "danger" | "neutral" | "warning";
   /** Todos os participantes, ordenados: atingiu → quase → abaixo → não começou. */
   ranking: DesafioParticipanteView[];
 }
@@ -494,11 +505,16 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     return c && filiaisIds.includes(c.filialId);
   });
   const linhas: DesafioParticipanteView[] = ids.map((id) => {
+    const c = colaboradorPorId(id);
     const progresso = progressoIndividual(d, id);
     const alvo = d.alvoIndividual;
+    const turnoNome = c?.turnoId ? turnos.find((t) => t.id === c.turnoId)?.nome ?? "—" : "—";
+    const lojaNome = c ? filialPorId(c.filialId).fantasia : "—";
     return {
       colaboradorId: id,
-      nome: colaboradorPorId(id)?.nome ?? id,
+      nome: c?.nome ?? id,
+      loja: lojaNome,
+      turno: turnoNome,
       progresso,
       alvo,
       progressoPct: alvo > 0 ? Math.min(100, (progresso / alvo) * 100) : 0,
@@ -516,10 +532,21 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     d.unidade === "x"
       ? `Atingir ${num(d.alvoIndividual, d.alvoIndividual % 1 !== 0 ? 2 : 0)}`
       : `Vender ${num(d.alvoIndividual, 0)} ${d.unidade}`;
+  const minimoRotulo =
+    d.unidade === "x"
+      ? num(d.alvoIndividual, d.alvoIndividual % 1 !== 0 ? 2 : 0)
+      : `${num(d.alvoIndividual, 0)} ${d.unidade}`;
   const restantes = diasDecorridos > 0 ? Math.max(0, diasTotais - diasDecorridos + 1) : diasTotais;
+  const prazoTom: DesafioView["prazoTom"] =
+    diasDecorridos === 0 ? "muted" : restantes <= 3 || (diasTotais > 0 && restantes / diasTotais <= 0.15) ? "bad" : "ok";
+  const fechaNoRitmo = semEngajamento ? false : projetado >= alvoAgregado;
+  const statusLabel = semEngajamento ? "A iniciar" : fechaNoRitmo ? "No ritmo" : "Em risco";
+  const statusVariant: DesafioView["statusVariant"] = semEngajamento ? "neutral" : fechaNoRitmo ? "success" : "danger";
+  const descricao = `${d.objetivo} Meta: ${metaRotulo}. Mínimo: ${minimoRotulo}. Prêmio: ${brl(d.premio)}.`;
   return {
     id: d.id,
     nome: d.nome,
+    descricao,
     objetivo: d.objetivo,
     metaRotulo,
     minimo: d.alvoIndividual,
@@ -534,10 +561,13 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     alvoAgregado,
     progressoPct: alvoAgregado > 0 ? (progressoAgregado / alvoAgregado) * 100 : 0,
     projetadoAgregado: projetado,
-    fechaNoRitmo: semEngajamento ? false : projetado >= alvoAgregado,
+    fechaNoRitmo,
     semEngajamento,
     tipoTexto: TIPO_TEXTO[d.tipo],
     diasRestantes: restantes,
+    prazoTom,
+    statusLabel,
+    statusVariant,
     ranking,
   };
 }
