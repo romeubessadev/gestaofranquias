@@ -226,14 +226,8 @@ export default function VisaoGeralPage() {
             color="var(--ok)"
             compareColor="var(--warn)"
             formatValue={brlK}
+            showAxisLabels
           />
-          <div className="mt-2 flex justify-between gap-1 px-1">
-            {view.evolucao.map((e) => (
-              <span key={e.label} className="min-w-0 truncate text-center text-[11px] font-semibold text-t2">
-                {e.label}
-              </span>
-            ))}
-          </div>
         </Card>
       </div>
 
@@ -275,14 +269,8 @@ export default function VisaoGeralPage() {
             color="var(--acc)"
             compareColor="var(--warn)"
             formatValue={brlK}
+            showAxisLabels
           />
-          <div className="mt-2 flex justify-between gap-1 px-1">
-            {view.categoriaVsMeta.map((c) => (
-              <span key={c.categoria} className="min-w-0 truncate text-center text-[11px] font-semibold text-t2">
-                {c.categoria}
-              </span>
-            ))}
-          </div>
         </Card>
         <Card padding="lg">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -320,14 +308,8 @@ export default function VisaoGeralPage() {
             color="var(--info)"
             compareColor="var(--warn)"
             formatValue={brlK}
+            showAxisLabels
           />
-          <div className="mt-2 flex justify-between gap-1 px-1">
-            {view.diaVsMeta.map((d) => (
-              <span key={d.dia} className="min-w-0 truncate text-center text-[11px] font-semibold text-t2">
-                {d.dia}
-              </span>
-            ))}
-          </div>
         </Card>
       </div>
 

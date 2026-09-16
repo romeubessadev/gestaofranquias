@@ -11,6 +11,8 @@ export interface AreaLineChartProps {
   showArea?: boolean;
   /** Mostra o valor formatado direto em cada ponto da linha. */
   showValues?: boolean;
+  /** Renderiza labels do eixo X dentro da área com scroll (mobile). */
+  showAxisLabels?: boolean;
   formatValue?: (v: number) => string;
 }
 
@@ -31,8 +33,10 @@ function buildSmoothPath(points: { x: number; y: number }[]) {
   return d;
 }
 
-/** Largura lógica do viewBox — o SVG escala fluidamente (padrão Vela / Revenue vs expenses). */
+/** Largura lógica do viewBox — o SVG escala fluidamente (padrão Vela). */
 const VB_W = 600;
+/** Largura mínima por ponto no mobile — abaixo disso ativa scroll horizontal. */
+const MIN_POINT_W = 56;
 
 function toPoints(data: number[], height: number, padY: number, min: number, range: number) {
   const chartH = height - padY * 2;
@@ -51,11 +55,13 @@ export function AreaLineChart({
   height = 240,
   showArea = true,
   showValues = false,
+  showAxisLabels = false,
   formatValue = (v) => String(v),
 }: AreaLineChartProps) {
   const gradientId = useId();
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const padY = 16;
+  const minW = Math.max(VB_W, data.length * MIN_POINT_W);
 
   const { points, comparePoints, min, max } = useMemo(() => {
     const pool = compareData && compareData.length === data.length ? [...data, ...compareData] : data;
@@ -89,118 +95,132 @@ export function AreaLineChart({
   }
 
   return (
-    <div className="relative w-full" style={{ height }}>
-      <svg
-        viewBox={`0 0 ${VB_W} ${height}`}
-        className="vela-reveal h-full w-full overflow-visible"
-        preserveAspectRatio="none"
-        onMouseMove={handleMove}
-        onMouseLeave={() => setHoverIdx(null)}
-      >
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-            <stop offset="100%" stopColor={color} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {showArea && areaPath && <path d={areaPath} fill={`url(#${gradientId})`} />}
-        {comparePath && (
-          <path
-            d={comparePath}
-            fill="none"
-            stroke={compareColor}
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            vectorEffect="non-scaling-stroke"
-          />
-        )}
-        <path
-          d={linePath}
-          fill="none"
-          stroke={color}
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          vectorEffect="non-scaling-stroke"
-        />
-        {showValues &&
-          points.map((p, i) => (
-            <text
-              key={i}
-              x={p.x}
-              y={p.y - 8}
-              textAnchor="middle"
-              fontSize="10"
-              fontWeight="700"
-              fill={color}
-              style={{ pointerEvents: "none" }}
-            >
-              {formatValue(data[i])}
-            </text>
-          ))}
-        {active && (
-          <g>
-            <line
-              x1={active.x}
-              y1={0}
-              x2={active.x}
-              y2={height}
-              stroke="var(--line-2)"
-              strokeDasharray="3 3"
-              vectorEffect="non-scaling-stroke"
-            />
-            {comparePoints && hoverIdx !== null && (
-              <circle
-                cx={comparePoints[hoverIdx].x}
-                cy={comparePoints[hoverIdx].y}
-                r="4"
-                fill={compareColor}
-                stroke="var(--bg-2)"
-                strokeWidth="2"
+    <div className="w-full overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+      <div className="relative" style={{ minWidth: minW }}>
+        <div className="relative w-full" style={{ height }}>
+          <svg
+            viewBox={`0 0 ${VB_W} ${height}`}
+            className="vela-reveal h-full w-full overflow-visible"
+            preserveAspectRatio="none"
+            onMouseMove={handleMove}
+            onMouseLeave={() => setHoverIdx(null)}
+          >
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+                <stop offset="100%" stopColor={color} stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {showArea && areaPath && <path d={areaPath} fill={`url(#${gradientId})`} />}
+            {comparePath && (
+              <path
+                d={comparePath}
+                fill="none"
+                stroke={compareColor}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
               />
             )}
-            <circle cx={active.x} cy={active.y} r="5" fill={color} stroke="var(--bg-2)" strokeWidth="2" />
-          </g>
-        )}
-      </svg>
-
-      {active && hoverIdx !== null && (() => {
-        const leftPct = (active.x / VB_W) * 100;
-        const topPct = (active.y / height) * 100;
-        let translateX = "-50%";
-        if (leftPct < 12) translateX = "0";
-        else if (leftPct > 88) translateX = "-100%";
-        const flipDown = topPct < 22;
-        return (
-          <div
-            className="pointer-events-none absolute z-10 rounded-lg border border-line bg-bg-3 px-2.5 py-1.5 text-[11px] shadow-[var(--shadow-vela)]"
-            style={{
-              left: `${leftPct}%`,
-              top: `${topPct}%`,
-              marginTop: flipDown ? 10 : -8,
-              transform: `translateX(${translateX})${flipDown ? "" : " translateY(-100%)"}`,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {labels?.[hoverIdx] ? (
-              <span className="mb-0.5 block text-[10px] font-semibold text-t2">{labels[hoverIdx]}</span>
-            ) : null}
-            <span className="flex items-center gap-1.5 font-bold text-t0">
-              <span className="inline-block h-2 w-2 rounded-[2px]" style={{ background: color }} />
-              {formatValue(data[hoverIdx])}
-            </span>
-            {compareData && compareData.length === data.length && (
-              <span className="mt-0.5 flex items-center gap-1.5 font-semibold text-t1">
-                <span className="inline-block h-2 w-2 rounded-[2px]" style={{ background: compareColor }} />
-                {formatValue(compareData[hoverIdx])}
-              </span>
+            <path
+              d={linePath}
+              fill="none"
+              stroke={color}
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+            />
+            {showValues &&
+              points.map((p, i) => (
+                <text
+                  key={i}
+                  x={p.x}
+                  y={p.y - 8}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fontWeight="700"
+                  fill={color}
+                  style={{ pointerEvents: "none" }}
+                >
+                  {formatValue(data[i])}
+                </text>
+              ))}
+            {active && (
+              <g>
+                <line
+                  x1={active.x}
+                  y1={0}
+                  x2={active.x}
+                  y2={height}
+                  stroke="var(--line-2)"
+                  strokeDasharray="3 3"
+                  vectorEffect="non-scaling-stroke"
+                />
+                {comparePoints && hoverIdx !== null && (
+                  <circle
+                    cx={comparePoints[hoverIdx].x}
+                    cy={comparePoints[hoverIdx].y}
+                    r="4"
+                    fill={compareColor}
+                    stroke="var(--bg-2)"
+                    strokeWidth="2"
+                  />
+                )}
+                <circle cx={active.x} cy={active.y} r="5" fill={color} stroke="var(--bg-2)" strokeWidth="2" />
+              </g>
             )}
-          </div>
-        );
-      })()}
+          </svg>
 
-      <span className="sr-only">
-        Range {formatValue(min)} to {formatValue(max)}
-      </span>
+          {active && hoverIdx !== null && (() => {
+            const leftPct = (active.x / VB_W) * 100;
+            const topPct = (active.y / height) * 100;
+            let translateX = "-50%";
+            if (leftPct < 12) translateX = "0";
+            else if (leftPct > 88) translateX = "-100%";
+            const flipDown = topPct < 22;
+            return (
+              <div
+                className="pointer-events-none absolute z-10 rounded-lg border border-line bg-bg-3 px-2.5 py-1.5 text-[11px] shadow-[var(--shadow-vela)]"
+                style={{
+                  left: `${leftPct}%`,
+                  top: `${topPct}%`,
+                  marginTop: flipDown ? 10 : -8,
+                  transform: `translateX(${translateX})${flipDown ? "" : " translateY(-100%)"}`,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {labels?.[hoverIdx] ? (
+                  <span className="mb-0.5 block text-[10px] font-semibold text-t2">{labels[hoverIdx]}</span>
+                ) : null}
+                <span className="flex items-center gap-1.5 font-bold text-t0">
+                  <span className="inline-block h-2 w-2 rounded-[2px]" style={{ background: color }} />
+                  {formatValue(data[hoverIdx])}
+                </span>
+                {compareData && compareData.length === data.length && (
+                  <span className="mt-0.5 flex items-center gap-1.5 font-semibold text-t1">
+                    <span className="inline-block h-2 w-2 rounded-[2px]" style={{ background: compareColor }} />
+                    {formatValue(compareData[hoverIdx])}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+
+        {showAxisLabels && labels && labels.length > 0 && (
+          <div className="mt-2 flex justify-between gap-1 px-1">
+            {labels.map((label, i) => (
+              <span key={`${label}-${i}`} className="min-w-0 truncate text-center text-[11px] font-semibold text-t2">
+                {label}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <span className="sr-only">
+          Range {formatValue(min)} to {formatValue(max)}
+        </span>
+      </div>
     </div>
   );
 }
