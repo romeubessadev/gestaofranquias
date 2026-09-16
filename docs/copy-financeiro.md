@@ -116,6 +116,7 @@ Fase 1 (chrome + KPIs compartilhados) + fase 2 (cards exclusivos).
 | **Ticket Médio** | Valor médio **por venda** |
 | **Preço médio (por item)** | Faturamento ÷ itens — distinto do PA da Visão Geral |
 | **Resultado operacional** | Lucro bruto − custos fixos/franquia |
+| **Margem op.** | Resultado operacional ÷ Faturamento |
 
 ---
 
