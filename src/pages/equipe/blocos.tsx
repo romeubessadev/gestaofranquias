@@ -382,23 +382,21 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {desafios.map((d) => (
-          <div key={d.id} className="flex flex-col rounded-[var(--radius-vela-lg)] border border-line bg-bg-inset p-5">
+          <div key={d.id} className="flex flex-col rounded-[var(--radius-vela-lg)] border border-line bg-bg-inset p-4 sm:p-5">
             <div className="mb-3 flex items-start gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-acc-soft text-xl" aria-hidden>
                 {d.emoji}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-[14.5px] font-bold leading-snug text-t0">{d.nome}</p>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <Badge variant={d.statusVariant}>{d.statusLabel}</Badge>
-                    <Badge variant={d.statusVariant} className="gap-1">
-                      <IconRelogio />
-                      {d.prazoRotulo}
-                    </Badge>
-                  </div>
-                </div>
+                <p className="text-[14.5px] font-bold leading-snug text-t0">{d.nome}</p>
                 <p className="mt-1 text-[12px] leading-snug text-t2">{d.objetivo}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <Badge variant={d.statusVariant}>{d.statusLabel}</Badge>
+                  <Badge variant={d.statusVariant} className="gap-1">
+                    <IconRelogio />
+                    {d.prazoRotulo}
+                  </Badge>
+                </div>
               </div>
             </div>
 
@@ -416,31 +414,35 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
               </span>
             </div>
 
-            <div className="max-h-[260px] space-y-2.5 overflow-y-auto border-t border-line pt-3">
-              {d.ranking.map((p, idx) => (
-                <div key={p.colaboradorId} className="flex items-center gap-2">
-                  <span className="w-6 shrink-0 text-[12px] font-extrabold text-t2">{idx + 1}º</span>
-                  <Avatar name={p.nome} size="xs" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[12.5px] font-semibold text-t0">{p.nome.split(" ")[0]}</p>
-                    <p className="truncate text-[10.5px] text-t2">
-                      {p.turno} · {lojaCurta(p.loja)}
-                    </p>
+            <div className="overflow-x-auto border-t border-line pt-3">
+              <div className="max-h-[260px] min-w-[420px] space-y-2.5 overflow-y-auto">
+                {d.ranking.map((p, idx) => (
+                  <div key={p.colaboradorId} className="flex items-center gap-2">
+                    <span className="w-6 shrink-0 text-[12px] font-extrabold text-t2">{idx + 1}º</span>
+                    <Avatar name={p.nome} size="xs" />
+                    <div className="min-w-[110px] flex-1">
+                      <p className="truncate text-[12.5px] font-semibold text-t0">{p.nome.split(" ")[0]}</p>
+                      <p className="truncate text-[10.5px] text-t2">
+                        {p.turno} · {lojaCurta(p.loja)}
+                      </p>
+                    </div>
+                    <span className="w-[88px] shrink-0 text-right font-mono text-[11px] font-semibold tabular-nums text-t1">
+                      {p.progressoRotulo}
+                    </span>
+                    <div className="w-[72px] shrink-0">
+                      <ProgressBar
+                        value={Math.min(100, p.progressoPct)}
+                        height={5}
+                        color={p.status === "atingiu" ? "var(--ok)" : "var(--acc)"}
+                      />
+                    </div>
+                    <span className="w-8 shrink-0 text-right text-[11px] font-semibold text-t2">{num(p.progressoPct, 0)}%</span>
                   </div>
-                  <span className="shrink-0 font-mono text-[11px] font-semibold tabular-nums text-t1">{p.progressoRotulo}</span>
-                  <div className="w-[56px] shrink-0 sm:w-[72px]">
-                    <ProgressBar
-                      value={Math.min(100, p.progressoPct)}
-                      height={5}
-                      color={p.status === "atingiu" ? "var(--ok)" : "var(--acc)"}
-                    />
-                  </div>
-                  <span className="w-8 shrink-0 text-right text-[11px] font-semibold text-t2">{num(p.progressoPct, 0)}%</span>
-                </div>
-              ))}
-              {d.ranking.length === 0 && (
-                <p className="py-3 text-center text-[12.5px] text-t2">Sem participantes no escopo.</p>
-              )}
+                ))}
+                {d.ranking.length === 0 && (
+                  <p className="py-3 text-center text-[12.5px] text-t2">Sem participantes no escopo.</p>
+                )}
+              </div>
             </div>
           </div>
         ))}
