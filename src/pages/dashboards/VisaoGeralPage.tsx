@@ -190,83 +190,143 @@ export default function VisaoGeralPage() {
             )}
           </Card>
         )}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Evolução do Faturamento vs Meta</CardTitle>
-              <Tooltip label="Realizado acumulado, meta acumulada e projeção de fechamento. Responde: vou bater a meta até o fim do mês?">
-                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
-              </Tooltip>
+        <Card padding="lg">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <CardTitle>Evolução do Faturamento vs Meta</CardTitle>
+                <Tooltip label="Realizado acumulado e meta acumulada. Responde: vou bater a meta até o fim do mês?">
+                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                </Tooltip>
+              </div>
+              <div className="mt-2.5 flex flex-wrap gap-5">
+                <div>
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--ok)]" />Realizado
+                  </span>
+                  <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
+                    {brlK(view.evolucao.reduce((s, e) => s + e.realizado, 0))}
+                  </p>
+                </div>
+                <div>
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Meta
+                  </span>
+                  <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
+                    {brlK(view.evolucao.reduce((s, e) => s + e.meta, 0))}
+                  </p>
+                </div>
+              </div>
             </div>
-          </CardHeader>
-          <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pt-1 text-[11px]">
-            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--ok)]" /><span className="font-semibold text-t2">Realizado</span> <span className="font-bold text-t0">{brlK(view.evolucao.reduce((s, e) => s + e.realizado, 0))}</span></span>
-            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--warn)]" /><span className="font-semibold text-t2">Meta</span> <span className="font-bold text-t0">{brlK(view.evolucao.reduce((s, e) => s + e.meta, 0))}</span></span>
           </div>
-          <div className="overflow-hidden px-4 pb-4">
-            <AreaLineChart
-              data={view.evolucao.map((e) => e.realizado)}
-              compareData={view.evolucao.map((e) => e.meta)}
-              labels={view.evolucao.map((e) => e.label)}
-              color="var(--ok)"
-              compareColor="var(--warn)"
-              height={200}
-              formatValue={brlK}
-            />
+          <AreaLineChart
+            data={view.evolucao.map((e) => e.realizado)}
+            compareData={view.evolucao.map((e) => e.meta)}
+            labels={view.evolucao.map((e) => e.label)}
+            color="var(--ok)"
+            compareColor="var(--warn)"
+            formatValue={brlK}
+          />
+          <div className="mt-2 flex justify-between gap-1 px-1">
+            {view.evolucao.map((e) => (
+              <span key={e.label} className="min-w-0 truncate text-center text-[11px] font-semibold text-t2">
+                {e.label}
+              </span>
+            ))}
           </div>
         </Card>
       </div>
 
       {/* Linha: Categoria vs Meta + Dia da Semana vs Meta */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Categoria vs Meta</CardTitle>
-              <Tooltip label="Faturamento realizado por categoria comparado à meta proporcional do período.">
-                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
-              </Tooltip>
+        <Card padding="lg">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <CardTitle>Categoria vs Meta</CardTitle>
+                <Tooltip label="Faturamento realizado por categoria comparado à meta proporcional do período.">
+                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                </Tooltip>
+              </div>
+              <div className="mt-2.5 flex flex-wrap gap-5">
+                <div>
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--acc)]" />Realizado
+                  </span>
+                  <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
+                    {brlK(view.categoriaVsMeta.reduce((s, c) => s + c.realizado, 0))}
+                  </p>
+                </div>
+                <div>
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Meta
+                  </span>
+                  <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
+                    {brlK(view.categoriaVsMeta.reduce((s, c) => s + c.meta, 0))}
+                  </p>
+                </div>
+              </div>
             </div>
-          </CardHeader>
-          <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pt-1 text-[11px]">
-            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /><span className="font-semibold text-t2">Realizado</span> <span className="font-bold text-t0">{brlK(view.categoriaVsMeta.reduce((s, c) => s + c.realizado, 0))}</span></span>
-            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--warn)]" /><span className="font-semibold text-t2">Meta</span> <span className="font-bold text-t0">{brlK(view.categoriaVsMeta.reduce((s, c) => s + c.meta, 0))}</span></span>
           </div>
-          <div className="overflow-hidden px-4 pb-4">
-            <AreaLineChart
-              data={view.categoriaVsMeta.map((c) => c.realizado)}
-              compareData={view.categoriaVsMeta.map((c) => c.meta)}
-              labels={view.categoriaVsMeta.map((c) => c.categoria)}
-              color="var(--acc)"
-              compareColor="var(--warn)"
-              height={200}
-              formatValue={brlK}
-            />
+          <AreaLineChart
+            data={view.categoriaVsMeta.map((c) => c.realizado)}
+            compareData={view.categoriaVsMeta.map((c) => c.meta)}
+            labels={view.categoriaVsMeta.map((c) => c.categoria)}
+            color="var(--acc)"
+            compareColor="var(--warn)"
+            formatValue={brlK}
+          />
+          <div className="mt-2 flex justify-between gap-1 px-1">
+            {view.categoriaVsMeta.map((c) => (
+              <span key={c.categoria} className="min-w-0 truncate text-center text-[11px] font-semibold text-t2">
+                {c.categoria}
+              </span>
+            ))}
           </div>
         </Card>
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Dia da Semana vs Meta</CardTitle>
-              <Tooltip label="Faturamento médio por dia da semana comparado à meta diária do período.">
-                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">?</span>
-              </Tooltip>
+        <Card padding="lg">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <CardTitle>Dia da Semana vs Meta</CardTitle>
+                <Tooltip label="Faturamento médio por dia da semana comparado à meta diária do período.">
+                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+                </Tooltip>
+              </div>
+              <div className="mt-2.5 flex flex-wrap gap-5">
+                <div>
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--info)]" />Realizado
+                  </span>
+                  <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
+                    {brlK(view.diaVsMeta.reduce((s, d) => s + d.realizado, 0))}
+                  </p>
+                </div>
+                <div>
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Meta
+                  </span>
+                  <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
+                    {brlK(view.diaVsMeta.reduce((s, d) => s + d.meta, 0))}
+                  </p>
+                </div>
+              </div>
             </div>
-          </CardHeader>
-          <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pt-1 text-[11px]">
-            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--info)]" /><span className="font-semibold text-t2">Realizado</span> <span className="font-bold text-t0">{brlK(view.diaVsMeta.reduce((s, d) => s + d.realizado, 0))}</span></span>
-            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--warn)]" /><span className="font-semibold text-t2">Meta</span> <span className="font-bold text-t0">{brlK(view.diaVsMeta.reduce((s, d) => s + d.meta, 0))}</span></span>
           </div>
-          <div className="overflow-hidden px-4 pb-4">
-            <AreaLineChart
-              data={view.diaVsMeta.map((d) => d.realizado)}
-              compareData={view.diaVsMeta.map((d) => d.meta)}
-              labels={view.diaVsMeta.map((d) => d.dia)}
-              color="var(--info)"
-              compareColor="var(--warn)"
-              height={200}
-              formatValue={brlK}
-            />
+          <AreaLineChart
+            data={view.diaVsMeta.map((d) => d.realizado)}
+            compareData={view.diaVsMeta.map((d) => d.meta)}
+            labels={view.diaVsMeta.map((d) => d.dia)}
+            color="var(--info)"
+            compareColor="var(--warn)"
+            formatValue={brlK}
+          />
+          <div className="mt-2 flex justify-between gap-1 px-1">
+            {view.diaVsMeta.map((d) => (
+              <span key={d.dia} className="min-w-0 truncate text-center text-[11px] font-semibold text-t2">
+                {d.dia}
+              </span>
+            ))}
           </div>
         </Card>
       </div>

@@ -2,7 +2,7 @@ import { useId, useMemo, useState } from "react";
 
 export interface AreaLineChartProps {
   data: number[];
-  /** Segunda série no mesmo eixo (ex.: meta, período anterior). Escala compartilhada. */
+  /** Segunda série no mesmo eixo (ex.: meta). Escala compartilhada. */
   compareData?: number[];
   labels?: string[];
   color?: string;
@@ -31,16 +31,14 @@ function buildSmoothPath(points: { x: number; y: number }[]) {
   return d;
 }
 
-const PAD_X = 12;
-const PAD_TOP = 12;
-const LABEL_H = 24;
-/** Largura mínima por ponto — garante espaço para labels sem corte */
-const MIN_POINT_W = 110;
+/** Largura lógica do viewBox — o SVG escala fluidamente (padrão Vela / Revenue vs expenses). */
+const VB_W = 600;
 
-function toPoints(data: number[], svgW: number, chartH: number, min: number, range: number) {
+function toPoints(data: number[], height: number, padY: number, min: number, range: number) {
+  const chartH = height - padY * 2;
   return data.map((v, i) => ({
-    x: PAD_X + (data.length <= 1 ? (svgW - PAD_X * 2) / 2 : (i / (data.length - 1)) * (svgW - PAD_X * 2)),
-    y: PAD_TOP + chartH * (1 - (v - min) / range),
+    x: data.length <= 1 ? VB_W / 2 : (i / (data.length - 1)) * VB_W,
+    y: padY + chartH * (1 - (v - min) / range),
   }));
 }
 
@@ -57,12 +55,7 @@ export function AreaLineChart({
 }: AreaLineChartProps) {
   const gradientId = useId();
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-
-  const chartH = height - PAD_TOP - LABEL_H;
-
-  // Largura do SVG: pelo menos 600, mas expande se houver muitos pontos
-  const svgW = Math.max(600, data.length * MIN_POINT_W);
-  const needsScroll = svgW > 600;
+  const padY = 16;
 
   const { points, comparePoints, min, max } = useMemo(() => {
     const pool = compareData && compareData.length === data.length ? [...data, ...compareData] : data;
@@ -70,132 +63,141 @@ export function AreaLineChart({
     const mx = Math.max(...pool);
     const range = mx - mn || 1;
     return {
-      points: toPoints(data, svgW, chartH, mn, range),
-      comparePoints: compareData && compareData.length === data.length ? toPoints(compareData, svgW, chartH, mn, range) : null,
+      points: toPoints(data, height, padY, mn, range),
+      comparePoints:
+        compareData && compareData.length === data.length
+          ? toPoints(compareData, height, padY, mn, range)
+          : null,
       min: mn,
       max: mx,
     };
-  }, [data, compareData, svgW, chartH]);
+  }, [data, compareData, height]);
 
   const linePath = buildSmoothPath(points);
-  const areaPath = `${linePath} L ${points[points.length - 1].x} ${PAD_TOP + chartH} L ${points[0].x} ${PAD_TOP + chartH} Z`;
+  const areaPath =
+    points.length > 0
+      ? `${linePath} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`
+      : "";
   const comparePath = comparePoints ? buildSmoothPath(comparePoints) : "";
   const active = hoverIdx !== null ? points[hoverIdx] : null;
 
   function handleMove(e: React.MouseEvent<SVGSVGElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
-    const relX = ((e.clientX - rect.left) / rect.width) * svgW;
-    const idx = Math.round(((relX - PAD_X) / (svgW - PAD_X * 2)) * Math.max(data.length - 1, 0));
+    const relX = ((e.clientX - rect.left) / rect.width) * VB_W;
+    const idx = Math.round((relX / VB_W) * Math.max(data.length - 1, 0));
     setHoverIdx(Math.min(data.length - 1, Math.max(0, idx)));
   }
 
-  // Mostra todos os labels (sem skip) — o scroll resolve a sobreposição
-  const visibleLabelIndices = labels ? labels.map((_, i) => i) : [];
-
   return (
-    <div className="relative w-full overflow-x-auto" style={{ height }}>
-      <div className="relative" style={{ width: needsScroll ? svgW : "100%", minWidth: needsScroll ? svgW : undefined, height }}>
-        {/* SVG do gráfico */}
-        <svg
-          viewBox={`0 0 ${svgW} ${height - LABEL_H}`}
-          className="vela-reveal block w-full"
-          preserveAspectRatio="none"
-          onMouseMove={handleMove}
-          onMouseLeave={() => setHoverIdx(null)}
-          style={{ height: height - LABEL_H }}
-        >
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-              <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-            </linearGradient>
-          </defs>
-          {/* Linha de meta (sólida, cor secundária — estilo Revenue vs Expenses) */}
-          {comparePath && <path d={comparePath} fill="none" stroke={compareColor} strokeWidth="2.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
-          {/* Área preenchida */}
-          {showArea && <path d={areaPath} fill={`url(#${gradientId})`} />}
-          {/* Linha principal */}
-          <path d={linePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-          {/* Hover indicator */}
-          {active && (
-            <g>
-              <line x1={active.x} y1={PAD_TOP} x2={active.x} y2={PAD_TOP + chartH} stroke="var(--line)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-              {comparePoints && hoverIdx !== null && (
-                <circle cx={comparePoints[hoverIdx].x} cy={comparePoints[hoverIdx].y} r="4" fill={compareColor} stroke="var(--bg-2)" strokeWidth="2" />
-              )}
-              <circle cx={active.x} cy={active.y} r="5" fill={color} stroke="var(--bg-2)" strokeWidth="2" />
-            </g>
-          )}
-          {/* Valores diretos nos pontos */}
-          {showValues && points.map((p, i) => (
-            <text key={i} x={p.x} y={p.y - 8} textAnchor="middle" fontSize="9" fontWeight="700" fill={color} style={{ pointerEvents: "none" }}>
+    <div className="relative w-full" style={{ height }}>
+      <svg
+        viewBox={`0 0 ${VB_W} ${height}`}
+        className="vela-reveal h-full w-full overflow-visible"
+        preserveAspectRatio="none"
+        onMouseMove={handleMove}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {showArea && areaPath && <path d={areaPath} fill={`url(#${gradientId})`} />}
+        {comparePath && (
+          <path
+            d={comparePath}
+            fill="none"
+            stroke={compareColor}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
+        <path
+          d={linePath}
+          fill="none"
+          stroke={color}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+        {showValues &&
+          points.map((p, i) => (
+            <text
+              key={i}
+              x={p.x}
+              y={p.y - 8}
+              textAnchor="middle"
+              fontSize="10"
+              fontWeight="700"
+              fill={color}
+              style={{ pointerEvents: "none" }}
+            >
               {formatValue(data[i])}
             </text>
           ))}
-        </svg>
-
-        {/* Labels do eixo X como HTML — primeiro/último alinhados às bordas para não cortar */}
-        {labels && labels.length > 0 && (
-          <div className="relative mt-1" style={{ height: LABEL_H - 4 }}>
-            {visibleLabelIndices.map((i) => {
-              const isFirst = i === 0;
-              const isLast = i === labels.length - 1;
-              let tx = "-50%";
-              if (isFirst) tx = "0";
-              else if (isLast) tx = "-100%";
-              return (
-                <span
-                  key={i}
-                  className="absolute text-[10px] font-semibold text-t2"
-                  style={{
-                    left: `${((points[i]?.x ?? 0) / svgW) * 100}%`,
-                    transform: `translateX(${tx})`,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {labels[i]}
-                </span>
-              );
-            })}
-          </div>
+        {active && (
+          <g>
+            <line
+              x1={active.x}
+              y1={0}
+              x2={active.x}
+              y2={height}
+              stroke="var(--line-2)"
+              strokeDasharray="3 3"
+              vectorEffect="non-scaling-stroke"
+            />
+            {comparePoints && hoverIdx !== null && (
+              <circle
+                cx={comparePoints[hoverIdx].x}
+                cy={comparePoints[hoverIdx].y}
+                r="4"
+                fill={compareColor}
+                stroke="var(--bg-2)"
+                strokeWidth="2"
+              />
+            )}
+            <circle cx={active.x} cy={active.y} r="5" fill={color} stroke="var(--bg-2)" strokeWidth="2" />
+          </g>
         )}
+      </svg>
 
-        {/* Tooltip flutuante com clamp nas laterais e no topo */}
-        {active && hoverIdx !== null && (() => {
-          const leftPct = (active.x / svgW) * 100;
-          const topPct = (active.y / (height - LABEL_H)) * 100;
-          let translateX = "-50%";
-          if (leftPct < 15) translateX = "0";
-          else if (leftPct > 85) translateX = "-100%";
-          // Clamp vertical: se muito perto do topo, mostra abaixo do ponto em vez de acima
-          const flipDown = topPct < 20;
-          return (
-            <div
-              className="pointer-events-none absolute z-10 rounded-lg border border-line bg-bg-3 px-3 py-2 text-[11px] shadow-lg"
-              style={{
-                left: `${leftPct}%`,
-                top: `${topPct}%`,
-                marginTop: flipDown ? 14 : -10,
-                transform: `translateX(${translateX})${flipDown ? "" : " translateY(-100%)"}`,
-                minWidth: 80,
-                whiteSpace: "nowrap",
-              }}
-            >
-              {labels?.[hoverIdx] ? <span className="mb-1 block text-[10px] font-semibold text-t2">{labels[hoverIdx]}</span> : null}
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
-                <span className="font-bold" style={{ color }}>{formatValue(data[hoverIdx])}</span>
+      {active && hoverIdx !== null && (() => {
+        const leftPct = (active.x / VB_W) * 100;
+        const topPct = (active.y / height) * 100;
+        let translateX = "-50%";
+        if (leftPct < 12) translateX = "0";
+        else if (leftPct > 88) translateX = "-100%";
+        const flipDown = topPct < 22;
+        return (
+          <div
+            className="pointer-events-none absolute z-10 rounded-lg border border-line bg-bg-3 px-2.5 py-1.5 text-[11px] shadow-[var(--shadow-vela)]"
+            style={{
+              left: `${leftPct}%`,
+              top: `${topPct}%`,
+              marginTop: flipDown ? 10 : -8,
+              transform: `translateX(${translateX})${flipDown ? "" : " translateY(-100%)"}`,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {labels?.[hoverIdx] ? (
+              <span className="mb-0.5 block text-[10px] font-semibold text-t2">{labels[hoverIdx]}</span>
+            ) : null}
+            <span className="flex items-center gap-1.5 font-bold text-t0">
+              <span className="inline-block h-2 w-2 rounded-[2px]" style={{ background: color }} />
+              {formatValue(data[hoverIdx])}
+            </span>
+            {compareData && compareData.length === data.length && (
+              <span className="mt-0.5 flex items-center gap-1.5 font-semibold text-t1">
+                <span className="inline-block h-2 w-2 rounded-[2px]" style={{ background: compareColor }} />
+                {formatValue(compareData[hoverIdx])}
               </span>
-              {compareData && compareData.length === data.length && (
-                <span className="mt-0.5 flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-2 rounded-full border border-dashed" style={{ borderColor: compareColor }} />
-                  <span className="font-semibold" style={{ color: compareColor }}>{formatValue(compareData[hoverIdx])}</span>
-                </span>
-              )}
-            </div>
-          );
-        })()}
-      </div>
+            )}
+          </div>
+        );
+      })()}
+
       <span className="sr-only">
         Range {formatValue(min)} to {formatValue(max)}
       </span>
