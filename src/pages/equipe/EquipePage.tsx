@@ -6,7 +6,7 @@ import { Button, Card, CardTitle, DateRangePicker, EmptyState, PageHeader } from
 import { AreaLineChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { BlocoLeitura } from "@/pages/dashboard/blocos";
-import { AvisoCompetencia, BlocoDesafios, BlocoKpisEquipe, BlocoVendedorasRede, CardVendedoras, FaixaMetaGlobal } from "./blocos";
+import { AvisoCompetencia, BlocoDesafios, BlocoKpisEquipe, CardVendedoras, FaixaMetaGlobal } from "./blocos";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 
@@ -169,11 +169,13 @@ export function EquipePage() {
 
         {v.visao === "rede" && v.metaGlobal && <FaixaMetaGlobal meta={v.metaGlobal} />}
 
-        {v.visao === "loja" ? (
-          <CardVendedoras estado={v.estados.vendedoras} lista={v.vendedoras} metaAtiva={v.metaAtiva} competenciaTexto={mesAno(`${v.competencia}-01`)} />
-        ) : (
-          <BlocoVendedorasRede estado={v.estados.vendedoras} lista={v.vendedoras} lojas={v.lojas} metaAtiva={v.metaAtiva} competenciaTexto={mesAno(`${v.competencia}-01`)} />
-        )}
+        <CardVendedoras
+          estado={v.estados.vendedoras}
+          lista={v.vendedoras}
+          metaAtiva={v.metaAtiva}
+          competenciaTexto={mesAno(`${v.competencia}-01`)}
+          mostrarShopping={v.visao === "rede"}
+        />
 
         {v.metaAtiva && v.desafios && v.desafios.length > 0 && <BlocoDesafios desafios={v.desafios} />}
         {v.metaAtiva && (!v.desafios || v.desafios.length === 0) && (

@@ -187,6 +187,8 @@ export interface VendedoraLinha {
   /** Filial da vendedora — necessária na visão rede (coluna Shopping). */
   filialId: string;
   filialNome: string;
+  /** Nome do turno (Manhã/Tarde) ou "Sem turno". */
+  turno: string;
   faturamentoValor: number;
   faturamento: string;
   atendimentos: number;
@@ -202,12 +204,18 @@ export interface VendedoraLinha {
   diasElegiveis: number;
   atingimentoPct: number;
   barraPct: number;
+  /** Participação no faturamento vs. meta da loja (valorLoja). */
+  pctMetaGeral: number;
   /** Marcos da escada p/ barra segmentada: { nome, pct, bonus, pctPremiacao }. */
   marcosEscada: { nome: string; pct: number; pctPremiacao: number; bonus: number }[];
   degrauAtual: string | null;
+  /** Índice 1-based do degrau atual (null = ainda sem nível). */
+  nivelAtual: number | null;
   proximoDegrau: { nome: string; faltaValor: number; pctPremiacao: number; bonus: number; atingMinPct: number } | null;
   /** Premiação acumulada da escada de metas (realizado × pct do degrau). */
   premiacaoAcumulada: number;
+  /** % de premiação do degrau atual (0 se ainda não entrou na escada). */
+  comissaoPct: number;
   /** Premiação projetada pelo ritmo: realizado escalado × pct do degrau projetado. */
   premiacaoProjetadaIndividual: number | null;
   /** Atingimento projetado pelo ritmo da competência (100 = fecha a meta). */
@@ -431,11 +439,15 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
       }
     }
 
+    const metaLoja = metaAtiva ? metaDaFilial(filialId, competencia)?.valorLoja ?? 0 : 0;
+    const nivelIdx = escada?.degrau ? degraus.indexOf(escada.degrau) : -1;
+
     return {
       colaboradorId: c.id,
       nome: c.nome,
       filialId,
       filialNome: filial.fantasia,
+      turno: c.turnoId ? turnos.find((t) => t.id === c.turnoId)?.nome ?? "Sem turno" : "Sem turno",
       faturamentoValor: ag.faturamento,
       faturamento: brl(ag.faturamento),
       atendimentos: ag.atendimentos,
@@ -450,12 +462,15 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
       diasElegiveis: metaInd?.diasElegiveis ?? 0,
       atingimentoPct: metaInd && metaInd.valor > 0 ? (ag.faturamento / metaInd.valor) * 100 : 0,
       barraPct: metaInd && metaInd.valor > 0 ? Math.min(100, (ag.faturamento / metaInd.valor) * 100) : 0,
+      pctMetaGeral: metaLoja > 0 ? (ag.faturamento / metaLoja) * 100 : 0,
       // Marcos da escada para a barra segmentada do mockup (posição % de cada
       // degrau + % de premiação que ele paga acima dele).
       marcosEscada: degraus.map((d) => ({ nome: d.nome, pct: d.atingimentoMinPct, pctPremiacao: d.comissaoPct, bonus: d.bonus })),
       degrauAtual: escada?.degrau?.nome ?? null,
+      nivelAtual: nivelIdx >= 0 ? nivelIdx + 1 : null,
       proximoDegrau: escada?.proximo ?? null,
       premiacaoAcumulada: escada?.premiacao ?? 0,
+      comissaoPct: escada?.degrau?.comissaoPct ?? 0,
       premiacaoProjetadaIndividual,
       /** Atingimento projetado pelo ritmo da competência (100 = fecha). */
       atingimentoProjetadoPct: metaInd && metaInd.valor > 0 && !fechado && projecaoFinal > 0 ? atingProjPct : null,

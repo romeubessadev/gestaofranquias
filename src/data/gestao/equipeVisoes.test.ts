@@ -556,6 +556,23 @@ describe("T5: premiação projetada (EQUIP-04/05)", () => {
       }
     }
   });
+
+  it("ranking inteligente: turno, % meta geral, nível e comissão alinhados à escada", () => {
+    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const metaLoja = 185000;
+    expect(v.vendedoras!.length).toBeGreaterThan(0);
+    for (const l of v.vendedoras!) {
+      expect(l.turno === "Manhã" || l.turno === "Tarde" || l.turno === "Sem turno").toBe(true);
+      expect(l.pctMetaGeral).toBeCloseTo((l.faturamentoValor / metaLoja) * 100, 6);
+      if (l.degrauAtual) {
+        expect(l.nivelAtual).toBeGreaterThan(0);
+        expect(l.comissaoPct).toBeGreaterThan(0);
+      } else {
+        expect(l.nivelAtual).toBeNull();
+        expect(l.comissaoPct).toBe(0);
+      }
+    }
+  });
 });
 
 describe("T5: leitura da IA da equipe (EQUIP-06)", () => {
