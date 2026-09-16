@@ -3,8 +3,9 @@ import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, But
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, BarChart, StackedBarChart, DonutChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
-import { montarFinanceiroView, type FinanceiroKpi, type EvolucaoMensalLinha } from "@/data/gestao/dashboard";
+import { montarFinanceiroView, type FinanceiroKpi, type EvolucaoMensalLinha, type LinhaCustoFixo } from "@/data/gestao/dashboard";
 import { brl } from "@/lib/formato";
+import { cn } from "@/lib/cn";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 import { deIso } from "@/lib/formato";
 
@@ -93,6 +94,25 @@ const evolucaoColumns: DataTableColumn<EvolucaoMensalLinha>[] = [
     render: (r) => <span className="tabular-nums text-t1">{brl(r.ticketMedio)}</span>,
   },
 ];
+
+/** Hierarquia visual no padrão Income statement (ProfitLoss). */
+function estiloLinhaCusto(linha: LinhaCustoFixo): { bold: boolean; indent: boolean; color?: string; valor: string } {
+  if (linha.ehResultado) {
+    return {
+      bold: true,
+      indent: false,
+      color: linha.valor < 0 ? "var(--bad)" : "var(--acc)",
+      valor: brl(linha.valor),
+    };
+  }
+  if (linha.ehTotal) {
+    return { bold: true, indent: false, valor: `−${brl(linha.valor)}` };
+  }
+  if (linha.rotulo === "Lucro bruto") {
+    return { bold: true, indent: false, color: "var(--ok)", valor: brl(linha.valor) };
+  }
+  return { bold: false, indent: true, valor: `−${brl(linha.valor)}` };
+}
 
 export default function FinanceiroPage() {
   const { escopo, mudar } = useEscopo();
@@ -289,27 +309,27 @@ export default function FinanceiroPage() {
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
-            <table className="w-full text-left text-[12px]">
-              <tbody>
-                {view.custosFixosFranquia.map((linha) => (
-                  <tr
-                    key={linha.rotulo}
-                    className={
-                      linha.ehResultado
-                        ? "border-t-2 border-acc font-bold text-t0"
-                        : linha.ehTotal
-                          ? "border-t border-line font-semibold text-t0"
-                          : "text-t1"
-                    }
+            {view.custosFixosFranquia.map((linha) => {
+              const estilo = estiloLinhaCusto(linha);
+              return (
+                <div key={linha.rotulo} className="flex items-center justify-between border-b border-line py-3 last:border-b-0">
+                  <span
+                    className={cn(
+                      estilo.bold ? "text-sm font-extrabold text-t0" : "text-[13px] font-semibold",
+                      estilo.indent ? "pl-4 text-t2 sm:pl-5" : "text-t0",
+                    )}
                   >
-                    <td className="py-1.5 pr-3">{linha.rotulo}</td>
-                    <td className={`py-1.5 text-right font-semibold ${linha.ehResultado && linha.valor < 0 ? "text-bad" : ""}`}>
-                      {brl(linha.valor)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    {linha.rotulo}
+                  </span>
+                  <span
+                    className={cn("font-mono tabular-nums", estilo.bold ? "text-[15px] font-extrabold" : "text-[13.5px] font-bold")}
+                    style={{ color: estilo.color ?? "var(--t0)" }}
+                  >
+                    {estilo.valor}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </Card>
       </div>
