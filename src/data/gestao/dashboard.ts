@@ -13,7 +13,7 @@ import { metaDaFilial } from "./metas";
 import { produtosDaCategoria } from "./produtos";
 import { AGORA, ATUALIZADO_AS, HOJE_ISO, HORA_ATUAL, INTERVALO_SYNC_MIN, ULTIMO_SYNC } from "./relogio";
 import { agregadoDoDia, diaVendas, diasVendas, lojaAberta, pesoDia, somarAgregados, type Agregado } from "./vendas";
-import { brl, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, inicioDoMes, intervaloDias, mesAno, pct, somarDias } from "@/lib/formato";
+import { brl, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, horaCurta, inicioDoMes, intervaloDias, mesAno, pct, somarDias } from "@/lib/formato";
 import type { TintKey } from "@/pages/dashboards/icons";
 import { montarLeituraLoja } from "./leitura";
 
@@ -1364,12 +1364,20 @@ export interface FinanceiroView {
   escopo: Escopo;
   periodo: PeriodoResolvido;
   kpis: FinanceiroKpi[];
+  /** Eixo dos cards de tendência (CMV/Lucro e Resultado). */
+  eixoSerie: EixoSerie;
+  /** Ex.: "Hoje · por hora". */
+  rotuloSerie: string;
+  /** True quando custos fixos foram rateados no eixo (hora/dia). */
+  resultadoRateado: boolean;
   custoLucroMargem: CustoLucroMes[];
   resultadoOperacional: ResultadoOpMes[];
   deltaResultado?: { value: string; positive: boolean; vs?: string; diff?: string };
   formasPagamento: FormaPagamentoFat[];
   custosFixosFranquia: LinhaCustoFixo[];
   evolucaoMensal: EvolucaoMensalLinha[];
+  /** Sempre contexto mensal — não segue o eixo curto. */
+  rotuloEvolucaoMensal: string;
 }
 
 const CORES_FORMAS: Record<string, string> = {
@@ -1419,6 +1427,45 @@ function ultimosMeses(n: number): string[] {
     out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
   }
   return out;
+}
+
+/** Eixo dos cards de tendência: 1 dia → hora; 2–31 dias → dia; >31 dias → mês. */
+export type EixoSerie = "hora" | "dia" | "mes";
+
+export function eixoSerieDoPeriodo(periodo: PeriodoResolvido): EixoSerie {
+  const n = intervaloDias(periodo.inicio, periodo.fim).length;
+  if (n <= 1) return "hora";
+  if (n <= 31) return "dia";
+  return "mes";
+}
+
+/** Subtítulo dos cards de série (ex.: "Hoje · por hora"). */
+export function rotuloEixoSerie(periodo: PeriodoResolvido, eixo: EixoSerie): string {
+  if (eixo === "hora") return `${periodo.rotulo} · por hora`;
+  if (eixo === "dia") return `${periodo.rotulo} · por dia`;
+  return `${periodo.rotulo} · por mês`;
+}
+
+function mesesEntre(inicio: string, fim: string): string[] {
+  const out: string[] = [];
+  let y = Number(inicio.slice(0, 4));
+  let m = Number(inicio.slice(5, 7));
+  const yF = Number(fim.slice(0, 4));
+  const mF = Number(fim.slice(5, 7));
+  while (y < yF || (y === yF && m <= mF)) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return out;
+}
+
+function diasNoMes(mesYm: string): number {
+  const [y, m] = mesYm.split("-").map(Number);
+  return new Date(y, m, 0).getDate();
 }
 
 function agregadoMes(fs: Filial[], mes: string, divisao: Divisao | null): Agregado & { cmv: number; porMeio: Record<string, number> } {
@@ -1501,21 +1548,12 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     },
   ];
 
-  // Custo/Lucro/Margem por mês (últimos 6 meses).
-  const meses = ultimosMeses(6);
-  const custoLucroMargem: CustoLucroMes[] = meses.map((mes) => {
-    const agg = agregadoMes(fs, mes, divisao);
-    const lucro = agg.faturamento - agg.cmv;
-    return {
-      mes: mesAno(`${mes}-01`).split(" de ")[0],
-      custo: agg.cmv,
-      lucro,
-      margemPct: divSeguro(lucro, agg.faturamento) * 100,
-      faturamento: agg.faturamento,
-    };
-  });
+  // Série de tendência: eixo hora / dia / mês conforme o período filtrado.
+  const eixoSerie = eixoSerieDoPeriodo(periodo);
+  const rotuloSerie = rotuloEixoSerie(periodo, eixoSerie);
+  const resultadoRateado = eixoSerie !== "mes";
 
-  // Custos fixos e franquia (mensais mockados — base do mini-DRE e da série de Resultado).
+  // Custos fixos e franquia (mensais mockados — base do mini-DRE e rateio da série).
   const custosAgg = fs.reduce(
     (acc, f) => {
       const c = custosFixosDaFilial(f);
@@ -1537,17 +1575,92 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     custosAgg.taxaMktWepink +
     custosAgg.taxaMktWpink;
 
-  // Lucro bruto → Resultado operacional (após custos fixos/franquia), mesmos 6 meses.
-  const resultadoOperacional: ResultadoOpMes[] = custoLucroMargem.map((m) => {
-    const resultado = m.lucro - totalCustosFixos;
-    return {
-      mes: m.mes,
-      lucro: m.lucro,
-      resultado,
-      margemOpPct: divSeguro(resultado, m.faturamento) * 100,
-      faturamento: m.faturamento,
-    };
-  });
+  const custoLucroMargem: CustoLucroMes[] = [];
+  const resultadoOperacional: ResultadoOpMes[] = [];
+
+  if (eixoSerie === "hora") {
+    const abertura = Math.min(...fs.map((f) => f.abertura));
+    const fechamento = Math.max(...fs.map((f) => f.fechamento));
+    const horas: number[] = [];
+    for (let h = abertura; h < fechamento; h++) horas.push(h);
+    const horasVisiveis = periodo.ehHoje ? horas.filter((h) => h <= HORA_ATUAL) : horas;
+    const diaFat = atual.faturamento;
+    const diaCmv = custoAtual;
+    const ratioCmv = divSeguro(diaCmv, diaFat);
+    const custoHora = totalCustosFixos / diasNoMes(periodo.inicio.slice(0, 7)) / (horas.length || 1);
+    for (const h of horasVisiveis) {
+      const fatH = fs.reduce((s, f) => {
+        const a = diaVendas(f.id, periodo.inicio)?.porHora[h];
+        if (!a) return s;
+        if (!divisao) return s + a.faturamento;
+        const dia = diaVendas(f.id, periodo.inicio)!;
+        const fr = dia.total.faturamento > 0 ? dia.porDivisao[divisao].faturamento / dia.total.faturamento : 0;
+        return s + Math.round(a.faturamento * fr);
+      }, 0);
+      const cmv = Math.round(fatH * ratioCmv);
+      const lucro = fatH - cmv;
+      const label = horaCurta(h);
+      custoLucroMargem.push({ mes: label, custo: cmv, lucro, margemPct: divSeguro(lucro, fatH) * 100, faturamento: fatH });
+      const resultado = lucro - custoHora;
+      resultadoOperacional.push({
+        mes: label,
+        lucro,
+        resultado,
+        margemOpPct: divSeguro(resultado, fatH) * 100,
+        faturamento: fatH,
+      });
+    }
+  } else if (eixoSerie === "dia") {
+    for (const iso of intervaloDias(periodo.inicio, periodo.fim)) {
+      const agg = somarAgregados(fs.map((f) => {
+        const d = diaVendas(f.id, iso);
+        return d ? agregadoDoDia(d, divisao) : { faturamento: 0, atendimentos: 0, itens: 0 };
+      }));
+      const cmv = custoPeriodo(fs, iso, iso, divisao).cmv;
+      const lucro = agg.faturamento - cmv;
+      const label = periodo.granularidade === "mes"
+        ? String(deIso(iso).getDate())
+        : diaSemanaCurto(iso);
+      const custoDia = totalCustosFixos / diasNoMes(iso.slice(0, 7));
+      custoLucroMargem.push({
+        mes: label,
+        custo: cmv,
+        lucro,
+        margemPct: divSeguro(lucro, agg.faturamento) * 100,
+        faturamento: agg.faturamento,
+      });
+      const resultado = lucro - custoDia;
+      resultadoOperacional.push({
+        mes: label,
+        lucro,
+        resultado,
+        margemOpPct: divSeguro(resultado, agg.faturamento) * 100,
+        faturamento: agg.faturamento,
+      });
+    }
+  } else {
+    for (const mes of mesesEntre(periodo.inicio, periodo.fim)) {
+      const agg = agregadoMes(fs, mes, divisao);
+      const lucro = agg.faturamento - agg.cmv;
+      const label = mesAno(`${mes}-01`).split(" de ")[0];
+      custoLucroMargem.push({
+        mes: label,
+        custo: agg.cmv,
+        lucro,
+        margemPct: divSeguro(lucro, agg.faturamento) * 100,
+        faturamento: agg.faturamento,
+      });
+      const resultado = lucro - totalCustosFixos;
+      resultadoOperacional.push({
+        mes: label,
+        lucro,
+        resultado,
+        margemOpPct: divSeguro(resultado, agg.faturamento) * 100,
+        faturamento: agg.faturamento,
+      });
+    }
+  }
+
   const resultadoAtual = lucroAtual - totalCustosFixos;
   const resultadoAnterior = lucroAnterior - totalCustosFixos;
   const deltaResultado = temComp ? kpiDelta(resultadoAtual, resultadoAnterior, vsRotulo) : undefined;
@@ -1574,7 +1687,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
       cor: CORES_FORMAS[forma] ?? "var(--t2)",
     }));
 
-  // Mini-DRE do período → Resultado Operacional.
+  // Mini-DRE do período → Resultado Operacional (custos mensais cheios no snapshot).
   const custosFixosFranquia: LinhaCustoFixo[] = [
     { rotulo: "Lucro bruto", valor: lucroAtual },
     { rotulo: "Aluguel fixo", valor: custosAgg.aluguelFixo },
@@ -1587,8 +1700,9 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     { rotulo: "Resultado operacional", valor: resultadoAtual, ehResultado: true },
   ];
 
-  // Evolução mensal (tabela DRE simplificada).
-  const evolucaoMensal: EvolucaoMensalLinha[] = meses.map((mes) => {
+  // Evolução Mensal — sempre últimos 6 meses (contexto; não finge o range curto).
+  const rotuloEvolucaoMensal = "Últimos 6 meses";
+  const evolucaoMensal: EvolucaoMensalLinha[] = ultimosMeses(6).map((mes) => {
     const agg = agregadoMes(fs, mes, divisao);
     const lucro = agg.faturamento - agg.cmv;
     return {
@@ -1605,12 +1719,16 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     escopo,
     periodo,
     kpis,
+    eixoSerie,
+    rotuloSerie,
+    resultadoRateado,
     custoLucroMargem,
     resultadoOperacional,
     deltaResultado,
     formasPagamento,
     custosFixosFranquia,
     evolucaoMensal,
+    rotuloEvolucaoMensal,
   };
 }
 
@@ -2137,7 +2255,10 @@ export interface VisaoGeralView {
   projecaoFechamento: string | null;
   /** Delta do faturamento vs período anterior (badge dos cards de gráfico). */
   deltaFaturamento?: { value: string; positive: boolean; vs?: string };
+  eixoSerie: EixoSerie;
+  rotuloSerie: string;
   categoriaVsMeta: CategoriaVsMeta[];
+  /** Vazio quando período = 1 dia (card oculto na UI). */
   diaVsMeta: DiaVsMeta[];
   evolucao: EvolucaoPonto[];
   formasPagamento: FormaPagamentoFat[];
@@ -2256,60 +2377,99 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     })
     .sort((a, b) => b.realizado - a.realizado);
 
-  // Faturamento por Dia da Semana vs Meta (ordem Seg→Dom)
+  // Faturamento por Dia da Semana vs Meta — oculto em período de 1 dia.
+  const eixoSerie = eixoSerieDoPeriodo(periodo);
+  const rotuloSerie = rotuloEixoSerie(periodo, eixoSerie);
   const diasSemanaNomes = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-  // getDay(): 0=Dom, 1=Seg, ..., 6=Sáb → mapear para índice Seg=0, Ter=1, ..., Dom=6
   const dowToIdx = (dow: number) => (dow === 0 ? 6 : dow - 1);
-  const diaAgg: Record<number, { fat: number; count: number }> = {};
-  for (const iso of intervaloDias(periodo.inicio, periodo.fim)) {
-    const idx = dowToIdx(deIso(iso).getDay());
-    if (!diaAgg[idx]) diaAgg[idx] = { fat: 0, count: 0 };
-    for (const f of fs) {
-      const dv = diaVendas(f.id, iso);
-      if (!dv) continue;
-      if (divisao) {
-        const divAg = dv.porDivisao[divisao];
-        diaAgg[idx].fat += divAg?.faturamento ?? 0;
-      } else {
-        diaAgg[idx].fat += dv.total.faturamento;
+  let diaVsMeta: DiaVsMeta[] = [];
+  if (eixoSerie !== "hora") {
+    const diaAgg: Record<number, { fat: number; count: number }> = {};
+    for (const iso of intervaloDias(periodo.inicio, periodo.fim)) {
+      const idx = dowToIdx(deIso(iso).getDay());
+      if (!diaAgg[idx]) diaAgg[idx] = { fat: 0, count: 0 };
+      for (const f of fs) {
+        const dv = diaVendas(f.id, iso);
+        if (!dv) continue;
+        if (divisao) {
+          const divAg = dv.porDivisao[divisao];
+          diaAgg[idx].fat += divAg?.faturamento ?? 0;
+        } else {
+          diaAgg[idx].fat += dv.total.faturamento;
+        }
       }
+      diaAgg[idx].count += 1;
     }
-    diaAgg[idx].count += 1;
+    const metaDiaria = metaTotal > 0 ? metaTotal / 7 : 0;
+    diaVsMeta = diasSemanaNomes.map((nome, i) => ({
+      dia: nome,
+      meta: metaDiaria,
+      realizado: diaAgg[i] ? diaAgg[i].fat / (diaAgg[i].count || 1) : 0,
+    }));
   }
-  const metaDiaria = metaTotal > 0 ? metaTotal / 7 : 0;
-  const diaVsMeta: DiaVsMeta[] = diasSemanaNomes.map((nome, i) => ({
-    dia: nome,
-    meta: metaDiaria,
-    realizado: diaAgg[i] ? diaAgg[i].fat / (diaAgg[i].count || 1) : 0,
-  }));
 
-  // Evolução diária (realizado acumulado + meta acumulada + projeção)
+  // Evolução Fat vs Meta — eixo hora / dia / mês conforme o período.
   const diasPeriodo = intervaloDias(periodo.inicio, periodo.fim);
-  let acumRealizado = 0;
-  let acumMeta = 0;
-  const metaPorDia = metaTotal > 0 ? metaTotal / diasPeriodo.length : 0;
-  const evolucao: EvolucaoPonto[] = diasPeriodo.map((iso) => {
-    let fatDia = 0;
-    for (const f of fs) {
-      const dv = diaVendas(f.id, iso);
-      if (!dv) continue;
-      if (divisao) {
-        fatDia += dv.porDivisao[divisao]?.faturamento ?? 0;
-      } else {
-        fatDia += dv.total.faturamento;
+  const evolucao: EvolucaoPonto[] = [];
+  if (eixoSerie === "hora") {
+    const abertura = Math.min(...fs.map((f) => f.abertura));
+    const fechamento = Math.max(...fs.map((f) => f.fechamento));
+    const horas: number[] = [];
+    for (let h = abertura; h < fechamento; h++) horas.push(h);
+    const horasVisiveis = periodo.ehHoje ? horas.filter((h) => h <= HORA_ATUAL) : horas;
+    const metaPorHora = metaTotal > 0 && horas.length > 0 ? metaTotal / horas.length : 0;
+    let acumR = 0;
+    let acumM = 0;
+    for (const h of horasVisiveis) {
+      let fatH = 0;
+      for (const f of fs) {
+        const a = diaVendas(f.id, periodo.inicio)?.porHora[h];
+        if (!a) continue;
+        if (!divisao) fatH += a.faturamento;
+        else {
+          const dia = diaVendas(f.id, periodo.inicio)!;
+          const fr = dia.total.faturamento > 0 ? dia.porDivisao[divisao].faturamento / dia.total.faturamento : 0;
+          fatH += Math.round(a.faturamento * fr);
+        }
       }
+      acumR += fatH;
+      acumM += metaPorHora;
+      evolucao.push({ label: horaCurta(h), realizado: acumR, meta: acumM, projecao: null });
     }
-    acumRealizado += fatDia;
-    acumMeta += metaPorDia;
-    const proj = iso <= HOJE_ISO && fracaoAcum > 0 ? acumRealizado / fracaoAcum * (fracaoAcum + (diasPeriodo.length - diasPeriodo.indexOf(iso) - 1) * (fracaoAcum / (diasPeriodo.indexOf(HOJE_ISO) + 1 || 1))) : null;
-    return {
-      label: (() => { const d = deIso(iso); const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]; return `${String(d.getDate()).padStart(2,"0")} ${meses[d.getMonth()]}`; })(),
-      realizado: acumRealizado,
-      meta: acumMeta,
-      projecao: proj,
-    };
-  });
-
+  } else if (eixoSerie === "mes") {
+    let acumR = 0;
+    let acumM = 0;
+    const meses = mesesEntre(periodo.inicio, periodo.fim);
+    const metaPorMes = metaTotal > 0 && meses.length > 0 ? metaTotal / meses.length : 0;
+    for (const mes of meses) {
+      const agg = agregadoMes(fs, mes, divisao);
+      acumR += agg.faturamento;
+      acumM += metaPorMes;
+      const label = mesAno(`${mes}-01`).split(" de ")[0];
+      evolucao.push({ label, realizado: acumR, meta: acumM, projecao: null });
+    }
+  } else {
+    let acumRealizado = 0;
+    let acumMeta = 0;
+    const metaPorDia = metaTotal > 0 ? metaTotal / diasPeriodo.length : 0;
+    for (const iso of diasPeriodo) {
+      let fatDia = 0;
+      for (const f of fs) {
+        const dv = diaVendas(f.id, iso);
+        if (!dv) continue;
+        if (divisao) fatDia += dv.porDivisao[divisao]?.faturamento ?? 0;
+        else fatDia += dv.total.faturamento;
+      }
+      acumRealizado += fatDia;
+      acumMeta += metaPorDia;
+      const d = deIso(iso);
+      const mesesLbl = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+      const label = periodo.granularidade === "mes"
+        ? String(d.getDate())
+        : `${String(d.getDate()).padStart(2, "0")} ${mesesLbl[d.getMonth()]}`;
+      evolucao.push({ label, realizado: acumRealizado, meta: acumMeta, projecao: null });
+    }
+  }
   // Formas de pagamento (reusa lógica do Financeiro)
   const totaisForma: Record<string, number> = {};
   for (const f of fs) {
@@ -2431,6 +2591,8 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     faltamParaMeta,
     projecaoFechamento,
     deltaFaturamento: temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
+    eixoSerie,
+    rotuloSerie,
     categoriaVsMeta,
     diaVsMeta,
     evolucao,

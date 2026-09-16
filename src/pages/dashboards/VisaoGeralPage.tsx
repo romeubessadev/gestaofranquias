@@ -203,13 +203,14 @@ export default function VisaoGeralPage() {
                   </span>
                 </Tooltip>
               </div>
+              <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloSerie}</p>
               <div className="mt-2.5 flex flex-wrap gap-5">
                 <div>
                   <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
                     <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--ok)]" />Realizado
                   </span>
                   <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
-                    {brlK(view.evolucao.reduce((s, e) => s + e.realizado, 0))}
+                    {brlK(view.evolucao[view.evolucao.length - 1]?.realizado ?? 0)}
                   </p>
                 </div>
                 <div>
@@ -217,7 +218,7 @@ export default function VisaoGeralPage() {
                     <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Meta
                   </span>
                   <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
-                    {brlK(view.evolucao.reduce((s, e) => s + e.meta, 0))}
+                    {brlK(view.evolucao[view.evolucao.length - 1]?.meta ?? 0)}
                   </p>
                 </div>
               </div>
@@ -236,8 +237,8 @@ export default function VisaoGeralPage() {
         </Card>
       </div>
 
-      {/* Linha: Categoria vs Meta + Dia da Semana vs Meta */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* Linha: Categoria vs Meta + Dia da Semana vs Meta (Dia some em período de 1 dia) */}
+      <div className={`mt-4 grid grid-cols-1 gap-4 ${view.diaVsMeta.length > 0 ? "lg:grid-cols-2" : ""}`}>
         <Card padding="lg">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -280,48 +281,50 @@ export default function VisaoGeralPage() {
             showAxisLabels
           />
         </Card>
-        <Card padding="lg">
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-1.5">
-                <CardTitle>Dia da Semana vs Meta</CardTitle>
-                <Tooltip label="Compare o faturamento médio de cada dia da semana com a meta diária e identifique os dias de maior e menor desempenho.">
-                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
-                    ?
-                  </span>
-                </Tooltip>
-              </div>
-              <div className="mt-2.5 flex flex-wrap gap-5">
-                <div>
-                  <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
-                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--info)]" />Realizado
-                  </span>
-                  <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
-                    {brlK(view.diaVsMeta.reduce((s, d) => s + d.realizado, 0))}
-                  </p>
+        {view.diaVsMeta.length > 0 && (
+          <Card padding="lg">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <CardTitle>Dia da Semana vs Meta</CardTitle>
+                  <Tooltip label="Compare o faturamento médio de cada dia da semana com a meta diária e identifique os dias de maior e menor desempenho.">
+                    <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+                      ?
+                    </span>
+                  </Tooltip>
                 </div>
-                <div>
-                  <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
-                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Meta
-                  </span>
-                  <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
-                    {brlK(view.diaVsMeta.reduce((s, d) => s + d.meta, 0))}
-                  </p>
+                <div className="mt-2.5 flex flex-wrap gap-5">
+                  <div>
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                      <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--info)]" />Realizado
+                    </span>
+                    <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
+                      {brlK(view.diaVsMeta.reduce((s, d) => s + d.realizado, 0))}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                      <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Meta
+                    </span>
+                    <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
+                      {brlK(view.diaVsMeta.reduce((s, d) => s + d.meta, 0))}
+                    </p>
+                  </div>
                 </div>
               </div>
+              <BadgeVsAnterior delta={view.deltaFaturamento} />
             </div>
-            <BadgeVsAnterior delta={view.deltaFaturamento} />
-          </div>
-          <AreaLineChart
-            data={view.diaVsMeta.map((d) => d.realizado)}
-            compareData={view.diaVsMeta.map((d) => d.meta)}
-            labels={view.diaVsMeta.map((d) => d.dia)}
-            color="var(--info)"
-            compareColor="var(--warn)"
-            formatValue={brlK}
-            showAxisLabels
-          />
-        </Card>
+            <AreaLineChart
+              data={view.diaVsMeta.map((d) => d.realizado)}
+              compareData={view.diaVsMeta.map((d) => d.meta)}
+              labels={view.diaVsMeta.map((d) => d.dia)}
+              color="var(--info)"
+              compareColor="var(--warn)"
+              formatValue={brlK}
+              showAxisLabels
+            />
+          </Card>
+        )}
       </div>
 
       {/* Linha: Ranking de Lojas + Formas de Pagamento */}

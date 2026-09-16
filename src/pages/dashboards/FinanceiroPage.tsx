@@ -224,8 +224,9 @@ export default function FinanceiroPage() {
                 <div>
                   <div className="flex items-center gap-1.5">
                     <CardTitle>CMV, Lucro e Margem</CardTitle>
-                    <TipHelp label="Acompanhe se o lucro bruto acompanha o faturamento ou se o CMV está pressionando a margem ao longo dos meses." />
+                    <TipHelp label="Acompanhe se o lucro bruto acompanha o faturamento ou se o CMV está pressionando a margem ao longo do período." />
                   </div>
+                  <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloSerie}</p>
                   <div className="mt-2.5 flex flex-wrap gap-5">
                     <div>
                       <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
@@ -266,14 +267,18 @@ export default function FinanceiroPage() {
           const totalRes = serie.reduce((s, m) => s + m.resultado, 0);
           const totalFat = serie.reduce((s, m) => s + m.faturamento, 0);
           const margemOpPct = totalFat > 0 ? (totalRes / totalFat) * 100 : 0;
+          const tipResultado = view.resultadoRateado
+            ? "O que sobra do lucro bruto depois de aluguel, royalties e marketing. Em períodos curtos, os custos fixos mensais são rateados no eixo (por dia ou por hora)."
+            : "O que sobra do lucro bruto depois de aluguel, royalties e marketing — e se esse resultado está melhorando ou piorando ao longo dos meses.";
           return (
             <Card padding="lg">
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-1.5">
                     <CardTitle>Resultado operacional</CardTitle>
-                    <TipHelp label="O que sobra do lucro bruto depois de aluguel, royalties e marketing — e se esse resultado está melhorando ou piorando ao longo dos meses." />
+                    <TipHelp label={tipResultado} />
                   </div>
+                  <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloSerie}</p>
                   <div className="mt-2.5 flex flex-wrap gap-5">
                     <div>
                       <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
@@ -389,8 +394,13 @@ export default function FinanceiroPage() {
       {/* Evolução Mensal — DataTable (desktop) + cards (mobile) */}
       <Card className="mt-4" padding="none">
         <div className="flex items-center gap-1.5 border-b border-line px-5 py-4">
-          <CardTitle>Evolução Mensal</CardTitle>
-          <TipHelp label="Resumo mensal de faturamento, CMV, lucro bruto, margem e ticket médio." />
+          <div>
+            <div className="flex items-center gap-1.5">
+              <CardTitle>Evolução Mensal</CardTitle>
+              <TipHelp label="Resumo mensal de faturamento, CMV, lucro bruto, margem e ticket médio. Sempre mostra os últimos 6 meses — não segue o filtro de período curto." />
+            </div>
+            <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloEvolucaoMensal}</p>
+          </div>
         </div>
 
         {/* Desktop / tablet — DataTable Vela */}

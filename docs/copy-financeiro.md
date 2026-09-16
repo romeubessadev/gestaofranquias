@@ -36,6 +36,22 @@ Fase 1 (chrome + KPIs compartilhados) + fase 2 (cards exclusivos).
 
 ---
 
+## Granularidade dos cards de tendência
+
+| Período filtrado | Eixo | Subtítulo |
+|---|---|---|
+| 1 dia | hora | `{rotulo} · por hora` |
+| 2–31 dias | dia | `{rotulo} · por dia` |
+| > 31 dias | mês | `{rotulo} · por mês` |
+
+- **Séries** (Fat vs Meta, CMV/Lucro, Resultado): seguem o eixo + subtítulo.
+- **Snapshots** (KPIs, Formas, Custos, Ranking, Tops, Categorias): só o período, sem subtítulo de eixo.
+- **Dia da Semana vs Meta**: oculto em 1 dia.
+- **Evolução Mensal**: sempre `Últimos 6 meses` (não finge range curto).
+- **Resultado em hora/dia**: custos fixos mensais **rateados** no eixo (tooltip explica).
+
+---
+
 ## 3. CMV, Lucro e Margem + Resultado operacional (par)
 
 ### CMV, Lucro e Margem

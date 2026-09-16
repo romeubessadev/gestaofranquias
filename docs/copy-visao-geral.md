@@ -82,6 +82,8 @@ Decisões fechadas (gestor + revisão). Pronto para implementar.
 | Elemento | Final |
 |---|---|
 | Título | `Faturamento vs Meta` |
+| Subtítulo | `{rotulo} · por hora/dia/mês` conforme eixo do período |
+| Totais no header | último ponto acumulado (não soma dos pontos) |
 | Tooltip | `Compare o ritmo do faturamento com a meta acumulada e identifique se a operação está acima ou abaixo do esperado.` |
 | Legendas `Realizado` / `Meta` | **manter** |
 
@@ -116,6 +118,7 @@ Decisões fechadas (gestor + revisão). Pronto para implementar.
 | Elemento | Final |
 |---|---|
 | Título | `Dia da Semana vs Meta` *(manter família “vs Meta”)* |
+| Visibilidade | **oculto** quando período = 1 dia |
 | Tooltip | `Compare o faturamento médio de cada dia da semana com a meta diária e identifique os dias de maior e menor desempenho.` |
 
 ---
