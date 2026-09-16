@@ -1,11 +1,12 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, Badge, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, BarChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
-import { montarProdutosView, type ProdutosKpi } from "@/data/gestao/dashboard";
+import { montarProdutosView, type ProdutosKpi, type CategoriaFat, type ProdutoLinha } from "@/data/gestao/dashboard";
 import { brl, num } from "@/lib/formato";
 import { deIso } from "@/lib/formato";
+import { cn } from "@/lib/cn";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 
 const IconFat = () => (
@@ -58,6 +59,7 @@ export default function ProdutosPage() {
   const [catFiltro, setCatFiltro] = useState<number | null>(null);
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("faturamento");
   const [busca, setBusca] = useState("");
+  const [abertas, setAbertas] = useState<Set<number>>(() => new Set());
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
 
@@ -93,7 +95,7 @@ export default function ProdutosPage() {
   const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
   const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} min`;
 
-  // Filtra e ordena produtos para a tabela
+  // Filtra e ordena produtos para o ranking Top Produtos
   const produtosFiltrados = useMemo(() => {
     let lista = view.produtos;
     if (busca.trim()) {
@@ -107,7 +109,48 @@ export default function ProdutosPage() {
     });
   }, [view.produtos, busca, ordenacao]);
 
-  // Categorias disponíveis para o filtro (apenas as que têm dados no período)
+  /** Grupos categoria → produtos (tree-table). */
+  const grupos = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    const out: GrupoCategoria[] = [];
+    for (const cat of view.categorias) {
+      let prods = view.produtos.filter((p) => p.categoriaNome === cat.nome);
+      if (q) {
+        const catMatch = cat.nome.toLowerCase().includes(q);
+        if (!catMatch) {
+          prods = prods.filter((p) => p.nome.toLowerCase().includes(q));
+        }
+      }
+      if (prods.length === 0) continue;
+      prods = [...prods].sort((a, b) => b.receita - a.receita);
+      const metrics = q && !cat.nome.toLowerCase().includes(q)
+        ? metricasDeProdutos(prods)
+        : metricasDeCategoria(cat);
+      out.push({ categoriaId: cat.categoriaId, nome: cat.nome, metrics, produtos: prods });
+    }
+    return out;
+  }, [view.categorias, view.produtos, busca]);
+
+  const totalTabela = useMemo(
+    () => metricasDeProdutos(grupos.flatMap((g) => g.produtos)),
+    [grupos],
+  );
+
+  // Busca: auto-expande categorias que batem
+  useEffect(() => {
+    if (!busca.trim()) return;
+    setAbertas(new Set(grupos.map((g) => g.categoriaId)));
+  }, [busca, grupos]);
+
+  function toggleCategoria(id: number) {
+    setAbertas((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   const catsDisponiveis = view.categorias.map((c) => ({ label: c.nome, value: c.categoriaId }));
 
   const filtroSelectClass =
@@ -240,65 +283,155 @@ export default function ProdutosPage() {
         </Card>
       </div>
 
-      {/* Tabela de Produtos */}
-      <Card className="mt-4">
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Tabela de Produtos</CardTitle>
-              <TipHelp label="Detalhamento por produto com margem, CMV%, ticket médio e dias de cobertura. Badge vermelho indica ruptura." />
-            </div>
-            <input
-              type="search"
-              placeholder="Pesquisar produto…"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              className="h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 placeholder:text-t2 transition-colors hover:border-acc focus:border-acc focus:outline-none sm:w-64"
-            />
+      {/* Tabela de Produtos — tree-table (desktop) + cards (mobile) */}
+      <Card className="mt-4" padding="none">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
+          <div className="flex items-center gap-1.5">
+            <CardTitle>Tabela de Produtos</CardTitle>
+            <TipHelp label="Categorias expansíveis com os produtos de cada uma. O total no rodapé soma o que está visível na tabela." />
           </div>
-        </CardHeader>
-        <div className="overflow-x-auto px-4 pb-4">
-          <table className="w-full min-w-[800px] text-left text-[12px]">
-            <thead>
-              <tr className="border-b border-line text-[11px] font-bold uppercase tracking-wide text-t2">
-                <th className="py-2 pr-3">Produto</th>
-                <th className="py-2 pr-3">Categoria</th>
-                <th className="py-2 pr-3 text-right">Faturamento</th>
-                <th className="py-2 pr-3 text-right">CMV</th>
-                <th className="py-2 pr-3 text-right">Lucro</th>
-                <th className="py-2 pr-3 text-right">Margem</th>
-                <th className="py-2 pr-3 text-right">Itens</th>
-                <th className="py-2 pr-3 text-right">T.M/item</th>
-                <th className="py-2 text-right">Estoque</th>
-              </tr>
-            </thead>
-            <tbody>
-              {produtosFiltrados.slice(0, 50).map((p) => (
-                <tr key={p.codProduto} className="border-b border-line/50 text-t1 last:border-0 hover:bg-bg-inset/50">
-                  <td className="py-2 pr-3 font-semibold text-t0">{p.nome}</td>
-                  <td className="py-2 pr-3">{p.categoriaNome}</td>
-                  <td className="py-2 pr-3 text-right">{brl(p.receita)}</td>
-                  <td className="py-2 pr-3 text-right">{brl(p.cmv)}</td>
-                  <td className="py-2 pr-3 text-right font-semibold text-ok">{brl(p.margem)}</td>
-                  <td className="py-2 pr-3 text-right">{p.margemPct.toFixed(1)}%</td>
-                  <td className="py-2 pr-3 text-right">{num(p.itens)}</td>
-                  <td className="py-2 pr-3 text-right">{brl(p.tmPorItem)}</td>
-                  <td className="py-2 text-right">
-                    {p.coberturaDias === null ? (
-                      <Badge variant="danger">Ruptura</Badge>
-                    ) : p.coberturaDias <= 7 ? (
-                      <Badge variant="warning">{p.coberturaDias}d</Badge>
-                    ) : (
-                      <span className="text-t2">{p.coberturaDias}d</span>
-                    )}
-                  </td>
+          <input
+            type="search"
+            placeholder="Pesquisar produto…"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            className="h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 placeholder:text-t2 transition-colors hover:border-acc focus:border-acc focus:outline-none sm:w-64"
+          />
+        </div>
+
+        {/* Desktop / tablet — tree-table + Total */}
+        <div className="hidden overflow-x-auto p-4 md:block">
+          {grupos.length === 0 ? (
+            <p className="py-10 text-center text-sm text-t2">Nenhum produto encontrado.</p>
+          ) : (
+            <table className="w-full min-w-[960px] border-collapse text-[13px]">
+              <thead>
+                <tr className="border-b-2 border-line">
+                  <th className="px-3 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-t2">Categoria / Produto</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">Faturamento</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">CMV</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">Lucro bruto</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">% Margem</th>
+                  <th className="hidden px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2 lg:table-cell">CMV %</th>
+                  <th className="hidden px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2 xl:table-cell">Qtd vendas</th>
+                  <th className="hidden px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2 xl:table-cell">Ticket médio</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">Qtd itens</th>
+                  <th className="hidden px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2 lg:table-cell">T.M/item</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">Estoque</th>
                 </tr>
-              ))}
-              {produtosFiltrados.length === 0 && (
-                <tr><td colSpan={9} className="py-8 text-center text-t2">Nenhum produto encontrado.</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {grupos.map((g) => (
+                  <CategoriaTreeRows
+                    key={g.categoriaId}
+                    grupo={g}
+                    aberta={abertas.has(g.categoriaId)}
+                    onToggle={() => toggleCategoria(g.categoriaId)}
+                  />
+                ))}
+                <tr className="border-t-2 border-line bg-bg-inset">
+                  <td className="px-3 py-3 text-[13.5px] font-extrabold text-t0">Total</td>
+                  <td className="px-3 py-3 text-right text-[14px] font-extrabold tabular-nums text-t0">{brl(totalTabela.faturamento)}</td>
+                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{brl(totalTabela.cmv)}</td>
+                  <td className="px-3 py-3 text-right text-[14px] font-extrabold tabular-nums text-ok">{brl(totalTabela.lucro)}</td>
+                  <td className="px-3 py-3 text-right text-[13.5px] font-extrabold tabular-nums text-t0">{totalTabela.margemPct.toFixed(0)}%</td>
+                  <td className="hidden px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1 lg:table-cell">{totalTabela.cmvPct.toFixed(0)}%</td>
+                  <td className="hidden px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1 xl:table-cell">{num(totalTabela.qtdVendas)}</td>
+                  <td className="hidden px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1 xl:table-cell">{brl(totalTabela.ticketMedio)}</td>
+                  <td className="px-3 py-3 text-right text-[13.5px] font-extrabold tabular-nums text-t0">{num(totalTabela.itens)}</td>
+                  <td className="hidden px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1 lg:table-cell">{brl(totalTabela.tmPorItem)}</td>
+                  <td className="px-3 py-3" />
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Mobile — cards por categoria (Responsive Tables) */}
+        <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
+          {grupos.length === 0 ? (
+            <p className="py-8 text-center text-sm text-t2">Nenhum produto encontrado.</p>
+          ) : (
+            <>
+              {grupos.map((g) => {
+                const aberta = abertas.has(g.categoriaId);
+                return (
+                  <div key={g.categoriaId} className="rounded-xl border border-line bg-bg-inset p-3.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleCategoria(g.categoriaId)}
+                      className="flex w-full items-center justify-between gap-2 text-left"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-[13.5px] font-bold text-t0">{g.nome}</p>
+                        <p className="mt-0.5 text-[11px] text-t2">{g.produtos.length} produto{g.produtos.length === 1 ? "" : "s"}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="text-[13px] font-extrabold tabular-nums text-t0">{brl(g.metrics.faturamento)}</span>
+                        <Chevron aberto={aberta} />
+                      </div>
+                    </button>
+                    <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-line pt-2.5 text-[11.5px]">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-t2">Lucro bruto</span>
+                        <span className="font-semibold tabular-nums text-ok">{brl(g.metrics.lucro)}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-t2">Margem</span>
+                        <span className="font-semibold tabular-nums text-t0">{g.metrics.margemPct.toFixed(0)}%</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-t2">CMV</span>
+                        <span className="font-semibold tabular-nums text-t0">{brl(g.metrics.cmv)}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-t2">Itens</span>
+                        <span className="font-semibold tabular-nums text-t0">{num(g.metrics.itens)}</span>
+                      </div>
+                    </div>
+                    {aberta && (
+                      <div className="mt-2.5 flex flex-col gap-2 border-t border-line pt-2.5">
+                        {g.produtos.map((p) => (
+                          <div key={p.codProduto} className="rounded-lg border border-line bg-bg-2 px-3 py-2.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="min-w-0 flex-1 text-[12.5px] font-semibold text-t0">{p.nome}</p>
+                              <EstoqueBadge coberturaDias={p.coberturaDias} />
+                            </div>
+                            <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-t2">
+                              <span className="font-semibold tabular-nums text-t0">{brl(p.receita)}</span>
+                              <span>Margem {p.margemPct.toFixed(0)}%</span>
+                              <span>{num(p.itens)} un</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <div className="rounded-xl border border-line bg-bg-3 p-3.5">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-t2">Total</p>
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11.5px]">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-t2">Faturamento</span>
+                    <span className="font-extrabold tabular-nums text-t0">{brl(totalTabela.faturamento)}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-t2">Lucro bruto</span>
+                    <span className="font-extrabold tabular-nums text-ok">{brl(totalTabela.lucro)}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-t2">Margem</span>
+                    <span className="font-extrabold tabular-nums text-t0">{totalTabela.margemPct.toFixed(0)}%</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-t2">Itens</span>
+                    <span className="font-extrabold tabular-nums text-t0">{num(totalTabela.itens)}</span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </Card>
     </div>
@@ -318,6 +451,156 @@ function KpiCard({ kpi, Icon, colorIdx = 0 }: { kpi: ProdutosKpi; Icon: () => Re
       sub={kpi.sub}
       tooltip={kpi.tooltip}
     />
+  );
+}
+
+/** Estimativa de nº de vendas a partir de itens (mock ~1,4 item/venda). */
+function estimarVendas(itens: number): number {
+  return Math.max(itens > 0 ? 1 : 0, Math.round(itens / 1.4));
+}
+
+interface MetricasLinha {
+  faturamento: number;
+  cmv: number;
+  lucro: number;
+  margemPct: number;
+  cmvPct: number;
+  qtdVendas: number;
+  ticketMedio: number;
+  itens: number;
+  tmPorItem: number;
+}
+
+interface GrupoCategoria {
+  categoriaId: number;
+  nome: string;
+  metrics: MetricasLinha;
+  produtos: ProdutoLinha[];
+}
+
+function metricasDeCategoria(cat: CategoriaFat): MetricasLinha {
+  const qtdVendas = estimarVendas(cat.itens);
+  return {
+    faturamento: cat.faturamento,
+    cmv: cat.cmv,
+    lucro: cat.lucro,
+    margemPct: cat.margemPct,
+    cmvPct: cat.faturamento > 0 ? (cat.cmv / cat.faturamento) * 100 : 0,
+    qtdVendas,
+    ticketMedio: qtdVendas > 0 ? cat.faturamento / qtdVendas : 0,
+    itens: cat.itens,
+    tmPorItem: cat.itens > 0 ? cat.faturamento / cat.itens : 0,
+  };
+}
+
+function metricasDeProdutos(prods: ProdutoLinha[]): MetricasLinha {
+  const faturamento = prods.reduce((s, p) => s + p.receita, 0);
+  const cmv = prods.reduce((s, p) => s + p.cmv, 0);
+  const lucro = prods.reduce((s, p) => s + p.margem, 0);
+  const itens = prods.reduce((s, p) => s + p.itens, 0);
+  const qtdVendas = estimarVendas(itens);
+  return {
+    faturamento,
+    cmv,
+    lucro,
+    margemPct: faturamento > 0 ? (lucro / faturamento) * 100 : 0,
+    cmvPct: faturamento > 0 ? (cmv / faturamento) * 100 : 0,
+    qtdVendas,
+    ticketMedio: qtdVendas > 0 ? faturamento / qtdVendas : 0,
+    itens,
+    tmPorItem: itens > 0 ? faturamento / itens : 0,
+  };
+}
+
+function metricasDeProduto(p: ProdutoLinha): MetricasLinha {
+  const qtdVendas = estimarVendas(p.itens);
+  return {
+    faturamento: p.receita,
+    cmv: p.cmv,
+    lucro: p.margem,
+    margemPct: p.margemPct,
+    cmvPct: p.cmvPct,
+    qtdVendas,
+    ticketMedio: qtdVendas > 0 ? p.receita / qtdVendas : 0,
+    itens: p.itens,
+    tmPorItem: p.itens > 0 ? p.receita / p.itens : 0,
+  };
+}
+
+function Chevron({ aberto }: { aberto: boolean }) {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={cn("shrink-0 text-t2 transition-transform", aberto && "rotate-90")}
+    >
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
+function EstoqueBadge({ coberturaDias }: { coberturaDias: number | null }) {
+  if (coberturaDias === null) return <Badge variant="danger">Ruptura</Badge>;
+  if (coberturaDias <= 7) return <Badge variant="warning">{coberturaDias}d</Badge>;
+  return <span className="tabular-nums text-t2">{coberturaDias}d</span>;
+}
+
+function CelulasMetricas({ m, estoque }: { m: MetricasLinha; estoque?: React.ReactNode }) {
+  return (
+    <>
+      <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-t0">{brl(m.faturamento)}</td>
+      <td className="px-3 py-2.5 text-right tabular-nums text-t1">{brl(m.cmv)}</td>
+      <td className="px-3 py-2.5 text-right font-extrabold tabular-nums text-ok">{brl(m.lucro)}</td>
+      <td className="px-3 py-2.5 text-right tabular-nums text-t1">{m.margemPct.toFixed(0)}%</td>
+      <td className="hidden px-3 py-2.5 text-right tabular-nums text-t1 lg:table-cell">{m.cmvPct.toFixed(0)}%</td>
+      <td className="hidden px-3 py-2.5 text-right tabular-nums text-t1 xl:table-cell">{num(m.qtdVendas)}</td>
+      <td className="hidden px-3 py-2.5 text-right tabular-nums text-t1 xl:table-cell">{brl(m.ticketMedio)}</td>
+      <td className="px-3 py-2.5 text-right tabular-nums text-t1">{num(m.itens)}</td>
+      <td className="hidden px-3 py-2.5 text-right tabular-nums text-t1 lg:table-cell">{brl(m.tmPorItem)}</td>
+      <td className="px-3 py-2.5 text-right">{estoque ?? null}</td>
+    </>
+  );
+}
+
+function CategoriaTreeRows({
+  grupo,
+  aberta,
+  onToggle,
+}: {
+  grupo: GrupoCategoria;
+  aberta: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <tr className="border-b border-line bg-bg-2 hover:bg-bg-3">
+        <td className="px-3 py-2.5">
+          <button type="button" onClick={onToggle} className="flex max-w-full items-center gap-2 text-left">
+            <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-line bg-bg-inset text-t2">
+              <Chevron aberto={aberta} />
+            </span>
+            <span className="truncate text-[13.5px] font-extrabold text-t0">{grupo.nome}</span>
+            <span className="shrink-0 text-[11px] font-semibold text-t2">{grupo.produtos.length}</span>
+          </button>
+        </td>
+        <CelulasMetricas m={grupo.metrics} />
+      </tr>
+      {aberta &&
+        grupo.produtos.map((p) => (
+          <tr key={p.codProduto} className="border-b border-line/60 hover:bg-bg-3">
+            <td className="px-3 py-2.5 pl-11">
+              <span className="text-[13px] font-semibold text-t1">{p.nome}</span>
+            </td>
+            <CelulasMetricas m={metricasDeProduto(p)} estoque={<EstoqueBadge coberturaDias={p.coberturaDias} />} />
+          </tr>
+        ))}
+    </>
   );
 }
 
