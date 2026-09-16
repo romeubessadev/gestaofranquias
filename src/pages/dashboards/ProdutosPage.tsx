@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
-import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Pagination } from "@/components/ui";
+import { Badge, Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Pagination } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { AreaLineChart, BarChart } from "@/components/charts";
+import { BarChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarProdutosView, type ProdutosKpi, type ProdutoLinha } from "@/data/gestao/dashboard";
 import { brl, brlK, num } from "@/lib/formato";
@@ -49,6 +49,19 @@ const TipHelp = ({ label }: { label: string }) => (
     </span>
   </Tooltip>
 );
+
+/** Badge de delta — só % no chip; base do comparativo no tooltip (igual Visão Geral / Ecommerce). */
+function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string } }) {
+  if (!delta) return null;
+  const badge = (
+    <Badge variant={delta.positive ? "success" : "danger"}>
+      {delta.positive ? "+" : "−"}
+      {delta.value}
+    </Badge>
+  );
+  if (!delta.vs) return badge;
+  return <Tooltip label={`Comparado a ${delta.vs}`}>{badge}</Tooltip>;
+}
 
 const KPI_COLORS = [
   { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
@@ -257,34 +270,24 @@ export default function ProdutosPage() {
         ))}
       </div>
 
-      <Card className="mt-4">
-        <CardHeader>
-          <div className="flex items-center gap-1.5">
-            <CardTitle>Faturamento por Categoria</CardTitle>
-            <TipHelp label="Faturamento por categoria com linha de % Margem sobreposta." />
+      <Card className="mt-4" padding="lg">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <CardTitle>Faturamento por Categoria</CardTitle>
+              <TipHelp label="Quanto cada categoria faturou no período. A % margem de cada uma está na tabela abaixo." />
+            </div>
+            <p className="mt-1.5 text-2xl font-extrabold text-t0">
+              {view.kpis[0]?.valor ?? brlK(view.categorias.reduce((s, c) => s + c.faturamento, 0))}
+            </p>
           </div>
-        </CardHeader>
-        <div className="px-4 pb-4">
-          <BarChart
-            data={view.categorias.map((c) => ({ label: c.nome, value: c.faturamento }))}
-            height={240}
-            formatValue={brl}
-          />
-          <div className="mt-4">
-            <AreaLineChart
-              data={view.categorias.map((c) => c.margemPct)}
-              labels={view.categorias.map((c) => c.nome)}
-              color="var(--acc)"
-              height={100}
-              showValues
-              formatValue={(v) => `${v.toFixed(0)}%`}
-            />
-          </div>
-          <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
-            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /> Faturamento</span>
-            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border border-[var(--acc)]" /> % Margem</span>
-          </div>
+          <BadgeVsAnterior delta={view.kpis[0]?.delta} />
         </div>
+        <BarChart
+          data={view.categorias.map((c) => ({ label: c.nome, value: c.faturamento }))}
+          height={200}
+          formatValue={brlK}
+        />
       </Card>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
