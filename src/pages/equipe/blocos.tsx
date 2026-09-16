@@ -1,20 +1,54 @@
 /**
  * Blocos visuais da aba Equipe. A página só monta; nada calcula aqui.
- * Reusa os componentes do tema: KpiTile, DataTable, Card, ProgressBar,
+ * Reusa os componentes do tema: StatCard, DataTable, Card, ProgressBar,
  * Badge, Avatar, EmptyState e o padrão EstadoBloco da Visão geral.
  */
 import { useState } from "react";
-import { Avatar, Badge, Card, CardHeader, CardTitle, DataTable, EmptyState, ProgressBar, type DataTableColumn } from "@/components/ui";
-import { KpiTile } from "@/pages/dashboards/KpiTile";
-import { ICONS } from "@/pages/dashboards/icons";
+import { Avatar, Badge, Card, CardHeader, CardTitle, DataTable, EmptyState, ProgressBar, StatCard, type DataTableColumn } from "@/components/ui";
 import { Sparkline } from "@/components/charts";
 import { brl, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/blocos";
 import type { DesafioView, EquipeView, LojaEquipeResumo, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
 import { cn } from "@/lib/cn";
+import { ICONS } from "@/pages/dashboards/icons";
 
 /* ------------------------- KPIs do topo ------------------------- */
+
+const IconFat = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  </svg>
+);
+const IconVendas = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+const IconTicket = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+    <line x1="1" y1="10" x2="23" y2="10" />
+  </svg>
+);
+const IconPA = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2 2 7l10 5 10-5-10-5Z" />
+    <path d="m2 17 10 5 10-5" />
+    <path d="m2 12 10 5 10-5" />
+  </svg>
+);
+
+/** Heroes alinhados à Visão Geral: Fat=acc, Vendas=ok, Ticket=info, PA=warn. */
+const KPI_COLORS = [
+  { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
+  { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },
+  { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
+  { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
+];
 
 export function BlocoKpisEquipe({
   faturamento,
@@ -27,22 +61,60 @@ export function BlocoKpisEquipe({
   ticket: EquipeView["kpiTicket"];
   pa: EquipeView["kpiPA"];
 }) {
-  const comparadoA = faturamento.delta?.vs ?? ticket.delta?.vs ?? pa.delta?.vs ?? atendimentos.delta?.vs;
-  // Sempre 4 KPIs em 2×2 — premiação e desafios ficam na faixa/tabela e no
-  // bloco de desafios, não no topo (decisão do usuário).
+  const kpis = [
+    {
+      label: "Faturamento",
+      valor: faturamento.valor,
+      delta: faturamento.delta,
+      serie: faturamento.serie,
+      tooltip: "Receita bruta total da equipe no período.",
+      Icon: IconFat,
+    },
+    {
+      label: "Atendimentos",
+      valor: atendimentos.valor,
+      delta: atendimentos.delta,
+      serie: atendimentos.serie,
+      tooltip: "Total de vendas realizadas no período.",
+      Icon: IconVendas,
+    },
+    {
+      label: "Ticket médio",
+      valor: ticket.valor,
+      delta: ticket.delta,
+      serie: ticket.serie,
+      tooltip: "Valor médio por venda (Faturamento ÷ Nº de vendas).",
+      Icon: IconTicket,
+    },
+    {
+      label: "P.A.",
+      valor: pa.valor,
+      delta: pa.delta,
+      serie: pa.serie,
+      tooltip: "Itens por venda (Itens ÷ Nº de vendas).",
+      Icon: IconPA,
+    },
+  ];
+
   return (
-    <div className="flex flex-col gap-2.5">
-      {comparadoA && (
-        <p className="text-[12px] text-t2">
-          Variações em relação a <span className="font-semibold text-t1">{comparadoA}</span>
-        </p>
-      )}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiTile label="Faturamento" value={faturamento.valor} icon="dollar" tint="acc" delta={faturamento.delta} tooltip="Receita bruta total da equipe no período." sparkline={faturamento.serie && faturamento.serie.length > 1 ? <Sparkline data={faturamento.serie} /> : undefined} />
-        <KpiTile label="Atendimentos" value={atendimentos.valor} icon="users" tint="info" delta={atendimentos.delta} tooltip="Total de vendas/atendimentos realizados." sparkline={atendimentos.serie && atendimentos.serie.length > 1 ? <Sparkline data={atendimentos.serie} /> : undefined} />
-        <KpiTile label="Ticket médio" value={ticket.valor} icon="card" tint="ok" delta={ticket.delta} tooltip="Valor médio por atendimento (Faturamento ÷ Atendimentos)." sparkline={ticket.serie && ticket.serie.length > 1 ? <Sparkline data={ticket.serie} /> : undefined} />
-        <KpiTile label="P.A." value={pa.valor} icon="layers" tint="warn" delta={pa.delta} tooltip="Peças/itens por atendimento (Itens ÷ Atendimentos)." sparkline={pa.serie && pa.serie.length > 1 ? <Sparkline data={pa.serie} /> : undefined} />
-      </div>
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {kpis.map((kpi, i) => {
+        const c = KPI_COLORS[i];
+        const Icon = kpi.Icon;
+        return (
+          <StatCard
+            key={kpi.label}
+            label={kpi.label}
+            value={kpi.valor}
+            icon={<Icon />}
+            iconColor={c.iconColor}
+            iconBg={c.iconBg}
+            delta={kpi.delta}
+            tooltip={kpi.tooltip}
+            sparkline={kpi.serie && kpi.serie.length > 1 ? <Sparkline data={kpi.serie} /> : undefined}
+          />
+        );
+      })}
     </div>
   );
 }

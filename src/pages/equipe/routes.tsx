@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import { lazyPage } from "@/lib/lazyPage";
 import type { RouteObject } from "react-router-dom";
 import { paths } from "@/router/paths";
@@ -8,6 +9,9 @@ const EquipePage = lazyPage(() => import("./EquipePage"), "EquipePage");
 export const equipeRoutes: RouteObject[] = [
   {
     element: <RequirePapel papeis={["GESTOR", "GERENTE", "ADMIN_GLOBAL"]} />,
-    children: [{ path: paths.equipe, element: <EquipePage /> }],
+    children: [
+      { path: paths.equipe, element: <EquipePage /> },
+      { path: paths.equipeLegado, element: <Navigate to={paths.equipe} replace /> },
+    ],
   },
 ];

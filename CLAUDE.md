@@ -264,13 +264,14 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
 4. ✅ **WaterfallChart (DRE)** — CRIAR chart em cascata (`src/components/charts/WaterfallChart.tsx`).
 5. ✅ **CommissionLadder (escada de faixas)** — CRIAR componente dedicado (`src/components/charts/CommissionLadder.tsx`). É o core da tela Equipe.
 6. ✅ **Granularidade temporal — REGRA CORRIGIDA**: NÃO é a marca que define o eixo. **É o PERÍODO**:
-   - Período de **1 dia** (Hoje / Ontem / personalizado de 1 dia) → eixo por **HORA**.
-   - Período de **2–31 dias** → eixo por **DIA**.
-   - Período de **> 31 dias** → eixo por **MÊS**.
-   - Cards de série mostram subtítulo (`Hoje · por hora` / `… · por dia` / `… · por mês`).
-   - Snapshots (KPIs, Formas, Custos…) não usam subtítulo de eixo.
-   - Exceções: **Dia da Semana** oculto em 1 dia; **Evolução Mensal** sempre `Últimos 6 meses`; **Resultado** rateia custos fixos em hora/dia.
+ - Período de **1 dia** (Hoje / Ontem / personalizado de 1 dia) → eixo por **HORA**.
+ - Período de **2–31 dias** → eixo por **DIA**.
+ - Período de **> 31 dias** → eixo por **MÊS**.
+ - Cards de série mostram subtítulo (`Hoje · por hora` / `… · por dia` / `… · por mês`).
+ - Snapshots (KPIs, Formas, Custos…) não usam subtítulo de eixo.
+ - Exceções: **Dia da Semana** oculto em 1 dia; **Evolução Mensal** sempre `Últimos 6 meses`; **Resultado** rateia custos fixos em hora/dia.
 7. ✅ **Ordem de execução** — (a) refinar em texto + mock ASCII no CLAUDE.md primeiro; (b) começar pela tela **EQUIPE**; (c) depois Financeiro e Produtos; (d) **Visão Geral por último** (é o resumo de todas). Nav+router como esqueleto antes dos componentes.
+8. ✅ **Equipe ≠ Turnos** (2026-09-17) — telas SEPARADAS (indivíduo vs operação temporal). Sem filtro de turno na Equipe. Chrome da Equipe alinhado às demais subtelas (`/dashboard/equipe`, PageHeader com DateRangePicker + marca).
 
 ---
 

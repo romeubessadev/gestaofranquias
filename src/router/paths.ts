@@ -28,12 +28,14 @@ export const paths = {
   /** Página principal do produto: o Dashboard (visão geral). Subpáginas: /equipe etc. */
   dashboard: "/dashboard",
   financeiro: "/dashboard/financeiro",
-produtos: "/dashboard/produtos",
+  produtos: "/dashboard/produtos",
   turnos: "/dashboard/turnos",
   visaoGeral: "/dashboard/visao-geral",
   /** Legado: a página principal já foi /loja; quem tiver link antigo cai no Dashboard. */
   lojaLegado: "/loja",
-  equipe: "/equipe",
+  equipe: "/dashboard/equipe",
+  /** Redirect legado — URL antiga da Equipe. */
+  equipeLegado: "/equipe",
   analise: "/analise",
   configuracoes: {
     root: "/configuracoes",

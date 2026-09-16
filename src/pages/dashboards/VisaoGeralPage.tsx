@@ -8,6 +8,7 @@ import { montarVisaoGeralView, type VisaoKpi } from "@/data/gestao/dashboard";
 import { brlK } from "@/lib/formato";
 import { deIso } from "@/lib/formato";
 import type { DateRange } from "@/components/ui/DateRangePicker";
+import { paths } from "@/router/paths";
 
 const IconFat = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -446,7 +447,7 @@ export default function VisaoGeralPage() {
             <div className="flex w-full items-center justify-between gap-1.5">
               <CardTitle>Top Vendedoras</CardTitle>
               <button
-                onClick={() => navigate("/equipe")}
+                onClick={() => navigate(paths.equipe)}
                 className="cursor-pointer text-[13px] font-semibold text-acc hover:text-acc/80 transition-colors"
               >
                 Ver equipe
