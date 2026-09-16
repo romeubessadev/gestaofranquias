@@ -35,6 +35,14 @@ const IconMargem = () => (
   </svg>
 );
 
+const TipHelp = ({ label }: { label: string }) => (
+  <Tooltip label={label}>
+    <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+      ?
+    </span>
+  </Tooltip>
+);
+
 const KPI_ICONS = [IconFaturamento, IconCusto, IconLucro, IconMargem];
 
 /** Cores distintas para cada KPI card (hero). */
@@ -81,33 +89,35 @@ export default function FinanceiroPage() {
   }, []);
 
   const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
-  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} minuto${minutosAtras !== 1 ? "s" : ""}`;
+  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} min`;
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Financeiro" }]}
         title="Financeiro"
-        subtitle="Receita, custos e margem da loja."
+        subtitle="Receita, custos e margem da operação."
         actions={
           <>
             <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
               <span className={`inline-block h-2 w-2 rounded-full ${minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
               {rotuloAtualizacao}
             </span>
-            <Button variant="secondary" size="md" onClick={forcarAtualizacao} disabled={refreshing}
-              icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
-            />
-            <Button variant="secondary" size="md" onClick={() => window.print()}
-              icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>}
+            <Button size="sm" onClick={forcarAtualizacao} disabled={refreshing}
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
+            >
+              Atualizar
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => window.print()}
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>}
             >
               Exportar
             </Button>
-            <DateRangePicker value={dateRange} onChange={onDateChange} />
+            <DateRangePicker value={dateRange} onChange={onDateChange} size="sm" />
             <select
               value={escopo.divisao ?? ""}
               onChange={(e) => onMarcaChange(e.target.value ? e.target.value as "WEPINK" | "WPINK" : null)}
-              className="h-10 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3.5 text-[13px] font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none"
+              className="h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none"
             >
               <option value="">Todas as marcas</option>
               <option value="WEPINK">WEPINK</option>
@@ -125,13 +135,11 @@ export default function FinanceiroPage() {
       </div>
 
       {/* Widget central — Custo, Lucro e Margem */}
-      <Card>
+      <Card className="mt-4">
         <CardHeader>
           <div className="flex items-center gap-1.5">
             <CardTitle>Custo, Lucro e Margem</CardTitle>
-            <Tooltip label="Evolução mensal do custo dos produtos (CMV), lucro bruto e margem percentual. Valores em R$ direto nas barras.">
-              <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-            </Tooltip>
+            <TipHelp label="Evolução mensal do custo dos produtos (CMV), lucro bruto e margem percentual." />
           </div>
         </CardHeader>
         <div className="px-4 pb-4">
@@ -166,15 +174,13 @@ export default function FinanceiroPage() {
       </Card>
 
       {/* Par: Faturamento vs Ticket + Itens vs Preço Médio */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <div className="flex items-center gap-1.5">
-            <CardTitle>Faturamento vs Ticket Médio</CardTitle>
-            <Tooltip label="Comparativo mensal entre faturamento total e ticket médio por atendimento.">
-              <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-            </Tooltip>
-          </div>
+              <CardTitle>Faturamento vs Ticket Médio</CardTitle>
+              <TipHelp label="Comparativo mensal entre faturamento total e ticket médio por venda." />
+            </div>
           </CardHeader>
           <div className="px-4 pb-4">
             <AreaLineChart
@@ -196,11 +202,9 @@ export default function FinanceiroPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-1.5">
-            <CardTitle>Itens Vendidos vs Preço Médio</CardTitle>
-            <Tooltip label="Quantidade de itens vendidos vs preço médio por item (PA). Responde: estou vendendo mais unidades ou só mais caro?">
-              <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-            </Tooltip>
-          </div>
+              <CardTitle>Itens Vendidos vs Preço Médio</CardTitle>
+              <TipHelp label="Quantidade de itens vendidos vs preço médio por item (PA). Responde: estou vendendo mais unidades ou só mais caro?" />
+            </div>
           </CardHeader>
           <div className="px-4 pb-4">
             <BarChart
@@ -215,16 +219,11 @@ export default function FinanceiroPage() {
         </Card>
       </div>
 
-      {/* Par: Forma de Pagamento + Custos Fixos/Franquia */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* Par: Formas de Pagamento + Custos Fixos/Franquia */}
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Faturamento por Forma de Pagamento</CardTitle>
-              <Tooltip label="Distribuição do faturamento por forma de pagamento. Impacta taxa da maquininha e prazo de recebimento.">
-                <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-              </Tooltip>
-            </div>
+            <CardTitle>Formas de Pagamento</CardTitle>
           </CardHeader>
           <div className="px-4 pb-4">
             <DonutChart
@@ -245,9 +244,7 @@ export default function FinanceiroPage() {
           <CardHeader>
             <div className="flex items-center gap-1.5">
               <CardTitle>Custos Fixos e Franquia</CardTitle>
-              <Tooltip label="Mini-DRE: descontando custos fixos e franquia do lucro bruto para chegar ao resultado operacional.">
-                <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-              </Tooltip>
+              <TipHelp label="Lucro bruto menos custos fixos e da franquia — resultado operacional do período." />
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
@@ -277,13 +274,11 @@ export default function FinanceiroPage() {
       </div>
 
       {/* Evolução Mensal — tabela DRE simplificada */}
-      <Card>
+      <Card className="mt-4">
         <CardHeader>
           <div className="flex items-center gap-1.5">
             <CardTitle>Evolução Mensal</CardTitle>
-            <Tooltip label="Tabela mensal com faturamento, custo, lucro, margem e ticket médio dos últimos 6 meses.">
-              <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-            </Tooltip>
+            <TipHelp label="Faturamento, custo, lucro, margem e ticket médio dos últimos meses." />
           </div>
         </CardHeader>
         <div className="overflow-x-auto px-4 pb-4">
@@ -292,7 +287,7 @@ export default function FinanceiroPage() {
               <tr className="border-b border-line text-[11px] font-bold uppercase tracking-wide text-t2">
                 <th className="py-2 pr-3">Mês</th>
                 <th className="py-2 pr-3 text-right">Faturamento</th>
-                <th className="py-2 pr-3 text-right">Custo</th>
+                <th className="py-2 pr-3 text-right">CMV</th>
                 <th className="py-2 pr-3 text-right">Lucro</th>
                 <th className="py-2 pr-3 text-right">Margem</th>
                 <th className="py-2 text-right">Ticket Médio</th>
@@ -317,7 +312,7 @@ export default function FinanceiroPage() {
   );
 }
 
-/** StatCard wrapper com tooltip ⓘ e sparkline de tendência. */
+/** StatCard wrapper com tooltip ? e sparkline de tendência. */
 function KpiCard({ kpi, Icon, colorIdx = 0 }: { kpi: FinanceiroKpi; Icon: () => React.JSX.Element; colorIdx?: number }) {
   const c = KPI_COLORS[colorIdx % KPI_COLORS.length];
   return (

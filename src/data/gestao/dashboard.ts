@@ -1440,13 +1440,14 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
       valor: brlK(atual.faturamento),
       delta: temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
       serie: serieFaturamento,
-      },
+    },
     {
-      label: "Custo dos produtos",
+      label: "CMV",
       valor: brlK(custoAtual),
+      sub: `CMV ${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}%`,
       delta: temComp ? kpiDelta(custoAtual, custoAnterior, vsRotulo) : undefined,
       serie: serieCmv,
-      tooltip: "Quanto custou a mercadoria vendida no período. Se subir mais que o faturamento, corrói a margem.",
+      tooltip: "Mostra quanto do faturamento foi consumido pelo custo dos produtos vendidos. Quanto maior o percentual de CMV, maior a pressão sobre a margem.",
     },
     {
       label: "Lucro bruto",
@@ -1460,7 +1461,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
       valor: pct(margemAtual),
       delta: temComp ? { value: `${Math.abs(margemAtual - margemAnterior).toFixed(1)} p.p.`, positive: margemAtual >= margemAnterior, vs: vsRotulo } : undefined,
       serie: serieMargem,
-      tooltip: "Quantos centavos de lucro cada real vendido gera antes das despesas fixas.",
+      tooltip: "Percentual de lucro sobre o faturamento, antes das despesas fixas.",
     },
   ];
 
