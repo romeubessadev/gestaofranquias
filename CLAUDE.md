@@ -699,7 +699,8 @@ Regra geral: **KPIs em 4 colunas no desktop** (padronizado com as demais telas �
 | KPI row (4 cards) | `StatCard` + `Sparkline` | ✅ Reusa |
 | Filtro período interno | — | 🔨 Criar `DateRangePicker` (já previsto) |
 | Filtro marca interno | — | 🔨 Criar `Segmented` (já previsto) |
-| CMV, Lucro e Margem | `AreaLineChart` (Lucro vs CMV + margem no header) — mesmo padrão da VG | ✅ Reusa (+ `showValues`) |
+| CMV, Lucro e Margem | `AreaLineChart` (Lucro vs CMV + margem no header) — mesmo padrão da VG | ✅ Reusa |
+| Resultado operacional | `AreaLineChart` (Lucro vs Resultado + margem op. no header) — par do CMV/Lucro | ✅ Reusa |
 | Faturamento vs Ticket Médio | `AreaLineChart` (2 séries) | ✅ Reusa (+ `showValues`) |
 | Itens Vendidos vs Preço Médio | `BarChart` + `AreaLineChart` (PA) | ✅ Composição (+ `showValues`) |
 | Faturamento por Forma de Pagamento | `DonutChart` | ✅ Reusa (R$ e % por forma) |
@@ -723,7 +724,7 @@ Regra geral: **KPIs em 4 colunas no desktop**, widget central em largura total, 
 |---|---|---|---|
 **Critério unificado (vale para TODAS as telas):** um card fica em **largura total** quando (a) tem muitas categorias no eixo horizontal, (b) é tabela com ≥5 colunas, ou (c) é o widget central da tela. Caso contrário, **agrupa em par de 2 colunas** no desktop. KPIs sempre em linha cheia (4 no desktop). Tablet = 2 KPIs/linha e cards 1/linha; Mobile = tudo 1/linha com scroll-x onde necessário.
 | KPI row (4 StatCards) | **4 por linha** (`sm:grid-cols-2 lg:grid-cols-4`) | 2 por linha | 1 por linha |
-| Custo, Lucro e Margem | **1 por linha** (largura total — widget central, critério c) | 1 por linha | 1 por linha (scroll-x) |
+| Custo, Lucro e Margem + Resultado operacional | **2 por linha** (`lg:grid-cols-2`) — par Lucro×CMV / Lucro×Resultado | 1 por linha | 1 por linha |
 | Faturamento vs Ticket + Itens vs Preço | **2 por linha** (`lg:grid-cols-2`) | 1 por linha | 1 por linha |
 | Forma de Pagamento + Custos Fixos/Franquia | **2 por linha** (`lg:grid-cols-2`) | 1 por linha | 1 por linha |
 | Evolução Mensal | **1 por linha** (largura total — tabela ≥5 colunas, critério b) | 1 por linha | 1 por linha (scroll-x) |
@@ -740,6 +741,7 @@ Regra geral: **KPIs em 4 colunas no desktop**, widget central em largura total, 
 | **Preço Médio (PA)** | Valor médio de cada item vendido (Faturamento ÷ Qtd de itens). Diferente do Ticket Médio: o PA é por ITEM, o Ticket é por COMPRA. |
 | **Ticket Médio** | Valor médio de cada compra/atendimento (Faturamento ÷ Nº de vendas). Mostra se o cliente está levando mais ou menos por vez. |
 | **p.p. (pontos percentuais)** | Variação absoluta de uma porcentagem. Margem foi de 58% para 60% = "+2 p.p." (não é "+2%", que seria relativo). |
+| **Margem operacional** | Resultado operacional ÷ Faturamento. Quanto sobra de cada R$ 1 vendido depois dos custos fixos/franquia. |
 | **Resultado Operacional** | O que sobra do Lucro Bruto depois de tirar os custos fixos e da franquia (aluguel, royalties, taxa de marketing). É o "lucro do dia a dia da loja", antes dos custos extras e impostos. |
 | **Aluguel (% shopping)** | Em shoppings, além do aluguel fixo você paga um percentual do faturamento (ex.: 5% das vendas). Os dois juntos (fixo + %) são o custo total de ocupação. |
 | **Royalties** | Percentual do faturamento pago à franqueadora (WEPINK/WPINK) pelo uso da marca. É um custo fixo da franquia, independente de a loja lucrar ou não. |

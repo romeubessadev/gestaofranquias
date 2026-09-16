@@ -1329,6 +1329,14 @@ export interface CustoLucroMes {
   faturamento: number;
 }
 
+export interface ResultadoOpMes {
+  mes: string;
+  lucro: number;
+  resultado: number;
+  margemOpPct: number;
+  faturamento: number;
+}
+
 export interface FormaPagamentoFat {
   forma: string;
   valor: number;
@@ -1357,6 +1365,8 @@ export interface FinanceiroView {
   periodo: PeriodoResolvido;
   kpis: FinanceiroKpi[];
   custoLucroMargem: CustoLucroMes[];
+  resultadoOperacional: ResultadoOpMes[];
+  deltaResultado?: { value: string; positive: boolean; vs?: string; diff?: string };
   formasPagamento: FormaPagamentoFat[];
   custosFixosFranquia: LinhaCustoFixo[];
   evolucaoMensal: EvolucaoMensalLinha[];
@@ -1505,6 +1515,43 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     };
   });
 
+  // Custos fixos e franquia (mensais mockados — base do mini-DRE e da série de Resultado).
+  const custosAgg = fs.reduce(
+    (acc, f) => {
+      const c = custosFixosDaFilial(f);
+      acc.aluguelFixo += c.aluguelFixo;
+      acc.aluguelPct += c.aluguelPct;
+      acc.royaltiesWepink += c.royaltiesWepink;
+      acc.royaltiesWpink += c.royaltiesWpink;
+      acc.taxaMktWepink += c.taxaMktWepink;
+      acc.taxaMktWpink += c.taxaMktWpink;
+      return acc;
+    },
+    { aluguelFixo: 0, aluguelPct: 0, royaltiesWepink: 0, royaltiesWpink: 0, taxaMktWepink: 0, taxaMktWpink: 0 },
+  );
+  const totalCustosFixos =
+    custosAgg.aluguelFixo +
+    custosAgg.aluguelPct +
+    custosAgg.royaltiesWepink +
+    custosAgg.royaltiesWpink +
+    custosAgg.taxaMktWepink +
+    custosAgg.taxaMktWpink;
+
+  // Lucro bruto → Resultado operacional (após custos fixos/franquia), mesmos 6 meses.
+  const resultadoOperacional: ResultadoOpMes[] = custoLucroMargem.map((m) => {
+    const resultado = m.lucro - totalCustosFixos;
+    return {
+      mes: m.mes,
+      lucro: m.lucro,
+      resultado,
+      margemOpPct: divSeguro(resultado, m.faturamento) * 100,
+      faturamento: m.faturamento,
+    };
+  });
+  const resultadoAtual = lucroAtual - totalCustosFixos;
+  const resultadoAnterior = lucroAnterior - totalCustosFixos;
+  const deltaResultado = temComp ? kpiDelta(resultadoAtual, resultadoAnterior, vsRotulo) : undefined;
+
   // Formas de pagamento no período.
   const diasPeriodo = intervaloDias(periodo.inicio, periodo.fim);
   const totaisForma: Record<string, number> = {};
@@ -1527,28 +1574,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
       cor: CORES_FORMAS[forma] ?? "var(--t2)",
     }));
 
-  // Custos fixos e franquia (mini-DRE → Resultado Operacional).
-  const custosAgg = fs.reduce(
-    (acc, f) => {
-      const c = custosFixosDaFilial(f);
-      acc.aluguelFixo += c.aluguelFixo;
-      acc.aluguelPct += c.aluguelPct;
-      acc.royaltiesWepink += c.royaltiesWepink;
-      acc.royaltiesWpink += c.royaltiesWpink;
-      acc.taxaMktWepink += c.taxaMktWepink;
-      acc.taxaMktWpink += c.taxaMktWpink;
-      return acc;
-    },
-    { aluguelFixo: 0, aluguelPct: 0, royaltiesWepink: 0, royaltiesWpink: 0, taxaMktWepink: 0, taxaMktWpink: 0 },
-  );
-  const totalCustosFixos =
-    custosAgg.aluguelFixo +
-    custosAgg.aluguelPct +
-    custosAgg.royaltiesWepink +
-    custosAgg.royaltiesWpink +
-    custosAgg.taxaMktWepink +
-    custosAgg.taxaMktWpink;
-  const resultadoOperacional = lucroAtual - totalCustosFixos;
+  // Mini-DRE do período → Resultado Operacional.
   const custosFixosFranquia: LinhaCustoFixo[] = [
     { rotulo: "Lucro bruto", valor: lucroAtual },
     { rotulo: "Aluguel fixo", valor: custosAgg.aluguelFixo },
@@ -1558,7 +1584,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     { rotulo: `Taxa de marketing WEPINK (${PCT_CUSTOS_FIXOS.taxaMktWepink}%)`, valor: custosAgg.taxaMktWepink },
     { rotulo: `Taxa de marketing WPINK (${PCT_CUSTOS_FIXOS.taxaMktWpink}%)`, valor: custosAgg.taxaMktWpink },
     { rotulo: "Total custos fixos", valor: totalCustosFixos, ehTotal: true },
-    { rotulo: "Resultado operacional", valor: resultadoOperacional, ehResultado: true },
+    { rotulo: "Resultado operacional", valor: resultadoAtual, ehResultado: true },
   ];
 
   // Evolução mensal (tabela DRE simplificada).
@@ -1580,6 +1606,8 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     periodo,
     kpis,
     custoLucroMargem,
+    resultadoOperacional,
+    deltaResultado,
     formasPagamento,
     custosFixosFranquia,
     evolucaoMensal,

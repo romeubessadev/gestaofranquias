@@ -36,16 +36,26 @@ Fase 1 (chrome + KPIs compartilhados) + fase 2 (cards exclusivos).
 
 ---
 
-## 3. CMV, Lucro e Margem (widget central)
+## 3. CMV, Lucro e Margem + Resultado operacional (par)
 
+### CMV, Lucro e Margem
 | Elemento | Final |
 |---|---|
 | Título | `CMV, Lucro e Margem` |
 | Tooltip | `Acompanhe se o lucro bruto acompanha o faturamento ou se o CMV está pressionando a margem ao longo dos meses.` |
-| Padrão | Mesmo chrome da Visão Geral (`Faturamento vs Meta`): totais no header + `AreaLineChart` com `compareData` |
-| Séries | Lucro bruto (linha principal) · CMV (`compareData`) |
-| Header | Totais `Lucro bruto` · `CMV` · `Margem %` + badge vs período (delta do lucro) |
-| Removido | `StackedBarChart` empilhado + segundo gráfico de margem |
+| Padrão | Chrome Visão Geral: totais no header + `AreaLineChart` com `compareData` |
+| Séries | Lucro bruto · CMV |
+| Header | `Lucro bruto` · `CMV` · `Margem %` + badge vs período |
+
+### Resultado operacional
+| Elemento | Final |
+|---|---|
+| Título | `Resultado operacional` |
+| Tooltip | `O que sobra do lucro bruto depois de aluguel, royalties e marketing — e se esse resultado está melhorando ou piorando ao longo dos meses.` |
+| Padrão | Mesmo chrome do card ao lado |
+| Séries | Lucro bruto · Resultado operacional |
+| Header | `Lucro bruto` · `Resultado` · `Margem op. %` + badge vs período |
+| Layout | Par `lg:grid-cols-2` com CMV/Lucro (não mais largura total sozinho) |
 
 ---
 

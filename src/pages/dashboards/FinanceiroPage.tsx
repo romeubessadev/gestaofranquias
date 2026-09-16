@@ -209,55 +209,105 @@ export default function FinanceiroPage() {
         ))}
       </div>
 
-      {/* Widget central — Lucro vs CMV (padrão AreaLine da Visão Geral) */}
-      {(() => {
-        const serie = view.custoLucroMargem;
-        const totalLucro = serie.reduce((s, m) => s + m.lucro, 0);
-        const totalCmv = serie.reduce((s, m) => s + m.custo, 0);
-        const totalFat = serie.reduce((s, m) => s + m.faturamento, 0);
-        const margemPct = totalFat > 0 ? (totalLucro / totalFat) * 100 : 0;
-        const deltaLucro = view.kpis.find((k) => k.label === "Lucro bruto")?.delta;
-        return (
-          <Card className="mt-4" padding="lg">
-            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <CardTitle>CMV, Lucro e Margem</CardTitle>
-                  <TipHelp label="Acompanhe se o lucro bruto acompanha o faturamento ou se o CMV está pressionando a margem ao longo dos meses." />
+      {/* Par: CMV/Lucro + Resultado operacional */}
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {(() => {
+          const serie = view.custoLucroMargem;
+          const totalLucro = serie.reduce((s, m) => s + m.lucro, 0);
+          const totalCmv = serie.reduce((s, m) => s + m.custo, 0);
+          const totalFat = serie.reduce((s, m) => s + m.faturamento, 0);
+          const margemPct = totalFat > 0 ? (totalLucro / totalFat) * 100 : 0;
+          const deltaLucro = view.kpis.find((k) => k.label === "Lucro bruto")?.delta;
+          return (
+            <Card padding="lg">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <CardTitle>CMV, Lucro e Margem</CardTitle>
+                    <TipHelp label="Acompanhe se o lucro bruto acompanha o faturamento ou se o CMV está pressionando a margem ao longo dos meses." />
+                  </div>
+                  <div className="mt-2.5 flex flex-wrap gap-5">
+                    <div>
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                        <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--ok)]" />Lucro bruto
+                      </span>
+                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(totalLucro)}</p>
+                    </div>
+                    <div>
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                        <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--bad)]" />CMV
+                      </span>
+                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(totalCmv)}</p>
+                    </div>
+                    <div>
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">Margem</span>
+                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{margemPct.toFixed(1)}%</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-2.5 flex flex-wrap gap-5">
-                  <div>
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
-                      <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--ok)]" />Lucro bruto
-                    </span>
-                    <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(totalLucro)}</p>
-                  </div>
-                  <div>
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
-                      <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--bad)]" />CMV
-                    </span>
-                    <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(totalCmv)}</p>
-                  </div>
-                  <div>
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">Margem</span>
-                    <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{margemPct.toFixed(1)}%</p>
-                  </div>
-                </div>
+                <BadgeVsAnterior delta={deltaLucro} />
               </div>
-              <BadgeVsAnterior delta={deltaLucro} />
-            </div>
-            <AreaLineChart
-              data={serie.map((m) => m.lucro)}
-              compareData={serie.map((m) => m.custo)}
-              labels={serie.map((m) => m.mes)}
-              color="var(--ok)"
-              compareColor="var(--bad)"
-              formatValue={brlK}
-              showAxisLabels
-            />
-          </Card>
-        );
-      })()}
+              <AreaLineChart
+                data={serie.map((m) => m.lucro)}
+                compareData={serie.map((m) => m.custo)}
+                labels={serie.map((m) => m.mes)}
+                color="var(--ok)"
+                compareColor="var(--bad)"
+                formatValue={brlK}
+                showAxisLabels
+              />
+            </Card>
+          );
+        })()}
+
+        {(() => {
+          const serie = view.resultadoOperacional;
+          const totalLucro = serie.reduce((s, m) => s + m.lucro, 0);
+          const totalRes = serie.reduce((s, m) => s + m.resultado, 0);
+          const totalFat = serie.reduce((s, m) => s + m.faturamento, 0);
+          const margemOpPct = totalFat > 0 ? (totalRes / totalFat) * 100 : 0;
+          return (
+            <Card padding="lg">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <CardTitle>Resultado operacional</CardTitle>
+                    <TipHelp label="O que sobra do lucro bruto depois de aluguel, royalties e marketing — e se esse resultado está melhorando ou piorando ao longo dos meses." />
+                  </div>
+                  <div className="mt-2.5 flex flex-wrap gap-5">
+                    <div>
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                        <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--ok)]" />Lucro bruto
+                      </span>
+                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(totalLucro)}</p>
+                    </div>
+                    <div>
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                        <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--acc)]" />Resultado
+                      </span>
+                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(totalRes)}</p>
+                    </div>
+                    <div>
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">Margem op.</span>
+                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{margemOpPct.toFixed(1)}%</p>
+                    </div>
+                  </div>
+                </div>
+                <BadgeVsAnterior delta={view.deltaResultado} />
+              </div>
+              <AreaLineChart
+                data={serie.map((m) => m.lucro)}
+                compareData={serie.map((m) => m.resultado)}
+                labels={serie.map((m) => m.mes)}
+                color="var(--ok)"
+                compareColor="var(--acc)"
+                formatValue={brlK}
+                showAxisLabels
+              />
+            </Card>
+          );
+        })()}
+      </div>
 
       {/* Par: Formas de Pagamento + Custos Fixos/Franquia */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
