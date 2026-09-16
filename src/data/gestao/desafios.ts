@@ -12,6 +12,8 @@ export type TipoDesafio = "produto" | "quantidade" | "indice";
 export interface Desafio {
   id: string;
   nome: string;
+  /** Frase curta do objetivo (o que precisa fazer). */
+  objetivo: string;
   tipo: TipoDesafio;
   /** Alvo por participante: 15 un de Body Cream, 3 un de produto, 1.90 de P.A. */
   alvoIndividual: number;
@@ -53,6 +55,7 @@ export const desafios: Desafio[] = [
   {
     id: "d-perfumaria",
     nome: "Perfumaria — 3 acima de R$ 150",
+    objetivo: "Quem vender 3 perfumes acima de R$ 150 ganha o prêmio.",
     tipo: "produto",
     alvoIndividual: 3,
     unidade: "un",
@@ -64,6 +67,7 @@ export const desafios: Desafio[] = [
   {
     id: "d-bodycream",
     nome: "Body Cream — acima de 15 un",
+    objetivo: "Quem vender mais Body Cream (mínimo 15 unidades) ganha o prêmio.",
     tipo: "quantidade",
     alvoIndividual: 15,
     unidade: "un",
@@ -75,6 +79,7 @@ export const desafios: Desafio[] = [
   {
     id: "d-pa",
     nome: "P.A. acima de 1,90",
+    objetivo: "Quem mantiver P.A. acima de 1,90 no mês ganha o prêmio.",
     tipo: "indice",
     alvoIndividual: 1.9,
     unidade: "x",
@@ -86,6 +91,7 @@ export const desafios: Desafio[] = [
   {
     id: "d-protocolo",
     nome: "Kit Presente — acima de 5 un",
+    objetivo: "Quem vender 5 ou mais Kits Presente ganha o prêmio.",
     tipo: "produto",
     alvoIndividual: 5,
     unidade: "un",
@@ -97,6 +103,7 @@ export const desafios: Desafio[] = [
   {
     id: "d-serum",
     nome: "Sérum Vitamina C — acima de 8 un",
+    objetivo: "Quem vender 8 ou mais unidades de Sérum Vitamina C ganha o prêmio.",
     tipo: "quantidade",
     alvoIndividual: 8,
     unidade: "un",
@@ -108,6 +115,7 @@ export const desafios: Desafio[] = [
   {
     id: "d-ticket",
     nome: "Ticket acima de R$ 185",
+    objetivo: "Quem mantiver ticket médio acima de R$ 185 ganha o prêmio.",
     tipo: "indice",
     alvoIndividual: 185,
     unidade: "x",

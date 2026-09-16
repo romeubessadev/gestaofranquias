@@ -230,6 +230,11 @@ export interface DesafioParticipanteView {
 export interface DesafioView {
   id: string;
   nome: string;
+  objetivo: string;
+  /** Ex.: "Vender 15 un" / "Atingir 1,90". */
+  metaRotulo: string;
+  /** Valor mínimo para valer o desafio (mesmo alvo individual no mock). */
+  minimo: number;
   tipo: Desafio["tipo"];
   emoji: string;
   alvoIndividual: number;
@@ -240,18 +245,14 @@ export interface DesafioView {
   progressoAgregado: number;
   alvoAgregado: number;
   progressoPct: number;
-  /** Projeção linear do agregado até o fim do período. */
   projetadoAgregado: number;
-  /** Projeção linear até o fim do período alcança o alvo agregado. */
   fechaNoRitmo: boolean;
-  /** Ninguém fez progresso ainda: estado "sem engajamento" (EQUIP-05 AC 3). */
   semEngajamento: boolean;
-  /** Rótulo curto do tipo pro filtro visual da tabela. */
   tipoTexto: string;
-  /** Participantes com progresso > 0, ordenados: atingiu → quase → abaixo. */
+  /** Dias abertos restantes na competência (incluindo hoje). */
+  diasRestantes: number;
+  /** Todos os participantes, ordenados: atingiu → quase → abaixo → não começou. */
   ranking: DesafioParticipanteView[];
-  /** Quem zerou, agrupado numa linha. */
-  naoComecaram: { nomes: string[]; count: number } | null;
 }
 
 export interface LojaEquipeResumo {
@@ -508,20 +509,27 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
   const alvoAgregado = d.alvoIndividual * ids.length;
   const projetado = diasDecorridos > 0 ? (progressoAgregado / diasDecorridos) * diasTotais : 0;
   const semEngajamento = progressoAgregado <= 0;
-  const comProgresso = linhas
-    .filter((p) => p.status !== "nao_comecou")
-    .sort((a, b) => ORDEM_STATUS[a.status] - ORDEM_STATUS[b.status] || b.progressoPct - a.progressoPct);
-  const zeradas = linhas.filter((p) => p.status === "nao_comecou");
+  const ranking = [...linhas].sort(
+    (a, b) => ORDEM_STATUS[a.status] - ORDEM_STATUS[b.status] || b.progressoPct - a.progressoPct,
+  );
+  const metaRotulo =
+    d.unidade === "x"
+      ? `Atingir ${num(d.alvoIndividual, d.alvoIndividual % 1 !== 0 ? 2 : 0)}`
+      : `Vender ${num(d.alvoIndividual, 0)} ${d.unidade}`;
+  const restantes = diasDecorridos > 0 ? Math.max(0, diasTotais - diasDecorridos + 1) : diasTotais;
   return {
     id: d.id,
     nome: d.nome,
+    objetivo: d.objetivo,
+    metaRotulo,
+    minimo: d.alvoIndividual,
     tipo: d.tipo,
     emoji: EMOJI_DESAFIO[d.id] ?? EMOJI_TIPO[d.tipo],
     alvoIndividual: d.alvoIndividual,
     unidade: d.unidade,
     premio: d.premio,
     participantes: ids.length,
-    engajadas: comProgresso.length,
+    engajadas: linhas.filter((p) => p.status !== "nao_comecou").length,
     progressoAgregado,
     alvoAgregado,
     progressoPct: alvoAgregado > 0 ? (progressoAgregado / alvoAgregado) * 100 : 0,
@@ -529,8 +537,8 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     fechaNoRitmo: semEngajamento ? false : projetado >= alvoAgregado,
     semEngajamento,
     tipoTexto: TIPO_TEXTO[d.tipo],
-    ranking: comProgresso,
-    naoComecaram: zeradas.length > 0 ? { nomes: zeradas.map((p) => p.nome.split(" ")[0] ?? p.nome), count: zeradas.length } : null,
+    diasRestantes: restantes,
+    ranking,
   };
 }
 

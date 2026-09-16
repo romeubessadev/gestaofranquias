@@ -437,19 +437,23 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
         6,
       );
       expect(d.alvoAgregado).toBe(d.alvoIndividual * d.participantes);
-      expect(d.ranking.length + (d.naoComecaram?.count ?? 0)).toBe(d.participantes);
+      expect(d.ranking.length).toBe(d.participantes);
+      expect(d.objetivo).toBeTruthy();
+      expect(d.metaRotulo).toBeTruthy();
+      expect(d.minimo).toBe(d.alvoIndividual);
+      expect(d.diasRestantes).toBeGreaterThanOrEqual(0);
       expect(d.progressoPct).toBeGreaterThanOrEqual(0);
     }
   });
 
-  it("ranking lista participantes com progresso e agrupa quem não começou", () => {
+  it("ranking lista todos os participantes ordenados por status e progresso", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
     for (const d of v.desafios!) {
       expect(d.emoji).toBeTruthy();
       expect(d.projetadoAgregado).toBeGreaterThanOrEqual(0);
       for (const p of d.ranking) {
-        expect(p.progresso).toBeGreaterThan(0);
-        expect(["atingiu", "quase", "abaixo"]).toContain(p.status);
+        expect(p.progresso).toBeGreaterThanOrEqual(0);
+        expect(["atingiu", "quase", "abaixo", "nao_comecou"]).toContain(p.status);
       }
     }
   });
@@ -467,6 +471,7 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
     const base: Desafio = {
       id: "d-teste",
       nome: "Teste",
+      objetivo: "Quem vender 10 unidades ganha o prêmio.",
       tipo: "quantidade",
       alvoIndividual: 10,
       unidade: "un",
