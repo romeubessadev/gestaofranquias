@@ -40,9 +40,12 @@ Fase 1 (chrome + KPIs compartilhados) + fase 2 (cards exclusivos).
 
 | Elemento | Final |
 |---|---|
-| Título | `CMV, Lucro e Margem` *(era “Custo, Lucro e Margem”)* |
+| Título | `CMV, Lucro e Margem` |
 | Tooltip | `Acompanhe se o lucro bruto acompanha o faturamento ou se o CMV está pressionando a margem ao longo dos meses.` |
-| Legenda | `CMV` · `Lucro bruto` · `Margem` |
+| Padrão | Mesmo chrome da Visão Geral (`Faturamento vs Meta`): totais no header + `AreaLineChart` com `compareData` |
+| Séries | Lucro bruto (linha principal) · CMV (`compareData`) |
+| Header | Totais `Lucro bruto` · `CMV` · `Margem %` + badge vs período (delta do lucro) |
+| Removido | `StackedBarChart` empilhado + segundo gráfico de margem |
 
 ---
 

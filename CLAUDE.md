@@ -699,7 +699,7 @@ Regra geral: **KPIs em 4 colunas no desktop** (padronizado com as demais telas �
 | KPI row (4 cards) | `StatCard` + `Sparkline` | ✅ Reusa |
 | Filtro período interno | — | 🔨 Criar `DateRangePicker` (já previsto) |
 | Filtro marca interno | — | 🔨 Criar `Segmented` (já previsto) |
-| Custo, Lucro e Margem | `StackedBarChart` + `AreaLineChart` (% margem) | ✅ Composição (+ `showValues`) |
+| CMV, Lucro e Margem | `AreaLineChart` (Lucro vs CMV + margem no header) — mesmo padrão da VG | ✅ Reusa (+ `showValues`) |
 | Faturamento vs Ticket Médio | `AreaLineChart` (2 séries) | ✅ Reusa (+ `showValues`) |
 | Itens Vendidos vs Preço Médio | `BarChart` + `AreaLineChart` (PA) | ✅ Composição (+ `showValues`) |
 | Faturamento por Forma de Pagamento | `DonutChart` | ✅ Reusa (R$ e % por forma) |
