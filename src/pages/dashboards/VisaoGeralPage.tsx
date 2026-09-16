@@ -224,7 +224,7 @@ export default function VisaoGeralPage() {
                   <span className={`text-[13px] font-bold ${pct < 100 ? "text-warn" : "text-ok"}`}>{brlK(meta.alvo)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[12.5px] text-t2">Faltam para Meta do Mês</span>
+                  <span className="text-[12.5px] text-t2">Faltam</span>
                   <span className={`text-[13px] font-bold ${faltamValor > 0 ? "text-warn" : "text-ok"}`}>
                     {faltamValor > 0 ? brlK(faltamValor) : "Atingida"}
                   </span>
