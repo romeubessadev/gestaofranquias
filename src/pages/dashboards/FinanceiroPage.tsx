@@ -8,30 +8,30 @@ import { brl } from "@/lib/formato";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 import { deIso } from "@/lib/formato";
 
-/** Ícones inline (SVG) para os KPIs — evita dependência externa. */
-const IconFaturamento = () => (
+/** Ícones dos KPIs — Faturamento/CMV iguais à Visão Geral; Lucro/Margem próprios. */
+const IconFat = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
   </svg>
 );
-const IconCusto = () => (
+const IconCmv = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-    <line x1="12" y1="22.08" x2="12" y2="12" />
+    <circle cx="8" cy="21" r="1" />
+    <circle cx="19" cy="21" r="1" />
+    <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
   </svg>
 );
 const IconLucro = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="1" x2="12" y2="23" />
-    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+    <polyline points="16 7 22 7 22 13" />
   </svg>
 );
 const IconMargem = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <path d="M16 8l-4 4-4-4" />
-    <path d="M16 16l-4-4-4 4" />
+    <line x1="19" y1="5" x2="5" y2="19" />
+    <circle cx="6.5" cy="6.5" r="2.5" />
+    <circle cx="17.5" cy="17.5" r="2.5" />
   </svg>
 );
 
@@ -43,12 +43,12 @@ const TipHelp = ({ label }: { label: string }) => (
   </Tooltip>
 );
 
-const KPI_ICONS = [IconFaturamento, IconCusto, IconLucro, IconMargem];
+const KPI_ICONS = [IconFat, IconCmv, IconLucro, IconMargem];
 
-/** Cores distintas para cada KPI card (hero). */
+/** Mesma paleta da Visão Geral: Faturamento, CMV, Lucro, Margem. */
 const KPI_COLORS = [
   { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
-  { iconColor: "var(--bad)", iconBg: "var(--bad-soft)" },
+  { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
   { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },
   { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
 ];
