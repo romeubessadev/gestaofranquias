@@ -142,48 +142,19 @@ export default function VisaoGeralPage() {
         ))}
       </div>
 
-      {/* Widget central — Atingimento da Meta (3 Gauges) */}
-      <Card className="mt-4">
-        <CardHeader>
-          <div className="flex items-center gap-1.5">
-            <CardTitle>Atingimento da Meta</CardTitle>
-            <Tooltip label="Percentual atingido em cada faixa de meta (Meta, Super Meta, Hiper Meta). Responde: vou bater a meta este mês?">
-              <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-            </Tooltip>
-          </div>
-        </CardHeader>
-        <div className="flex flex-wrap items-end justify-center gap-8 px-4 pb-6">
-          {view.gauges.map((g) => (
-            <Gauge
-              key={g.nome}
-              value={Math.round(g.pct)}
-              label={`${g.nome} · ${brlK(g.alvo)}`}
-              color={g.pct >= 100 ? "var(--ok)" : g.pct >= 70 ? "var(--acc)" : "var(--bad)"}
-            />
-          ))}
-          {view.gauges.length === 0 && (
-            <span className="py-8 text-[13px] text-t2">Sem meta cadastrada para o período.</span>
-          )}
-        </div>
-        {(view.faltamParaMeta || view.projecaoFechamento) && (
-          <div className="flex flex-col items-center gap-1 pb-4 text-center text-[12px]">
-            {view.faltamParaMeta && <span className="font-semibold text-t0">{view.faltamParaMeta}</span>}
-            {view.projecaoFechamento && <span className="text-t1">{view.projecaoFechamento}</span>}
-          </div>
-        )}
-      </Card>
-
-      {/* Linha: Atingimento da Meta + Evolução do Faturamento vs Meta */}
+      {/* Linha: Atingimento da Meta + Faturamento vs Meta */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.7fr]">
         {view.gauges.length > 0 && (
           <Card className="flex flex-col">
             <div className="mb-1 flex items-center justify-between">
               <CardTitle>Atingimento da Meta</CardTitle>
-              <Tooltip label="Percentual atingido em cada faixa de meta (Meta, Super Meta, Hiper Meta). Responde: vou bater a meta este mês?">
-                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
+              <Tooltip label="Percentual do faturamento da loja/rede em cada faixa de meta do mês (Meta, Super Meta, Hiper Meta). Não é contagem de vendedoras.">
+                <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+                  ?
+                </span>
               </Tooltip>
             </div>
-            <p className="mb-2 text-[12.5px] text-t2">Progresso por faixa de meta</p>
+            <p className="mb-2 text-[12.5px] text-t2">Progresso por faixa de meta do mês</p>
             <div className="flex flex-wrap items-end justify-center gap-4 px-4 pb-4">
               {view.gauges.map((g) => (
                 <Gauge
