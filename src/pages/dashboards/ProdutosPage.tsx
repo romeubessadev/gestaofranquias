@@ -4,7 +4,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, BarChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarProdutosView, type ProdutosKpi, type ProdutoLinha } from "@/data/gestao/dashboard";
-import { brl, num } from "@/lib/formato";
+import { brl, brlK, num } from "@/lib/formato";
 import { deIso } from "@/lib/formato";
 import { cn } from "@/lib/cn";
 import type { DateRange } from "@/components/ui/DateRangePicker";
@@ -59,6 +59,21 @@ const KPI_COLORS = [
 
 const filtroSelectClass =
   "h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none";
+
+const CORES_RANK = ["var(--ok)", "var(--info)", "var(--warn)", "var(--acc)", "var(--bad)"];
+
+function AvatarIniciais({ nome, idx }: { nome: string; idx: number }) {
+  const iniciais = nome.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
+  const cor = CORES_RANK[idx % CORES_RANK.length];
+  return (
+    <span
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] text-[13px] font-extrabold"
+      style={{ background: `color-mix(in srgb, ${cor} 15%, transparent)`, color: cor }}
+    >
+      {iniciais || "?"}
+    </span>
+  );
+}
 
 export default function ProdutosPage() {
   const { escopo, mudar } = useEscopo();
@@ -277,16 +292,54 @@ export default function ProdutosPage() {
           <CardHeader>
             <div className="flex items-center gap-1.5">
               <CardTitle>Top Linhas de Produto</CardTitle>
-              <TipHelp label="Ranking das linhas de produto por faturamento. Valores em R$ direto nas barras." />
+              <TipHelp label="Ranking das linhas de produto por faturamento no período." />
             </div>
           </CardHeader>
-          <div className="px-4 pb-4">
-            <BarChartHorizontal data={view.topLinhas.slice(0, 6).map((l) => ({ label: l.nome, value: l.faturamento }))} formatValue={brl} />
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
+                  <th className="px-1 pb-3 text-left font-bold">#</th>
+                  <th className="px-1 pb-3 text-left font-bold">Linha</th>
+                  <th className="px-1 pb-3 text-right font-bold">Faturamento</th>
+                  <th className="px-1 pb-3 text-right font-bold">Participação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const linhas = view.topLinhas.slice(0, 6);
+                  const totalFat = linhas.reduce((s, l) => s + l.faturamento, 0) || 1;
+                  if (linhas.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={4} className="px-1 py-6 text-center text-[13px] text-t2">Sem dados no período selecionado.</td>
+                      </tr>
+                    );
+                  }
+                  return linhas.map((l, idx) => {
+                    const pct = Math.round((l.faturamento / totalFat) * 100);
+                    return (
+                      <tr key={l.nome} className="border-b border-line last:border-b-0">
+                        <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
+                        <td className="px-1 py-3">
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <AvatarIniciais nome={l.nome} idx={idx} />
+                            <p className="truncate text-[13px] font-bold text-t0">{l.nome}</p>
+                          </div>
+                        </td>
+                        <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlK(l.faturamento)}</td>
+                        <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t1">{pct}%</td>
+                      </tr>
+                    );
+                  });
+                })()}
+              </tbody>
+            </table>
           </div>
         </Card>
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between gap-1.5">
+            <div className="flex w-full items-center justify-between gap-1.5">
               <div className="flex items-center gap-1.5">
                 <CardTitle>Top Produtos</CardTitle>
                 <TipHelp label="Ranking dos produtos mais vendidos. Escolha a métrica de ordenação." />
@@ -302,14 +355,42 @@ export default function ProdutosPage() {
               </select>
             </div>
           </CardHeader>
-          <div className="px-4 pb-4">
-            <BarChartHorizontal
-              data={topProdutos.slice(0, 6).map((p) => ({
-                label: p.nome.length > 22 ? p.nome.slice(0, 20) + "…" : p.nome,
-                value: rankingOrd === "faturamento" ? p.receita : rankingOrd === "itens" ? p.itens : p.margemPct,
-              }))}
-              formatValue={rankingOrd === "margem" ? (v) => `${v.toFixed(0)}%` : rankingOrd === "itens" ? (v) => num(v) : brl}
-            />
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
+                  <th className="px-1 pb-3 text-left font-bold">#</th>
+                  <th className="px-1 pb-3 text-left font-bold">Produto</th>
+                  <th className="px-1 pb-3 text-right font-bold">Itens</th>
+                  <th className="px-1 pb-3 text-right font-bold">Faturamento</th>
+                  <th className="px-1 pb-3 text-right font-bold">Margem</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topProdutos.slice(0, 6).map((p, idx) => (
+                  <tr key={p.codProduto} className="border-b border-line last:border-b-0">
+                    <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
+                    <td className="px-1 py-3">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <AvatarIniciais nome={p.nome} idx={idx} />
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-bold text-t0">{p.nome}</p>
+                          <p className="text-[11px] text-t2">{p.categoriaNome}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(p.itens)}</td>
+                    <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlK(p.receita)}</td>
+                    <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-ok">{p.margemPct.toFixed(0)}%</td>
+                  </tr>
+                ))}
+                {topProdutos.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-1 py-6 text-center text-[13px] text-t2">Sem dados no período selecionado.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </Card>
       </div>
@@ -562,28 +643,6 @@ function GradeMetricas({
         <div key={r.label} className="flex justify-between gap-2">
           <span className="text-t2">{r.label}</span>
           {r.value}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function BarChartHorizontal({ data, formatValue }: { data: { label: string; value: number }[]; formatValue: (v: number) => string }) {
-  const max = Math.max(...data.map((d) => d.value), 1);
-  return (
-    <div className="flex flex-col gap-2.5">
-      {data.map((d) => (
-        <div key={d.label} className="flex items-center gap-3">
-          <span className="w-[140px] shrink-0 truncate text-[11px] font-semibold text-t1" title={d.label}>{d.label}</span>
-          <div className="flex flex-1 items-center gap-2">
-            <div className="h-5 flex-1 overflow-hidden rounded-md bg-bg-inset">
-              <div
-                className="h-full rounded-md bg-[var(--acc)] transition-all"
-                style={{ width: `${Math.max(2, (d.value / max) * 100)}%` }}
-              />
-            </div>
-            <span className="shrink-0 text-[11px] font-bold text-t0">{formatValue(d.value)}</span>
-          </div>
         </div>
       ))}
     </div>
