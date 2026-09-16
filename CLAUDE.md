@@ -612,9 +612,9 @@ Regra geral: **KPIs em 4 colunas no desktop** (padronizado com as demais telas �
 | **Vendas vs Ticket Médio - Mensal** (linha de vendas + linha de ticket) | → **removido do Financeiro** (diagnóstico sem ação financeira clara; ticket fica na Evolução Mensal). |
 | **R$ Faturamento por Forma de Pagamento** (donut: Crédito R$66mil 43%, Débito R$39mil 26%, Pix, Dinheiro R$16mil...) | → vira o card **Faturamento por Forma de Pagamento** (DonutChart com R$ e % por forma). Responde "como o cliente está pagando?" (impacta taxa da maquininha/prazo de recebimento). |
 | Tooltip do BI (Mês, CMV, % Margem, Faturamento, CMV Médio) | → vira o **tooltip rico** dos gráficos + as colunas da tabela de evolução mensal. |
-| **(NOVO — pedido do gestor, não estava no BI)** Custos fixos + franquia: Aluguel (Fixo + % se shopping), Royalties, Taxa de Marketing (WEPINK e WPINK) | → vira o card **Custos Fixos e Franquia** (DataTable tipo mini-DRE: lista cada custo, soma, e desconta do Lucro Bruto → **Resultado Operacional**). É a ponte entre Lucro Bruto e o futuro Lucro Líquido. |
+| **(NOVO — pedido do gestor, não estava no BI)** Custos da operação: Aluguel (Fixo + variável shopping), Royalties, Marketing (WEPINK e WPINK) | → vira o card **Custos da Operação** (DataTable tipo mini-DRE: lista cada custo, soma, e desconta do Lucro Bruto → **Resultado Operacional**). É a ponte entre Lucro Bruto e o futuro Lucro Líquido. |
 
-> **Escopo financeiro decidido:** esta tela vai do **Faturamento → CMV → Lucro Bruto → (− Custos Fixos/Franquia) → Resultado Operacional**. Os custos extras restantes (folha completa, utilities, depreciação, impostos sobre lucro etc.) e o **Lucro Líquido** ficam para a **futura aba DRE** (fora deste dashboard). O card "Custos Fixos e Franquia" já deixa o gancho visual para essa evolução.
+> **Escopo financeiro decidido:** esta tela vai do **Faturamento → CMV → Lucro Bruto → (− Custos da Operação) → Resultado Operacional**. Os custos extras restantes (folha completa, utilities, depreciação, impostos sobre lucro etc.) e o **Lucro Líquido** ficam para a **futura aba DRE** (fora deste dashboard). O card "Custos da Operação" já deixa o gancho visual para essa evolução.
 
 ### Layout — Financeiro
 
@@ -663,17 +663,17 @@ Regra geral: **KPIs em 4 colunas no desktop** (padronizado com as demais telas �
 │  └─────────────────────────────┘ └──────────────────────────────┘   │
 │                                                                     │
 │  ┌─────────────────────────────┐ ┌──────────────────────────────┐   │
-│  │ Faturamento por Forma de    │ │ Custos Fixos e Franquia ⓘ    │   │
-│  │ Pagamento ⓘ  (DonutChart)   │ │ (mini-DRE: Lucro Bruto       │   │
-│  │                             │ │  − custos fixos/franquia     │   │
+│  │ Formas de Pagamento ⓘ       │ │ Custos da Operação ⓘ         │   │
+│  │ (DonutChart)                │ │ (mini-DRE: Lucro Bruto       │   │
+│  │                             │ │  − custos da operação        │   │
 │  │   ╭────╮  ● Crédito  43%    │ │  = Resultado Operacional)    │   │
 │  │  │66mil│  ● Débito   26%    │ │                              │   │
-│  │  │     │  ● Pix      16%    │ │  Lucro Bruto        R$ 170 mil│   │
+│  │  │     │  ● Pix      16%    │ │  Lucro bruto        R$ 170 mil│   │
 │  │   ╰────╯  ● Dinheiro 11%    │ │  (−) Aluguel fixo    R$  18 mil│   │
-│  │         ● Outros      4%    │ │  (−) Aluguel % shopp R$   9 mil│   │
+│  │         ● Outros      4%    │ │  (−) Aluguel variável R$  9 mil│   │
 │  │  R$ e % por forma de pgto   │ │  (−) Royalties       R$  12 mil│   │
-│  │  (ref: referencia04.jpeg)   │ │  (−) Taxa Mkt WEPINK R$   6 mil│   │
-│  │                             │ │  (−) Taxa Mkt WPINK  R$   4 mil│   │
+│  │  (ref: referencia04.jpeg)   │ │  (−) Marketing WEPINK R$  6 mil│   │
+│  │                             │ │  (−) Marketing WPINK  R$  4 mil│   │
 │  │                             │ │  ─────────────────────────────│   │
 │  │                             │ │  = Resultado Operac. R$ 121 mil│   │
 │  │                             │ │  (custos extras/lucro líquido  │   │
@@ -706,7 +706,7 @@ Regra geral: **KPIs em 4 colunas no desktop** (padronizado com as demais telas �
 | Faturamento vs Ticket Médio | `AreaLineChart` (2 séries) | ✅ Reusa (+ `showValues`) |
 | Itens Vendidos vs Preço Médio | `BarChart` + `AreaLineChart` (PA) | ✅ Composição (+ `showValues`) |
 | Faturamento por Forma de Pagamento | `DonutChart` | ✅ Reusa (R$ e % por forma) |
-| Custos Fixos e Franquia (mini-DRE) | `DataTable` (linhas de custo + total) ou composição simples de linhas | ✅ Reusa (`DataTable`/lista) — desconta do Lucro Bruto → Resultado Operacional |
+| Custos da Operação (mini-DRE) | `DataTable` (linhas de custo + total) ou composição simples de linhas | ✅ Reusa (`DataTable`/lista) — desconta do Lucro Bruto → Resultado Operacional |
 | Evolução Mensal (DRE simplif.) | `DataTable` | ✅ Reusa |
 | WaterfallChart (DRE em cascata) | — | 🟡 Opcional (decisão #4). Se criado, substitui/complementa a tabela de evolução |
 
@@ -728,10 +728,10 @@ Regra geral: **KPIs em 4 colunas no desktop**, widget central em largura total, 
 | KPI row (4 StatCards) | **4 por linha** (`sm:grid-cols-2 lg:grid-cols-4`) | 2 por linha | 1 por linha |
 | Custo, Lucro e Margem + Resultado operacional | **2 por linha** (`lg:grid-cols-2`) — par Lucro×CMV / Lucro×Resultado | 1 por linha | 1 por linha |
 | Faturamento vs Ticket + Itens vs Preço | **2 por linha** (`lg:grid-cols-2`) | 1 por linha | 1 por linha |
-| Forma de Pagamento + Custos Fixos/Franquia | **2 por linha** (`lg:grid-cols-2`) | 1 por linha | 1 por linha |
+| Formas de Pagamento + Custos da Operação | **2 por linha** (`lg:grid-cols-2`) | 1 por linha | 1 por linha |
 | Evolução Mensal | **1 por linha** (largura total — tabela ≥5 colunas, critério b) | 1 por linha | 1 por linha (scroll-x) |
 
-> Tailwind: `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5` para os KPIs; `lg:grid-cols-2` para os dois pares de gráficos (Faturamento/Ticket + Itens/Preço, e Forma de Pagamento + Custos Fixos); largura total (`lg:col-span-full`) para o widget central e a tabela. Tabelas ganham `overflow-x-auto` no mobile.
+> Tailwind: `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5` para os KPIs; `lg:grid-cols-2` para os pares (CMV/Lucro + Resultado, Formas de Pagamento + Custos da Operação); largura total para a Evolução Mensal. Tabelas ganham `overflow-x-auto` no mobile.
 
 ### Glossário — termos financeiros (só os não óbvios)
 
@@ -743,11 +743,12 @@ Regra geral: **KPIs em 4 colunas no desktop**, widget central em largura total, 
 | **Preço Médio (PA)** | Valor médio de cada item vendido (Faturamento ÷ Qtd de itens). Diferente do Ticket Médio: o PA é por ITEM, o Ticket é por COMPRA. |
 | **Ticket Médio** | Valor médio de cada compra/atendimento (Faturamento ÷ Nº de vendas). Mostra se o cliente está levando mais ou menos por vez. |
 | **p.p. (pontos percentuais)** | Variação absoluta de uma porcentagem. Margem foi de 58% para 60% = "+2 p.p." (não é "+2%", que seria relativo). |
-| **Margem operacional** | Resultado operacional ÷ Faturamento. Quanto sobra de cada R$ 1 vendido depois dos custos fixos/franquia. |
-| **Resultado Operacional** | O que sobra do Lucro Bruto depois de tirar os custos fixos e da franquia (aluguel, royalties, taxa de marketing). É o "lucro do dia a dia da loja", antes dos custos extras e impostos. |
-| **Aluguel (% shopping)** | Em shoppings, além do aluguel fixo você paga um percentual do faturamento (ex.: 5% das vendas). Os dois juntos (fixo + %) são o custo total de ocupação. |
-| **Royalties** | Percentual do faturamento pago à franqueadora (WEPINK/WPINK) pelo uso da marca. É um custo fixo da franquia, independente de a loja lucrar ou não. |
-| **Taxa de Marketing (Franquia)** | Percentual do faturamento destinado ao fundo de propaganda da marca (campanhas nacionais/regionais). Geralmente há uma taxa para WEPINK e outra para WPINK. |
+| **Margem operacional** | Resultado operacional ÷ Faturamento. Quanto sobra de cada R$ 1 vendido depois dos custos da operação. |
+| **Resultado Operacional** | O que sobra do Lucro Bruto depois de tirar os custos da operação (aluguel, royalties, marketing). É o "lucro do dia a dia da loja", antes dos custos extras e impostos. |
+| **Custos da Operação** | Aluguel (fixo + variável shopping), royalties e marketing da franquia — custos que a loja paga para operar, descontados do lucro bruto. |
+| **Aluguel variável shopping** | Em shoppings, além do aluguel fixo você paga um percentual do faturamento (ex.: 5% das vendas). Os dois juntos (fixo + variável) são o custo total de ocupação. |
+| **Royalties** | Percentual do faturamento pago à franqueadora (WEPINK/WPINK) pelo uso da marca. É um custo da franquia, independente de a loja lucrar ou não. |
+| **Marketing (Franquia)** | Percentual do faturamento destinado ao fundo de propaganda da marca (campanhas nacionais/regionais). Geralmente há uma taxa para WEPINK e outra para WPINK. |
 | **Forma de Pagamento** | Como o cliente pagou (Crédito, Débito, Pix, Dinheiro). Importa porque cada forma tem um custo/prazo diferente: crédito demora pra cair e tem taxa da maquininha; Pix cai na hora e é mais barato. |
 | **DRE / Lucro Líquido (futura aba)** | Demonstrativo completo que parte do Resultado Operacional e desconta o resto (folha completa, luz/água, depreciação, impostos sobre lucro) até o Lucro Líquido final. Fica fora deste dashboard, numa aba dedicada futura. |
 

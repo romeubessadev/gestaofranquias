@@ -102,7 +102,7 @@ const evolucaoColumns: DataTableColumn<EvolucaoMensalLinha>[] = [
   },
   {
     key: "ticket",
-    header: "Ticket Médio",
+    header: "Ticket médio",
     align: "right",
     hideBelow: "md",
     render: (r) => <span className="tabular-nums text-t1">{brl(r.ticketMedio)}</span>,
@@ -171,7 +171,7 @@ export default function FinanceiroPage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Financeiro" }]}
         title="Financeiro"
-        subtitle="Receita, custos e margem da operação."
+        subtitle="Receita, custos, lucro e margem da operação."
         actions={
           <>
             <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
@@ -224,7 +224,7 @@ export default function FinanceiroPage() {
                 <div>
                   <div className="flex items-center gap-1.5">
                     <CardTitle>CMV, Lucro e Margem</CardTitle>
-                    <TipHelp label="Acompanhe se o lucro bruto acompanha o faturamento ou se o CMV está pressionando a margem ao longo do período." />
+                    <TipHelp label="Veja se o CMV está pressionando a margem e quanto do faturamento está se convertendo em lucro bruto." />
                   </div>
                   <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloSerie}</p>
                   <div className="mt-2.5 flex flex-wrap gap-5">
@@ -268,8 +268,8 @@ export default function FinanceiroPage() {
           const totalFat = serie.reduce((s, m) => s + m.faturamento, 0);
           const margemOpPct = totalFat > 0 ? (totalRes / totalFat) * 100 : 0;
           const tipResultado = view.resultadoRateado
-            ? "O que sobra do lucro bruto depois de aluguel, royalties e marketing. Em períodos curtos, os custos fixos mensais são rateados no eixo (por dia ou por hora)."
-            : "O que sobra do lucro bruto depois de aluguel, royalties e marketing — e se esse resultado está melhorando ou piorando ao longo dos meses.";
+            ? "Veja quanto sobra após os custos da operação. Em períodos curtos, os custos mensais são rateados por dia ou por hora."
+            : "Veja quanto sobra após os custos da operação e se o resultado operacional está melhorando ou piorando.";
           return (
             <Card padding="lg">
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -314,7 +314,7 @@ export default function FinanceiroPage() {
         })()}
       </div>
 
-      {/* Par: Formas de Pagamento + Custos Fixos/Franquia */}
+      {/* Par: Formas de Pagamento + Custos da Operação */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="flex flex-col">
           <CardHeader>
@@ -361,8 +361,8 @@ export default function FinanceiroPage() {
         <Card className="flex flex-col">
           <CardHeader>
             <div className="flex items-center gap-1.5">
-              <CardTitle>Custos Fixos e Franquia</CardTitle>
-              <TipHelp label="O que sobra do lucro bruto depois de aluguel, royalties e taxa de marketing — o resultado operacional do período." />
+              <CardTitle>Custos da Operação</CardTitle>
+              <TipHelp label="Veja quanto os custos da operação consomem do lucro bruto e quanto sobra como resultado operacional." />
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
@@ -397,7 +397,7 @@ export default function FinanceiroPage() {
           <div>
             <div className="flex items-center gap-1.5">
               <CardTitle>Evolução Mensal</CardTitle>
-              <TipHelp label="Resumo mensal de faturamento, CMV, lucro bruto, margem e ticket médio. Sempre mostra os últimos 6 meses — não segue o filtro de período curto." />
+              <TipHelp label="Compare a evolução mensal dos principais indicadores financeiros. Este quadro sempre considera os últimos 6 meses." />
             </div>
             <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloEvolucaoMensal}</p>
           </div>
@@ -409,14 +409,14 @@ export default function FinanceiroPage() {
             columns={evolucaoColumns}
             data={view.evolucaoMensal}
             rowKey={(r) => r.mes}
-            emptyMessage="Sem dados no período selecionado."
+            emptyMessage="Sem dados nos últimos 6 meses."
           />
         </div>
 
         {/* Mobile — stack em cards (padrão Responsive Tables) */}
         <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
           {view.evolucaoMensal.length === 0 ? (
-            <p className="py-6 text-center text-sm text-t2">Sem dados no período selecionado.</p>
+            <p className="py-6 text-center text-sm text-t2">Sem dados nos últimos 6 meses.</p>
           ) : (
             view.evolucaoMensal.map((linha) => (
               <div key={linha.mes} className="rounded-xl border border-line bg-bg-inset p-3.5">
@@ -441,7 +441,7 @@ export default function FinanceiroPage() {
                     <span className="font-semibold tabular-nums text-t0">{linha.margemPct.toFixed(1)}%</span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-t2">Ticket</span>
+                    <span className="text-t2">Ticket médio</span>
                     <span className="font-semibold tabular-nums text-t0">{brl(linha.ticketMedio)}</span>
                   </div>
                 </div>

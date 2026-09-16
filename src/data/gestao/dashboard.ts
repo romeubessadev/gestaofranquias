@@ -1530,21 +1530,21 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
       sub: `CMV ${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}%`,
       delta: temComp ? kpiDelta(custoAtual, custoAnterior, vsRotulo) : undefined,
       serie: serieCmv,
-      tooltip: "Mostra quanto do faturamento foi consumido pelo custo dos produtos vendidos. Quanto maior o percentual de CMV, maior a pressão sobre a margem.",
+      tooltip: "Quanto do faturamento foi consumido pelo custo dos produtos vendidos. Quanto maior o CMV, menor tende a ser a margem.",
     },
     {
       label: "Lucro bruto",
       valor: brlK(lucroAtual),
       delta: temComp ? kpiDelta(lucroAtual, lucroAnterior, vsRotulo) : undefined,
       serie: serieLucro,
-      tooltip: "O que sobra do faturamento após descontar o custo dos produtos vendidos.",
+      tooltip: "Quanto sobra do faturamento após descontar o CMV.",
     },
     {
       label: "Margem",
       valor: pct(margemAtual),
       delta: temComp ? kpiDeltaPp(margemAtual, margemAnterior, vsRotulo) : undefined,
       serie: serieMargem,
-      tooltip: "Percentual de lucro sobre o faturamento, antes das despesas fixas.",
+      tooltip: "Percentual do faturamento que permanece como lucro bruto após o CMV.",
     },
   ];
 
@@ -1691,12 +1691,12 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
   const custosFixosFranquia: LinhaCustoFixo[] = [
     { rotulo: "Lucro bruto", valor: lucroAtual },
     { rotulo: "Aluguel fixo", valor: custosAgg.aluguelFixo },
-    { rotulo: `Aluguel % shopping (${PCT_CUSTOS_FIXOS.aluguelShopping}%)`, valor: custosAgg.aluguelPct },
+    { rotulo: `Aluguel variável shopping (${PCT_CUSTOS_FIXOS.aluguelShopping}%)`, valor: custosAgg.aluguelPct },
     { rotulo: `Royalties WEPINK (${PCT_CUSTOS_FIXOS.royaltiesWepink}%)`, valor: custosAgg.royaltiesWepink },
     { rotulo: `Royalties WPINK (${PCT_CUSTOS_FIXOS.royaltiesWpink}%)`, valor: custosAgg.royaltiesWpink },
-    { rotulo: `Taxa de marketing WEPINK (${PCT_CUSTOS_FIXOS.taxaMktWepink}%)`, valor: custosAgg.taxaMktWepink },
-    { rotulo: `Taxa de marketing WPINK (${PCT_CUSTOS_FIXOS.taxaMktWpink}%)`, valor: custosAgg.taxaMktWpink },
-    { rotulo: "Total custos fixos", valor: totalCustosFixos, ehTotal: true },
+    { rotulo: `Marketing WEPINK (${PCT_CUSTOS_FIXOS.taxaMktWepink}%)`, valor: custosAgg.taxaMktWepink },
+    { rotulo: `Marketing WPINK (${PCT_CUSTOS_FIXOS.taxaMktWpink}%)`, valor: custosAgg.taxaMktWpink },
+    { rotulo: "Total de custos", valor: totalCustosFixos, ehTotal: true },
     { rotulo: "Resultado operacional", valor: resultadoAtual, ehResultado: true },
   ];
 
