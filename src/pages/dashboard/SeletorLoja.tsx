@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 /**
  * Seletor de loja SINGLE-SELECT — Topbar (no lugar de "Buscar telas" no Dashboard).
  * Padrão Vela "Select with avatars": loja = Avatar + fantasia + CNPJ;
- * "Todas as lojas" = sem avatar (visão consolidada da rede).
+ * "Todas as lojas" = sem avatar (visão consolidada do grupo).
  * Escopo: `filialIds: []` = todas; `[id]` = uma loja.
  */
 export function SeletorLoja({ escopo, onChange, minhas }: { escopo: Escopo; onChange: (e: Escopo) => void; minhas: Filial[] }) {
@@ -50,7 +50,7 @@ export function SeletorLoja({ escopo, onChange, minhas }: { escopo: Escopo; onCh
             {filialAtual ? filialAtual.fantasia : "Todas as lojas"}
           </p>
           <p className="truncate text-[11px] text-t2">
-            {filialAtual ? filialAtual.cnpj : "Rede consolidada"}
+            {filialAtual ? filialAtual.cnpj : "Grupo consolidado"}
           </p>
         </div>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cn("shrink-0 transition-transform", open && "rotate-180")}>
@@ -73,7 +73,7 @@ export function SeletorLoja({ escopo, onChange, minhas }: { escopo: Escopo; onCh
             </span>
             <div className="min-w-0 flex-1">
               <p className={cn("truncate text-[13px] font-bold", ehTodas ? "text-acc" : "text-t0")}>Todas as lojas</p>
-              <p className="truncate text-[11px] text-t2">Rede consolidada</p>
+              <p className="truncate text-[11px] text-t2">Grupo consolidado</p>
             </div>
             {ehTodas && (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
