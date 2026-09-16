@@ -9,6 +9,7 @@ import { deIso } from "@/lib/formato";
 import { cn } from "@/lib/cn";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 
+/** Ícones dos KPIs — Fat/Lucro/Margem iguais ao Financeiro; Itens próprio da tela. */
 const IconFat = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
@@ -16,15 +17,15 @@ const IconFat = () => (
 );
 const IconLucro = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="1" x2="12" y2="23" />
-    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+    <polyline points="16 7 22 7 22 13" />
   </svg>
 );
 const IconMargem = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <path d="M16 8l-4 4-4-4" />
-    <path d="M16 16l-4-4-4 4" />
+    <line x1="19" y1="5" x2="5" y2="19" />
+    <circle cx="6.5" cy="6.5" r="2.5" />
+    <circle cx="17.5" cy="17.5" r="2.5" />
   </svg>
 );
 const IconItens = () => (
@@ -63,11 +64,12 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
   return <Tooltip label={`Comparado a ${delta.vs}`}>{badge}</Tooltip>;
 }
 
+/** Heroes por métrica (não por índice): Fat/Lucro/Margem iguais ao Financeiro; Itens = warn. */
 const KPI_COLORS = [
-  { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
-  { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
-  { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },
-  { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
+  { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },       // Faturamento
+  { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },         // Lucro bruto
+  { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" }, // Margem
+  { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" }, // Itens vendidos
 ];
 
 const filtroSelectClass =
