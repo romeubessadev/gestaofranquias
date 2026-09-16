@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, DataTable, type DataTableColumn } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { AreaLineChart, BarChart, StackedBarChart, DonutChart } from "@/components/charts";
+import { AreaLineChart, StackedBarChart, DonutChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarFinanceiroView, type FinanceiroKpi, type EvolucaoMensalLinha, type LinhaCustoFixo } from "@/data/gestao/dashboard";
 import { brl, brlK } from "@/lib/formato";
@@ -234,51 +234,30 @@ export default function FinanceiroPage() {
         </div>
       </Card>
 
-      {/* Par: Faturamento vs Ticket + Itens vs Preço Médio */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Faturamento vs Ticket Médio</CardTitle>
-              <TipHelp label="Mostra se o faturamento sobe por mais volume de vendas ou por ticket médio maior." />
-            </div>
-          </CardHeader>
-          <div className="px-4 pb-4">
-            <AreaLineChart
-              data={view.faturamentoVsTicket.map((m) => m.faturamento)}
-              compareData={view.faturamentoVsTicket.map((m) => m.ticket * 100)}
-              labels={view.faturamentoVsTicket.map((m) => m.label)}
-              color="var(--acc)"
-              compareColor="var(--info)"
-              height={200}
-              formatValue={brl}
-            />
-            <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /> Faturamento</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--info)]" /> Ticket Médio (×100)</span>
-            </div>
+      {/* Faturamento vs Ticket Médio */}
+      <Card className="mt-4">
+        <CardHeader>
+          <div className="flex items-center gap-1.5">
+            <CardTitle>Faturamento vs Ticket Médio</CardTitle>
+            <TipHelp label="Mostra se o faturamento sobe por mais volume de vendas ou por ticket médio maior." />
           </div>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Itens vs Preço Médio</CardTitle>
-              <TipHelp label="Indica se o período vendeu mais unidades ou itens com preço médio maior (valor médio por item)." />
-            </div>
-          </CardHeader>
-          <div className="px-4 pb-4">
-            <BarChart
-              data={view.itensVsPreco.map((m) => ({
-                label: m.label,
-                value: m.qty,
-              }))}
-              height={200}
-              formatValue={(v) => String(v)}
-            />
+        </CardHeader>
+        <div className="px-4 pb-4">
+          <AreaLineChart
+            data={view.faturamentoVsTicket.map((m) => m.faturamento)}
+            compareData={view.faturamentoVsTicket.map((m) => m.ticket * 100)}
+            labels={view.faturamentoVsTicket.map((m) => m.label)}
+            color="var(--acc)"
+            compareColor="var(--info)"
+            height={200}
+            formatValue={brl}
+          />
+          <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
+            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--acc)]" /> Faturamento</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--info)]" /> Ticket Médio (×100)</span>
           </div>
-        </Card>
-      </div>
+        </div>
+      </Card>
 
       {/* Par: Formas de Pagamento + Custos Fixos/Franquia */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">

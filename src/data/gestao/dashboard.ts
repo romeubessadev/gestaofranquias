@@ -1349,7 +1349,6 @@ export interface FinanceiroView {
   formasPagamento: FormaPagamentoFat[];
   custosFixosFranquia: LinhaCustoFixo[];
   evolucaoMensal: EvolucaoMensalLinha[];
-  itensVsPreco: { label: string; qty: number; pa: number }[];
   faturamentoVsTicket: { label: string; faturamento: number; ticket: number }[];
 }
 
@@ -1552,16 +1551,6 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     { rotulo: "Resultado operacional", valor: resultadoOperacional, ehResultado: true },
   ];
 
-  // Itens vendidos vs Preço médio (PA) por mês.
-  const itensVsPreco = meses.map((mes) => {
-    const agg = agregadoMes(fs, mes, divisao);
-    return {
-      label: mesAno(`${mes}-01`).split(" de ")[0],
-      qty: agg.itens,
-      pa: divSeguro(agg.faturamento, agg.itens),
-    };
-  });
-
   // Faturamento vs Ticket médio por mês.
   const faturamentoVsTicket = meses.map((mes) => {
     const agg = agregadoMes(fs, mes, divisao);
@@ -1594,7 +1583,6 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     formasPagamento,
     custosFixosFranquia,
     evolucaoMensal,
-    itensVsPreco,
     faturamentoVsTicket,
   };
 }

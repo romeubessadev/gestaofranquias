@@ -58,10 +58,10 @@ Fase 1 (chrome + KPIs compartilhados) + fase 2 (cards exclusivos).
 
 ## 5. Itens vs Preço Médio
 
-| Elemento | Final |
-|---|---|
-| Título | `Itens vs Preço Médio` *(era “Itens Vendidos vs Preço Médio”)* |
-| Tooltip | `Indica se o período vendeu mais unidades ou itens com preço médio maior (valor médio por item).` |
+> **Movido para Produtos** (fora do Financeiro). Card de mix/volume × preço por item — não é núcleo de dinheiro.
+> Reintroduzir em `ProdutosPage` com as duas séries (qty + preço médio).
+
+~~Removido do Financeiro.~~
 
 ---
 
