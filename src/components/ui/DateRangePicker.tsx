@@ -66,11 +66,14 @@ export function DateRangePicker({
   onChange,
   quickRanges = QUICK_RANGES_PADRAO,
   className,
+  size = "md",
 }: {
   value: DateRange | null;
   onChange: (r: DateRange) => void;
   quickRanges?: QuickRange[];
   className?: string;
+  /** Alinha ao Button: sm = h-8 (ações do PageHeader), md = h-10. */
+  size?: "sm" | "md";
 }) {
   const hoje = useMemo(() => zeraHora(new Date()), []);
   const [open, setOpen] = useState(false);
@@ -142,15 +145,16 @@ export function DateRangePicker({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex h-10 min-w-0 items-center gap-2.5 rounded-[var(--radius-vela-sm)] border bg-bg-3 px-3.5 text-left transition-colors",
+          "flex min-w-0 items-center rounded-[var(--radius-vela-sm)] border bg-bg-3 text-left transition-colors",
+          size === "sm" ? "h-8 gap-2 px-3" : "h-10 gap-2.5 px-3.5",
           open ? "border-acc" : "border-line hover:border-acc",
         )}
       >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+        <svg width={size === "sm" ? 14 : 15} height={size === "sm" ? 14 : 15} viewBox="0 0 24 24" fill="none" stroke="var(--t2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
           <rect x="3" y="4" width="18" height="18" rx="2" />
           <path d="M16 2v4M8 2v4M3 10h18" />
         </svg>
-        <span className={cn("min-w-0 truncate text-[13.5px] font-semibold", value ? "text-t0" : "text-t2")}>{rotulo}</span>
+        <span className={cn("min-w-0 truncate font-semibold", size === "sm" ? "text-xs" : "text-[13.5px]", value ? "text-t0" : "text-t2")}>{rotulo}</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={cn("shrink-0 text-t2 transition-transform", open && "rotate-180")}>
           <path d="m6 9 6 6 6-6" />
         </svg>
