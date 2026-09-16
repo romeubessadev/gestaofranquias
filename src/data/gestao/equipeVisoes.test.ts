@@ -430,7 +430,7 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
 describe("T5: desafios na visão (EQUIP-05)", () => {
   it("progresso agregado é a soma do progresso individual e alvo agregado = alvo × participantes", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
-    expect(v.desafios!.length).toBe(6);
+    expect(v.desafios!.length).toBe(4);
     for (const d of v.desafios!) {
       expect(d.progressoAgregado).toBeCloseTo(
         d.ranking.reduce((s, p) => s + p.progresso, 0),
@@ -478,7 +478,7 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
       id: "d-teste",
       nome: "Teste",
       objetivo: "Quem vender 10 unidades ganha o prêmio.",
-      tipo: "quantidade",
+      tipo: "produto",
       alvoIndividual: 10,
       unidade: "un",
       premio: 40,

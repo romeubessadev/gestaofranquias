@@ -1,13 +1,13 @@
 /**
- * Desafios ativos da competência (mock determinístico). Desafio é objetivo
- * pontual de produto, quantidade ou índice — nunca em reais (regra da futura
+ * Desafios ativos da competência (mock determinístico). Tipos reais do
+ * negócio: Produto, P.A. e Ticket médio — nunca em reais (regra da futura
  * tela de Configurações · Desafios). O progresso de cada participante é
  * gerado com a mesma técnica de ruído do gerador de vendas: mesma entrada,
  * mesmo valor, em qualquer dia de validação.
  */
 import { colaboradores, vendedorElegivel } from "./equipe";
 
-export type TipoDesafio = "produto" | "quantidade" | "indice";
+export type TipoDesafio = "produto" | "pa" | "ticket";
 
 export interface Desafio {
   id: string;
@@ -15,14 +15,14 @@ export interface Desafio {
   /** Frase curta do objetivo (o que precisa fazer). */
   objetivo: string;
   tipo: TipoDesafio;
-  /** Alvo por participante: 15 un de Body Cream, 3 un de produto, 1.90 de P.A. */
+  /** Alvo por participante: 15 un, 1.90 de P.A., 185 de ticket. */
   alvoIndividual: number;
   unidade: "un" | "x";
   /** R$ por participante que fechar o desafio. */
   premio: number;
   /** "AAAA-MM" */
   competencia: string;
-  /** Produto alvo (tipo produto), quando aplicável. */
+  /** Produto/categoria alvo (tipo produto), quando aplicável. */
   produtoId: number | null;
   participantes: string[];
 }
@@ -45,12 +45,20 @@ function hash(s: string): number {
   return h >>> 0;
 }
 
-/** Participantes: vendedoras elegíveis de ambas as lojas no início do mês. */
-const ELEGIVEIS_SETEMBRO = colaboradores
-  .filter((c) => vendedorElegivel(c) && c.dataAdmissao <= "2026-09-01" && (!c.dataInatividade || c.dataInatividade > "2026-09-01"))
+/**
+ * Vendedoras ativas na competência (sem caixa, sem férias, admitidas até o
+ * dia 1). Usado como pool; cada desafio escolhe o subconjunto engajado.
+ */
+const ATIVAS_SETEMBRO = colaboradores
+  .filter(
+    (c) =>
+      vendedorElegivel(c) &&
+      c.dataAdmissao <= "2026-09-01" &&
+      (!c.dataInatividade || c.dataInatividade > "2026-09-15"),
+  )
   .map((c) => c.id);
 
-/** Desafios da competência corrente do mock (setembro/2026). */
+/** Desafios da competência corrente do mock (setembro/2026) — tipicamente 4. */
 export const desafios: Desafio[] = [
   {
     id: "d-perfumaria",
@@ -61,68 +69,44 @@ export const desafios: Desafio[] = [
     unidade: "un",
     premio: 80,
     competencia: "2026-09",
-    produtoId: 3,
-    participantes: ELEGIVEIS_SETEMBRO,
+    produtoId: 1,
+    participantes: ["c01", "c02", "c07", "c11", "c12", "c14"],
   },
   {
     id: "d-bodycream",
     nome: "Body Cream — acima de 15 un",
     objetivo: "Quem vender mais Body Cream (mínimo 15 unidades) ganha o prêmio.",
-    tipo: "quantidade",
+    tipo: "produto",
     alvoIndividual: 15,
     unidade: "un",
     premio: 50,
     competencia: "2026-09",
-    produtoId: 2,
-    participantes: ELEGIVEIS_SETEMBRO,
+    produtoId: 3,
+    participantes: ["c01", "c03", "c04", "c08", "c13", "c15", "c17"],
   },
   {
     id: "d-pa",
     nome: "P.A. acima de 1,90",
     objetivo: "Quem mantiver P.A. acima de 1,90 no mês ganha o prêmio.",
-    tipo: "indice",
+    tipo: "pa",
     alvoIndividual: 1.9,
     unidade: "x",
     premio: 60,
     competencia: "2026-09",
     produtoId: null,
-    participantes: ELEGIVEIS_SETEMBRO,
-  },
-  {
-    id: "d-protocolo",
-    nome: "Kit Presente — acima de 5 un",
-    objetivo: "Quem vender 5 ou mais Kits Presente ganha o prêmio.",
-    tipo: "produto",
-    alvoIndividual: 5,
-    unidade: "un",
-    premio: 70,
-    competencia: "2026-09",
-    produtoId: 7,
-    participantes: ELEGIVEIS_SETEMBRO,
-  },
-  {
-    id: "d-serum",
-    nome: "Sérum Vitamina C — acima de 8 un",
-    objetivo: "Quem vender 8 ou mais unidades de Sérum Vitamina C ganha o prêmio.",
-    tipo: "quantidade",
-    alvoIndividual: 8,
-    unidade: "un",
-    premio: 45,
-    competencia: "2026-09",
-    produtoId: 5,
-    participantes: ELEGIVEIS_SETEMBRO,
+    participantes: ATIVAS_SETEMBRO,
   },
   {
     id: "d-ticket",
-    nome: "Ticket acima de R$ 185",
+    nome: "Ticket médio acima de R$ 185",
     objetivo: "Quem mantiver ticket médio acima de R$ 185 ganha o prêmio.",
-    tipo: "indice",
+    tipo: "ticket",
     alvoIndividual: 185,
     unidade: "x",
     premio: 100,
     competencia: "2026-09",
     produtoId: null,
-    participantes: ELEGIVEIS_SETEMBRO,
+    participantes: ATIVAS_SETEMBRO,
   },
 ];
 
@@ -133,7 +117,7 @@ export function desafiosAtivos(competencia: string): Desafio[] {
 
 /**
  * Progresso individual do participante no desafio, até agora (relógio do mock:
- * 15/09, 14h). produto/quantidade: un vendidas; índice: valor do índice (P.A.).
+ * 15/09, 14h). produto: un vendidas; pa/ticket: valor do índice.
  * Determinístico pela chave desafio|participante.
  */
 export function progressoIndividual(d: Desafio, colaboradorId: string): number {
@@ -141,7 +125,7 @@ export function progressoIndividual(d: Desafio, colaboradorId: string): number {
   const r = prng(hash(`${d.id}|${colaboradorId}`));
   // Fração do alvo já alcançada: ~metade do mês decorrida (15 dias de 31),
   // algumas pessoas à frente e outras atrás. Índice fica perto do alvo.
-  if (d.tipo === "indice") {
+  if (d.tipo === "pa" || d.tipo === "ticket") {
     const fator = 0.95 + (r() * 2 - 1) * 0.25;
     return Math.round(d.alvoIndividual * fator * 100) / 100;
   }

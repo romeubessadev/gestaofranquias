@@ -467,21 +467,23 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
 
 /* ------------------------- Desafios (EQUIP-05) ------------------------- */
 
-const TIPO_TEXTO: Record<Desafio["tipo"], string> = { produto: "Produto", quantidade: "Quantidade", indice: "Índice" };
+const TIPO_TEXTO: Record<Desafio["tipo"], string> = {
+  produto: "Produto",
+  pa: "P.A.",
+  ticket: "Ticket médio",
+};
 
 const EMOJI_DESAFIO: Record<string, string> = {
   "d-perfumaria": "🌸",
   "d-bodycream": "🔥",
   "d-pa": "📈",
-  "d-protocolo": "🎁",
-  "d-serum": "✨",
   "d-ticket": "💳",
 };
 
 const EMOJI_TIPO: Record<Desafio["tipo"], string> = {
   produto: "🧴",
-  quantidade: "📦",
-  indice: "📊",
+  pa: "📊",
+  ticket: "🎫",
 };
 
 function statusParticipante(progresso: number, alvo: number): DesafioParticipanteView["status"] {

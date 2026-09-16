@@ -372,7 +372,7 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
   const toggle = (id: string) => setAbertos((prev) => ({ ...prev, [id]: !prev[id] }));
 
   return (
-    <div>
+    <Card padding="lg">
       <div className="mb-4">
         <CardTitle>Desafios ativos</CardTitle>
         <p className="mt-1 text-[12.5px] text-t2">
@@ -386,10 +386,18 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
           const barColor = STATUS_BAR[d.statusVariant];
           const pct = Math.round(Math.min(100, d.progressoPct));
           return (
-            <Card
+            <div
               key={d.id}
-              className="cursor-pointer transition-colors hover:border-line-2"
+              role="button"
+              tabIndex={0}
+              className="cursor-pointer rounded-[var(--radius-vela-lg)] border border-line bg-bg-inset p-5 transition-colors hover:border-line-2"
               onClick={() => toggle(d.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggle(d.id);
+                }
+              }}
             >
               <div className="mb-3.5 flex items-center gap-3">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-acc-soft text-xl" aria-hidden>
@@ -439,7 +447,7 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
 
               {aberto && (
                 <div
-                  className="mt-3 space-y-2.5 border-t border-line pt-3 animate-vela-fade"
+                  className="mt-3 max-h-[260px] space-y-2.5 overflow-y-auto border-t border-line pt-3 animate-vela-fade"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {d.ranking.map((p, idx) => (
@@ -469,11 +477,11 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
                   )}
                 </div>
               )}
-            </Card>
+            </div>
           );
         })}
       </div>
-    </div>
+    </Card>
   );
 }
 

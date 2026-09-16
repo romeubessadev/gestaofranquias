@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { desafios, desafiosAtivos, progressoIndividual } from "./desafios";
-import { colaboradorPorId, colaboradores } from "./equipe";
+import { colaboradorPorId } from "./equipe";
 
 describe("T1: desafios ativos (EQUIP-05)", () => {
-  it("competência corrente tem 6 desafios ativos", () => {
-    expect(desafiosAtivos("2026-09").length).toBe(6);
+  it("competência corrente tem 4 desafios ativos", () => {
+    expect(desafiosAtivos("2026-09").length).toBe(4);
   });
 
   it("competência sem desafios devolve lista vazia", () => {
@@ -12,9 +12,9 @@ describe("T1: desafios ativos (EQUIP-05)", () => {
     expect(desafiosAtivos("2025-01")).toEqual([]);
   });
 
-  it("cobre os três tipos: produto, quantidade e índice (com repetição entre eles)", () => {
+  it("cobre os três tipos: produto, P.A. e ticket médio", () => {
     const tipos = desafiosAtivos("2026-09").map((d) => d.tipo);
-    expect(new Set(tipos)).toEqual(new Set(["produto", "quantidade", "indice"]));
+    expect(new Set(tipos)).toEqual(new Set(["produto", "pa", "ticket"]));
   });
 
   it("desafios nunca em reais: prêmio é o único campo monetário", () => {
@@ -24,20 +24,33 @@ describe("T1: desafios ativos (EQUIP-05)", () => {
     }
   });
 
-  it("participantes são vendedoras elegíveis existentes", () => {
+  it("participantes são vendedoras elegíveis existentes e sem férias no meio", () => {
     for (const d of desafiosAtivos("2026-09")) {
       expect(d.participantes.length).toBeGreaterThan(0);
       for (const id of d.participantes) {
         const c = colaboradorPorId(id);
         expect(c).toBeDefined();
+        expect(c!.tipo).toBe("VENDEDOR");
+        expect(id).not.toBe("c06"); // Fernanda em férias
+        expect(id).not.toBe("c09"); // caixa
       }
     }
+  });
+
+  it("desafios de produto têm subconjunto; P.A. e ticket usam o pool ativo", () => {
+    const ativos = desafiosAtivos("2026-09");
+    const perf = ativos.find((d) => d.id === "d-perfumaria")!;
+    const body = ativos.find((d) => d.id === "d-bodycream")!;
+    const pa = ativos.find((d) => d.id === "d-pa")!;
+    const ticket = ativos.find((d) => d.id === "d-ticket")!;
+    expect(perf.participantes.length).toBeLessThan(pa.participantes.length);
+    expect(body.participantes.length).toBeLessThan(pa.participantes.length);
+    expect(pa.participantes).toEqual(ticket.participantes);
   });
 
   it("progresso individual é determinístico (mesma chave, mesmo valor)", () => {
     const d = desafiosAtivos("2026-09")[0];
     const id = d.participantes[0];
-    expect(progressoIndividual(d, id)).toBe(progressoIndividual(d, id));
     expect(progressoIndividual(d, id)).toBe(progressoIndividual(d, id));
   });
 
@@ -46,14 +59,6 @@ describe("T1: desafios ativos (EQUIP-05)", () => {
     for (const id of d.participantes) {
       expect(progressoIndividual(d, id)).toBeGreaterThanOrEqual(0);
     }
-    // CAIXA (c09) não está nos participantes: progresso 0.
     expect(progressoIndividual(d, "c09")).toBe(0);
-  });
-
-  it("todas as vendedoras elegíveis de setembro participam de todos os desafios", () => {
-    const elegiveis = colaboradores.filter((c) => c.tipo === "VENDEDOR" && !c.excluirDeRanking && !c.inativoNoErp && c.dataAdmissao <= "2026-09-01" && (!c.dataInatividade || c.dataInatividade > "2026-09-01"));
-    for (const d of desafiosAtivos("2026-09")) {
-      expect(d.participantes.length).toBe(elegiveis.length);
-    }
   });
 });
