@@ -304,7 +304,7 @@ export default function ProdutosPage() {
           {grupos.length === 0 ? (
             <p className="py-10 text-center text-sm text-t2">Nenhum produto encontrado.</p>
           ) : (
-            <table className="w-full min-w-[960px] border-collapse text-[13px]">
+            <table className="w-full min-w-[1100px] border-collapse text-[13px]">
               <thead>
                 <tr className="border-b-2 border-line">
                   <th className="px-3 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-t2">Categoria / Produto</th>
@@ -312,12 +312,11 @@ export default function ProdutosPage() {
                   <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">CMV</th>
                   <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">Lucro bruto</th>
                   <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">% Margem</th>
-                  <th className="hidden px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2 lg:table-cell">CMV %</th>
-                  <th className="hidden px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2 xl:table-cell">Qtd vendas</th>
-                  <th className="hidden px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2 xl:table-cell">Ticket médio</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">CMV %</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">Qtd vendas</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">Ticket médio</th>
                   <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">Qtd itens</th>
-                  <th className="hidden px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2 lg:table-cell">T.M/item</th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">Estoque</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-t2">Dias de cobertura</th>
                 </tr>
               </thead>
               <tbody>
@@ -331,16 +330,7 @@ export default function ProdutosPage() {
                 ))}
                 <tr className="border-t-2 border-line bg-bg-inset">
                   <td className="px-3 py-3 text-[13.5px] font-extrabold text-t0">Total</td>
-                  <td className="px-3 py-3 text-right text-[14px] font-extrabold tabular-nums text-t0">{brl(totalTabela.faturamento)}</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{brl(totalTabela.cmv)}</td>
-                  <td className="px-3 py-3 text-right text-[14px] font-extrabold tabular-nums text-ok">{brl(totalTabela.lucro)}</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-extrabold tabular-nums text-t0">{totalTabela.margemPct.toFixed(0)}%</td>
-                  <td className="hidden px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1 lg:table-cell">{totalTabela.cmvPct.toFixed(0)}%</td>
-                  <td className="hidden px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1 xl:table-cell">{num(totalTabela.qtdVendas)}</td>
-                  <td className="hidden px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1 xl:table-cell">{brl(totalTabela.ticketMedio)}</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-extrabold tabular-nums text-t0">{num(totalTabela.itens)}</td>
-                  <td className="hidden px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1 lg:table-cell">{brl(totalTabela.tmPorItem)}</td>
-                  <td className="px-3 py-3" />
+                  <CelulasMetricas m={totalTabela} bold />
                 </tr>
               </tbody>
             </table>
@@ -366,42 +356,19 @@ export default function ProdutosPage() {
                         <p className="truncate text-[13.5px] font-bold text-t0">{g.nome}</p>
                         <p className="mt-0.5 text-[11px] text-t2">{g.produtos.length} produto{g.produtos.length === 1 ? "" : "s"}</p>
                       </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <span className="text-[13px] font-extrabold tabular-nums text-t0">{brl(g.metrics.faturamento)}</span>
-                        <Chevron aberto={aberta} />
-                      </div>
+                      <Chevron aberto={aberta} />
                     </button>
-                    <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-line pt-2.5 text-[11.5px]">
-                      <div className="flex justify-between gap-2">
-                        <span className="text-t2">Lucro bruto</span>
-                        <span className="font-semibold tabular-nums text-ok">{brl(g.metrics.lucro)}</span>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-t2">Margem</span>
-                        <span className="font-semibold tabular-nums text-t0">{g.metrics.margemPct.toFixed(0)}%</span>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-t2">CMV</span>
-                        <span className="font-semibold tabular-nums text-t0">{brl(g.metrics.cmv)}</span>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-t2">Itens</span>
-                        <span className="font-semibold tabular-nums text-t0">{num(g.metrics.itens)}</span>
-                      </div>
-                    </div>
+                    <GradeMetricas m={g.metrics} className="mt-2.5 border-t border-line pt-2.5" />
                     {aberta && (
                       <div className="mt-2.5 flex flex-col gap-2 border-t border-line pt-2.5">
                         {g.produtos.map((p) => (
                           <div key={p.codProduto} className="rounded-lg border border-line bg-bg-2 px-3 py-2.5">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="min-w-0 flex-1 text-[12.5px] font-semibold text-t0">{p.nome}</p>
-                              <EstoqueBadge coberturaDias={p.coberturaDias} />
-                            </div>
-                            <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-t2">
-                              <span className="font-semibold tabular-nums text-t0">{brl(p.receita)}</span>
-                              <span>Margem {p.margemPct.toFixed(0)}%</span>
-                              <span>{num(p.itens)} un</span>
-                            </div>
+                            <p className="text-[12.5px] font-semibold text-t0">{p.nome}</p>
+                            <GradeMetricas
+                              m={metricasDeProduto(p)}
+                              coberturaDias={p.coberturaDias}
+                              className="mt-2"
+                            />
                           </div>
                         ))}
                       </div>
@@ -411,24 +378,7 @@ export default function ProdutosPage() {
               })}
               <div className="rounded-xl border border-line bg-bg-3 p-3.5">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-t2">Total</p>
-                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11.5px]">
-                  <div className="flex justify-between gap-2">
-                    <span className="text-t2">Faturamento</span>
-                    <span className="font-extrabold tabular-nums text-t0">{brl(totalTabela.faturamento)}</span>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-t2">Lucro bruto</span>
-                    <span className="font-extrabold tabular-nums text-ok">{brl(totalTabela.lucro)}</span>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-t2">Margem</span>
-                    <span className="font-extrabold tabular-nums text-t0">{totalTabela.margemPct.toFixed(0)}%</span>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-t2">Itens</span>
-                    <span className="font-extrabold tabular-nums text-t0">{num(totalTabela.itens)}</span>
-                  </div>
-                </div>
+                <GradeMetricas m={totalTabela} className="mt-2" destaque />
               </div>
             </>
           )}
@@ -468,7 +418,6 @@ interface MetricasLinha {
   qtdVendas: number;
   ticketMedio: number;
   itens: number;
-  tmPorItem: number;
 }
 
 interface GrupoCategoria {
@@ -489,7 +438,6 @@ function metricasDeCategoria(cat: CategoriaFat): MetricasLinha {
     qtdVendas,
     ticketMedio: qtdVendas > 0 ? cat.faturamento / qtdVendas : 0,
     itens: cat.itens,
-    tmPorItem: cat.itens > 0 ? cat.faturamento / cat.itens : 0,
   };
 }
 
@@ -508,7 +456,6 @@ function metricasDeProdutos(prods: ProdutoLinha[]): MetricasLinha {
     qtdVendas,
     ticketMedio: qtdVendas > 0 ? faturamento / qtdVendas : 0,
     itens,
-    tmPorItem: itens > 0 ? faturamento / itens : 0,
   };
 }
 
@@ -523,7 +470,6 @@ function metricasDeProduto(p: ProdutoLinha): MetricasLinha {
     qtdVendas,
     ticketMedio: qtdVendas > 0 ? p.receita / qtdVendas : 0,
     itens: p.itens,
-    tmPorItem: p.itens > 0 ? p.receita / p.itens : 0,
   };
 }
 
@@ -545,25 +491,78 @@ function Chevron({ aberto }: { aberto: boolean }) {
   );
 }
 
-function EstoqueBadge({ coberturaDias }: { coberturaDias: number | null }) {
+function CoberturaCell({ coberturaDias }: { coberturaDias: number | null | undefined }) {
+  if (coberturaDias === undefined) return <span className="text-t2">—</span>;
   if (coberturaDias === null) return <Badge variant="danger">Ruptura</Badge>;
-  if (coberturaDias <= 7) return <Badge variant="warning">{coberturaDias}d</Badge>;
-  return <span className="tabular-nums text-t2">{coberturaDias}d</span>;
+  if (coberturaDias <= 7) return <Badge variant="warning">{coberturaDias} dias</Badge>;
+  return <span className="tabular-nums text-t1">{coberturaDias} dias</span>;
 }
 
-function CelulasMetricas({ m, estoque }: { m: MetricasLinha; estoque?: React.ReactNode }) {
+/** Grade 2 colunas — mesmas métricas da tabela, para mobile. */
+function GradeMetricas({
+  m,
+  coberturaDias,
+  className,
+  destaque = false,
+}: {
+  m: MetricasLinha;
+  coberturaDias?: number | null;
+  className?: string;
+  destaque?: boolean;
+}) {
+  const val = destaque ? "font-extrabold tabular-nums text-t0" : "font-semibold tabular-nums text-t0";
+  const rows: { label: string; value: React.ReactNode }[] = [
+    { label: "Faturamento", value: <span className={val}>{brl(m.faturamento)}</span> },
+    { label: "CMV", value: <span className={val}>{brl(m.cmv)}</span> },
+    { label: "Lucro bruto", value: <span className={cn(val, "text-ok")}>{brl(m.lucro)}</span> },
+    { label: "% Margem", value: <span className={val}>{m.margemPct.toFixed(0)}%</span> },
+    { label: "CMV %", value: <span className={val}>{m.cmvPct.toFixed(0)}%</span> },
+    { label: "Qtd vendas", value: <span className={val}>{num(m.qtdVendas)}</span> },
+    { label: "Ticket médio", value: <span className={val}>{brl(m.ticketMedio)}</span> },
+    { label: "Qtd itens", value: <span className={val}>{num(m.itens)}</span> },
+  ];
+  if (coberturaDias !== undefined) {
+    rows.push({ label: "Cobertura", value: <CoberturaCell coberturaDias={coberturaDias} /> });
+  }
+  return (
+    <div className={cn("grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11.5px]", className)}>
+      {rows.map((r) => (
+        <div key={r.label} className="flex justify-between gap-2">
+          <span className="text-t2">{r.label}</span>
+          {r.value}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CelulasMetricas({
+  m,
+  cobertura,
+  bold = false,
+}: {
+  m: MetricasLinha;
+  /** undefined = categoria/total (—); null = ruptura; number = dias */
+  cobertura?: number | null;
+  bold?: boolean;
+}) {
+  const fatCls = bold ? "px-3 py-3 text-right text-[14px] font-extrabold tabular-nums text-t0" : "px-3 py-2.5 text-right font-semibold tabular-nums text-t0";
+  const cmvCls = bold ? "px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1" : "px-3 py-2.5 text-right tabular-nums text-t1";
+  const lucroCls = bold ? "px-3 py-3 text-right text-[14px] font-extrabold tabular-nums text-ok" : "px-3 py-2.5 text-right font-extrabold tabular-nums text-ok";
+  const pctCls = bold ? "px-3 py-3 text-right text-[13.5px] font-extrabold tabular-nums text-t0" : "px-3 py-2.5 text-right tabular-nums text-t1";
   return (
     <>
-      <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-t0">{brl(m.faturamento)}</td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-t1">{brl(m.cmv)}</td>
-      <td className="px-3 py-2.5 text-right font-extrabold tabular-nums text-ok">{brl(m.lucro)}</td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-t1">{m.margemPct.toFixed(0)}%</td>
-      <td className="hidden px-3 py-2.5 text-right tabular-nums text-t1 lg:table-cell">{m.cmvPct.toFixed(0)}%</td>
-      <td className="hidden px-3 py-2.5 text-right tabular-nums text-t1 xl:table-cell">{num(m.qtdVendas)}</td>
-      <td className="hidden px-3 py-2.5 text-right tabular-nums text-t1 xl:table-cell">{brl(m.ticketMedio)}</td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-t1">{num(m.itens)}</td>
-      <td className="hidden px-3 py-2.5 text-right tabular-nums text-t1 lg:table-cell">{brl(m.tmPorItem)}</td>
-      <td className="px-3 py-2.5 text-right">{estoque ?? null}</td>
+      <td className={fatCls}>{brl(m.faturamento)}</td>
+      <td className={cmvCls}>{brl(m.cmv)}</td>
+      <td className={lucroCls}>{brl(m.lucro)}</td>
+      <td className={pctCls}>{m.margemPct.toFixed(0)}%</td>
+      <td className={cmvCls}>{m.cmvPct.toFixed(0)}%</td>
+      <td className={cmvCls}>{num(m.qtdVendas)}</td>
+      <td className={cmvCls}>{brl(m.ticketMedio)}</td>
+      <td className={bold ? "px-3 py-3 text-right text-[13.5px] font-extrabold tabular-nums text-t0" : "px-3 py-2.5 text-right tabular-nums text-t1"}>{num(m.itens)}</td>
+      <td className="px-3 py-2.5 text-right">
+        {cobertura === undefined ? <span className="text-t2">—</span> : <CoberturaCell coberturaDias={cobertura} />}
+      </td>
     </>
   );
 }
@@ -597,7 +596,7 @@ function CategoriaTreeRows({
             <td className="px-3 py-2.5 pl-11">
               <span className="text-[13px] font-semibold text-t1">{p.nome}</span>
             </td>
-            <CelulasMetricas m={metricasDeProduto(p)} estoque={<EstoqueBadge coberturaDias={p.coberturaDias} />} />
+            <CelulasMetricas m={metricasDeProduto(p)} cobertura={p.coberturaDias} />
           </tr>
         ))}
     </>
