@@ -1,9 +1,9 @@
 import { useMemo, useState, useCallback } from "react";
-import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button } from "@/components/ui";
+import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, DataTable, type DataTableColumn } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, BarChart, StackedBarChart, DonutChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
-import { montarFinanceiroView, type FinanceiroKpi } from "@/data/gestao/dashboard";
+import { montarFinanceiroView, type FinanceiroKpi, type EvolucaoMensalLinha } from "@/data/gestao/dashboard";
 import { brl } from "@/lib/formato";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 import { deIso } from "@/lib/formato";
@@ -51,6 +51,47 @@ const KPI_COLORS = [
   { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
   { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },
   { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
+];
+
+const evolucaoColumns: DataTableColumn<EvolucaoMensalLinha>[] = [
+  {
+    key: "mes",
+    header: "Mês",
+    render: (r) => <span className="font-bold text-t0">{r.mes}</span>,
+  },
+  {
+    key: "faturamento",
+    header: "Faturamento",
+    align: "right",
+    render: (r) => <span className="font-semibold tabular-nums">{brl(r.faturamento)}</span>,
+  },
+  {
+    key: "cmv",
+    header: "CMV",
+    align: "right",
+    hideBelow: "sm",
+    render: (r) => <span className="tabular-nums text-t1">{brl(r.custo)}</span>,
+  },
+  {
+    key: "lucro",
+    header: "Lucro bruto",
+    align: "right",
+    render: (r) => <span className="font-extrabold tabular-nums text-ok">{brl(r.lucro)}</span>,
+  },
+  {
+    key: "margem",
+    header: "Margem",
+    align: "right",
+    hideBelow: "md",
+    render: (r) => <span className="tabular-nums text-t1">{r.margemPct.toFixed(1)}%</span>,
+  },
+  {
+    key: "ticket",
+    header: "Ticket Médio",
+    align: "right",
+    hideBelow: "md",
+    render: (r) => <span className="tabular-nums text-t1">{brl(r.ticketMedio)}</span>,
+  },
 ];
 
 export default function FinanceiroPage() {
@@ -273,39 +314,58 @@ export default function FinanceiroPage() {
         </Card>
       </div>
 
-      {/* Evolução Mensal — tabela DRE simplificada */}
-      <Card className="mt-4">
-        <CardHeader>
-          <div className="flex items-center gap-1.5">
-            <CardTitle>Evolução Mensal</CardTitle>
-            <TipHelp label="Resumo mensal de faturamento, CMV, lucro bruto, margem e ticket médio." />
-          </div>
-        </CardHeader>
-        <div className="overflow-x-auto px-4 pb-4">
-          <table className="w-full min-w-[600px] text-left text-[12px]">
-            <thead>
-              <tr className="border-b border-line text-[11px] font-bold uppercase tracking-wide text-t2">
-                <th className="py-2 pr-3">Mês</th>
-                <th className="py-2 pr-3 text-right">Faturamento</th>
-                <th className="py-2 pr-3 text-right">CMV</th>
-                <th className="py-2 pr-3 text-right">Lucro bruto</th>
-                <th className="py-2 pr-3 text-right">Margem</th>
-                <th className="py-2 text-right">Ticket Médio</th>
-              </tr>
-            </thead>
-            <tbody>
-              {view.evolucaoMensal.map((linha) => (
-                <tr key={linha.mes} className="border-b border-line/50 text-t1 last:border-0">
-                  <td className="py-2 pr-3 font-semibold text-t0">{linha.mes}</td>
-                  <td className="py-2 pr-3 text-right">{brl(linha.faturamento)}</td>
-                  <td className="py-2 pr-3 text-right">{brl(linha.custo)}</td>
-                  <td className="py-2 pr-3 text-right font-semibold text-ok">{brl(linha.lucro)}</td>
-                  <td className="py-2 pr-3 text-right">{linha.margemPct.toFixed(1)}%</td>
-                  <td className="py-2 text-right">{brl(linha.ticketMedio)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Evolução Mensal — DataTable (desktop) + cards (mobile) */}
+      <Card className="mt-4" padding="none">
+        <div className="flex items-center gap-1.5 border-b border-line px-5 py-4">
+          <CardTitle>Evolução Mensal</CardTitle>
+          <TipHelp label="Resumo mensal de faturamento, CMV, lucro bruto, margem e ticket médio." />
+        </div>
+
+        {/* Desktop / tablet — DataTable Vela */}
+        <div className="hidden p-4 md:block">
+          <DataTable
+            columns={evolucaoColumns}
+            data={view.evolucaoMensal}
+            rowKey={(r) => r.mes}
+            emptyMessage="Sem dados no período selecionado."
+          />
+        </div>
+
+        {/* Mobile — stack em cards (padrão Responsive Tables) */}
+        <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
+          {view.evolucaoMensal.length === 0 ? (
+            <p className="py-6 text-center text-sm text-t2">Sem dados no período selecionado.</p>
+          ) : (
+            view.evolucaoMensal.map((linha) => (
+              <div key={linha.mes} className="rounded-xl border border-line bg-bg-inset p-3.5">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="text-[13.5px] font-bold text-t0">{linha.mes}</p>
+                  <div className="text-right">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-t2">Lucro bruto</p>
+                    <span className="text-[13px] font-extrabold tabular-nums text-ok">{brl(linha.lucro)}</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-line pt-2.5 text-[11.5px]">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-t2">Faturamento</span>
+                    <span className="font-semibold tabular-nums text-t0">{brl(linha.faturamento)}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-t2">CMV</span>
+                    <span className="font-semibold tabular-nums text-t0">{brl(linha.custo)}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-t2">Margem</span>
+                    <span className="font-semibold tabular-nums text-t0">{linha.margemPct.toFixed(1)}%</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-t2">Ticket</span>
+                    <span className="font-semibold tabular-nums text-t0">{brl(linha.ticketMedio)}</span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </Card>
     </div>
