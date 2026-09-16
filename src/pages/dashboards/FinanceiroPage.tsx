@@ -235,6 +235,8 @@ export default function FinanceiroPage() {
               }))}
               centerLabel="Total"
               centerValue={brl(view.formasPagamento.reduce((s, f) => s + f.valor, 0))}
+              formatValue={brl}
+              showLegendValue
             />
           </div>
         </Card>

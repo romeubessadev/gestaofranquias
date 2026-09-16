@@ -278,12 +278,11 @@ export default function VisaoGeralPage() {
             <CardTitle>Ranking de Lojas</CardTitle>
             <Badge variant="accent">{brlK(view.rankingLojas.reduce((s, l) => s + l.valor, 0))} total</Badge>
           </div>
-          <p className="mb-2 text-[12.5px] text-t2">Participação no faturamento do grupo</p>
           {view.rankingLojas.length === 0 ? (
             <span className="py-6 text-center text-[12px] text-t2">Sem dados no período.</span>
           ) : (
             (() => {
-              const totalGrupo = view.rankingLojas.reduce((s, l) => s + l.valor, 0) || 1;
+              const total = view.rankingLojas.reduce((s, l) => s + l.valor, 0) || 1;
               return (
                 <>
                   <div className="flex flex-1 flex-col items-center justify-center">
@@ -295,15 +294,13 @@ export default function VisaoGeralPage() {
                       }))}
                       size={148}
                       thickness={20}
-                      centerLabel="Total grupo"
-                      centerValue={brlK(totalGrupo)}
-                      formatValue={brlK}
+                      centerLabel="Total"
+                      centerValue={brlK(total)}
                     />
                   </div>
                   <div className="mt-4 flex flex-col gap-3">
                     {view.rankingLojas.map((loja, idx) => {
-                      const participacao = Math.round((loja.valor / totalGrupo) * 100);
-                      const pctMeta = loja.pctMeta != null ? Math.round(loja.pctMeta) : null;
+                      const pctMeta = loja.pctMeta != null ? Math.round(loja.pctMeta) : 0;
                       const cor = CORES_LOJAS[idx % CORES_LOJAS.length];
                       return (
                         <div key={loja.nome} className="rounded-xl bg-bg-inset p-3">
@@ -315,11 +312,10 @@ export default function VisaoGeralPage() {
                             <span className="font-mono text-[13px] font-extrabold text-t0">{brlK(loja.valor)}</span>
                           </div>
                           <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-bg-2">
-                            <div className="h-full rounded-full" style={{ width: `${participacao}%`, background: cor }} />
+                            <div className="h-full rounded-full" style={{ width: `${Math.min(100, pctMeta)}%`, background: cor }} />
                           </div>
                           <span className="text-[11px] font-semibold text-t2">
-                            {pctMeta != null ? `${pctMeta}% da meta · ` : ""}
-                            {participacao}% do grupo
+                            {pctMeta}% da meta
                           </span>
                         </div>
                       );
@@ -351,6 +347,7 @@ export default function VisaoGeralPage() {
                   centerLabel="Total"
                   centerValue={brlK(total)}
                   formatValue={brlK}
+                  showLegendValue
                 />
               </div>
             );

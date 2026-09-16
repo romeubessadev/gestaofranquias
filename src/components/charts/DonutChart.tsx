@@ -4,7 +4,7 @@ export interface DonutSegment {
   color: string;
 }
 
-export function DonutChart({ segments, size = 160, thickness = 24, centerLabel, centerValue, formatValue, showLegendValue = true }: {
+export function DonutChart({ segments, size = 160, thickness = 24, centerLabel, centerValue, formatValue, showLegendValue = false }: {
   segments: DonutSegment[];
   size?: number;
   thickness?: number;
@@ -54,14 +54,14 @@ export function DonutChart({ segments, size = 160, thickness = 24, centerLabel, 
             </div>
           )}
         </div>
-        {/* Legenda lateral: cor + nome + valor bold + percentual (estilo Expense breakdown do Vela) */}
+        {/* Legenda lateral: cor + nome + % (padrão Vela / Plan mix); valor opcional via showLegendValue */}
         <div className="flex flex-col gap-2.5">
           {segments.map((seg) => (
             <div key={seg.label} className="flex items-center gap-2.5 text-[12.5px]">
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: seg.color }} />
               <span className="text-t1">{seg.label}</span>
               {showLegendValue && <span className="font-bold text-t0">{formatValue ? formatValue(seg.value) : seg.value.toLocaleString("pt-BR")}</span>}
-              <span className="text-[11.5px] font-semibold text-t2">{Math.round((seg.value / total) * 100)}%</span>
+              <span className="text-[11.5px] font-bold text-t0">{Math.round((seg.value / total) * 100)}%</span>
             </div>
           ))}
         </div>
