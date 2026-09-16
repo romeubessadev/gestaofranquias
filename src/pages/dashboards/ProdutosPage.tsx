@@ -37,6 +37,14 @@ const KPI_ICONS = [IconFat, IconLucro, IconMargem, IconItens];
 
 type Ordenacao = "faturamento" | "itens" | "margem";
 
+const TipHelp = ({ label }: { label: string }) => (
+  <Tooltip label={label}>
+    <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+      ?
+    </span>
+  </Tooltip>
+);
+
 /** Cores distintas para cada KPI card (hero). */
 const KPI_COLORS = [
   { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
@@ -83,7 +91,7 @@ export default function ProdutosPage() {
   }, []);
 
   const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
-  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} minuto${minutosAtras !== 1 ? "s" : ""}`;
+  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} min`;
 
   // Filtra e ordena produtos para a tabela
   const produtosFiltrados = useMemo(() => {
@@ -102,10 +110,13 @@ export default function ProdutosPage() {
   // Categorias disponíveis para o filtro (apenas as que têm dados no período)
   const catsDisponiveis = view.categorias.map((c) => ({ label: c.nome, value: c.categoriaId }));
 
+  const filtroSelectClass =
+    "h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none";
+
   return (
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
-        crumbs={[{ label: "Dashboard",to: "/dashboard/visao-geral" }, {label: "Produtos" }]}
+        crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Produtos" }]}
         title="Produtos"
         subtitle="Mix de produtos, categorias e margens da loja."
         actions={
@@ -114,19 +125,21 @@ export default function ProdutosPage() {
               <span className={`inline-block h-2 w-2 rounded-full ${minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
               {rotuloAtualizacao}
             </span>
-            <Button variant="secondary" size="md" onClick={forcarAtualizacao} disabled={refreshing}
-              icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
-            />
-            <Button variant="secondary" size="md" onClick={() => window.print()}
-              icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>}
+            <Button size="sm" onClick={forcarAtualizacao} disabled={refreshing}
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
+            >
+              Atualizar
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => window.print()}
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>}
             >
               Exportar
             </Button>
-            <DateRangePicker value={dateRange} onChange={onDateChange} />
+            <DateRangePicker value={dateRange} onChange={onDateChange} size="sm" />
             <select
               value={escopo.divisao ?? ""}
               onChange={(e) => onMarcaChange(e.target.value ? e.target.value as "WEPINK" | "WPINK" : null)}
-              className="h-10 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3.5 text-[13px] font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none"
+              className={filtroSelectClass}
             >
               <option value="">Todas as marcas</option>
               <option value="WEPINK">WEPINK</option>
@@ -135,7 +148,7 @@ export default function ProdutosPage() {
             <select
               value={catFiltro ?? ""}
               onChange={(e) => setCatFiltro(e.target.value ? Number(e.target.value) : null)}
-              className="h-10 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3.5 text-[13px] font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none"
+              className={filtroSelectClass}
             >
               <option value="">Todas as categorias</option>
               {catsDisponiveis.map((c) => (
@@ -146,7 +159,7 @@ export default function ProdutosPage() {
         }
       />
 
-      {/* KPI row */}
+      {/* KPI row — 4 cards */}
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {view.kpis.map((kpi, i) => (
           <KpiCard key={kpi.label} kpi={kpi} Icon={KPI_ICONS[i]} colorIdx={i} />
@@ -154,13 +167,11 @@ export default function ProdutosPage() {
       </div>
 
       {/* Widget central — Faturamento por Categoria */}
-      <Card>
+      <Card className="mt-4">
         <CardHeader>
           <div className="flex items-center gap-1.5">
             <CardTitle>Faturamento por Categoria</CardTitle>
-            <Tooltip label="Faturamento por categoria com linha de % Margem sobreposta. Clique numa barra para filtrar a tabela abaixo.">
-              <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-            </Tooltip>
+            <TipHelp label="Faturamento por categoria com linha de % Margem sobreposta. Clique numa barra para filtrar a tabela abaixo." />
           </div>
         </CardHeader>
         <div className="px-4 pb-4">
@@ -187,14 +198,12 @@ export default function ProdutosPage() {
       </Card>
 
       {/* Par: Top Linhas + Top Produtos */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <div className="flex items-center gap-1.5">
               <CardTitle>Top Linhas de Produto</CardTitle>
-              <Tooltip label="Ranking das linhas de produto por faturamento. Valores em R$ direto nas barras.">
-                <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-              </Tooltip>
+              <TipHelp label="Ranking das linhas de produto por faturamento. Valores em R$ direto nas barras." />
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
@@ -206,14 +215,12 @@ export default function ProdutosPage() {
             <div className="flex items-center justify-between gap-1.5">
               <div className="flex items-center gap-1.5">
                 <CardTitle>Top Produtos</CardTitle>
-                <Tooltip label="Ranking dos produtos mais vendidos. Escolha a métrica de ordenação.">
-                  <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-                </Tooltip>
+                <TipHelp label="Ranking dos produtos mais vendidos. Escolha a métrica de ordenação." />
               </div>
               <select
                 value={ordenacao}
                 onChange={(e) => setOrdenacao(e.target.value as Ordenacao)}
-                className="rounded-lg border border-line bg-bg-inset px-2 py-1 text-[11px] font-semibold text-t1 hover:border-acc focus:border-acc focus:outline-none"
+                className="h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-2.5 text-xs font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none"
               >
                 <option value="faturamento">Faturamento</option>
                 <option value="itens">Qtd Vendida</option>
@@ -234,21 +241,19 @@ export default function ProdutosPage() {
       </div>
 
       {/* Tabela de Produtos */}
-      <Card>
+      <Card className="mt-4">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-1.5">
               <CardTitle>Tabela de Produtos</CardTitle>
-              <Tooltip label="Detalhamento por produto com margem, CMV%, ticket médio e dias de cobertura. Badge vermelho indica ruptura.">
-                <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-              </Tooltip>
+              <TipHelp label="Detalhamento por produto com margem, CMV%, ticket médio e dias de cobertura. Badge vermelho indica ruptura." />
             </div>
             <input
-              type="text"
-              placeholder="🔍 Pesquisar produto…"
+              type="search"
+              placeholder="Pesquisar produto…"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              className="h-10 rounded-[var(--radius-vela-sm)] border border-line bg-bg-inset px-3 text-[13px] font-semibold text-t1 placeholder:text-t2 hover:border-acc focus:border-acc focus:outline-none sm:w-64"
+              className="h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 placeholder:text-t2 transition-colors hover:border-acc focus:border-acc focus:outline-none sm:w-64"
             />
           </div>
         </CardHeader>
