@@ -260,7 +260,7 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
 
 1. ✅ **DateRangePicker** — CRIAR componente Vela (`src/components/ui/DateRangePicker.tsx`) com presets + calendário range custom.
 2. ✅ **Segmented (WEPINK/WPINK)** — CRIAR componente `Segmented` reutilizável (extrair pattern do AnalyticsDashboard).
-3. ✅ **SeletorLoja → multi-select** — EVOLUIR para multi-select com chips. Motivo: comparar filiais dentro da mesma cidade. Exige `Escopo.filialId: string` → `filialIds: string[]` + serialização URL.
+3. ✅ **SeletorLoja → single-select com avatars** (REVERTIDO de multi-select, 2026-09-16) — padrão Vela "Select with avatars": loja = Avatar + fantasia + CNPJ; "Todas as lojas" sem avatar. Escopo continua `filialIds: [] | [id]` (vazio = rede). Comparar N lojas no filtro deixou de ser requisito.
 4. ✅ **WaterfallChart (DRE)** — CRIAR chart em cascata (`src/components/charts/WaterfallChart.tsx`).
 5. ✅ **CommissionLadder (escada de faixas)** — CRIAR componente dedicado (`src/components/charts/CommissionLadder.tsx`). É o core da tela Equipe.
 6. ✅ **Granularidade temporal — REGRA CORRIGIDA**: NÃO é a marca que define o eixo. **É o PERÍODO**:
@@ -1014,12 +1014,12 @@ Regra geral: **KPIs em 4 colunas no desktop**, widget central em largura total, 
   - Categoria / outros → `Select`/`Dropdown` (já existem).
 - Os filtros devem alimentar um **escopo compartilhado** (hook `useEscopo` já previsto) para que drill-down entre telas preserve período/marca/loja.
 
-### 3. Seletor de LOJA na barra superior (multi-select) — ref: `docs/referencias/lojas.png`
-- **Onde:** no header/topbar, **no lugar do campo de Pesquisa** do template Vela (o gestor já posicionou a seleção de loja ali ao comparar `gestao` com `vela-react-admin-dashboard-template`).
-- **Comportamento:** selecionar **1 loja, várias lojas, ou "Todas as lojas"** (multi-select com opção "Todas"). Exemplo da referência: "Todas as lojas / Loja de Camisetas / Loja de Calçados" com check na ativa.
-- **Componente Vela a usar:** compor com o que já existe — `Dropdown`/`Popover` (já existem) + lista de itens com `Checkbox`/`Avatar` (já existem) + `Badge`/contador de selecionadas. **Não reinventar** — montar o seletor com esses blocos. Confirmar no código do header atual (`src/layout/**`) onde está o input de pesquisa para substituí-lo.
-- **Escopo:** a seleção de loja é **global** (topbar) e filtra TODAS as 5 telas. Entra no `useEscopo` junto com período/marca. "Todas as lojas" = consolida; 1 ou N lojas = soma/filtra aquelas.
-- **Dados:** lista de lojas vem de fixture/mock inicialmente (`src/data/**`), igual ao resto do template; depois pluga na API.
+### 3. Seletor de LOJA na barra superior (single-select + avatars) — ref: Select with avatars do Vela
+- **Onde:** no header/topbar, **no lugar do campo de Pesquisa** do template Vela.
+- **Comportamento:** selecionar **1 loja** ou **"Todas as lojas"** (single-select). Trigger: Avatar + fantasia + CNPJ; "Todas" sem avatar (ícone de loja + "Rede consolidada").
+- **Componente:** `SeletorLoja` compõe `Avatar` + dropdown (padrão da SelectComponentsPage).
+- **Escopo:** global via `useEscopo` (`filialIds: []` = todas; `[id]` = uma loja).
+- **Dados:** lista de lojas vem de fixture/mock (`src/data/gestao/filiais.ts`).
 
 ### 4. Ordem sugerida de construção (quando começar)
 1. Componentes base que faltam: `DateRangePicker` (extrair), `Segmented` (criar), `CommissionLadder` (compor) + prop `showValues` nos charts.

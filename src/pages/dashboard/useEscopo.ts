@@ -10,9 +10,9 @@ const PERIODOS: PeriodoTipo[] = ["hoje", "ontem", "7dias", "esteMes", "mesPassad
  * Escopo (lojas, período, divisão) mora na URL, não no estado de uma página.
  * Loja e Equipe são abas do mesmo Dashboard e precisam do mesmo filtro.
  *
- * Multi-select de lojas: `filial` na URL é uma lista separada por vírgula
- * (ex.: "filial=1,2"). Lista vazia / ausente = "Todas as lojas" (consolida a
- * rede). Uma única loja = visão detalhada daquela loja. Várias = soma delas.
+ * Single-select de loja: `filial` na URL é um id (ex.: "filial=f1").
+ * Ausente / vazio = "Todas as lojas" (consolida a rede).
+ * Se a URL ainda tiver lista antiga ("f1,f2"), usa só o primeiro id.
  */
 export function useEscopo() {
   const sessao = useSessaoAtiva();
@@ -21,11 +21,14 @@ export function useEscopo() {
   const escopo = useMemo<Escopo>(() => {
     const filialRaw = params.get("filial");
     const idsRaw = filialRaw ? filialRaw.split(",").map((s) => s.trim()).filter(Boolean) : [];
-    // Só aceita ids que a sessão realmente pode ver.
-    const filialIds = idsRaw.filter((id) => sessao.filiais.includes(id));
-    // Se nada válido veio da URL: várias lojas → "todas" (array vazio);
-    // loja única → já seleciona ela.
-    const resolvedIds = filialIds.length === 0 ? (sessao.filiais.length > 1 ? [] : [sessao.filiais[0]]) : filialIds;
+    // Só aceita ids que a sessão realmente pode ver; single-select → no máx. 1.
+    const validos = idsRaw.filter((id) => sessao.filiais.includes(id));
+    const filialIds =
+      validos.length === 0
+        ? sessao.filiais.length > 1
+          ? []
+          : [sessao.filiais[0]]
+        : [validos[0]];
 
     const tipo = (params.get("periodo") as PeriodoTipo | null) ?? "esteMes";
     const periodoTipo = PERIODOS.includes(tipo) ? tipo : "esteMes";
@@ -33,7 +36,7 @@ export function useEscopo() {
     const divisao: Divisao | null = divisaoParam === "WEPINK" || divisaoParam === "WPINK" ? divisaoParam : null;
 
     return {
-      filialIds: resolvedIds,
+      filialIds,
       periodo: periodoTipo === "personalizado" ? { tipo: periodoTipo, inicio: params.get("de") ?? undefined, fim: params.get("ate") ?? undefined } : { tipo: periodoTipo },
       divisao,
     };
@@ -41,8 +44,9 @@ export function useEscopo() {
 
   function mudar(e: Escopo) {
     const p = new URLSearchParams();
-    // Array vazio = "Todas as lojas" → não grava ids (URL limpa).
-    if (e.filialIds.length > 0) p.set("filial", e.filialIds.join(","));
+    // Array vazio = "Todas as lojas" → não grava id (URL limpa).
+    // Single-select: grava no máx. o primeiro id.
+    if (e.filialIds.length > 0) p.set("filial", e.filialIds[0]);
     p.set("periodo", e.periodo.tipo);
     if (e.periodo.tipo === "personalizado") {
       if (e.periodo.inicio) p.set("de", e.periodo.inicio);

@@ -48,7 +48,7 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
       </button>
 
       {noDashboard ? (
-        <div className="min-w-0 flex-1 sm:max-w-xs">
+        <div className="min-w-0 flex-1 sm:max-w-sm">
           <SeletorLoja escopo={escopo} onChange={mudar} minhas={minhas} />
         </div>
       ) : (

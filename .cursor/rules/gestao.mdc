@@ -1,0 +1,29 @@
+---
+description: Projeto Gestão (Wepink/Wpink) — seguir CLAUDE.md e regras de implementação
+alwaysApply: true
+---
+
+# Gestão — regras Cursor
+
+## Fonte de verdade
+- Ler e seguir **`CLAUDE.md`** (arquitetura, filtros, mocks, decisões, glossário, ordem de build).
+- Registrar decisões de produto relevantes em `CLAUDE.md` para não perder contexto entre sessões.
+- Referências visuais: `docs/referencias/`.
+
+## Produto
+- Público: gestor sênior / franqueado — métricas para **tomada de decisão** (valor + comparativo + tendência + drill).
+- Dashboard = **100% leitura** (zero CRUD/ações). CRUD fica fora do Dashboard.
+- Tema **Vela** estrito: reutilizar `src/components/ui` e `src/components/charts` antes de criar componente novo. Sem libs de chart externas.
+
+## Filtros
+- Loja: global no Topbar, single-select (1 loja ou todas) via `useEscopo` — padrão Select with avatars (Avatar + nome + CNPJ).
+- Período + Marca (WEPINK/WPINK): internos por subtela.
+- Granularidade: **1 dia → hora**; **>1 dia → dia** (não depende da marca).
+
+## Implementação
+- Páginas demo do template em `src/pages/dashboards/` serão **substituídas** pelas 5 telas (não adaptar por cima).
+- Componentes novos só os já decididos: `DateRangePicker`, `Segmented`, `CommissionLadder` (+ opcional `WaterfallChart`); `showValues` nos charts existentes.
+- Ordem de construção (premissa): Financeiro → Produtos → Equipe → Turnos → Visão Geral por último.
+- Preferir composição Vela (`Card`, `StatCard`, `DataTable`, etc.) a wrappers novos.
+- Em **commit + push**: sempre rodar `npm run build` antes; não incluir `Co-authored-by` na mensagem.
+- Após **correções/refinos** de UI já pedidos (ex.: cards, charts, badges): fazer **build → commit → push** direto, sem esperar novo pedido.
