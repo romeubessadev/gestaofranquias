@@ -383,6 +383,17 @@ export function kpiDelta(atual: number, anterior: number, vs?: string, monetario
   };
 }
 
+/** Delta em pontos percentuais (margem etc.). Omite ~0 p.p. — mesmo critério do kpiDelta. */
+export function kpiDeltaPp(atual: number, anterior: number, vs?: string): { value: string; positive: boolean; vs?: string } | undefined {
+  const diff = Math.abs(atual - anterior);
+  if (num(diff, 1) === num(0, 1)) return undefined;
+  return {
+    value: `${diff.toFixed(1)} p.p.`,
+    positive: atual >= anterior,
+    ...(vs ? { vs } : {}),
+  };
+}
+
 /** Dias com loja aberta que ainda restam no mês corrente. */
 function diasRestantesMes(fs: Filial[]): number {
   return intervaloDias(somarDias(HOJE_ISO, 1), fimDoMes(HOJE_ISO)).filter((iso) => fs.some((f) => lojaAberta(f, iso))).length;
@@ -1474,7 +1485,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     {
       label: "Margem",
       valor: pct(margemAtual),
-      delta: temComp ? { value: `${Math.abs(margemAtual - margemAnterior).toFixed(1)} p.p.`, positive: margemAtual >= margemAnterior, vs: vsRotulo } : undefined,
+      delta: temComp ? kpiDeltaPp(margemAtual, margemAnterior, vsRotulo) : undefined,
       serie: serieMargem,
       tooltip: "Percentual de lucro sobre o faturamento, antes das despesas fixas.",
     },
@@ -1708,7 +1719,7 @@ export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | nul
     {
       label: "Margem",
       valor: pct(totalMargem),
-      delta: temComp ? { value: `${Math.abs(totalMargem - antTotalMargem).toFixed(1)} p.p.`, positive: totalMargem >= antTotalMargem, vs: vsRotulo } : undefined,
+      delta: temComp ? kpiDeltaPp(totalMargem, antTotalMargem, vsRotulo) : undefined,
       tooltip: "Percentual de lucro sobre o faturamento. Quanto maior, melhor.",
     },
     {
