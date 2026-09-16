@@ -48,11 +48,10 @@ Fase 1 (chrome + KPIs compartilhados) + fase 2 (cards exclusivos).
 
 ## 4. Faturamento vs Ticket Médio
 
-| Elemento | Final |
-|---|---|
-| Título | `Faturamento vs Ticket Médio` |
-| Tooltip | `Mostra se o faturamento sobe por mais volume de vendas ou por ticket médio maior.` |
-| Legendas | `Faturamento` · `Ticket Médio (×100)` *(escala só visual no gráfico)* |
+> **Removido do Financeiro.** Diagnóstico comercial (volume vs ticket) sem próximo passo financeiro claro — ticket médio permanece só na Evolução Mensal.
+> Não reintroduzir nesta tela.
+
+~~Removido do Financeiro.~~
 
 ---
 

@@ -1349,7 +1349,6 @@ export interface FinanceiroView {
   formasPagamento: FormaPagamentoFat[];
   custosFixosFranquia: LinhaCustoFixo[];
   evolucaoMensal: EvolucaoMensalLinha[];
-  faturamentoVsTicket: { label: string; faturamento: number; ticket: number }[];
 }
 
 const CORES_FORMAS: Record<string, string> = {
@@ -1551,16 +1550,6 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     { rotulo: "Resultado operacional", valor: resultadoOperacional, ehResultado: true },
   ];
 
-  // Faturamento vs Ticket médio por mês.
-  const faturamentoVsTicket = meses.map((mes) => {
-    const agg = agregadoMes(fs, mes, divisao);
-    return {
-      label: mesAno(`${mes}-01`).split(" de ")[0],
-      faturamento: agg.faturamento,
-      ticket: divSeguro(agg.faturamento, agg.atendimentos),
-    };
-  });
-
   // Evolução mensal (tabela DRE simplificada).
   const evolucaoMensal: EvolucaoMensalLinha[] = meses.map((mes) => {
     const agg = agregadoMes(fs, mes, divisao);
@@ -1583,7 +1572,6 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     formasPagamento,
     custosFixosFranquia,
     evolucaoMensal,
-    faturamentoVsTicket,
   };
 }
 
