@@ -14,7 +14,7 @@ import { metaDaFilial, type Degrau } from "./metas";
 import { desafiosAtivos, progressoIndividual, pisoDoDesafio, type Desafio } from "./desafios";
 import { HOJE_ISO, HORA_ATUAL } from "./relogio";
 import { agregadoDoDia, diaVendas, lojaAberta, somarAgregados, type Agregado } from "./vendas";
-import { filialPorId, filiais, turnos, type Filial } from "./filiais";
+import { filialPorId, filiais, grupos, type Filial } from "./filiais";
 import { brlK, curvaReceita, eixoSerieDoPeriodo, kpiDelta, periodoAnterior, resolverPeriodo, rotuloEixoSerie, type Escopo, type PeriodoResolvido, type EstadoBloco } from "./dashboard";
 import { brl, deIso, fimDoMes, horaCurta, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
 import type { TintKey } from "@/pages/dashboards/icons";
@@ -190,7 +190,7 @@ export interface VendedoraLinha {
   filialId: string;
   filialNome: string;
   /** Nome do grupo (Grupo 1/Grupo 2) ou "Sem grupo". */
-  turno: string;
+  grupo: string;
   faturamentoValor: number;
   faturamento: string;
   atendimentos: number;
@@ -234,7 +234,7 @@ export interface DesafioParticipanteView {
   /** Fantasia da loja — útil na visão rede. */
   loja: string;
   /** Nome do grupo (Grupo 1/Grupo 2) ou "—" se sem grupo. */
-  turno: string;
+  grupo: string;
   progresso: number;
   /** Piso/alvo contra o qual a barra é medida. */
   alvo: number;
@@ -502,7 +502,7 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
       nome: c.nome,
       filialId,
       filialNome: filial.fantasia,
-      turno: c.turnoId ? turnos.find((t) => t.id === c.turnoId)?.nome ?? "Sem grupo" : "Sem grupo",
+      grupo: c.grupoId ? grupos.find((t) => t.id === c.grupoId)?.nome ?? "Sem grupo" : "Sem grupo",
       faturamentoValor: faturamento,
       faturamento: brl(faturamento),
       atendimentos,
@@ -604,13 +604,13 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     const c = colaboradorPorId(id);
     const progresso = progressoIndividual(d, id);
     const piso = pisoDoDesafio(d);
-    const turnoNome = c?.turnoId ? turnos.find((t) => t.id === c.turnoId)?.nome ?? "—" : "—";
+    const grupoNome = c?.grupoId ? grupos.find((t) => t.id === c.grupoId)?.nome ?? "—" : "—";
     const lojaNome = c ? filialPorId(c.filialId).fantasia : "—";
     return {
       colaboradorId: id,
       nome: c?.nome ?? id,
       loja: lojaNome,
-      turno: turnoNome,
+      grupo: grupoNome,
       progresso,
       alvo: piso,
       progressoPct: piso > 0 ? Math.min(100, (progresso / piso) * 100) : 0,
@@ -967,7 +967,7 @@ function montarEvolucaoFatVsMeta(
 }
 
 function gruposDaFilial(filialId: string): { id: string; nome: string }[] {
-  return turnos.filter((t) => t.filialId === filialId).map((t) => ({ id: t.id, nome: t.nome }));
+  return grupos.filter((t) => t.filialId === filialId).map((t) => ({ id: t.id, nome: t.nome }));
 }
 
 /** Grupos únicos por nome (rede: Grupo 1/Grupo 2 aparecem em várias lojas). */

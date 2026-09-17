@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, Badge, PageHead
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StackedBarChart, Heatmap, BarChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
-import { montarTurnosView } from "@/data/gestao/dashboard";
+import { montarGruposView } from "@/data/gestao/dashboard";
 import { brl, num } from "@/lib/formato";
 import { deIso } from "@/lib/formato";
 import type { DateRange } from "@/components/ui/DateRangePicker";
@@ -34,7 +34,7 @@ const IconMeta = () => (
   </svg>
 );
 
-const CORES_TURNOS: Record<string, string> = {
+const CORES_GRUPOS: Record<string, string> = {
   "Grupo 1": "var(--acc)",
   "Grupo 2": "var(--info)",
   Noite: "var(--warn)",
@@ -51,16 +51,16 @@ const KPI_COLORS = [
 const filtroSelectClass =
   "h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none";
 
-export default function TurnosPage() {
+export default function GruposPage() {
   const { escopo, mudar } = useEscopo();
   const [grupoFiltro, setGrupoFiltro] = useState<string | null>(null);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
 
-  const gruposDisponiveis = useMemo(() => montarTurnosView(escopo, null).gruposDisponiveis, [escopo]);
+  const gruposDisponiveis = useMemo(() => montarGruposView(escopo, null).gruposDisponiveis, [escopo]);
   // Se a loja mudar e o grupo sumir da lista, volta para "Todos".
   const grupoAtivo = grupoFiltro && gruposDisponiveis.some((g) => g.nome === grupoFiltro) ? grupoFiltro : null;
-  const view = useMemo(() => montarTurnosView(escopo, grupoAtivo), [escopo, grupoAtivo]);
+  const view = useMemo(() => montarGruposView(escopo, grupoAtivo), [escopo, grupoAtivo]);
 
   const dateRange: DateRange | null = useMemo(() => {
     if (escopo.periodo.tipo === "personalizado" && escopo.periodo.inicio && escopo.periodo.fim) {
@@ -92,12 +92,12 @@ export default function TurnosPage() {
   const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
   const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} min`;
 
-  // Preparar dados para StackedBarChart (dia da semana × turno) — agrupa e tira média
+  // Preparar dados para StackedBarChart (dia da semana × grupo) — agrupa e tira média
   const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
   const ordemDias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
   const acumulado: Record<string, Record<string, number>> = {};
   const contagem: Record<string, number> = {};
-  for (const d of view.faturamentoPorDiaTurno) {
+  for (const d of view.faturamentoPorDiaGrupo) {
     const data = new Date(d.dia + "T12:00:00");
     const label = diasSemana[data.getDay()];
     if (!acumulado[label]) {
@@ -105,8 +105,8 @@ export default function TurnosPage() {
       contagem[label] = 0;
     }
     contagem[label]++;
-    for (const [turno, fat] of Object.entries(d.porTurno)) {
-      acumulado[label][turno] = (acumulado[label][turno] ?? 0) + fat;
+    for (const [grupo, fat] of Object.entries(d.porGrupo)) {
+      acumulado[label][grupo] = (acumulado[label][grupo] ?? 0) + fat;
     }
   }
   const stackedData = ordemDias
@@ -114,13 +114,13 @@ export default function TurnosPage() {
     .map((label) => {
       const n = contagem[label] || 1;
       const entry: Record<string, string | number> = { label };
-      for (const [turno, soma] of Object.entries(acumulado[label])) {
-        entry[turno] = Math.round(soma / n);
+      for (const [grupo, soma] of Object.entries(acumulado[label])) {
+        entry[grupo] = Math.round(soma / n);
       }
       return entry;
     });
-  const turnoKeys = view.kpisPorTurno.map((k) => k.nome);
-  const turnoColors = turnoKeys.map((k) => CORES_TURNOS[k] ?? "var(--t2)");
+  const grupoKeys = view.kpisPorGrupo.map((k) => k.nome);
+  const grupoColors = grupoKeys.map((k) => CORES_GRUPOS[k] ?? "var(--t2)");
 
   // Preparar dados para Heatmap (dia × hora)
   const heatmapRows = [...new Set(view.heatmap.map((c) => c.dia))].sort();
@@ -132,8 +132,8 @@ export default function TurnosPage() {
     }),
   );
 
-  // KPIs multi-turno como cards individuais
-  const melhorTurno = view.kpisPorTurno.reduce((a, b) => (a.faturamento > b.faturamento ? a : b), view.kpisPorTurno[0]);
+  // KPIs multi-grupo como cards individuais
+  const melhorGrupo = view.kpisPorGrupo.reduce((a, b) => (a.faturamento > b.faturamento ? a : b), view.kpisPorGrupo[0]);
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
@@ -213,17 +213,17 @@ export default function TurnosPage() {
         }
       />
 
-      {/* KPIs por turno — 4 cards multi-linha */}
+      {/* KPIs por grupo — 4 cards multi-linha */}
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Faturamento por Turno"
+          label="Faturamento por Grupo"
           value=""
           icon={<IconFat />}
           iconColor={KPI_COLORS[0].iconColor}
           iconBg={KPI_COLORS[0].iconBg}
           sparkline={
             <div className="flex flex-col gap-0.5 text-[11px]">
-              {view.kpisPorTurno.map((k) => (
+              {view.kpisPorGrupo.map((k) => (
                 <span key={k.nome} className="flex justify-between gap-2">
                   <span className="text-t2">{k.nome}</span>
                   <span className="font-bold text-t0">{brl(k.faturamento)}</span>
@@ -233,14 +233,14 @@ export default function TurnosPage() {
           }
         />
         <StatCard
-          label="Vendas por Turno"
+          label="Vendas por Grupo"
           value=""
           icon={<IconVendas />}
           iconColor={KPI_COLORS[1].iconColor}
           iconBg={KPI_COLORS[1].iconBg}
           sparkline={
             <div className="flex flex-col gap-0.5 text-[11px]">
-              {view.kpisPorTurno.map((k) => (
+              {view.kpisPorGrupo.map((k) => (
                 <span key={k.nome} className="flex justify-between gap-2">
                   <span className="text-t2">{k.nome}</span>
                   <span className="font-bold text-t0">{num(k.vendas)}</span>
@@ -250,14 +250,14 @@ export default function TurnosPage() {
           }
         />
         <StatCard
-          label="Ticket Médio por Turno"
+          label="Ticket médio por Grupo"
           value=""
           icon={<IconTicket />}
           iconColor={KPI_COLORS[2].iconColor}
           iconBg={KPI_COLORS[2].iconBg}
           sparkline={
             <div className="flex flex-col gap-0.5 text-[11px]">
-              {view.kpisPorTurno.map((k) => (
+              {view.kpisPorGrupo.map((k) => (
                 <span key={k.nome} className="flex justify-between gap-2">
                   <span className="text-t2">{k.nome}</span>
                   <span className="font-bold text-t0">{brl(k.ticketMedio)}</span>
@@ -267,21 +267,21 @@ export default function TurnosPage() {
           }
         />
         <StatCard
-          label="Melhor Turno"
-          value={melhorTurno?.nome ?? "—"}
+          label="Melhor Grupo"
+          value={melhorGrupo?.nome ?? "—"}
           icon={<IconMeta />}
           iconColor={KPI_COLORS[3].iconColor}
           iconBg={KPI_COLORS[3].iconBg}
-          delta={melhorTurno ? { value: brl(melhorTurno.faturamento), positive: true } : undefined}
+          delta={melhorGrupo ? { value: brl(melhorGrupo.faturamento), positive: true } : undefined}
         />
       </div>
 
-      {/* Faturamento por Dia × Turno (StackedBarChart) */}
+      {/* Faturamento por Dia × Grupo (StackedBarChart) */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-1.5">
-            <CardTitle>Faturamento por Dia × Turno</CardTitle>
-            <Tooltip label="Comparativo de faturamento entre turnos por dia da semana. Valores em R$ direto nas barras.">
+            <CardTitle>Faturamento por Dia × Grupo</CardTitle>
+            <Tooltip label="Comparativo de faturamento entre grupos por dia da semana. Valores em R$ direto nas barras.">
               <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
             </Tooltip>
           </div>
@@ -289,16 +289,16 @@ export default function TurnosPage() {
         <div className="px-4 pb-4">
           <StackedBarChart
             data={stackedData}
-            keys={turnoKeys}
-            colors={turnoColors}
+            keys={grupoKeys}
+            colors={grupoColors}
             height={240}
             showValues
             formatValue={brl}
           />
           <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
-            {turnoKeys.map((k) => (
+            {grupoKeys.map((k) => (
               <span key={k} className="flex items-center gap-1">
-                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: CORES_TURNOS[k] ?? "var(--t2)" }} />
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: CORES_GRUPOS[k] ?? "var(--t2)" }} />
                 {k}
               </span>
             ))}
@@ -365,7 +365,7 @@ export default function TurnosPage() {
                   <th className="py-2 pr-3">Hora</th>
                   <th className="py-2 pr-3 text-right">Faturamento</th>
                   <th className="py-2 pr-3 text-right">Atendimentos</th>
-                  <th className="py-2 pr-3 text-right">Ticket Médio</th>
+                  <th className="py-2 pr-3 text-right">Ticket médio</th>
                   <th className="py-2 pr-3 text-right">% Fat. Dia</th>
                   <th className="py-2 pr-3 text-right">Acumulado</th>
                   <th className="py-2 text-right">Vs. Anterior</th>

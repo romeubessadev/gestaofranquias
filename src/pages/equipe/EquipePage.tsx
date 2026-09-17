@@ -52,7 +52,7 @@ export function EquipePage() {
   const vendedorasFiltradas = useMemo(() => {
     if (!v.vendedoras) return null;
     if (!grupoAtivo) return v.vendedoras;
-    return v.vendedoras.filter((l) => l.turno === grupoAtivo);
+    return v.vendedoras.filter((l) => l.grupo === grupoAtivo);
   }, [v.vendedoras, grupoAtivo]);
 
   const dateRange: DateRange | null = useMemo(() => {

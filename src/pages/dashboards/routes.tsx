@@ -1,5 +1,6 @@
 import { lazyPage } from "@/lib/lazyPage";
 import type { RouteObject } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { paths } from "@/router/paths";
 const AnalyticsDashboardPage = lazyPage(() => import("./AnalyticsDashboardPage"), "AnalyticsDashboardPage");
 const SalesDashboardPage = lazyPage(() => import("./SalesDashboardPage"), "SalesDashboardPage");
@@ -8,7 +9,7 @@ const SaasDashboardPage = lazyPage(() => import("./SaasDashboardPage"), "SaasDas
 const BiDashboardPage = lazyPage(() => import("./BiDashboardPage"), "BiDashboardPage");
 const FinanceiroPage = lazyPage(() => import("./FinanceiroPage"), "default");
 const ProdutosPage = lazyPage(() => import("./ProdutosPage"), "default");
-const TurnosPage = lazyPage(() => import("./TurnosPage"), "default");
+const GruposPage = lazyPage(() => import("./GruposPage"), "default");
 const VisaoGeralPage = lazyPage(() => import("./VisaoGeralPage"), "default");
 
 /**
@@ -25,7 +26,8 @@ export const dashboardsRoutes: RouteObject[] = [
   { path: paths.dashboards.saas, element: <SaasDashboardPage /> },
   { path: paths.dashboards.bi, element: <BiDashboardPage /> },
   { path: paths.financeiro, element: <FinanceiroPage /> },
-{ path: paths.produtos, element: <ProdutosPage /> },
-  { path: paths.turnos, element: <TurnosPage /> },
+  { path: paths.produtos, element: <ProdutosPage /> },
+  { path: paths.grupos, element: <GruposPage /> },
+  { path: paths.turnosLegado, element: <Navigate to={paths.grupos} replace /> },
   { path: paths.visaoGeral, element: <VisaoGeralPage /> },
 ];

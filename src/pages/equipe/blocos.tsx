@@ -142,7 +142,7 @@ function CelulaVendedora({ l, mostrarShopping }: { l: LinhaRank; mostrarShopping
       <div className="min-w-0">
         <p className="truncate text-[13px] font-bold text-t0">{l.nome}</p>
         <p className="truncate text-[11px] text-t2">
-          {l.turno}
+          {l.grupo}
           {mostrarShopping ? ` · ${lojaCurta(l.filialNome)}` : ""}
         </p>
       </div>
@@ -222,7 +222,7 @@ function CardMobileVendedora({ l, metaAtiva, mostrarShopping }: { l: LinhaRank; 
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13.5px] font-bold text-t0">{l.nome}</p>
           <p className="truncate text-[11.5px] text-t2">
-            {l.turno}
+            {l.grupo}
             {mostrarShopping ? ` · ${lojaCurta(l.filialNome)}` : ""}
           </p>
         </div>
@@ -540,7 +540,7 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
                     <div className="min-w-[110px] flex-1">
                       <p className="truncate text-[12.5px] font-semibold text-t0">{p.nome.split(" ")[0]}</p>
                       <p className="truncate text-[10.5px] text-t2">
-                        {p.turno} · {lojaCurta(p.loja)}
+                        {p.grupo} · {lojaCurta(p.loja)}
                       </p>
                     </div>
                     <span className="w-[88px] shrink-0 text-right font-mono text-[11px] font-semibold tabular-nums text-t1">

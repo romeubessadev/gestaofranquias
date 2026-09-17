@@ -5,7 +5,7 @@ import { ICONS, TINT, type IconKey, type TintKey } from "@/pages/dashboards/icon
 import { KpiSubtitulo, KpiTile } from "@/pages/dashboards/KpiTile";
 import { cn } from "@/lib/cn";
 import { brl } from "@/lib/formato";
-import { brlK, type AlertaSistema, type CategoriaLinha, type ChecklistDia, type ComparacaoView, type EstadoBloco as EstadoBlocoTipo, type GraficoEvolucao, type GraficoHora, type GraficoHoraRede, type ItemLucro, type KpiValor, type LacunaView, type LinhaRegua, type MixView, type PontoAtencao, type ProjecaoView, type RitmoCard, type TileMetaProjecao, type TrilhoView, type TurnoLinha, type VendaNecessariaView } from "@/data/gestao/dashboard";
+import { brlK, type AlertaSistema, type CategoriaLinha, type ChecklistDia, type ComparacaoView, type EstadoBloco as EstadoBlocoTipo, type GraficoEvolucao, type GraficoHora, type GraficoHoraRede, type ItemLucro, type KpiValor, type LacunaView, type LinhaRegua, type MixView, type PontoAtencao, type ProjecaoView, type RitmoCard, type TileMetaProjecao, type TrilhoView, type GrupoLinha, type VendaNecessariaView } from "@/data/gestao/dashboard";
 import { produtosDaCategoria, type ProdutoResumo } from "@/data/gestao/produtos";
 
 /* ---------- Estados de leitura (LOJA-07): carregando → Skeleton; sem dados → EmptyState ---------- */
@@ -580,12 +580,12 @@ export function BlocoEvolucao({ g }: { g: GraficoEvolucao }) {
   );
 }
 
-/* ---------- Checklist do dia: um turno por linha, toque expande as tarefas ---------- */
+/* ---------- Checklist do dia: um grupo por linha, toque expande as tarefas ---------- */
 
-const ESTADO_TEXTO: Record<TurnoLinha["estado"], string> = { encerrado: "concluído", andamento: "em andamento", naoComecou: "não começou" };
+const ESTADO_TEXTO: Record<GrupoLinha["estado"], string> = { encerrado: "concluído", andamento: "em andamento", naoComecou: "não começou" };
 
 export function BlocoChecklist({ c }: { c: ChecklistDia }) {
-  const itens: AccordionItemData[] = c.turnos.map((t) => {
+  const itens: AccordionItemData[] = c.grupos.map((t) => {
     const pctFeito = t.total ? (t.feitas / t.total) * 100 : 0;
     const pendentes = t.total - t.feitas;
     const estadoTexto = t.estado === "encerrado" && pendentes > 0 ? `${pendentes} pendentes` : ESTADO_TEXTO[t.estado];

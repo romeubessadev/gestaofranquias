@@ -24,7 +24,7 @@ Submenus:
 - **Visão Geral** — resumo executivo dos KPIs das demais telas. É a "capa" do dashboard.
 - **Financeiro** — DRE, margem, fluxo, evolução de receita, contas.
 - **Equipe** — performance individual de vendedores, escada de comissão, ranking, desafios. Foco no INDIVÍDUO.
-- **Turnos** — tela SEPARADA (não é toggle dentro de Equipe). Análise operacional por período do dia (manhã/tarde/noite), comparação entre turnos, cobertura de staff, intensidade horária. Foco na OPERAÇÃO TEMPORAL. Turnos são cadastrados em Configurações com horários definidos.
+- **Grupos** — tela SEPARADA (não é toggle dentro de Equipe). Análise operacional por grupo de vendedoras (ex.: Grupo 1 / Grupo 2), comparação entre grupos, cobertura de staff, intensidade horária. Foco na OPERAÇÃO POR GRUPO. Grupos são cadastrados em Configurações com horários definidos. (Renomeado de Turnos em 2026-09-17 — Turno não existe mais no produto.)
 - **Produtos** — top sellers, curva ABC, margem por SKU, dias de cobertura, produtos em queda.
 
 Princípios do Dashboard:
@@ -43,7 +43,7 @@ Módulos (ordem de prioridade a definir depois):
 - **Desafios** — gamificação (ver `dashboard-desafios01.png`: desafio, progresso, engajadas, prêmio).
 - **Estoque** — separado do dashboard porque o usuário olha o estoque para **tomar ação** (ex.: gerar pedido de compra).
 - **Compras** — pedido, cotação, recebimento.
-- **Configurações** — lojas, turnos, permissões, integrações, marcas.
+- **Configurações** — lojas, grupos, permissões, integrações, marcas.
 
 ---
 
@@ -271,7 +271,8 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  - Snapshots (KPIs, Formas, Custos…) não usam subtítulo de eixo.
  - Exceções: **Dia da Semana** oculto em 1 dia; **Evolução Mensal** sempre `Últimos 6 meses`; **Resultado** rateia custos fixos em hora/dia.
 7. ✅ **Ordem de execução** — (a) refinar em texto + mock ASCII no CLAUDE.md primeiro; (b) começar pela tela **EQUIPE**; (c) depois Financeiro e Produtos; (d) **Visão Geral por último** (é o resumo de todas). Nav+router como esqueleto antes dos componentes.
-8. ✅ **Equipe ≠ Turnos** (2026-09-17) — telas SEPARADAS (indivíduo vs operação temporal). Sem filtro de turno na Equipe. Chrome da Equipe alinhado às demais subtelas (`/dashboard/equipe`, PageHeader com DateRangePicker + marca).
+8. ✅ **Equipe ≠ Grupos** (2026-09-17) — telas SEPARADAS (indivíduo vs operação por grupo). Sem filtro de grupo na Equipe. Chrome da Equipe alinhado às demais subtelas (`/dashboard/equipe`, PageHeader com DateRangePicker + marca).
+9. ✅ **Turno → Grupo** (2026-09-17) — nomenclatura de produto: `GruposPage`, `montarGruposView`, `paths.grupos`, tipos `Grupo`/`grupoId`. URLs legadas `/dashboard/turnos` e `/configuracoes/turnos-e-tarefas` redirecionam.
 
 ---
 

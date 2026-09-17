@@ -29,7 +29,9 @@ export const paths = {
   dashboard: "/dashboard",
   financeiro: "/dashboard/financeiro",
   produtos: "/dashboard/produtos",
-  turnos: "/dashboard/turnos",
+  grupos: "/dashboard/grupos",
+  /** Redirect legado — URL antiga de Turnos. */
+  turnosLegado: "/dashboard/turnos",
   visaoGeral: "/dashboard/visao-geral",
   /** Legado: a página principal já foi /loja; quem tiver link antigo cai no Dashboard. */
   lojaLegado: "/loja",
@@ -42,7 +44,9 @@ export const paths = {
     metas: "/configuracoes/metas",
     desafios: "/configuracoes/desafios",
     colaboradores: "/configuracoes/colaboradores",
-    turnos: "/configuracoes/turnos-e-tarefas",
+    grupos: "/configuracoes/grupos-e-tarefas",
+    /** Redirect legado — URL antiga de Turnos e tarefas. */
+    turnosLegado: "/configuracoes/turnos-e-tarefas",
     mensagens: "/configuracoes/mensagens",
     documentos: "/configuracoes/documentos",
     custos: "/configuracoes/custos",

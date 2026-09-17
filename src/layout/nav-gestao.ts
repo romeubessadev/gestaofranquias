@@ -23,7 +23,7 @@ const navGestor: NavEntry[] = [
       { label: "Financeiro", to: paths.financeiro, dot: "var(--ok)" },
       { label: "Produtos", to: paths.produtos, dot: "var(--warn)" },
       { label: "Equipe", to: paths.equipe, dot: "var(--info)" },
-      { label: "Grupos", to: paths.turnos, dot: "var(--bad)" },
+      { label: "Grupos", to: paths.grupos, dot: "var(--bad)" },
     ],
   },
   {
@@ -33,7 +33,7 @@ const navGestor: NavEntry[] = [
       { label: "Metas", to: paths.configuracoes.metas },
       { label: "Desafios", to: paths.configuracoes.desafios },
       { label: "Colaboradores", to: paths.configuracoes.colaboradores },
-      { label: "Turnos e tarefas", to: paths.configuracoes.turnos },
+      { label: "Grupos e tarefas", to: paths.configuracoes.grupos },
       { label: "Mensagens", to: paths.configuracoes.mensagens },
       { label: "Documentos", to: paths.configuracoes.documentos },
       { label: "Custos", to: paths.configuracoes.custos },
@@ -51,7 +51,7 @@ const navGerente: NavEntry[] = [
     icon: ICONE.config,
     items: [
       { label: "Colaboradores", to: paths.configuracoes.colaboradores },
-      { label: "Turnos e tarefas", to: paths.configuracoes.turnos },
+      { label: "Grupos e tarefas", to: paths.configuracoes.grupos },
       { label: "Mensagens", to: paths.configuracoes.mensagens },
     ],
   },

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Avatar, Badge, Button, Card, Checkbox, Input, Select, Skeleton, useToast } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { consultarFuncionarioErp, listarFuncionariosErp, type FuncionarioErpDetalhe, type FuncionarioErpLista } from "@/data/gestao/erp";
-import { filiais, turnos } from "@/data/gestao/filiais";
+import { filiais, grupos } from "@/data/gestao/filiais";
 import { mascararCpf } from "@/lib/cpf";
 
 interface Linha {
@@ -14,7 +14,7 @@ interface Linha {
   marcada: boolean;
   email: string;
   celular: string;
-  turnoId: string;
+  grupoId: string;
   caixaCentral: boolean;
   corrigido: boolean;
 }
@@ -58,7 +58,7 @@ export function Etapa4Equipe({ onConcluir }: { onConcluir: () => void }) {
       const listas = await Promise.all(filiais.map(async (f) => ({ filialId: f.id, itens: await listarFuncionariosErp(f.milleniumFilial) })));
       if (!ativo) return;
       const iniciais: Linha[] = listas.flatMap(({ filialId, itens }) =>
-        itens.map((base) => ({ base, filialId, detalhe: null, falhou: false, marcada: false, email: "", celular: "", turnoId: "", caixaCentral: false, corrigido: false })),
+        itens.map((base) => ({ base, filialId, detalhe: null, falhou: false, marcada: false, email: "", celular: "", grupoId: "", caixaCentral: false, corrigido: false })),
       );
       setLinhas(iniciais);
       iniciais.forEach((l) => {
@@ -97,11 +97,11 @@ export function Etapa4Equipe({ onConcluir }: { onConcluir: () => void }) {
   const acesso = useMemo(() => (linhas ?? []).filter((l) => !l.caixaCentral && !l.corrigido && !pareceCaixaCentral(l.base.nome) && !inativoNoErp(l.detalhe)), [linhas]);
   const marcadas = acesso.filter((l) => l.marcada);
   const semEmail = marcadas.filter((l) => !/^\S+@\S+\.\S+$/.test(l.email)).length;
-  const semTurno = marcadas.filter((l) => !l.turnoId).length;
+  const semGrupo = marcadas.filter((l) => !l.grupoId).length;
 
   async function convidar() {
     setTentou(true);
-    if (marcadas.length === 0 || semEmail > 0 || semTurno > 0) return;
+    if (marcadas.length === 0 || semEmail > 0 || semGrupo > 0) return;
     setEnviando(true);
     await new Promise((r) => setTimeout(r, 900));
     show(`${marcadas.length === 1 ? "1 convite enviado" : `${marcadas.length} convites enviados`} por e-mail. Quem já tem conta recebe um pedido de aceite.`, "success");
@@ -188,12 +188,12 @@ export function Etapa4Equipe({ onConcluir }: { onConcluir: () => void }) {
 
           <section>
             <h3 className="mb-1 text-[14px] font-bold text-t0">Darão acesso ao app</h3>
-            <p className="mb-3 text-[12.5px] text-t2">CPF vem do Millenium. E-mail, celular e turno ficam só aqui.</p>
+            <p className="mb-3 text-[12.5px] text-t2">CPF vem do Millenium. E-mail, celular e grupo ficam só aqui.</p>
             <div className="flex flex-col gap-5">
               {filiais.map((f) => {
                 const doFilial = acesso.filter((l) => l.filialId === f.id);
                 if (doFilial.length === 0) return null;
-                const turnosF = turnos.filter((t) => t.filialId === f.id);
+                const gruposF = grupos.filter((t) => t.filialId === f.id);
                 return (
                   <div key={f.id}>
                     <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-t2">{f.fantasia}</p>
@@ -221,9 +221,9 @@ export function Etapa4Equipe({ onConcluir }: { onConcluir: () => void }) {
                             <div className="mt-3 grid grid-cols-1 gap-2 pl-7 sm:grid-cols-3">
                               <Input value={l.email} onChange={(e) => atualizar(l.base.funcionario, { email: e.target.value })} placeholder="E-mail (obrigatório)" type="email" className={cn(tentou && !/^\S+@\S+\.\S+$/.test(l.email) && "border-warn")} />
                               <Input value={l.celular} onChange={(e) => atualizar(l.base.funcionario, { celular: e.target.value })} placeholder="Celular com DDD" inputMode="tel" />
-                              <Select value={l.turnoId} onChange={(e) => atualizar(l.base.funcionario, { turnoId: e.target.value })} className={cn(tentou && !l.turnoId && "border-warn")}>
-                                <option value="">Turno…</option>
-                                {turnosF.map((t) => (
+                              <Select value={l.grupoId} onChange={(e) => atualizar(l.base.funcionario, { grupoId: e.target.value })} className={cn(tentou && !l.grupoId && "border-warn")}>
+                                <option value="">Grupo…</option>
+                                {gruposF.map((t) => (
                                   <option key={t.id} value={t.id}>
                                     {t.nome} · {Math.max(t.horaInicio, f.abertura)}h às {Math.min(t.horaFim, f.fechamento)}h
                                   </option>
@@ -240,11 +240,11 @@ export function Etapa4Equipe({ onConcluir }: { onConcluir: () => void }) {
             </div>
           </section>
 
-          {marcadas.length > 0 && (semEmail > 0 || semTurno > 0) && (
+          {marcadas.length > 0 && (semEmail > 0 || semGrupo > 0) && (
             <p className={cn("text-[12px]", tentou ? "font-medium text-warn" : "text-t2")}>
-              Para convidar, cada marcada precisa de e-mail e turno.
+              Para convidar, cada marcada precisa de e-mail e grupo.
               {semEmail > 0 && ` Faltam ${semEmail} ${semEmail === 1 ? "e-mail" : "e-mails"}.`}
-              {semTurno > 0 && ` ${semTurno === 1 ? "Falta 1 turno" : `Faltam ${semTurno} turnos`}.`}
+              {semGrupo > 0 && ` ${semGrupo === 1 ? "Falta 1 grupo" : `Faltam ${semGrupo} grupos`}.`}
             </p>
           )}
 

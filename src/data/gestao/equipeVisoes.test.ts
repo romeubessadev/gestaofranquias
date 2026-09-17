@@ -452,7 +452,7 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
       expect(["Ativo", "Encerrado", "A começar"]).toContain(d.statusLabel);
       for (const p of d.ranking) {
         expect(p.loja).toBeTruthy();
-        expect(p.turno).toBeTruthy();
+        expect(p.grupo).toBeTruthy();
         expect(p.progressoRotulo).toContain("/");
       }
     }
@@ -562,12 +562,12 @@ describe("T5: premiação projetada (EQUIP-04/05)", () => {
     }
   });
 
-  it("ranking inteligente: turno, % meta geral, nível e comissão alinhados à escada", () => {
+  it("ranking inteligente: grupo, % meta geral, nível e comissão alinhados à escada", () => {
     const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
     const metaLoja = 185000;
     expect(v.vendedoras!.length).toBeGreaterThan(0);
     for (const l of v.vendedoras!) {
-      expect(l.turno === "Grupo 1" || l.turno === "Grupo 2" || l.turno === "Sem grupo").toBe(true);
+      expect(l.grupo === "Grupo 1" || l.grupo === "Grupo 2" || l.grupo === "Sem grupo").toBe(true);
       expect(l.pctMetaGeral).toBeCloseTo((l.faturamentoValor / metaLoja) * 100, 6);
       if (l.degrauAtual) {
         expect(l.nivelAtual).toBeGreaterThan(0);
