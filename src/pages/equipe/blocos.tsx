@@ -6,10 +6,12 @@
 import { Avatar, Badge, Card, CardTitle, DataTable, EmptyState, ProgressBar, StatCard, type DataTableColumn } from "@/components/ui";
 import { Sparkline } from "@/components/charts";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { brl, brlK, num } from "@/lib/formato";
+import { brl, brlK, dataCompleta, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/blocos";
 import type { DesafioView, EquipeView, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
+import { degrausPadrao } from "@/data/gestao/metas";
+import { cn } from "@/lib/cn";
 import { ICONS } from "@/pages/dashboards/icons";
 
 const TipHelp = ({ label }: { label: string }) => (
@@ -399,39 +401,81 @@ export function CardVendedoras({
 }
 
 /**
- * Faixa global da rede (REDE-06..11): META DE SETEMBRO · R$ X DE R$ Y · Z%
- * + barra + badges de projeção e dias restantes. Só renderiza com metaGlobal.
+ * Faixa de progresso da meta (loja ou rede) — estilo Progresso Global:
+ * R$ realizado/meta · % · barra com marcos da escada (Meta→Desafio).
  */
 export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
   const fecha = meta.projetadoPct >= 100;
+  const escalaMax = Math.max(...degrausPadrao.map((d) => d.atingimentoMinPct), 100);
+  const fillPct = Math.min(100, (meta.pct / escalaMax) * 100);
+  const corBarra = meta.pct >= 100 ? "var(--ok)" : meta.projetadoPct >= 100 ? "var(--acc)" : "var(--acc)";
+  const corPct = meta.pct >= 100 ? "text-ok" : meta.projetadoPct >= 100 ? "text-acc" : "text-acc";
+
   return (
     <Card>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-[11px] font-bold uppercase tracking-wide text-t2">Meta de {meta.competTexto}</p>
-          <p className="mt-1 text-[15px] font-bold text-t0">
+          <p className="mt-1 text-[18px] font-extrabold tracking-tight text-t0 sm:text-[20px]">
             <span className="font-mono">{brl(meta.realizado)}</span>
-            <span className="mx-1.5 text-[13px] font-semibold text-t2">de</span>
-            <span className="font-mono text-t1">{brl(meta.total)}</span>
+            <span className="mx-1.5 text-[14px] font-semibold text-t2">/</span>
+            <span className="font-mono text-[14px] font-bold text-t2 sm:text-[15px]">{brl(meta.total)}</span>
           </p>
         </div>
-        <div className="flex flex-col items-start gap-2 sm:items-end">
-          <p className={`font-mono text-[28px] font-bold leading-none ${meta.pct >= 100 ? "text-ok" : meta.projetadoPct >= 100 ? "text-acc" : "text-bad"}`}>
-            {num(meta.pct, 1)}%
+        <div className="flex flex-col items-start gap-1 sm:items-end">
+          <p className="text-[11.5px] font-semibold text-t2">
+            {dataCompleta(meta.inicio)} → {dataCompleta(meta.fim)}
           </p>
-          <div className="flex flex-wrap gap-1.5">
-            <Badge variant={fecha ? "success" : "warning"}>{fecha ? "Meta será atingida" : "Projeção abaixo da meta"}</Badge>
-            <Badge variant="neutral">
-              <span className="inline-flex items-center gap-1">
-                <ICONS.calendar size={12} />
-                {meta.diasRestantes}d restantes
-              </span>
-            </Badge>
-          </div>
+          <p className={`font-mono text-[26px] font-extrabold leading-none sm:text-[28px] ${corPct}`}>{num(meta.pct, 1)}%</p>
         </div>
       </div>
-      <div className="mt-3">
-        <ProgressBar value={Math.min(100, meta.pct)} height={8} color={meta.pct >= 100 ? "var(--ok)" : meta.projetadoPct >= 100 ? "var(--acc)" : "var(--bad)"} />
+
+      <div className="mt-4">
+        <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
+          <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${fillPct}%`, background: corBarra }} />
+        </div>
+
+        {/* Marcos da escada — posição relativa à escala até Meta Desafio (180%). */}
+        <div className="relative mt-1.5 h-7">
+          {degrausPadrao.map((d, i) => {
+            const left = (d.atingimentoMinPct / escalaMax) * 100;
+            const atingido = meta.pct >= d.atingimentoMinPct;
+            return (
+              <div
+                key={d.nome}
+                className="absolute top-0 flex -translate-x-1/2 flex-col items-center"
+                style={{ left: `${left}%` }}
+              >
+                <span
+                  className="mb-1 h-2 w-0.5 rounded-full"
+                  style={{ background: atingido ? "var(--acc)" : "var(--t2)", opacity: atingido ? 1 : 0.45 }}
+                />
+                <span
+                  className={cn(
+                    "hidden whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-bold sm:inline-block",
+                    atingido ? "border-acc/40 bg-acc-soft text-acc" : "border-line bg-bg-2 text-t2",
+                    i === degrausPadrao.length - 1 && "sm:hidden lg:inline-block",
+                  )}
+                  title={`Nível ${i + 1} · ${d.nome} · ${num(d.comissaoPct, 1)}%`}
+                >
+                  N{i + 1} · {d.nome}
+                  <span className="ml-1 font-semibold opacity-80">({num(d.comissaoPct, 1)}%)</span>
+                </span>
+                <span className="text-[9px] font-bold text-t2 sm:hidden">{i + 1}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        <Badge variant={fecha ? "success" : "warning"}>{fecha ? "Meta será atingida" : "Projeção abaixo da meta"}</Badge>
+        <Badge variant="neutral">
+          <span className="inline-flex items-center gap-1">
+            <ICONS.calendar size={12} />
+            {meta.diasRestantes}d restantes
+          </span>
+        </Badge>
       </div>
     </Card>
   );

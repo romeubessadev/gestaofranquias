@@ -375,7 +375,10 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
     expect(seteDias.metaGlobal!.total).toBe(g.total);
 
     const loja = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
-    expect(loja.metaGlobal).toBeNull();
+    expect(loja.metaGlobal).not.toBeNull();
+    expect(loja.metaGlobal!.total).toBe(185000);
+    expect(loja.metaGlobal!.inicio).toBe("2026-09-01");
+    expect(loja.metaGlobal!.fim).toBe("2026-09-30");
   });
 
   it("melhor/pior atingimento por loja consistentes com a lista da loja", () => {

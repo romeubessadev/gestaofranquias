@@ -167,7 +167,7 @@ export function EquipePage() {
           </Card>
         )}
 
-        {v.visao === "rede" && v.metaGlobal && <FaixaMetaGlobal meta={v.metaGlobal} />}
+        {v.metaGlobal && <FaixaMetaGlobal meta={v.metaGlobal} />}
 
         <CardVendedoras
           estado={v.estados.vendedoras}
