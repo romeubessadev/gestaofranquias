@@ -418,55 +418,49 @@ export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
         <p className={`font-mono text-[26px] font-extrabold leading-none sm:text-[28px] ${corPct}`}>{num(meta.pct, 1)}%</p>
       </div>
 
-      <div className="mt-4 min-w-0">
-        <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
-          <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${fillPct}%`, background: corBarra }} />
-          {/* Ticks na barra — âncora visual dos níveis. */}
-          {degrausPadrao.map((d) => {
-            const left = (d.atingimentoMinPct / escalaMax) * 100;
-            const atingido = meta.pct >= d.atingimentoMinPct;
-            return (
-              <span
-                key={`tick-${d.nome}`}
-                className="absolute top-0 bottom-0 w-0.5 -translate-x-1/2"
-                style={{ left: `${left}%`, background: atingido ? "var(--t0)" : "var(--t2)", opacity: atingido ? 0.55 : 0.35 }}
-              />
-            );
-          })}
-        </div>
+      <div className="mt-4 -mx-1 overflow-x-auto px-1">
+        <div className="min-w-[520px]">
+          <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
+            <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${fillPct}%`, background: corBarra }} />
+            {/* Ticks na barra — âncora visual dos níveis. */}
+            {degrausPadrao.map((d) => {
+              const left = (d.atingimentoMinPct / escalaMax) * 100;
+              const atingido = meta.pct >= d.atingimentoMinPct;
+              return (
+                <span
+                  key={`tick-${d.nome}`}
+                  className="absolute top-0 bottom-0 w-0.5 -translate-x-1/2"
+                  style={{ left: `${left}%`, background: atingido ? "var(--t0)" : "var(--t2)", opacity: atingido ? 0.55 : 0.35 }}
+                />
+              );
+            })}
+          </div>
 
-        {/* Rótulos — primeiro centralizado; último alinhado à direita pra não vazar. */}
-        <div className="relative mt-2 h-6 overflow-visible">
-          {degrausPadrao.map((d, i) => {
-            const left = (d.atingimentoMinPct / escalaMax) * 100;
-            const atingido = meta.pct >= d.atingimentoMinPct;
-            const isLast = i === degrausPadrao.length - 1;
-            const rotuloCurto = d.nome.replace(/^Meta\s+/i, "");
-            return (
-              <div
-                key={d.nome}
-                className={cn(
-                  "absolute top-0 max-w-[42%] sm:max-w-none",
-                  isLast ? "right-0 text-right" : "text-center -translate-x-1/2",
-                )}
-                style={isLast ? undefined : { left: `${left}%` }}
-                title={`Nível ${i + 1} · ${d.nome} · ${num(d.comissaoPct, 1)}%`}
-              >
-                <p
+          {/* Rótulos — primeiro centralizado; último alinhado à direita pra não vazar. */}
+          <div className="relative mt-2 h-6">
+            {degrausPadrao.map((d, i) => {
+              const left = (d.atingimentoMinPct / escalaMax) * 100;
+              const atingido = meta.pct >= d.atingimentoMinPct;
+              const isLast = i === degrausPadrao.length - 1;
+              const rotuloCurto = d.nome.replace(/^Meta\s+/i, "");
+              return (
+                <div
+                  key={d.nome}
                   className={cn(
-                    "truncate text-[10px] font-bold leading-tight sm:whitespace-nowrap sm:overflow-visible",
-                    atingido ? "text-acc" : "text-t2",
+                    "absolute top-0 whitespace-nowrap",
+                    isLast ? "right-0 text-right" : "text-center -translate-x-1/2",
                   )}
+                  style={isLast ? undefined : { left: `${left}%` }}
+                  title={`Nível ${i + 1} · ${d.nome} · ${num(d.comissaoPct, 1)}%`}
                 >
-                  <span className="sm:hidden">N{i + 1}</span>
-                  <span className="hidden sm:inline">
+                  <p className={cn("text-[10px] font-bold leading-tight", atingido ? "text-acc" : "text-t2")}>
                     N{i + 1} · {rotuloCurto}
                     <span className="font-semibold opacity-75"> ({num(d.comissaoPct, 1)}%)</span>
-                  </span>
-                </p>
-              </div>
-            );
-          })}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
