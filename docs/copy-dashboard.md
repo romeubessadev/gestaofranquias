@@ -1893,7 +1893,7 @@ Para calibrar o tom:
 - Visão Geral: `Atingimento da Meta`, `Faturamento vs Meta`, `Top Vendedoras`
 - Financeiro: `CMV, Lucro e Margem`, `Custos da Operação`, `Evolução Mensal`
 - Produtos: `Faturamento por Categoria`, `Desempenho por Produto`
-- Turnos: `Faturamento por Dia × Turno`, `Mapa de Calor por Hora`
+- Grupos: `Faturamento por Dia × Grupo`, `Mapa de Calor por Hora`
 
 ---
 
