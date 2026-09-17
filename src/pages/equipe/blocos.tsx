@@ -418,11 +418,10 @@ export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
         <p className={`font-mono text-[26px] font-extrabold leading-none sm:text-[28px] ${corPct}`}>{num(meta.pct, 1)}%</p>
       </div>
 
-      <div className="mt-4 -mx-1 overflow-x-auto px-1">
-        <div className="min-w-[520px]">
+      <div className="mt-4 overflow-x-auto">
+        <div className="min-w-[640px]">
           <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
             <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${fillPct}%`, background: corBarra }} />
-            {/* Ticks na barra — âncora visual dos níveis. */}
             {degrausPadrao.map((d) => {
               const left = (d.atingimentoMinPct / escalaMax) * 100;
               const atingido = meta.pct >= d.atingimentoMinPct;
@@ -436,28 +435,23 @@ export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
             })}
           </div>
 
-          {/* Rótulos — primeiro centralizado; último alinhado à direita pra não vazar. */}
-          <div className="relative mt-2 h-6">
+          {/* Uma linha só — flex evita sobreposição dos rótulos absolutos no mobile. */}
+          <div className="mt-2 flex items-start justify-between gap-3">
             {degrausPadrao.map((d, i) => {
-              const left = (d.atingimentoMinPct / escalaMax) * 100;
               const atingido = meta.pct >= d.atingimentoMinPct;
-              const isLast = i === degrausPadrao.length - 1;
               const rotuloCurto = d.nome.replace(/^Meta\s+/i, "");
               return (
-                <div
+                <p
                   key={d.nome}
                   className={cn(
-                    "absolute top-0 whitespace-nowrap",
-                    isLast ? "right-0 text-right" : "text-center -translate-x-1/2",
+                    "shrink-0 whitespace-nowrap text-[10px] font-bold leading-tight",
+                    atingido ? "text-acc" : "text-t2",
                   )}
-                  style={isLast ? undefined : { left: `${left}%` }}
                   title={`Nível ${i + 1} · ${d.nome} · ${num(d.comissaoPct, 1)}%`}
                 >
-                  <p className={cn("text-[10px] font-bold leading-tight", atingido ? "text-acc" : "text-t2")}>
-                    N{i + 1} · {rotuloCurto}
-                    <span className="font-semibold opacity-75"> ({num(d.comissaoPct, 1)}%)</span>
-                  </p>
-                </div>
+                  N{i + 1} · {rotuloCurto}
+                  <span className="font-semibold opacity-75"> ({num(d.comissaoPct, 1)}%)</span>
+                </p>
               );
             })}
           </div>
