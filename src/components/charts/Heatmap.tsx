@@ -1,9 +1,28 @@
-export function Heatmap({ rows, cols, data, color = "124,92,255" }: { rows: string[]; cols: string[]; data: number[][]; color?: string }) {
+export function Heatmap({
+  rows,
+  cols,
+  data,
+  color = "124,92,255",
+  formatValue = (v: number) => String(v),
+  rowMinWidth = 72,
+}: {
+  rows: string[];
+  cols: string[];
+  data: number[][];
+  color?: string;
+  /** Formata o valor no tooltip da célula (ex.: brl). */
+  formatValue?: (v: number) => string;
+  /** Largura mínima da coluna de rótulos das linhas. */
+  rowMinWidth?: number;
+}) {
   const max = Math.max(...data.flat(), 1);
 
   return (
     <div className="overflow-x-auto">
-      <div className="inline-grid gap-1" style={{ gridTemplateColumns: `40px repeat(${cols.length}, minmax(22px, 1fr))` }}>
+      <div
+        className="inline-grid gap-1"
+        style={{ gridTemplateColumns: `${rowMinWidth}px repeat(${cols.length}, minmax(22px, 1fr))` }}
+      >
         <div />
         {cols.map((c) => (
           <div key={c} className="text-center text-[9.5px] font-semibold text-t2">
@@ -12,14 +31,14 @@ export function Heatmap({ rows, cols, data, color = "124,92,255" }: { rows: stri
         ))}
         {rows.map((row, ri) => (
           <div key={row} className="contents">
-            <div className="flex items-center text-[10px] font-semibold text-t2">{row}</div>
-            {cols.map((_, ci) => {
+            <div className="flex items-center whitespace-nowrap text-[10px] font-semibold text-t2">{row}</div>
+            {cols.map((col, ci) => {
               const v = data[ri]?.[ci] ?? 0;
               const alpha = Math.max(0.08, v / max);
               return (
                 <div
                   key={ci}
-                  title={`${row} / ${cols[ci]}: ${v}`}
+                  title={`${row} · ${col} · ${formatValue(v)}`}
                   className="aspect-square rounded-[4px]"
                   style={{ background: `rgba(${color},${alpha})` }}
                 />

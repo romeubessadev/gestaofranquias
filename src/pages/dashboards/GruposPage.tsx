@@ -121,15 +121,45 @@ export default function GruposPage() {
       value: Math.round(acumulado[label] / (contagem[label] || 1)),
     }));
 
-  // Preparar dados para Heatmap (dia × hora)
-  const heatmapRows = [...new Set(view.heatmap.map((c) => c.dia))].sort();
-  const heatmapCols = [...new Set(view.heatmap.map((c) => String(c.hora).padStart(2, "0")))].sort();
-  const heatmapData = heatmapRows.map((row) =>
+  // Preparar dados para Heatmap (dia × hora) / barras por hora em 1 dia
+  const heatmapIsos = [...new Set(view.heatmap.map((c) => c.dia))].sort();
+  const ehUmDia = view.periodo.inicio === view.periodo.fim;
+  const comDiaSemana = heatmapIsos.length <= 14;
+  const DIAS_ABREV = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  function rotuloDiaHeatmap(iso: string): string {
+    const d = deIso(iso);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    if (!comDiaSemana) return `${dd}/${mm}`;
+    return `${DIAS_ABREV[d.getDay()]} ${dd}/${mm}`;
+  }
+  const heatmapRows = heatmapIsos.map(rotuloDiaHeatmap);
+  const heatmapCols = [...new Set(view.heatmap.map((c) => c.hora))]
+    .sort((a, b) => a - b)
+    .map((h) => `${String(h).padStart(2, "0")}h`);
+  const heatmapData = heatmapIsos.map((iso) =>
     heatmapCols.map((col) => {
-      const celula = view.heatmap.find((c) => c.dia === row && c.hora === Number(col));
+      const hora = Number(col.replace("h", ""));
+      const celula = view.heatmap.find((c) => c.dia === iso && c.hora === hora);
       return celula?.valor ?? 0;
     }),
   );
+  const barrasPorHora = ehUmDia
+    ? (view.indicadoresPorHora ?? []).map((h) => ({
+        label: `${String(h.hora).padStart(2, "0")}h`,
+        value: h.faturamento,
+      }))
+    : [];
+  // Fallback se indicadores ainda não veio: monta a partir do heatmap de 1 dia
+  const barrasPorHoraFinal =
+    barrasPorHora.length > 0
+      ? barrasPorHora
+      : ehUmDia && heatmapIsos[0]
+        ? heatmapCols.map((col, ci) => ({
+            label: col,
+            value: heatmapData[0]?.[ci] ?? 0,
+          }))
+        : [];
 
   // KPIs: sem filtro = soma de todos; com filtro = só o grupo. Comparativo entre grupos fica nos charts.
   const kpisFonte = grupoAtivo
@@ -275,28 +305,52 @@ export default function GruposPage() {
         )}
       </Card>
 
-      {/* Par: Heatmap + Vendedoras por Hora */}
+      {/* Par: intensidade horária + Vendedoras por Hora */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Mapa de Calor por Hora</CardTitle>
-              <Tooltip label="Intensidade de faturamento por dia da semana e hora. Cor forte = pico de venda.">
-                <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-              </Tooltip>
-            </div>
-          </CardHeader>
-          <div className="px-4 pb-4">
-            <Heatmap rows={heatmapRows} cols={heatmapCols} data={heatmapData} color="220,38,127" />
-          </div>
+        <Card padding="lg">
+          {ehUmDia ? (
+            <>
+              <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <CardTitle>Faturamento por Hora</CardTitle>
+                    <TipHelp label="Em período de 1 dia, o mapa de calor vira barras por hora — mais fácil de ler. Corresponde às horas do grupo filtrado (ou todas)." />
+                  </div>
+                  <p className="mt-1.5 text-2xl font-extrabold text-t0">{brl(kpiFat)}</p>
+                </div>
+              </div>
+              {barrasPorHoraFinal.length === 0 ? (
+                <span className="flex items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+              ) : (
+                <BarChart data={barrasPorHoraFinal} height={200} formatValue={brlK} />
+              )}
+            </>
+          ) : (
+            <>
+              <div className="mb-4 flex items-center gap-1.5">
+                <CardTitle>Mapa de Calor por Hora</CardTitle>
+                <TipHelp label="Intensidade de faturamento por dia × hora. Cor forte = pico de venda. Passe o mouse na célula para ver o R$." />
+              </div>
+              {heatmapIsos.length === 0 ? (
+                <span className="flex items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+              ) : (
+                <Heatmap
+                  rows={heatmapRows}
+                  cols={heatmapCols}
+                  data={heatmapData}
+                  color="220,38,127"
+                  formatValue={brl}
+                  rowMinWidth={comDiaSemana ? 72 : 44}
+                />
+              )}
+            </>
+          )}
         </Card>
         <Card>
           <CardHeader>
             <div className="flex items-center gap-1.5">
               <CardTitle>Vendedoras por Hora</CardTitle>
-              <Tooltip label="Quantas vendedoras ativas em cada hora vs. mínimo ideal. Barra cheia = staff suficiente.">
-                <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-              </Tooltip>
+              <TipHelp label="Quantas vendedoras ativas em cada hora vs. mínimo ideal. Barra cheia = staff suficiente." />
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
@@ -322,9 +376,7 @@ export default function GruposPage() {
           <CardHeader>
             <div className="flex items-center gap-1.5">
               <CardTitle>Indicadores por Hora</CardTitle>
-              <Tooltip label="Detalhamento horário com faturamento, atendimentos, ticket médio e comparativo vs. mesmo horário do dia anterior.">
-                <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-              </Tooltip>
+              <TipHelp label="Detalhamento horário com faturamento, atendimentos, ticket médio e comparativo vs. mesmo horário do dia anterior." />
             </div>
           </CardHeader>
           <div className="overflow-x-auto px-4 pb-4">
