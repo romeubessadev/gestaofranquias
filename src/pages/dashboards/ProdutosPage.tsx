@@ -51,12 +51,6 @@ const TipHelp = ({ label }: { label: string }) => (
   </Tooltip>
 );
 
-function badgeClasseAbc(classe: ClasseAbc): "danger" | "warning" | "success" {
-  if (classe === "A") return "danger";
-  if (classe === "B") return "warning";
-  return "success";
-}
-
 const CORES_ABC: Record<ClasseAbc, string> = {
   A: "var(--bad)",
   B: "var(--warn)",
@@ -309,42 +303,49 @@ export default function ProdutosPage() {
           </div>
         </Card>
 
-        <Card padding="lg">
-          <div className="mb-4 flex items-start justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Curva ABC de Categorias</CardTitle>
-              <TipHelp label="Análise de Pareto: ordena as categorias pelo faturamento e classifica em A (até 80% acumulado), B (até 95%) e C (restante). Mostra se o resultado depende demais de poucas categorias." />
-            </div>
-          </div>
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            {view.curvaAbcCategorias.resumo
-              .filter((r) => r.qtdCategorias > 0)
-              .map((r) => (
-                <Badge key={r.classe} variant={badgeClasseAbc(r.classe)}>
-                  Classe {r.classe} — {r.qtdCategorias} cat.
-                  {r.classe === "A" ? ` (${Math.round(r.pctReceita)}% receita)` : ""}
-                </Badge>
-              ))}
+        <Card padding="lg" className="flex flex-col">
+          <div className="mb-1 flex items-center gap-1.5">
+            <CardTitle>Curva ABC de Categorias</CardTitle>
+            <TipHelp label="Análise de Pareto: ordena as categorias pelo faturamento e classifica em A (até 80% acumulado), B (até 95%) e C (restante). Mostra se o resultado depende demais de poucas categorias." />
           </div>
           {view.curvaAbcCategorias.itens.length === 0 ? (
             <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
           ) : (
-            <div className="flex flex-1 flex-col justify-center">
-              <DonutChart
-                segments={view.curvaAbcCategorias.resumo
-                  .filter((r) => r.pctReceita > 0)
-                  .map((r) => ({
-                    label: `Classe ${r.classe}`,
-                    value: r.pctReceita,
-                    color: CORES_ABC[r.classe],
-                  }))}
-                size={168}
-                thickness={22}
-                centerLabel="categorias"
-                centerValue={String(view.curvaAbcCategorias.itens.length)}
-                showLegendValue={false}
-              />
-            </div>
+            (() => {
+              const classes = view.curvaAbcCategorias.resumo.filter((r) => r.faturamento > 0);
+              const total = classes.reduce((s, r) => s + r.faturamento, 0) || 1;
+              return (
+                <div className="flex flex-1 flex-col justify-center px-1 pb-1 pt-3">
+                  <div className="mx-auto my-2">
+                    <DonutChart
+                      segments={classes.map((r) => ({
+                        label: `Classe ${r.classe}`,
+                        value: r.faturamento,
+                        color: CORES_ABC[r.classe],
+                      }))}
+                      centerLabel="Total"
+                      centerValue={brlK(total)}
+                    />
+                  </div>
+                  <div className="mt-2 flex flex-col gap-2">
+                    {classes.map((r) => {
+                      const pct = Math.round((r.faturamento / total) * 100);
+                      return (
+                        <div key={r.classe} className="flex items-center gap-2.5">
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: CORES_ABC[r.classe] }} />
+                          <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">
+                            Classe {r.classe}
+                            <span className="ml-1 font-medium text-t2">· {r.qtdCategorias} cat.</span>
+                          </span>
+                          <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlK(r.faturamento)}</span>
+                          <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()
           )}
         </Card>
       </div>

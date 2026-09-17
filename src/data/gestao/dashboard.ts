@@ -1788,6 +1788,8 @@ export interface CurvaAbcResumo {
   qtdCategorias: number;
   /** Participação da classe no faturamento total (0–100). */
   pctReceita: number;
+  /** Soma do faturamento das categorias da classe. */
+  faturamento: number;
 }
 
 export interface CurvaAbcCategorias {
@@ -1829,10 +1831,12 @@ export function classificarCurvaAbc(cats: Array<{ categoriaId: number; nome: str
   const classes: ClasseAbc[] = ["A", "B", "C"];
   const resumo: CurvaAbcResumo[] = classes.map((classe) => {
     const doGrupo = itens.filter((i) => i.classe === classe);
+    const faturamento = doGrupo.reduce((s, i) => s + i.faturamento, 0);
     return {
       classe,
       qtdCategorias: doGrupo.length,
       pctReceita: doGrupo.reduce((s, i) => s + i.pct, 0),
+      faturamento,
     };
   });
   return { itens, resumo };
