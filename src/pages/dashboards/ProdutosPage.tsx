@@ -327,18 +327,23 @@ export default function ProdutosPage() {
                       centerValue={brlK(total)}
                     />
                   </div>
-                  <div className="mt-2 flex flex-col gap-2">
+                  <div className="mt-2 flex flex-col gap-3">
                     {classes.map((r) => {
                       const pct = Math.round((r.faturamento / total) * 100);
+                      const nomes = view.curvaAbcCategorias.itens
+                        .filter((i) => i.classe === r.classe)
+                        .map((i) => i.nome);
                       return (
-                        <div key={r.classe} className="flex items-center gap-2.5">
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: CORES_ABC[r.classe] }} />
-                          <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">
-                            Classe {r.classe}
-                            <span className="ml-1 font-medium text-t2">· {r.qtdCategorias} cat.</span>
-                          </span>
-                          <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlK(r.faturamento)}</span>
-                          <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
+                        <div key={r.classe} className="flex items-start gap-2.5">
+                          <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: CORES_ABC[r.classe] }} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-[12.5px] font-semibold text-t1">Classe {r.classe}</span>
+                              <span className="ml-auto shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlK(r.faturamento)}</span>
+                              <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
+                            </div>
+                            <p className="mt-0.5 text-[11.5px] leading-snug text-t2">{nomes.join(" · ")}</p>
+                          </div>
                         </div>
                       );
                     })}
