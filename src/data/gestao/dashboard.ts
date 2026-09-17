@@ -1981,7 +1981,11 @@ export interface VendedoraPorHora {
 export interface TurnosView {
   escopo: Escopo;
   periodo: PeriodoResolvido;
+  /** Nome do grupo ativo (`Grupo 1` / `Grupo 2`), ou null = todos. */
   turnoFiltro: string | null;
+  /** Grupos únicos no escopo (por nome), para o select do header. */
+  gruposDisponiveis: { id: string; nome: string }[];
+  /** @deprecated use gruposDisponiveis — mantido enquanto a UI migra. */
   turnosDisponiveis: { id: string; nome: string }[];
   kpisPorTurno: TurnoKpi[];
   faturamentoPorDiaTurno: DiaTurnoFat[];
@@ -1990,7 +1994,7 @@ export interface TurnosView {
   vendedorasPorHora: VendedoraPorHora[];
 }
 
-/** Filtra horas que pertencem ao turno. Se turnoId=null, inclui todas. */
+/** Horas de um turno cadastrado. Sem turno → 0–23. */
 function horasDoTurno(turno: Turno | null): number[] {
   if (!turno) return Array.from({ length: 24 }, (_, i) => i);
   const horas: number[] = [];
@@ -1998,25 +2002,45 @@ function horasDoTurno(turno: Turno | null): number[] {
   return horas;
 }
 
-export function montarTurnosView(escopo: Escopo, turnoFiltro: string | null = null): TurnosView {
+/** União das faixas horárias de vários turnos (mesmo nome em lojas diferentes). */
+function horasDosGrupos(turnos: Turno[]): number[] {
+  if (turnos.length === 0) return Array.from({ length: 24 }, (_, i) => i);
+  const set = new Set<number>();
+  for (const t of turnos) {
+    for (let h = t.horaInicio; h < t.horaFim; h++) set.add(h);
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
+function turnoDaFilial(filialId: string, nomeGrupo: string): Turno | undefined {
+  return turnosCadastrados.find((t) => t.filialId === filialId && t.nome === nomeGrupo);
+}
+
+/**
+ * @param grupoFiltro Nome do grupo (`Grupo 1` / `Grupo 2`), não o id do cadastro.
+ *   Null = todos os grupos.
+ */
+export function montarTurnosView(escopo: Escopo, grupoFiltro: string | null = null): TurnosView {
   const periodo = resolverPeriodo(escopo.periodo);
   const fs = filiaisDoEscopo(escopo);
   const divisao = escopo.divisao;
 
-  // Turnos disponíveis nas filiais do escopo
+  // Turnos das filiais do escopo; nomes únicos para o select.
   const turnosEscopo = turnosCadastrados.filter((t) => fs.some((f) => f.id === t.filialId));
-  const turnosUnicos = [...new Map(turnosEscopo.map((t) => [t.nome, t])).values()];
-  const turnosDisponiveis = turnosUnicos.map((t) => ({ id: t.id, nome: t.nome }));
+  const nomesUnicos = [...new Set(turnosEscopo.map((t) => t.nome))];
+  const gruposDisponiveis = nomesUnicos.map((nome) => ({ id: nome, nome }));
 
-  const turnoAtivo = turnoFiltro ? turnosCadastrados.find((t) => t.id === turnoFiltro) ?? null : null;
-  const horasAtivas = horasDoTurno(turnoAtivo);
+  // Filtro por nome: une as faixas horárias desse grupo em todas as lojas do escopo.
+  const turnosDoFiltro = grupoFiltro ? turnosEscopo.filter((t) => t.nome === grupoFiltro) : [];
+  const horasAtivas = grupoFiltro ? horasDosGrupos(turnosDoFiltro) : horasDoTurno(null);
 
-  // KPIs por turno (agrega todas as filiais do escopo)
-  const kpisPorTurno: TurnoKpi[] = turnosUnicos.map((turno) => {
+  // KPIs por grupo — cada loja usa a faixa horária do seu próprio cadastro.
+  const kpisPorTurno: TurnoKpi[] = nomesUnicos.map((nome) => {
     let faturamento = 0;
     let vendas = 0;
     for (const f of fs) {
-      if (f.id !== turno.filialId && escopo.filialIds.length > 0 && !escopo.filialIds.includes(f.id)) continue;
+      const turno = turnoDaFilial(f.id, nome);
+      if (!turno) continue;
       for (const iso of intervaloDias(periodo.inicio, periodo.fim)) {
         const dv = diaVendas(f.id, iso);
         if (!dv) continue;
@@ -2036,21 +2060,22 @@ export function montarTurnosView(escopo: Escopo, turnoFiltro: string | null = nu
       }
     }
     return {
-      nome: turno.nome,
+      nome,
       faturamento,
       vendas,
       ticketMedio: divSeguro(faturamento, vendas),
     };
   });
 
-  // Faturamento por dia × turno
+  // Faturamento por dia × grupo
   const dias = intervaloDias(periodo.inicio, periodo.fim);
   const faturamentoPorDiaTurno: DiaTurnoFat[] = dias.map((iso) => {
     const porTurno: Record<string, number> = {};
-    for (const turno of turnosUnicos) {
+    for (const nome of nomesUnicos) {
       let fat = 0;
       for (const f of fs) {
-        if (f.id !== turno.filialId && escopo.filialIds.length > 0 && !escopo.filialIds.includes(f.id)) continue;
+        const turno = turnoDaFilial(f.id, nome);
+        if (!turno) continue;
         const dv = diaVendas(f.id, iso);
         if (!dv) continue;
         for (const h of horasDoTurno(turno)) {
@@ -2065,7 +2090,7 @@ export function montarTurnosView(escopo: Escopo, turnoFiltro: string | null = nu
           }
         }
       }
-      porTurno[turno.nome] = fat;
+      porTurno[nome] = fat;
     }
     return { dia: iso, porTurno };
   });
@@ -2189,8 +2214,9 @@ export function montarTurnosView(escopo: Escopo, turnoFiltro: string | null = nu
   return {
     escopo,
     periodo,
-    turnoFiltro,
-    turnosDisponiveis,
+    turnoFiltro: grupoFiltro,
+    gruposDisponiveis,
+    turnosDisponiveis: gruposDisponiveis,
     kpisPorTurno,
     faturamentoPorDiaTurno,
     heatmap,

@@ -48,13 +48,19 @@ const KPI_COLORS = [
   { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
 ];
 
+const filtroSelectClass =
+  "h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none";
+
 export default function TurnosPage() {
   const { escopo, mudar } = useEscopo();
-  const [turnoFiltro, setTurnoFiltro] = useState<string | null>(null);
+  const [grupoFiltro, setGrupoFiltro] = useState<string | null>(null);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
 
-  const view = useMemo(() => montarTurnosView(escopo, turnoFiltro), [escopo, turnoFiltro]);
+  const gruposDisponiveis = useMemo(() => montarTurnosView(escopo, null).gruposDisponiveis, [escopo]);
+  // Se a loja mudar e o grupo sumir da lista, volta para "Todos".
+  const grupoAtivo = grupoFiltro && gruposDisponiveis.some((g) => g.nome === grupoFiltro) ? grupoFiltro : null;
+  const view = useMemo(() => montarTurnosView(escopo, grupoAtivo), [escopo, grupoAtivo]);
 
   const dateRange: DateRange | null = useMemo(() => {
     if (escopo.periodo.tipo === "personalizado" && escopo.periodo.inicio && escopo.periodo.fim) {
@@ -84,7 +90,7 @@ export default function TurnosPage() {
   }, []);
 
   const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
-  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} minuto${minutosAtras !== 1 ? "s" : ""}`;
+  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} min`;
 
   // Preparar dados para StackedBarChart (dia da semana × turno) — agrupa e tira média
   const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -132,41 +138,75 @@ export default function TurnosPage() {
   return (
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
-        crumbs={[{ label: "Dashboard",to: "/dashboard/visao-geral" }, {label: "Turnos" }]}
-        title="Turnos"
-        subtitle="Desempenho por turno, horário e dia da semana da loja."
+        crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Grupos" }]}
+        title="Grupos"
+        subtitle="Desempenho por grupo, horário e intensidade da operação."
         actions={
           <>
             <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
               <span className={`inline-block h-2 w-2 rounded-full ${minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
               {rotuloAtualizacao}
             </span>
-            <Button variant="secondary" size="md" onClick={forcarAtualizacao} disabled={refreshing}
-              icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
-            />
-            <Button variant="secondary" size="md" onClick={() => window.print()}
-              icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={forcarAtualizacao}
+              disabled={refreshing}
+              icon={
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={refreshing ? "animate-spin" : ""}
+                >
+                  <path d="M21 2v6h-6" />
+                  <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                  <path d="M3 22v-6h6" />
+                  <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                </svg>
+              }
+            >
+              Atualizar
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => window.print()}
+              icon={
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              }
             >
               Exportar
             </Button>
-            <DateRangePicker value={dateRange} onChange={onDateChange} />
+            <DateRangePicker value={dateRange} onChange={onDateChange} size="sm" />
             <select
               value={escopo.divisao ?? ""}
-              onChange={(e) => onMarcaChange(e.target.value ? e.target.value as "WEPINK" | "WPINK" : null)}
-              className="h-10 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3.5 text-[13px] font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none"
+              onChange={(e) => onMarcaChange(e.target.value ? (e.target.value as "WEPINK" | "WPINK") : null)}
+              className={filtroSelectClass}
             >
               <option value="">Todas as marcas</option>
               <option value="WEPINK">WEPINK</option>
               <option value="WPINK">WPINK</option>
             </select>
             <select
-              value={turnoFiltro ?? ""}
-              onChange={(e) => setTurnoFiltro(e.target.value || null)}
-              className="h-10 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3.5 text-[13px] font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none"
+              value={grupoAtivo ?? ""}
+              onChange={(e) => setGrupoFiltro(e.target.value || null)}
+              className={filtroSelectClass}
             >
-              <option value="">Todos os turnos</option>
-              {view.turnosDisponiveis.map((t) => (
-                <option key={t.id} value={t.id}>{t.nome}</option>
+              <option value="">Todos os grupos</option>
+              {gruposDisponiveis.map((g) => (
+                <option key={g.id} value={g.nome}>
+                  {g.nome}
+                </option>
               ))}
             </select>
           </>

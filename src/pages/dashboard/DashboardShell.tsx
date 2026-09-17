@@ -11,7 +11,7 @@ const SUBTITULO: Record<string, string> = {
   financeiro: "Faturamento, CMV, lucro bruto e formas de pagamento.",
   produtos: "Mix, categorias, top produtos e margem por linha.",
   equipe: "Quem precisa de atenção, por quê, e quanto vai custar.",
-  turnos: "Desempenho por turno, mapa de calor e staff por hora.",
+  turnos: "Desempenho por grupo, horário e intensidade da operação.",
   loja: "Visão geral do desempenho das suas lojas.",
 };
 
@@ -50,7 +50,7 @@ export function DashboardShell({
           { label: "Financeiro", to: `${paths.financeiro}${suffix}` },
           { label: "Produtos", to: `${paths.produtos}${suffix}` },
           { label: "Equipe", to: `${paths.equipe}${suffix}` },
-          { label: "Turnos", to: `${paths.turnos}${suffix}` },
+          { label: "Grupos", to: `${paths.turnos}${suffix}` },
         ]}
       />
 
