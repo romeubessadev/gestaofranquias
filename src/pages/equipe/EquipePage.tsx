@@ -173,7 +173,6 @@ export function EquipePage() {
           estado={v.estados.vendedoras}
           lista={v.vendedoras}
           metaAtiva={v.metaAtiva}
-          competenciaTexto={mesAno(`${v.competencia}-01`)}
           mostrarShopping={v.visao === "rede"}
         />
 

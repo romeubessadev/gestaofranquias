@@ -6,7 +6,7 @@
 import { Avatar, Badge, Card, CardTitle, DataTable, EmptyState, ProgressBar, StatCard, type DataTableColumn } from "@/components/ui";
 import { Sparkline } from "@/components/charts";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { brl, brlK, dataCompleta, num } from "@/lib/formato";
+import { brl, brlK, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/blocos";
 import type { DesafioView, EquipeView, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
@@ -360,32 +360,23 @@ export function BlocoVendedoras({ lista, metaAtiva, mostrarShopping = false }: {
   );
 }
 
-/** Card inteiro da lista (título + descrição + estados + tabela). */
+/** Card inteiro da lista (título + estados + tabela). */
 export function CardVendedoras({
   estado,
   lista,
   metaAtiva,
-  competenciaTexto,
   mostrarShopping = false,
 }: {
   estado: EstadoBlocoTipo;
   lista: VendedoraLinha[] | null;
   metaAtiva: boolean;
-  competenciaTexto: string;
   mostrarShopping?: boolean;
 }) {
   return (
     <Card padding="none">
-      <div className="px-5 py-4">
-        <div className="flex items-center gap-1.5">
-          <CardTitle>Metas</CardTitle>
-          <TipHelp label="Ranking da escada de premiação: quem bateu Meta, Super, Hiper ou Meta Desafio, quanto falta pro próximo nível e quanto a loja paga de premiação." />
-        </div>
-        <p className="mt-1 text-[12.5px] text-t2">
-          {metaAtiva
-            ? `Escada de premiação · competência ${competenciaTexto}. Ordenado pelo % da meta individual.`
-            : "Sem meta ativa neste mês — o ranking mostra só o desempenho do período filtrado."}
-        </p>
+      <div className="flex items-center gap-1.5 px-5 py-4">
+        <CardTitle>Metas</CardTitle>
+        <TipHelp label="Ranking da escada de premiação: quem bateu Meta, Super, Hiper ou Meta Desafio, quanto falta pro próximo nível e quanto a loja paga de premiação." />
       </div>
       <EstadoBloco estado={estado}>
         {lista && lista.length > 0 ? (
@@ -413,14 +404,9 @@ export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
 
   return (
     <Card>
-      <div className="mb-4">
-        <div className="flex items-center gap-1.5">
-          <CardTitle>Desempenho da meta</CardTitle>
-          <TipHelp label="Progresso da meta da competência frente à escada de premiação (Meta, Super Meta, Hiper Meta e Meta Desafio)." />
-        </div>
-        <p className="mt-1 text-[12.5px] text-t2">
-          Competência {meta.competTexto} · {dataCompleta(meta.inicio)} - {dataCompleta(meta.fim)}
-        </p>
+      <div className="mb-4 flex items-center gap-1.5">
+        <CardTitle>Desempenho da meta</CardTitle>
+        <TipHelp label="Progresso da meta da competência frente à escada de premiação (Meta, Super Meta, Hiper Meta e Meta Desafio)." />
       </div>
 
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -514,27 +500,12 @@ function IconRelogio() {
   );
 }
 
-function resumoStatusDesafios(desafios: DesafioView[]): string {
-  if (desafios.length === 0) return "Nenhum desafio nesta competência.";
-  const ativos = desafios.filter((d) => d.statusLabel === "Ativo").length;
-  const aComecar = desafios.filter((d) => d.statusLabel === "A começar").length;
-  const encerrados = desafios.filter((d) => d.statusLabel === "Encerrado").length;
-  const partes: string[] = [];
-  if (ativos > 0) partes.push(`${ativos} ativo${ativos === 1 ? "" : "s"}`);
-  if (aComecar > 0) partes.push(`${aComecar} a começar`);
-  if (encerrados > 0) partes.push(`${encerrados} encerrado${encerrados === 1 ? "" : "s"}`);
-  return partes.join(" · ");
-}
-
 export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
   return (
     <Card padding="lg">
-      <div className="mb-4">
-        <div className="flex items-center gap-1.5">
-          <CardTitle>Desafios</CardTitle>
-          <TipHelp label="Campanhas com prêmio para quem bate a meta no período. Acompanhe progresso por vendedora, status e prazo." />
-        </div>
-        <p className="mt-1 text-[12.5px] text-t2">{resumoStatusDesafios(desafios)}</p>
+      <div className="mb-4 flex items-center gap-1.5">
+        <CardTitle>Desafios</CardTitle>
+        <TipHelp label="Campanhas com prêmio para quem bate a meta no período. Acompanhe progresso por vendedora, status e prazo." />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
