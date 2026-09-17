@@ -3,7 +3,12 @@
 export interface Degrau {
   nome: string;
   atingimentoMinPct: number;
+  /** % da premiação sobre o faturamento realizado neste degrau. */
   comissaoPct: number;
+  /**
+   * Bônus acumulado ao atingir este degrau.
+   * Regra de produto: R$ 50 por nível (1→50, 2→100, 3→150, 4→200).
+   */
   bonus: number;
 }
 
@@ -17,11 +22,14 @@ export interface Meta {
   degraus: Degrau[];
 }
 
+/** Escada padrão: Meta → Super → Hiper → Meta Desafio (+R$ 50/nível, acumulativo). */
+export const BONUS_POR_NIVEL = 50;
+
 export const degrausPadrao: Degrau[] = [
-  { nome: "Meta", atingimentoMinPct: 100, comissaoPct: 1.5, bonus: 50 },
-  { nome: "Super Meta", atingimentoMinPct: 120, comissaoPct: 2.0, bonus: 100 },
-  { nome: "Hiper Meta", atingimentoMinPct: 150, comissaoPct: 2.5, bonus: 150 },
-  { nome: "Meta Desafio", atingimentoMinPct: 180, comissaoPct: 3.0, bonus: 200 },
+  { nome: "Meta", atingimentoMinPct: 100, comissaoPct: 1.5, bonus: BONUS_POR_NIVEL * 1 },
+  { nome: "Super Meta", atingimentoMinPct: 120, comissaoPct: 2.0, bonus: BONUS_POR_NIVEL * 2 },
+  { nome: "Hiper Meta", atingimentoMinPct: 150, comissaoPct: 2.5, bonus: BONUS_POR_NIVEL * 3 },
+  { nome: "Meta Desafio", atingimentoMinPct: 180, comissaoPct: 3.0, bonus: BONUS_POR_NIVEL * 4 },
 ];
 
 export const metas: Meta[] = [

@@ -378,6 +378,31 @@ function tendenciaVendedora(c: Colaborador, filialId: string, fimIso: string): V
 }
 
 /** Lista de vendedoras da loja com desempenho do período + meta quando ativa. */
+/**
+ * Alvos de % da meta individual (demo do ranking).
+ * Espalha os 4 níveis + abaixo/quase pra validar Premiação e Nível atual.
+ * Mid-mês o gerador real deixa todo mundo ~50% — sem isso o ranking fica vazio de níveis.
+ */
+const DEMO_ATINGIMENTO_PCT: Record<string, number> = {
+  // f1 — Campo Grande
+  c01: 190, // Nível 4 · Meta Desafio (3% + R$ 200)
+  c02: 158, // Nível 3 · Hiper Meta (2,5% + R$ 150)
+  c03: 128, // Nível 2 · Super Meta (2% + R$ 100)
+  c04: 108, // Nível 1 · Meta (1,5% + R$ 50)
+  c05: 78, // abaixo
+  c07: 94, // quase Meta
+  c08: 52, // abaixo
+  // f2 — Três Lagoas
+  c11: 185, // Nível 4
+  c12: 152, // Nível 3
+  c13: 122, // Nível 2
+  c14: 105, // Nível 1
+  c15: 72, // abaixo
+  c16: 88, // quase
+  c17: 58, // abaixo
+  c18: 42, // abaixo (admissão recente)
+};
+
 function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva: boolean, competencia: string): VendedoraLinha[] {
   const filial = filialPorId(filialId);
   const agLoja = agregadoLoja(filialId, periodo.inicio, periodo.fim);
@@ -386,11 +411,31 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
 
   return vendedorasDaLoja(filialId, competencia)
     .map((c) => {
-    const ag = agregadoVendedoraPeriodo(c, filialId, periodo.inicio, periodo.fim);
-    const ticket = divSeguro(ag.faturamento, ag.atendimentos);
-    const pa = divSeguro(ag.itens, ag.atendimentos);
+    const agRaw = agregadoVendedoraPeriodo(c, filialId, periodo.inicio, periodo.fim);
     const metaInd = metaAtiva ? metaIndividual(c, filialId, competencia) : null;
-    const escada = metaInd ? escadaVendedora(ag.faturamento, metaInd, degraus) : null;
+
+    // Demo: ancora o faturamento no % alvo pra espalhar os níveis da escada.
+    let faturamento = agRaw.faturamento;
+    let atendimentos = agRaw.atendimentos;
+    let itens = agRaw.itens;
+    const alvoPct = DEMO_ATINGIMENTO_PCT[c.id];
+    if (metaInd && metaInd.valor > 0 && alvoPct != null) {
+      const fatAlvo = Math.round((metaInd.valor * alvoPct) / 100);
+      if (agRaw.faturamento > 0) {
+        const escala = fatAlvo / agRaw.faturamento;
+        faturamento = fatAlvo;
+        atendimentos = Math.max(1, Math.round(agRaw.atendimentos * escala));
+        itens = Math.max(atendimentos, Math.round(agRaw.itens * escala));
+      } else {
+        faturamento = fatAlvo;
+        atendimentos = Math.max(1, Math.round(fatAlvo / 120));
+        itens = Math.round(atendimentos * 1.5);
+      }
+    }
+
+    const ticket = divSeguro(faturamento, atendimentos);
+    const pa = divSeguro(itens, atendimentos);
+    const escada = metaInd ? escadaVendedora(faturamento, metaInd, degraus) : null;
     const tendencia = tendenciaVendedora(c, filialId, periodo.fim);
 
     // Projeção do fechamento individual: realizado escalado pela fração da
@@ -401,7 +446,7 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
       const curva = curvaReceita([filial], competencia);
       let fracaoAcum = 0;
       for (const iso of intervaloDias(`${competencia}-01`, HOJE_ISO)) fracaoAcum += curva.peso(iso);
-      if (fracaoAcum > 0) projecaoFinal = ag.faturamento / fracaoAcum;
+      if (fracaoAcum > 0) projecaoFinal = faturamento / fracaoAcum;
     }
     const atingProjPct = metaInd && metaInd.valor > 0 ? (projecaoFinal / metaInd.valor) * 100 : 0;
     const degrauProjetado = (() => {
@@ -448,21 +493,21 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
       filialId,
       filialNome: filial.fantasia,
       turno: c.turnoId ? turnos.find((t) => t.id === c.turnoId)?.nome ?? "Sem turno" : "Sem turno",
-      faturamentoValor: ag.faturamento,
-      faturamento: brl(ag.faturamento),
-      atendimentos: ag.atendimentos,
+      faturamentoValor: faturamento,
+      faturamento: brl(faturamento),
+      atendimentos,
       ticketValor: ticket,
       ticket: brl(ticket),
       paValor: pa,
       pa: num(pa, 2),
-      diasTrabalhados: ag.diasTrabalhados,
+      diasTrabalhados: agRaw.diasTrabalhados,
       tendencia,
       metaIndividualValor: metaInd?.valor ?? 0,
       metaProporcional: metaInd?.proporcional ?? false,
       diasElegiveis: metaInd?.diasElegiveis ?? 0,
-      atingimentoPct: metaInd && metaInd.valor > 0 ? (ag.faturamento / metaInd.valor) * 100 : 0,
-      barraPct: metaInd && metaInd.valor > 0 ? Math.min(100, (ag.faturamento / metaInd.valor) * 100) : 0,
-      pctMetaGeral: metaLoja > 0 ? (ag.faturamento / metaLoja) * 100 : 0,
+      atingimentoPct: metaInd && metaInd.valor > 0 ? (faturamento / metaInd.valor) * 100 : 0,
+      barraPct: metaInd && metaInd.valor > 0 ? Math.min(100, (faturamento / metaInd.valor) * 100) : 0,
+      pctMetaGeral: metaLoja > 0 ? (faturamento / metaLoja) * 100 : 0,
       // Marcos da escada para a barra segmentada do mockup (posição % de cada
       // degrau + % de premiação que ele paga acima dele).
       marcosEscada: degraus.map((d) => ({ nome: d.nome, pct: d.atingimentoMinPct, pctPremiacao: d.comissaoPct, bonus: d.bonus })),

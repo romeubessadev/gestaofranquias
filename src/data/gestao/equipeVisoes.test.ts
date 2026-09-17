@@ -208,11 +208,12 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
     expect(total).toBeGreaterThanOrEqual(desafiosEsperado - 1);
     expect(total).toBeGreaterThanOrEqual(escadaEsperado - 1);
     // A diferença KPI − desafios tem que ser plausível com a escada (não
-    // negativa e não gigante): escada projetada ≤ 5% do faturamento do mês.
-    const fat = parseBrl(v.kpiFaturamento.valor);
+    // negativa e não gigante): escada projetada ≤ 10% do faturamento das linhas
+    // (demo do ranking ancora % da meta individual, não o total da loja).
+    const fatLinhas = v.vendedoras!.reduce((s, l) => s + l.faturamentoValor, 0);
     const parteEscada = total - desafiosEsperado;
     expect(parteEscada).toBeGreaterThanOrEqual(-1);
-    expect(parteEscada).toBeLessThan(fat * 0.1);
+    expect(parteEscada).toBeLessThan(fatLinhas * 0.1);
   });
 
   it("Premiação presente com filtro 7 dias (AD-046 — competência corrente)", () => {
@@ -528,11 +529,11 @@ describe("T5: premiação projetada (EQUIP-04/05)", () => {
   it("KPI premiação projetada presente e plausível no mês em andamento", () => {
     const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
     expect(v.kpiPremiacao).not.toBeNull();
-    // Plausibilidade: premiação projetada é fração do faturamento projetado (< 10%).
-    const fat = parseBrl(v.kpiFaturamento.valor);
+    // Plausibilidade: premiação é fração do faturamento das linhas (< 10%).
+    const fatLinhas = v.vendedoras!.reduce((s, l) => s + l.faturamentoValor, 0);
     const com = parseBrl(v.kpiPremiacao!.valor);
     expect(com).toBeGreaterThan(0);
-    expect(com).toBeLessThan(fat * 0.1);
+    expect(com).toBeLessThan(fatLinhas * 0.1);
   });
 
   it("premiação do mês fechado (Mês passado) é a final: soma premiacaoAcumulada + bônus", () => {
@@ -567,11 +568,19 @@ describe("T5: premiação projetada (EQUIP-04/05)", () => {
       if (l.degrauAtual) {
         expect(l.nivelAtual).toBeGreaterThan(0);
         expect(l.comissaoPct).toBeGreaterThan(0);
+        expect(l.bonusAlcancado).toBe(l.nivelAtual! * 50);
       } else {
         expect(l.nivelAtual).toBeNull();
         expect(l.comissaoPct).toBe(0);
+        expect(l.bonusAlcancado).toBe(0);
       }
     }
+    // Demo espalha os 4 níveis da escada.
+    const niveis = new Set(v.vendedoras!.map((l) => l.nivelAtual).filter((n): n is number => n != null));
+    expect(niveis.has(1)).toBe(true);
+    expect(niveis.has(2)).toBe(true);
+    expect(niveis.has(3)).toBe(true);
+    expect(niveis.has(4)).toBe(true);
   });
 });
 

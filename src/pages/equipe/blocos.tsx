@@ -202,7 +202,12 @@ function CelulaPremiacao({ l }: { l: LinhaRank }) {
   return (
     <div className="text-right">
       <p className="font-mono text-[12.5px] font-bold text-ok">{brl(valor)}</p>
-      {l.comissaoPct > 0 && <p className="text-[11px] text-t2">{num(l.comissaoPct, 1)}%</p>}
+      {l.comissaoPct > 0 ? (
+        <p className="text-[11px] text-t2">
+          {num(l.comissaoPct, 1)}%
+          {l.bonusAlcancado > 0 ? ` · +${brl(l.bonusAlcancado)}` : ""}
+        </p>
+      ) : null}
     </div>
   );
 }
