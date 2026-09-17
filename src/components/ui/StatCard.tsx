@@ -30,7 +30,7 @@ export function StatCard({ label, value, icon, iconColor = "var(--acc)", iconBg 
           {icon}
         </div>
         {delta && (() => {
-          const badgeLabel = delta.vs ? `Comparado a ${delta.vs}: ${delta.positive ? "acima" : "abaixo"}${delta.diff ? ` (${delta.diff})` : ""}` : "";
+          const badgeLabel = delta.vs ? `Comparação com ${delta.vs}` : "";
           const badge = (
             <span
               className={cn(

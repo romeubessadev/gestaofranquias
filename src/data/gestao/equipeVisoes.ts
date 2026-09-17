@@ -655,26 +655,26 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     statusVariant = "info";
     prazoTom = "muted";
     diasRestantes = intervaloDias(HOJE_ISO, d.inicio).length - 1;
-    prazoRotulo = diasRestantes <= 0 ? "Começa hoje" : `Em ${diasRestantes}d`;
+    prazoRotulo = diasRestantes <= 0 ? "Começa hoje" : `Começa em ${diasRestantes}d`;
   } else if (HOJE_ISO > d.fim) {
     statusLabel = "Encerrado";
     statusVariant = "neutral";
     prazoTom = "bad";
     diasRestantes = 0;
-    prazoRotulo = "0d";
+    prazoRotulo = "Encerrado";
   } else {
     statusLabel = "Ativo";
     statusVariant = "success";
     prazoTom = "ok";
     diasRestantes = intervaloDias(HOJE_ISO, d.fim).length;
-    prazoRotulo = diasRestantes === 1 ? "1d" : `${diasRestantes}d`;
+    prazoRotulo = diasRestantes === 1 ? "Termina em 1d" : `Termina em ${diasRestantes}d`;
   }
 
   const fechaNoRitmo = semEngajamento || statusLabel !== "Ativo" ? false : projetado >= alvoAgregado;
   const descricao =
     minimoRotulo != null
-      ? `${d.objetivo} Meta: ${metaRotulo}. Mínimo: ${minimoRotulo}. Prêmio: ${brl(d.premio)}.`
-      : `${d.objetivo} Meta: ${metaRotulo}. Prêmio: ${brl(d.premio)}.`;
+      ? `Meta: ${metaRotulo} · Mínimo: ${minimoRotulo} · Prêmio: ${brl(d.premio)}`
+      : `Meta: ${metaRotulo} · Prêmio: ${brl(d.premio)}`;
   return {
     id: d.id,
     nome: d.nome,
@@ -1034,7 +1034,7 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
 
   const avisos: string[] = [];
   if (escopo.divisao && metaAtiva) {
-    avisos.push("Com marca selecionada, as metas individuais continuam sendo da loja inteira.");
+    avisos.push("O filtro de marca altera os resultados exibidos, mas as metas individuais continuam considerando a loja inteira.");
   }
 
   // Faixa de progresso da meta da loja (mesmo card da rede).
@@ -1073,7 +1073,7 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
     kpiTicket: {
       valor: brl(ticket),
       delta: temComparacao ? kpiDelta(ticket, ticketAnt, vsRotulo) : undefined,
-      sub: `PA ${num(pa, 2)}`,
+      sub: `P.A. ${num(pa, 2)}`,
       serie: serieTicket.length > 1 ? serieTicket : undefined,
     },
     kpiPA: {
@@ -1235,7 +1235,7 @@ if (metaAtiva) {
     kpiTicket: {
       valor: brl(ticketRede),
       delta: temComparacao ? kpiDelta(ticketRede, ticketRedeAnt, vsRotulo) : undefined,
-      sub: `PA ${num(paRede, 2)}`,
+      sub: `P.A. ${num(paRede, 2)}`,
       serie: serieTicketRede.length > 1 ? serieTicketRede : undefined,
     },
     kpiPA: {
@@ -1297,9 +1297,9 @@ export function montarEquipeView(escopo: Escopo): EquipeView {
   const v = ehRede ? visaoRede(escopo, periodo, periodoMeta, competencia, metaAtiva) : visaoLoja(escopo, periodo, periodoMeta, competencia, metaAtiva);
 
   if (metaAtiva && !periodoBateComCompetencia(periodo, competencia)) {
-    v.avisoCompetencia = `KPIs do topo seguem o período filtrado. Meta, escada e desafios são de ${mesAno(`${competencia}-01`)}.`;
+    v.avisoCompetencia = `Os KPIs seguem o período selecionado. Metas, premiação e desafios consideram a competência ${mesAno(`${competencia}-01`)}.`;
   } else if (metaAtiva && periodo.tipo === "mesPassado") {
-    v.avisoCompetencia = `Meta e premiação valem para a competência ${mesAno(`${competencia}-01`)}.`;
+    v.avisoCompetencia = `Metas e premiações exibidas são da competência ${mesAno(`${competencia}-01`)}.`;
   }
 
   v.leitura = null;

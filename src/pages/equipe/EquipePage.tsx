@@ -27,7 +27,7 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
     </Badge>
   );
   if (!delta.vs) return badge;
-  const tip = `Comparado a ${delta.vs}: ${delta.positive ? "acima" : "abaixo"}${delta.diff ? ` (${delta.diff})` : ""}`;
+  const tip = `Comparação com ${delta.vs}`;
   return <Tooltip label={tip}>{badge}</Tooltip>;
 }
 
@@ -109,7 +109,7 @@ export function EquipePage() {
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
         title="Equipe"
-        subtitle="Performance individual · escada de premiação · desafios"
+        subtitle="Desempenho individual, metas, premiações e desafios da equipe."
         crumbs={[{ label: "Dashboard" }, { label: "Equipe" }]}
         actions={
           <>
@@ -253,7 +253,7 @@ export function EquipePage() {
         {v.metaAtiva && v.desafios && v.desafios.length > 0 && <BlocoDesafios desafios={v.desafios} />}
         {v.metaAtiva && (!v.desafios || v.desafios.length === 0) && (
           <Card>
-            <EmptyState icon="🎯" title="Sem desafios" description={`Nenhum desafio cadastrado para ${mesAno(`${v.competencia}-01`)}.`} />
+            <EmptyState icon="🎯" title="Nenhum desafio nesta competência" description={`Não há desafios cadastrados para ${mesAno(`${v.competencia}-01`)}.`} />
           </Card>
         )}
       </div>

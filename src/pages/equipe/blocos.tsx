@@ -79,15 +79,15 @@ export function BlocoKpisEquipe({
       valor: faturamento.valor,
       delta: faturamento.delta,
       sub: faturamento.sub,
-      tooltip: "Receita bruta total da equipe no período.",
+      tooltip: undefined as string | undefined,
       Icon: IconFat,
     },
     {
-      label: "Atendimentos",
+      label: "Nº de vendas",
       valor: atendimentos.valor,
       delta: atendimentos.delta,
       sub: atendimentos.sub,
-      tooltip: "Total de vendas realizadas no período.",
+      tooltip: undefined as string | undefined,
       Icon: IconVendas,
     },
     {
@@ -95,7 +95,7 @@ export function BlocoKpisEquipe({
       valor: ticket.valor,
       delta: ticket.delta,
       sub: ticket.sub,
-      tooltip: "Valor médio por venda (Faturamento ÷ Nº de vendas).",
+      tooltip: "Valor médio faturado por venda no período.",
       Icon: IconTicket,
     },
     {
@@ -103,7 +103,7 @@ export function BlocoKpisEquipe({
       valor: pa.valor,
       delta: pa.delta,
       sub: pa.sub,
-      tooltip: "Itens por venda (Itens ÷ Nº de vendas).",
+      tooltip: "Quantidade média de itens vendidos por venda.",
       Icon: IconPA,
     },
   ];
@@ -226,7 +226,6 @@ function CardMobileVendedora({ l, metaAtiva, mostrarShopping }: { l: LinhaRank; 
             {mostrarShopping ? ` · ${lojaCurta(l.filialNome)}` : ""}
           </p>
         </div>
-        {metaAtiva && <CelulaNivel l={l} />}
       </div>
       {metaAtiva ? (
         <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-line pt-2.5 text-[12px]">
@@ -235,22 +234,18 @@ function CardMobileVendedora({ l, metaAtiva, mostrarShopping }: { l: LinhaRank; 
             <CelulaFaturamento l={l} />
           </div>
           <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">Meta</p>
-            <p className="font-mono text-[12.5px] font-bold text-t0">{l.semMeta ? "—" : brl(l.metaIndividualValor)}</p>
-          </div>
-          <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">% Meta indiv.</p>
+            <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">% da meta</p>
             <CelulaPctIndividual l={l} />
           </div>
           <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">% Meta geral</p>
-            <p className="font-mono text-[12.5px] font-bold text-t0">{l.semMeta ? "—" : `${num(l.pctMetaGeral, 1)}%`}</p>
+            <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">Nível</p>
+            <CelulaNivel l={l} />
           </div>
           <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">Faltam p/ próximo</p>
+            <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">Faltam</p>
             <CelulaProximo l={l} />
           </div>
-          <div className="text-right">
+          <div className="col-span-2 text-right">
             <p className="text-[10.5px] font-bold uppercase tracking-wide text-t2">Premiação</p>
             <CelulaPremiacao l={l} />
           </div>
@@ -298,7 +293,7 @@ export function BlocoVendedoras({ lista, metaAtiva, mostrarShopping = false }: {
           },
           {
             key: "pctIndiv",
-            header: "% Meta indiv.",
+            header: "% Meta individual",
             render: (l: LinhaRank) => <CelulaPctIndividual l={l} />,
           },
           {
@@ -310,13 +305,13 @@ export function BlocoVendedoras({ lista, metaAtiva, mostrarShopping = false }: {
           },
           {
             key: "nivel",
-            header: "Nível atual",
+            header: "Nível",
             hideBelow: "md",
             render: (l: LinhaRank) => <CelulaNivel l={l} />,
           },
           {
             key: "proximo",
-            header: "Faltam p/ próximo",
+            header: "Faltam p/ próximo nível",
             hideBelow: "lg",
             render: (l: LinhaRank) => <CelulaProximo l={l} />,
           },
@@ -330,7 +325,7 @@ export function BlocoVendedoras({ lista, metaAtiva, mostrarShopping = false }: {
       : ([
           {
             key: "ticket",
-            header: "Ticket",
+            header: "Ticket médio",
             hideBelow: "sm",
             align: "right",
             render: (l: LinhaRank) => <span className="font-mono text-[12.5px] text-t1">{l.ticket}</span>,
@@ -348,7 +343,7 @@ export function BlocoVendedoras({ lista, metaAtiva, mostrarShopping = false }: {
   return (
     <>
       <div className="hidden p-4 md:block">
-        <DataTable columns={colunas} data={ranked} rowKey={(l) => `${l.filialId}-${l.colaboradorId}`} emptyMessage="Sem vendedoras elegíveis no período." />
+        <DataTable columns={colunas} data={ranked} rowKey={(l) => `${l.filialId}-${l.colaboradorId}`} emptyMessage="Nenhuma vendedora elegível para esta competência." />
       </div>
       <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
         {ranked.map((l) => (
@@ -374,15 +369,15 @@ export function CardVendedoras({
   return (
     <Card padding="none">
       <div className="flex items-center gap-1.5 px-5 py-4">
-        <CardTitle>Metas</CardTitle>
-        <TipHelp label="Ranking da escada de premiação: quem bateu Meta, Super, Hiper ou Meta Desafio, quanto falta pro próximo nível e quanto a loja paga de premiação." />
+        <CardTitle>Escada de Premiação</CardTitle>
+        <TipHelp label="Veja quem já atingiu cada nível, quanto falta para o próximo e a premiação correspondente." />
       </div>
       <EstadoBloco estado={estado}>
         {lista && lista.length > 0 ? (
           <BlocoVendedoras lista={lista} metaAtiva={metaAtiva} mostrarShopping={mostrarShopping} />
         ) : (
           <div className="p-5">
-            <EmptyState icon="👤" title="Sem vendedoras" description="Nenhuma vendedora elegível no escopo para o período." />
+            <EmptyState icon="👤" title="Sem vendedoras elegíveis" description="Nenhuma vendedora elegível para esta competência." />
           </div>
         )}
       </EstadoBloco>
@@ -404,8 +399,8 @@ export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
   return (
     <Card>
       <div className="mb-4 flex items-center gap-1.5">
-        <CardTitle>Desempenho da meta</CardTitle>
-        <TipHelp label="Progresso da meta da competência frente à escada de premiação (Meta, Super Meta, Hiper Meta e Meta Desafio)." />
+        <CardTitle>Progresso da Meta</CardTitle>
+        <TipHelp label="Acompanhe o avanço da equipe pelos níveis de premiação e a projeção para o fechamento da competência." />
       </div>
 
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -465,7 +460,7 @@ export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
       </div>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
-        <Badge variant={fecha ? "success" : "warning"}>{fecha ? "Meta será atingida" : "Projeção abaixo da meta"}</Badge>
+        <Badge variant={fecha ? "success" : "warning"}>{fecha ? "Projeção: meta atingida" : "Projeção abaixo da meta"}</Badge>
         <Badge variant="neutral">
           <span className="inline-flex items-center gap-1">
             <ICONS.calendar size={12} />
@@ -498,8 +493,8 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
   return (
     <Card padding="lg">
       <div className="mb-4 flex items-center gap-1.5">
-        <CardTitle>Desafios</CardTitle>
-        <TipHelp label="Campanhas com prêmio para quem bate a meta no período. Acompanhe progresso por vendedora, status e prazo." />
+        <CardTitle>Desempenho nos Desafios</CardTitle>
+        <TipHelp label="Acompanhe o progresso da equipe nos desafios, com status, prazo e premiação." />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -562,7 +557,7 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
                   </div>
                 ))}
                 {d.ranking.length === 0 && (
-                  <p className="py-3 text-center text-[12.5px] text-t2">Sem participantes no escopo.</p>
+                  <p className="py-3 text-center text-[12.5px] text-t2">Nenhuma participante no escopo atual.</p>
                 )}
               </div>
             </div>

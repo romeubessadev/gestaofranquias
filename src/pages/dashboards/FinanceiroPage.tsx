@@ -54,7 +54,7 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
     </Badge>
   );
   if (!delta.vs) return badge;
-  const tip = `Comparado a ${delta.vs}: ${delta.positive ? "acima" : "abaixo"}${delta.diff ? ` (${delta.diff})` : ""}`;
+  const tip = `Comparação com ${delta.vs}`;
   return <Tooltip label={tip}>{badge}</Tooltip>;
 }
 

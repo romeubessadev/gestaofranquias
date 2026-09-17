@@ -562,11 +562,11 @@ export function periodoAnterior(periodo: PeriodoResolvido): { inicio: string; fi
     const mesAnt = new Date(ini.getFullYear(), ini.getMonth() - 1, 1);
     const inicio = `${mesAnt.getFullYear()}-${String(mesAnt.getMonth() + 1).padStart(2, "0")}-01`;
     const fim = periodo.mesAberto ? somarDias(inicio, deIso(periodo.fim).getDate() - 1) : fimDoMes(inicio);
-    return { inicio, fim, rotulo: mesAno(inicio).split(" de ")[0] };
+    return { inicio, fim, rotulo: "o mês passado" };
   }
   const n = intervaloDias(periodo.inicio, periodo.fim).length;
   const fim = somarDias(periodo.inicio, -1);
-  return { inicio: somarDias(fim, -(n - 1)), fim, rotulo: `${n} dias anteriores` };
+  return { inicio: somarDias(fim, -(n - 1)), fim, rotulo: `os ${n} dias anteriores` };
 }
 
 /** "15/09/2026" para um único dia, "01/09/2026 – 07/09/2026" para um intervalo. */
@@ -2332,9 +2332,9 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
       tooltip: "Quantidade de vendas realizadas no período selecionado.",
     },
     {
-      label: "Ticket Médio",
+      label: "Ticket médio",
       valor: brl(ticketAtual),
-      sub: `PA ${divSeguro(atual.itens, atual.atendimentos).toFixed(2)}`,
+      sub: `P.A. ${divSeguro(atual.itens, atual.atendimentos).toFixed(2)}`,
       delta: temComp ? kpiDelta(ticketAtual, ticketAnterior, vsRotulo) : undefined,
       tooltip: "Valor médio faturado por venda no período selecionado.",
     },

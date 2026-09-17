@@ -442,7 +442,8 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
       );
       expect(d.alvoAgregado).toBe((d.minimo ?? d.alvoIndividual) * d.participantes);
       expect(d.ranking.length).toBe(d.participantes);
-      expect(d.descricao).toContain(d.objetivo);
+      expect(d.descricao).toContain("Meta:");
+      expect(d.descricao).toContain("Prêmio:");
       expect(d.metaRotulo).toBeTruthy();
       expect(d.minimo).not.toBeNull();
       expect(d.temMinimo).toBe(true);

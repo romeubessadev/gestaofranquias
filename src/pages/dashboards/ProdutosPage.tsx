@@ -61,7 +61,7 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
     </Badge>
   );
   if (!delta.vs) return badge;
-  return <Tooltip label={`Comparado a ${delta.vs}`}>{badge}</Tooltip>;
+  return <Tooltip label={`Comparação com ${delta.vs}`}>{badge}</Tooltip>;
 }
 
 /** Heroes por métrica (não por índice): Fat/Lucro/Margem iguais ao Financeiro; Itens = warn. */
@@ -468,7 +468,7 @@ export default function ProdutosPage() {
                   <td colSpan={2} className="px-3 py-3 text-[13.5px] font-extrabold text-t0">
                     <span className="inline-flex items-center gap-1">
                       Total do filtro
-                      <TipHelp label="Soma de todos os produtos do filtro atual — não só a página." />
+                      <TipHelp label="Soma todos os produtos do filtro atual, não apenas os exibidos nesta página." />
                     </span>
                     <span className="ml-2 text-[11px] font-semibold text-t2">
                       ({num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"})
