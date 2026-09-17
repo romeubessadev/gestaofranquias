@@ -1771,15 +1771,71 @@ export interface ProdutoLinha extends ProdutoResumo {
   tendencia: "up" | "down" | "flat";
 }
 
+export type ClasseAbc = "A" | "B" | "C";
+
+/** Categoria na curva ABC (Pareto): ordenada por faturamento desc. */
+export interface CategoriaAbc {
+  categoriaId: number;
+  nome: string;
+  faturamento: number;
+  pct: number;
+  pctAcumulado: number;
+  classe: ClasseAbc;
+}
+
+export interface CurvaAbcResumo {
+  classe: ClasseAbc;
+  qtdCategorias: number;
+  /** Participação da classe no faturamento total (0–100). */
+  pctReceita: number;
+}
+
+export interface CurvaAbcCategorias {
+  itens: CategoriaAbc[];
+  resumo: CurvaAbcResumo[];
+}
+
 export interface ProdutosView {
   escopo: Escopo;
   periodo: PeriodoResolvido;
   kpis: ProdutosKpi[];
   categorias: CategoriaFat[];
+  /** Curva ABC (Pareto) das categorias — cortes 80% / 95%. */
+  curvaAbcCategorias: CurvaAbcCategorias;
   topLinhas: LinhaProduto[];
   /** Filtro de categoria ativo na view (null = todas). */
   categoriaFiltro: number | null;
   produtos: ProdutoLinha[];
+}
+
+/** Classifica categorias em A/B/C (80%/95% acumulado), já ordenadas por fat. desc. */
+export function classificarCurvaAbc(cats: Array<{ categoriaId: number; nome: string; faturamento: number }>): CurvaAbcCategorias {
+  const total = cats.reduce((s, c) => s + c.faturamento, 0) || 1;
+  let acum = 0;
+  const itens: CategoriaAbc[] = cats.map((c) => {
+    const pct = (c.faturamento / total) * 100;
+    const antes = acum;
+    acum += pct;
+    const classe: ClasseAbc = antes < 80 ? "A" : antes < 95 ? "B" : "C";
+    return {
+      categoriaId: c.categoriaId,
+      nome: c.nome,
+      faturamento: c.faturamento,
+      pct,
+      pctAcumulado: acum,
+      classe,
+    };
+  });
+  const classes: ClasseAbc[] = ["A", "B", "C"];
+  const resumo: CurvaAbcResumo[] = classes.map((classe) => {
+    const doGrupo = itens.filter((i) => i.classe === classe);
+    return {
+      classe,
+      qtdCategorias: doGrupo.length,
+      pctReceita: doGrupo.reduce((s, i) => s + i.pct, 0),
+    };
+  });
+  return { itens, resumo };
 }
 
 /** Deriva "linha de produto" do nome (primeiras 1-2 palavras significativas). */
@@ -1926,11 +1982,14 @@ export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | nul
   }
   produtosBase.sort((a, b) => b.receita - a.receita);
 
+  const curvaAbcCategorias = classificarCurvaAbc(catsOrdenadas);
+
   return {
     escopo,
     periodo,
     kpis,
     categorias: catsOrdenadas,
+    curvaAbcCategorias,
     topLinhas,
     categoriaFiltro,
     produtos: produtosBase,

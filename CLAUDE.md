@@ -839,7 +839,8 @@ Regra geral: **KPIs em 4 colunas no desktop**, widget central em largura total, 
 | Filtro período interno | markup de `DatePickersPage.tsx` | 🟡 Extrair → `DateRangePicker` (já decidido) |
 | Filtro marca interno | estilo "Quick ranges" | 🟡 Criar `Segmented` (já decidido, trivial) |
 | Filtro categoria | `Select` (`form.tsx`) / `Dropdown` | ✅ Reusa |
-| Faturamento por Categoria | `BarChart` + `AreaLineChart` (% margem) | ✅ Composição (+ `showValues`) |
+| Faturamento por Categoria | `BarChart` (+ `showValues`) | ✅ Reusa |
+| Curva ABC de Categorias | `AbcParetoChart` (barras A/B/C + linha % acum. + cortes 80/95) | ✅ Novo (2026-09-17) |
 | Top Linhas de Produto | `BarChart` (horizontal) | ✅ Reusa (+ `showValues`) |
 | Top Produtos + ordenação | `BarChart` (horizontal) + `Segmented`/`Select` | ✅ Composição (+ `showValues`) |
 | Tabela de Produtos | `DataTable` + busca (`Input`) + `Badge` + `Button` | ✅ Reusa |
@@ -849,7 +850,7 @@ Regra geral: **KPIs em 4 colunas no desktop**, widget central em largura total, 
 1. **"Quais categorias/produtos puxam meu faturamento?"** → Faturamento por Categoria + Top Linhas + Top Produtos.
 2. **"O que vende muito mas dá pouca margem (ou vice-versa)?"** → linha de % Margem sobreposta nas barras + coluna Margem/CMV% na tabela.
 3. **"Estou prestes a perder venda por falta de estoque?"** → badge de ruptura + dias de cobertura na Tabela de Produtos.
-4. **"Meu mix está concentrado demais em poucos produtos?"** → Top Produtos (se 2-3 itens respondem por 80%, sinal de risco).
+4. **"Meu mix está concentrado demais em poucas categorias?"** → Curva ABC (Pareto 80/95) + Top Produtos.
 5. **"Qual produto merece promoção / qual merece ser descontinuado?"** → tendência ↗/↘ por linha + margem + giro (itens vendidos).
 
 ### Grade responsiva — quantos cards por linha (Produtos)
@@ -858,14 +859,15 @@ Regra geral: **KPIs em 4 colunas no desktop**, widget central em largura total, 
 |---|---|---|---|
 **Critério unificado (vale para TODAS as telas):** um card fica em **largura total** quando (a) tem muitas categorias no eixo horizontal, (b) é tabela com ≥5 colunas, ou (c) é o widget central da tela. Caso contrário, **agrupa em par de 2 colunas** no desktop. KPIs sempre em linha cheia (4 no desktop). Tablet = 2 KPIs/linha e cards 1/linha; Mobile = tudo 1/linha com scroll-x onde necessário.
 | KPI row (4 StatCards) | **4 por linha** (`sm:grid-cols-2 lg:grid-cols-4`) | 2 por linha | 1 por linha |
-| Faturamento por Categoria | **1 por linha** (largura total — widget central, critério c) | 1 por linha | 1 por linha (scroll-x) |
+| Faturamento por Categoria + Curva ABC | **2 por linha** (`lg:grid-cols-2`) — fat. absoluto × concentração Pareto | 1 por linha | 1 por linha (scroll-x) |
 | Top Linhas + Top Produtos | **2 por linha** (`lg:grid-cols-2`) | 1 por linha | 1 por linha |
 | Tabela de Produtos | **1 por linha** (largura total — tabela ≥5 colunas, critério b) | 1 por linha | 1 por linha (scroll-x) |
-> Tailwind: mesmo padrão dos dashboards Vela — `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4` para KPIs; `lg:grid-cols-2` para o par de rankings; largura total (`lg:col-span-full`) para o widget central e a tabela. Tabelas ganham `overflow-x-auto` no mobile.
+> Tailwind: mesmo padrão dos dashboards Vela — `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4` para KPIs; `lg:grid-cols-2` para o par Faturamento/ABC e o par de rankings; largura total para a tabela. Tabelas ganham `overflow-x-auto` no mobile.
 
 ### Glossário — termos de produtos (só os não óbvios)
 | Termo no mock | O que significa, em linguagem simples |
 |---|---|
+| **Curva ABC / Pareto** | Ranking das categorias do maior para o menor faturamento, com % acumulado. Classe A = as que somam ~80% da receita; B = até ~95%; C = o resto. Concentração alta em A = risco se aquela categoria cair. |
 | **CMV%** | Quanto do faturamento foi embora só pra comprar os produtos vendidos. CMV% 43% = de cada R$ 100 vendidos, R$ 43 foram o custo da mercadoria. Quanto menor, melhor a margem. |
 | **T.M por Itens** | Ticket médio dividido pelos itens — valor médio de cada item dentro das compras. Ajuda a comparar com o Preço Médio (PA) e ver se o cliente leva itens baratos ou caros. |
 | **Dias de cobertura** | Quantos dias o estoque atual aguenta no ritmo de venda de hoje. Baixo = risco de ficar sem o produto (ruptura). Alto = dinheiro parado em estoque. |

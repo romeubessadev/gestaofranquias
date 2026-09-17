@@ -1,9 +1,9 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { Badge, Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Pagination } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { BarChart } from "@/components/charts";
+import { BarChart, AbcParetoChart, CORES_CLASSE } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
-import { montarProdutosView, type ProdutosKpi, type ProdutoLinha } from "@/data/gestao/dashboard";
+import { montarProdutosView, type ProdutosKpi, type ProdutoLinha, type ClasseAbc } from "@/data/gestao/dashboard";
 import { brl, brlK, num } from "@/lib/formato";
 import { deIso } from "@/lib/formato";
 import { cn } from "@/lib/cn";
@@ -50,6 +50,12 @@ const TipHelp = ({ label }: { label: string }) => (
     </span>
   </Tooltip>
 );
+
+function badgeClasseAbc(classe: ClasseAbc): "danger" | "warning" | "success" {
+  if (classe === "A") return "danger";
+  if (classe === "B") return "warning";
+  return "success";
+}
 
 /** Badge de delta — só % no chip; base do comparativo no tooltip (igual Visão Geral / Ecommerce). */
 function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string } }) {
@@ -272,29 +278,71 @@ export default function ProdutosPage() {
         ))}
       </div>
 
-      <Card className="mt-4" padding="lg">
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Faturamento por Categoria</CardTitle>
-              <TipHelp label="Identifique quais categorias mais contribuem para o faturamento e como o mix está distribuído entre elas." />
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card padding="lg">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <CardTitle>Faturamento por Categoria</CardTitle>
+                <TipHelp label="Identifique quais categorias mais contribuem para o faturamento e como o mix está distribuído entre elas." />
+              </div>
+              <p className="mt-1.5 text-2xl font-extrabold text-t0">
+                {view.kpis[0]?.valor ?? brlK(view.categorias.reduce((s, c) => s + c.faturamento, 0))}
+              </p>
             </div>
-            <p className="mt-1.5 text-2xl font-extrabold text-t0">
-              {view.kpis[0]?.valor ?? brlK(view.categorias.reduce((s, c) => s + c.faturamento, 0))}
-            </p>
+            <BadgeVsAnterior delta={view.kpis[0]?.delta} />
           </div>
-          <BadgeVsAnterior delta={view.kpis[0]?.delta} />
-        </div>
-        <div className="overflow-x-auto">
-          <div className="min-w-[520px]">
-            <BarChart
-              data={view.categorias.map((c) => ({ label: c.nome, value: c.faturamento }))}
-              height={200}
-              formatValue={brlK}
-            />
+          <div className="overflow-x-auto">
+            <div className="min-w-[420px]">
+              <BarChart
+                data={view.categorias.map((c) => ({ label: c.nome, value: c.faturamento }))}
+                height={220}
+                formatValue={brlK}
+              />
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+
+        <Card padding="lg">
+          <div className="mb-3 flex items-start justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <CardTitle>Curva ABC de Categorias</CardTitle>
+              <TipHelp label="Análise de Pareto: ordena as categorias pelo faturamento e classifica em A (até 80% acumulado), B (até 95%) e C (restante). Mostra se o resultado depende demais de poucas categorias." />
+            </div>
+          </div>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold text-t2">Classificação ABC:</span>
+            {view.curvaAbcCategorias.resumo.map((r) => (
+              <Badge key={r.classe} variant={badgeClasseAbc(r.classe)} className="!rounded-full">
+                Classe {r.classe} — {r.qtdCategorias} cat.
+                {r.classe === "A" ? ` (${Math.round(r.pctReceita)}% receita)` : ""}
+              </Badge>
+            ))}
+          </div>
+          <div className="mb-2 flex flex-wrap items-center gap-3 text-[11px] font-semibold text-t2">
+            {(["A", "B", "C"] as ClasseAbc[]).map((c) => (
+              <span key={c} className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: CORES_CLASSE[c] }} />
+                Classe {c}
+              </span>
+            ))}
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: "var(--acc)" }} />
+              % Acumulado
+            </span>
+          </div>
+          <AbcParetoChart
+            data={view.curvaAbcCategorias.itens.map((i) => ({
+              label: i.nome,
+              value: i.faturamento,
+              pctAcumulado: i.pctAcumulado,
+              classe: i.classe,
+            }))}
+            height={240}
+            formatValue={brlK}
+          />
+        </Card>
+      </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
