@@ -418,8 +418,12 @@ export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
         <p className={`font-mono text-[26px] font-extrabold leading-none sm:text-[28px] ${corPct}`}>{num(meta.pct, 1)}%</p>
       </div>
 
-      <div className="mt-4 overflow-x-auto">
-        <div className="min-w-[640px]">
+      {/*
+        Rótulos alinhados aos ticks (mesmo % da barra no mobile e no desktop).
+        min-w garante espaço entre os nomes; overflow só no eixo X.
+      */}
+      <div className="mt-4 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x">
+        <div className="min-w-[960px]">
           <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
             <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${fillPct}%`, background: corBarra }} />
             {degrausPadrao.map((d) => {
@@ -435,18 +439,21 @@ export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
             })}
           </div>
 
-          {/* Uma linha só — flex evita sobreposição dos rótulos absolutos no mobile. */}
-          <div className="mt-2 flex items-start justify-between gap-3">
+          <div className="relative mt-2 h-7">
             {degrausPadrao.map((d, i) => {
+              const left = (d.atingimentoMinPct / escalaMax) * 100;
               const atingido = meta.pct >= d.atingimentoMinPct;
+              const isLast = i === degrausPadrao.length - 1;
               const rotuloCurto = d.nome.replace(/^Meta\s+/i, "");
               return (
                 <p
                   key={d.nome}
                   className={cn(
-                    "shrink-0 whitespace-nowrap text-[10px] font-bold leading-tight",
+                    "absolute top-0 whitespace-nowrap text-[10px] font-bold leading-tight",
+                    isLast ? "right-0 text-right" : "-translate-x-1/2 text-center",
                     atingido ? "text-acc" : "text-t2",
                   )}
+                  style={isLast ? undefined : { left: `${left}%` }}
                   title={`Nível ${i + 1} · ${d.nome} · ${num(d.comissaoPct, 1)}%`}
                 >
                   N{i + 1} · {rotuloCurto}
