@@ -118,7 +118,6 @@ export function EquipePage() {
               {rotuloAtualizacao}
             </span>
             <Button
-              variant="secondary"
               size="sm"
               onClick={forcarAtualizacao}
               disabled={refreshing}
