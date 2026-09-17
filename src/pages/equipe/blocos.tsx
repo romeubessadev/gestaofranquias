@@ -376,7 +376,7 @@ export function CardVendedoras({
 }) {
   return (
     <Card padding="none">
-      <div className="border-b border-line px-5 py-4">
+      <div className="px-5 py-4">
         <div className="flex items-center gap-1.5">
           <CardTitle>Metas</CardTitle>
           <TipHelp label="Ranking da escada de premiação: quem bateu Meta, Super, Hiper ou Meta Desafio, quanto falta pro próximo nível e quanto a loja paga de premiação." />
@@ -413,18 +413,14 @@ export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
 
   return (
     <Card>
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <CardTitle>Desempenho da meta</CardTitle>
-            <TipHelp label="Progresso da meta da competência frente à escada de premiação (Meta, Super Meta, Hiper Meta e Meta Desafio)." />
-          </div>
-          <p className="mt-1 text-[12.5px] text-t2">Competência {meta.competTexto}.</p>
+      <div className="mb-4">
+        <div className="flex items-center gap-1.5">
+          <CardTitle>Desempenho da meta</CardTitle>
+          <TipHelp label="Progresso da meta da competência frente à escada de premiação (Meta, Super Meta, Hiper Meta e Meta Desafio)." />
         </div>
-        <Badge variant="neutral" className="w-fit gap-1.5 shrink-0">
-          <ICONS.calendar size={12} />
-          {dataCompleta(meta.inicio)} - {dataCompleta(meta.fim)}
-        </Badge>
+        <p className="mt-1 text-[12.5px] text-t2">
+          Competência {meta.competTexto} · {dataCompleta(meta.inicio)} - {dataCompleta(meta.fim)}
+        </p>
       </div>
 
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
