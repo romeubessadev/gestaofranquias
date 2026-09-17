@@ -413,21 +413,27 @@ export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
 
   return (
     <Card>
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-t2">Meta de {meta.competTexto}</p>
-          <p className="mt-1 text-[18px] font-extrabold tracking-tight text-t0 sm:text-[20px]">
-            <span className="font-mono">{brl(meta.realizado)}</span>
-            <span className="mx-1.5 text-[14px] font-semibold text-t2">/</span>
-            <span className="font-mono text-[14px] font-bold text-t2 sm:text-[15px]">{brl(meta.total)}</span>
-          </p>
+          <div className="flex items-center gap-1.5">
+            <CardTitle>Desempenho da meta</CardTitle>
+            <TipHelp label="Progresso da meta da competência frente à escada de premiação (Meta, Super Meta, Hiper Meta e Meta Desafio)." />
+          </div>
+          <p className="mt-1 text-[12.5px] text-t2">Competência {meta.competTexto}.</p>
         </div>
-        <div className="flex flex-col items-start gap-1 sm:items-end">
-          <p className="text-[11.5px] font-semibold text-t2">
-            {dataCompleta(meta.inicio)} → {dataCompleta(meta.fim)}
-          </p>
-          <p className={`font-mono text-[26px] font-extrabold leading-none sm:text-[28px] ${corPct}`}>{num(meta.pct, 1)}%</p>
-        </div>
+        <Badge variant="neutral" className="w-fit gap-1.5 shrink-0">
+          <ICONS.calendar size={12} />
+          {dataCompleta(meta.inicio)} - {dataCompleta(meta.fim)}
+        </Badge>
+      </div>
+
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <p className="text-[18px] font-extrabold tracking-tight text-t0 sm:text-[20px]">
+          <span className="font-mono">{brl(meta.realizado)}</span>
+          <span className="mx-1.5 text-[14px] font-semibold text-t2">/</span>
+          <span className="font-mono text-[14px] font-bold text-t2 sm:text-[15px]">{brl(meta.total)}</span>
+        </p>
+        <p className={`font-mono text-[26px] font-extrabold leading-none sm:text-[28px] ${corPct}`}>{num(meta.pct, 1)}%</p>
       </div>
 
       <div className="mt-4 min-w-0">
