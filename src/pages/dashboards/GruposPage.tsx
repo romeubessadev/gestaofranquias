@@ -132,8 +132,17 @@ export default function GruposPage() {
     }),
   );
 
-  // KPIs multi-grupo como cards individuais
-  const melhorGrupo = view.kpisPorGrupo.reduce((a, b) => (a.faturamento > b.faturamento ? a : b), view.kpisPorGrupo[0]);
+  // KPIs: sem filtro = soma de todos; com filtro = só o grupo. Comparativo entre grupos fica nos charts.
+  const kpisFonte = grupoAtivo
+    ? view.kpisPorGrupo.filter((k) => k.nome === grupoAtivo)
+    : view.kpisPorGrupo;
+  const kpiFat = kpisFonte.reduce((s, k) => s + k.faturamento, 0);
+  const kpiVendas = kpisFonte.reduce((s, k) => s + k.vendas, 0);
+  const kpiTicket = kpiVendas > 0 ? kpiFat / kpiVendas : 0;
+  const melhorGrupo = view.kpisPorGrupo.reduce(
+    (a, b) => (a.faturamento > b.faturamento ? a : b),
+    view.kpisPorGrupo[0],
+  );
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
@@ -213,66 +222,40 @@ export default function GruposPage() {
         }
       />
 
-      {/* KPIs por grupo — 4 cards multi-linha */}
+      {/* KPIs — um valor (soma ou grupo filtrado); breakdown fica nos gráficos */}
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Faturamento por Grupo"
-          value=""
+          label="Faturamento"
+          value={brl(kpiFat)}
           icon={<IconFat />}
           iconColor={KPI_COLORS[0].iconColor}
           iconBg={KPI_COLORS[0].iconBg}
-          sparkline={
-            <div className="flex flex-col gap-0.5 text-[11px]">
-              {view.kpisPorGrupo.map((k) => (
-                <span key={k.nome} className="flex justify-between gap-2">
-                  <span className="text-t2">{k.nome}</span>
-                  <span className="font-bold text-t0">{brl(k.faturamento)}</span>
-                </span>
-              ))}
-            </div>
-          }
+          tooltip={grupoAtivo ? `Faturamento de ${grupoAtivo} no período.` : "Soma do faturamento de todos os grupos no período."}
         />
         <StatCard
-          label="Vendas por Grupo"
-          value=""
+          label="Vendas"
+          value={num(kpiVendas)}
           icon={<IconVendas />}
           iconColor={KPI_COLORS[1].iconColor}
           iconBg={KPI_COLORS[1].iconBg}
-          sparkline={
-            <div className="flex flex-col gap-0.5 text-[11px]">
-              {view.kpisPorGrupo.map((k) => (
-                <span key={k.nome} className="flex justify-between gap-2">
-                  <span className="text-t2">{k.nome}</span>
-                  <span className="font-bold text-t0">{num(k.vendas)}</span>
-                </span>
-              ))}
-            </div>
-          }
+          tooltip={grupoAtivo ? `Nº de vendas de ${grupoAtivo} no período.` : "Soma das vendas de todos os grupos no período."}
         />
         <StatCard
-          label="Ticket médio por Grupo"
-          value=""
+          label="Ticket médio"
+          value={brl(kpiTicket)}
           icon={<IconTicket />}
           iconColor={KPI_COLORS[2].iconColor}
           iconBg={KPI_COLORS[2].iconBg}
-          sparkline={
-            <div className="flex flex-col gap-0.5 text-[11px]">
-              {view.kpisPorGrupo.map((k) => (
-                <span key={k.nome} className="flex justify-between gap-2">
-                  <span className="text-t2">{k.nome}</span>
-                  <span className="font-bold text-t0">{brl(k.ticketMedio)}</span>
-                </span>
-              ))}
-            </div>
-          }
+          tooltip="Faturamento ÷ nº de vendas no escopo selecionado."
         />
         <StatCard
-          label="Melhor Grupo"
+          label="Melhor grupo"
           value={melhorGrupo?.nome ?? "—"}
           icon={<IconMeta />}
           iconColor={KPI_COLORS[3].iconColor}
           iconBg={KPI_COLORS[3].iconBg}
           delta={melhorGrupo ? { value: brl(melhorGrupo.faturamento), positive: true } : undefined}
+          tooltip="Grupo com maior faturamento no período (entre todos os grupos)."
         />
       </div>
 
