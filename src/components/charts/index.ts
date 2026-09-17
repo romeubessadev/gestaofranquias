@@ -7,4 +7,3 @@ export * from "./Heatmap";
 export * from "./FunnelChart";
 export * from "./GanttChart";
 export * from "./MapPins";
-export * from "./AbcParetoChart";

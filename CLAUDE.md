@@ -840,7 +840,7 @@ Regra geral: **KPIs em 4 colunas no desktop**, widget central em largura total, 
 | Filtro marca interno | estilo "Quick ranges" | 🟡 Criar `Segmented` (já decidido, trivial) |
 | Filtro categoria | `Select` (`form.tsx`) / `Dropdown` | ✅ Reusa |
 | Faturamento por Categoria | `BarChart` (+ `showValues`) | ✅ Reusa |
-| Curva ABC de Categorias | `AbcParetoChart` (barras A/B/C + linha % acum. + cortes 80/95) | ✅ Novo (2026-09-17) |
+| Curva ABC de Categorias | `DonutChart` (participação A/B/C) + badges de resumo | ✅ Composição Vela |
 | Top Linhas de Produto | `BarChart` (horizontal) | ✅ Reusa (+ `showValues`) |
 | Top Produtos + ordenação | `BarChart` (horizontal) + `Segmented`/`Select` | ✅ Composição (+ `showValues`) |
 | Tabela de Produtos | `DataTable` + busca (`Input`) + `Badge` + `Button` | ✅ Reusa |

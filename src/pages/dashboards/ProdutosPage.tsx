@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { Badge, Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Pagination } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { BarChart, AbcParetoChart, CORES_CLASSE } from "@/components/charts";
+import { BarChart, DonutChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarProdutosView, type ProdutosKpi, type ProdutoLinha, type ClasseAbc } from "@/data/gestao/dashboard";
 import { brl, brlK, num } from "@/lib/formato";
@@ -56,6 +56,12 @@ function badgeClasseAbc(classe: ClasseAbc): "danger" | "warning" | "success" {
   if (classe === "B") return "warning";
   return "success";
 }
+
+const CORES_ABC: Record<ClasseAbc, string> = {
+  A: "var(--bad)",
+  B: "var(--warn)",
+  C: "var(--ok)",
+};
 
 /** Badge de delta — só % no chip; base do comparativo no tooltip (igual Visão Geral / Ecommerce). */
 function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string } }) {
@@ -304,43 +310,42 @@ export default function ProdutosPage() {
         </Card>
 
         <Card padding="lg">
-          <div className="mb-3 flex items-start justify-between gap-2">
+          <div className="mb-4 flex items-start justify-between gap-2">
             <div className="flex items-center gap-1.5">
               <CardTitle>Curva ABC de Categorias</CardTitle>
               <TipHelp label="Análise de Pareto: ordena as categorias pelo faturamento e classifica em A (até 80% acumulado), B (até 95%) e C (restante). Mostra se o resultado depende demais de poucas categorias." />
             </div>
           </div>
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-bold text-t2">Classificação ABC:</span>
-            {view.curvaAbcCategorias.resumo.map((r) => (
-              <Badge key={r.classe} variant={badgeClasseAbc(r.classe)} className="!rounded-full">
-                Classe {r.classe} — {r.qtdCategorias} cat.
-                {r.classe === "A" ? ` (${Math.round(r.pctReceita)}% receita)` : ""}
-              </Badge>
-            ))}
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            {view.curvaAbcCategorias.resumo
+              .filter((r) => r.qtdCategorias > 0)
+              .map((r) => (
+                <Badge key={r.classe} variant={badgeClasseAbc(r.classe)}>
+                  Classe {r.classe} — {r.qtdCategorias} cat.
+                  {r.classe === "A" ? ` (${Math.round(r.pctReceita)}% receita)` : ""}
+                </Badge>
+              ))}
           </div>
-          <div className="mb-2 flex flex-wrap items-center gap-3 text-[11px] font-semibold text-t2">
-            {(["A", "B", "C"] as ClasseAbc[]).map((c) => (
-              <span key={c} className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: CORES_CLASSE[c] }} />
-                Classe {c}
-              </span>
-            ))}
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: "var(--acc)" }} />
-              % Acumulado
-            </span>
-          </div>
-          <AbcParetoChart
-            data={view.curvaAbcCategorias.itens.map((i) => ({
-              label: i.nome,
-              value: i.faturamento,
-              pctAcumulado: i.pctAcumulado,
-              classe: i.classe,
-            }))}
-            height={240}
-            formatValue={brlK}
-          />
+          {view.curvaAbcCategorias.itens.length === 0 ? (
+            <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+          ) : (
+            <div className="flex flex-1 flex-col justify-center">
+              <DonutChart
+                segments={view.curvaAbcCategorias.resumo
+                  .filter((r) => r.pctReceita > 0)
+                  .map((r) => ({
+                    label: `Classe ${r.classe}`,
+                    value: r.pctReceita,
+                    color: CORES_ABC[r.classe],
+                  }))}
+                size={168}
+                thickness={22}
+                centerLabel="categorias"
+                centerValue={String(view.curvaAbcCategorias.itens.length)}
+                showLegendValue={false}
+              />
+            </div>
+          )}
         </Card>
       </div>
 
