@@ -376,13 +376,13 @@ export function CardVendedoras({
     <Card padding="none">
       <div className="border-b border-line px-5 py-4">
         <div className="flex items-center gap-1.5">
-          <CardTitle>Desempenho por vendedora</CardTitle>
-          <TipHelp label="Ranking individual com faturamento, meta, nível da escada e premiação. Ordenado pelo atingimento da meta quando há competência ativa." />
+          <CardTitle>Metas</CardTitle>
+          <TipHelp label="Ranking da escada de premiação: quem bateu Meta, Super, Hiper ou Meta Desafio, quanto falta pro próximo nível e quanto a loja paga de premiação." />
         </div>
         <p className="mt-1 text-[12.5px] text-t2">
           {metaAtiva
-            ? `Ordenado pelo atingimento da meta individual — competência ${competenciaTexto}.`
-            : "Desempenho do período filtrado; metas e premiação são do mês e não entram aqui."}
+            ? `Escada de premiação · competência ${competenciaTexto}. Ordenado pelo % da meta individual.`
+            : "Sem meta ativa neste mês — o ranking mostra só o desempenho do período filtrado."}
         </p>
       </div>
       <EstadoBloco estado={estado}>
