@@ -1,10 +1,10 @@
 import { useMemo, useState, useCallback } from "react";
-import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, Badge, PageHeader, Button } from "@/components/ui";
+import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Badge } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { StackedBarChart, Heatmap, BarChart } from "@/components/charts";
+import { Heatmap, BarChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarGruposView } from "@/data/gestao/dashboard";
-import { brl, num } from "@/lib/formato";
+import { brl, brlK, num } from "@/lib/formato";
 import { deIso } from "@/lib/formato";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 
@@ -38,12 +38,6 @@ const IconMelhor = () => (
   </svg>
 );
 
-const CORES_GRUPOS: Record<string, string> = {
-  "Grupo 1": "var(--acc)",
-  "Grupo 2": "var(--info)",
-  Noite: "var(--warn)",
-};
-
 /** Mesmo padrão visual das demais telas (Equipe/VG): ícone + valor. */
 const KPI_COLORS = [
   { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
@@ -54,6 +48,14 @@ const KPI_COLORS = [
 
 const filtroSelectClass =
   "h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none";
+
+const TipHelp = ({ label }: { label: string }) => (
+  <Tooltip label={label}>
+    <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+      ?
+    </span>
+  </Tooltip>
+);
 
 export default function GruposPage() {
   const { escopo, mudar } = useEscopo();
@@ -96,35 +98,28 @@ export default function GruposPage() {
   const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
   const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} min`;
 
-  // Preparar dados para StackedBarChart (dia da semana × grupo) — agrupa e tira média
+  // Barras por dia da semana (padrão Sales this week) — média do período; respeita filtro de grupo
   const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
   const ordemDias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-  const acumulado: Record<string, Record<string, number>> = {};
+  const acumulado: Record<string, number> = {};
   const contagem: Record<string, number> = {};
   for (const d of view.faturamentoPorDiaGrupo) {
     const data = new Date(d.dia + "T12:00:00");
     const label = diasSemana[data.getDay()];
-    if (!acumulado[label]) {
-      acumulado[label] = {};
-      contagem[label] = 0;
-    }
-    contagem[label]++;
+    contagem[label] = (contagem[label] ?? 0) + 1;
+    let fatDia = 0;
     for (const [grupo, fat] of Object.entries(d.porGrupo)) {
-      acumulado[label][grupo] = (acumulado[label][grupo] ?? 0) + fat;
+      if (grupoAtivo && grupo !== grupoAtivo) continue;
+      fatDia += fat;
     }
+    acumulado[label] = (acumulado[label] ?? 0) + fatDia;
   }
-  const stackedData = ordemDias
-    .filter((label) => acumulado[label])
-    .map((label) => {
-      const n = contagem[label] || 1;
-      const entry: Record<string, string | number> = { label };
-      for (const [grupo, soma] of Object.entries(acumulado[label])) {
-        entry[grupo] = Math.round(soma / n);
-      }
-      return entry;
-    });
-  const grupoKeys = view.kpisPorGrupo.map((k) => k.nome);
-  const grupoColors = grupoKeys.map((k) => CORES_GRUPOS[k] ?? "var(--t2)");
+  const barrasDiaGrupo = ordemDias
+    .filter((label) => acumulado[label] != null)
+    .map((label) => ({
+      label,
+      value: Math.round(acumulado[label] / (contagem[label] || 1)),
+    }));
 
   // Preparar dados para Heatmap (dia × hora)
   const heatmapRows = [...new Set(view.heatmap.map((c) => c.dia))].sort();
@@ -262,34 +257,22 @@ export default function GruposPage() {
         />
       </div>
 
-      {/* Faturamento por Dia × Grupo (StackedBarChart) */}
-      <Card className="mt-4">
-        <CardHeader>
-          <div className="flex items-center gap-1.5">
-            <CardTitle>Faturamento por Dia × Grupo</CardTitle>
-            <Tooltip label="Comparativo de faturamento entre grupos por dia da semana. Valores em R$ direto nas barras.">
-              <span className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[9px] font-bold text-t2">ⓘ</span>
-            </Tooltip>
-          </div>
-        </CardHeader>
-        <div className="px-4 pb-4">
-          <StackedBarChart
-            data={stackedData}
-            keys={grupoKeys}
-            colors={grupoColors}
-            height={240}
-            showValues
-            formatValue={brl}
-          />
-          <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-semibold text-t2">
-            {grupoKeys.map((k) => (
-              <span key={k} className="flex items-center gap-1">
-                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: CORES_GRUPOS[k] ?? "var(--t2)" }} />
-                {k}
-              </span>
-            ))}
+      {/* Faturamento por Dia × Grupo — padrão Sales this week (Ecommerce) */}
+      <Card className="mt-4" padding="lg">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <CardTitle>Faturamento por Dia × Grupo</CardTitle>
+              <TipHelp label="Faturamento médio por dia da semana no período. Com filtro de grupo, mostra só aquele grupo; sem filtro, soma todos." />
+            </div>
+            <p className="mt-1.5 text-2xl font-extrabold text-t0">{brl(kpiFat)}</p>
           </div>
         </div>
+        {barrasDiaGrupo.length === 0 ? (
+          <span className="flex items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+        ) : (
+          <BarChart data={barrasDiaGrupo} height={200} formatValue={brlK} />
+        )}
       </Card>
 
       {/* Par: Heatmap + Vendedoras por Hora */}
