@@ -24,7 +24,7 @@ Submenus:
 - **Visão Geral** — resumo executivo dos KPIs das demais telas. É a "capa" do dashboard.
 - **Financeiro** — DRE, margem, fluxo, evolução de receita, contas.
 - **Equipe** — performance individual de vendedores, escada de comissão, ranking, desafios. Foco no INDIVÍDUO.
-- **Grupos** — tela SEPARADA (não é toggle dentro de Equipe). Análise operacional por grupo de vendedoras (ex.: Grupo 1 / Grupo 2), comparação entre grupos, cobertura de staff, intensidade horária. Foco na OPERAÇÃO POR GRUPO. Grupos são cadastrados em Configurações com horários definidos. (Renomeado de Turnos em 2026-09-17 — Turno não existe mais no produto.)
+- **Grupos** — *(pausado 2026-09-17)* fora do menu do Dashboard por enquanto; código preservado. Análise operacional por grupo volta quando o produto pedir. Configurações > Grupos e tarefas permanece.
 - **Produtos** — top sellers, curva ABC, margem por SKU, dias de cobertura, produtos em queda.
 
 Princípios do Dashboard:
@@ -273,6 +273,7 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
 7. ✅ **Ordem de execução** — (a) refinar em texto + mock ASCII no CLAUDE.md primeiro; (b) começar pela tela **EQUIPE**; (c) depois Financeiro e Produtos; (d) **Visão Geral por último** (é o resumo de todas). Nav+router como esqueleto antes dos componentes.
 8. ✅ **Equipe ≠ Grupos** (2026-09-17) — telas SEPARADAS (indivíduo vs operação por grupo). Sem filtro de grupo na Equipe. Chrome da Equipe alinhado às demais subtelas (`/dashboard/equipe`, PageHeader com DateRangePicker + marca).
 9. ✅ **Turno → Grupo** (2026-09-17) — nomenclatura de produto: `GruposPage`, `montarGruposView`, `paths.grupos`, tipos `Grupo`/`grupoId`. URLs legadas `/dashboard/turnos` e `/configuracoes/turnos-e-tarefas` redirecionam.
+10. ✅ **Dashboard > Grupos pausado** (2026-09-17) — fora do menu e das abas; `/dashboard/grupos` redireciona para Visão Geral. Código (`GruposPage.tsx`, `montarGruposView`) permanece para retomar depois. Foco passa às telas fora do Dashboard.
 
 ---
 

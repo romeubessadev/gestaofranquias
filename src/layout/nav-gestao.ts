@@ -23,7 +23,6 @@ const navGestor: NavEntry[] = [
       { label: "Financeiro", to: paths.financeiro, dot: "var(--ok)" },
       { label: "Produtos", to: paths.produtos, dot: "var(--warn)" },
       { label: "Equipe", to: paths.equipe, dot: "var(--info)" },
-      { label: "Grupos", to: paths.grupos, dot: "var(--bad)" },
     ],
   },
   {

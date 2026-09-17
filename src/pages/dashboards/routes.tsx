@@ -9,7 +9,6 @@ const SaasDashboardPage = lazyPage(() => import("./SaasDashboardPage"), "SaasDas
 const BiDashboardPage = lazyPage(() => import("./BiDashboardPage"), "BiDashboardPage");
 const FinanceiroPage = lazyPage(() => import("./FinanceiroPage"), "default");
 const ProdutosPage = lazyPage(() => import("./ProdutosPage"), "default");
-const GruposPage = lazyPage(() => import("./GruposPage"), "default");
 const VisaoGeralPage = lazyPage(() => import("./VisaoGeralPage"), "default");
 
 /**
@@ -27,7 +26,8 @@ export const dashboardsRoutes: RouteObject[] = [
   { path: paths.dashboards.bi, element: <BiDashboardPage /> },
   { path: paths.financeiro, element: <FinanceiroPage /> },
   { path: paths.produtos, element: <ProdutosPage /> },
-  { path: paths.grupos, element: <GruposPage /> },
-  { path: paths.turnosLegado, element: <Navigate to={paths.grupos} replace /> },
+  /** Dashboard > Grupos pausado (2026-09-17) — código em GruposPage.tsx para retomar depois. */
+  { path: paths.grupos, element: <Navigate to={paths.visaoGeral} replace /> },
+  { path: paths.turnosLegado, element: <Navigate to={paths.visaoGeral} replace /> },
   { path: paths.visaoGeral, element: <VisaoGeralPage /> },
 ];

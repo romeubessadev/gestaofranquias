@@ -11,7 +11,6 @@ const SUBTITULO: Record<string, string> = {
   financeiro: "Faturamento, CMV, lucro bruto e formas de pagamento.",
   produtos: "Mix, categorias, top produtos e margem por linha.",
   equipe: "Quem precisa de atenção, por quê, e quanto vai custar.",
-  grupos: "Desempenho por grupo, horário e intensidade da operação.",
   loja: "Visão geral do desempenho das suas lojas.",
 };
 
@@ -50,7 +49,6 @@ export function DashboardShell({
           { label: "Financeiro", to: `${paths.financeiro}${suffix}` },
           { label: "Produtos", to: `${paths.produtos}${suffix}` },
           { label: "Equipe", to: `${paths.equipe}${suffix}` },
-          { label: "Grupos", to: `${paths.grupos}${suffix}` },
         ]}
       />
 
