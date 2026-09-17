@@ -624,6 +624,27 @@ describe("T5: leitura da IA da equipe (EQUIP-06)", () => {
   });
 });
 
+describe("Faturamento vs Meta — série acumulada (padrão Visão Geral)", () => {
+  it("monta série com realizado e meta crescentes no mês", () => {
+    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    expect(v.evolucaoFaturamento).toBeDefined();
+    expect(v.evolucaoFaturamento!.length).toBeGreaterThan(1);
+    expect(v.rotuloSerie).toMatch(/por dia/);
+    const serie = v.evolucaoFaturamento!;
+    for (let i = 1; i < serie.length; i++) {
+      expect(serie[i].realizado).toBeGreaterThanOrEqual(serie[i - 1].realizado);
+      expect(serie[i].meta).toBeGreaterThanOrEqual(serie[i - 1].meta);
+    }
+    expect(serie[serie.length - 1].meta).toBeGreaterThan(0);
+  });
+
+  it("em 1 dia usa eixo por hora", () => {
+    const v = montarEquipeView(escopo("f1", { tipo: "hoje" }));
+    expect(v.rotuloSerie).toMatch(/por hora/);
+    expect(v.evolucaoFaturamento!.length).toBeGreaterThan(1);
+  });
+});
+
 function primeiroNomeDe(nomeCompleto: string): string {
   return nomeCompleto.split(" ")[0];
 }

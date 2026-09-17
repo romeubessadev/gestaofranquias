@@ -1,8 +1,8 @@
 import { useMemo, useState, useCallback } from "react";
 import { montarEquipeView } from "@/data/gestao/equipeVisoes";
-import { mesAno, brl, deIso } from "@/lib/formato";
+import { mesAno, brlK, deIso } from "@/lib/formato";
 import { Avisos } from "@/components/gestao/Avisos";
-import { Button, Card, CardTitle, DateRangePicker, EmptyState, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, CardTitle, DateRangePicker, EmptyState, PageHeader } from "@/components/ui";
 import { AreaLineChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { BlocoLeitura } from "@/pages/dashboard/blocos";
@@ -17,6 +17,20 @@ const TipHelp = ({ label }: { label: string }) => (
     </span>
   </Tooltip>
 );
+
+/** Badge de delta — só % no chip; base do comparativo no tooltip (igual Visão Geral). */
+function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; diff?: string } }) {
+  if (!delta) return null;
+  const badge = (
+    <Badge variant={delta.positive ? "success" : "danger"}>
+      {delta.positive ? "+" : "−"}
+      {delta.value}
+    </Badge>
+  );
+  if (!delta.vs) return badge;
+  const tip = `Comparado a ${delta.vs}: ${delta.positive ? "acima" : "abaixo"}${delta.diff ? ` (${delta.diff})` : ""}`;
+  return <Tooltip label={tip}>{badge}</Tooltip>;
+}
 
 const filtroSelectClass =
   "h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none";
@@ -153,16 +167,46 @@ export function EquipePage() {
 
         {v.evolucaoFaturamento && v.evolucaoFaturamento.length > 1 && (
           <Card padding="lg">
-            <div className="mb-4 flex items-center gap-1.5">
-              <CardTitle>Evolução do Faturamento</CardTitle>
-              <TipHelp label="Faturamento da equipe ao longo do período selecionado." />
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <CardTitle>Faturamento vs Meta</CardTitle>
+                  <TipHelp label="Compare o ritmo do faturamento com a meta acumulada e identifique se a equipe está acima ou abaixo do esperado." />
+                </div>
+                {v.rotuloSerie && <p className="mt-0.5 text-[11px] font-semibold text-t2">{v.rotuloSerie}</p>}
+                <div className="mt-2.5 flex flex-wrap gap-5">
+                  <div>
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                      <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--ok)]" />
+                      Realizado
+                    </span>
+                    <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
+                      {brlK(v.evolucaoFaturamento[v.evolucaoFaturamento.length - 1]?.realizado ?? 0)}
+                    </p>
+                  </div>
+                  {v.metaAtiva && (
+                    <div>
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
+                        <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />
+                        Meta
+                      </span>
+                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
+                        {brlK(v.evolucaoFaturamento[v.evolucaoFaturamento.length - 1]?.meta ?? 0)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <BadgeVsAnterior delta={v.kpiFaturamento.delta} />
             </div>
             <AreaLineChart
-              data={v.evolucaoFaturamento.map((e) => e.valor)}
+              data={v.evolucaoFaturamento.map((e) => e.realizado)}
+              compareData={v.metaAtiva ? v.evolucaoFaturamento.map((e) => e.meta) : undefined}
               labels={v.evolucaoFaturamento.map((e) => e.label)}
-              color="var(--acc)"
-              height={200}
-              formatValue={brl}
+              color="var(--ok)"
+              compareColor="var(--warn)"
+              formatValue={brlK}
+              showAxisLabels
             />
           </Card>
         )}

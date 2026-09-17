@@ -15,8 +15,8 @@ import { desafiosAtivos, progressoIndividual, pisoDoDesafio, type Desafio } from
 import { HOJE_ISO, HORA_ATUAL } from "./relogio";
 import { agregadoDoDia, diaVendas, lojaAberta, somarAgregados, type Agregado } from "./vendas";
 import { filialPorId, filiais, turnos, type Filial } from "./filiais";
-import { brlK, curvaReceita, kpiDelta, periodoAnterior, resolverPeriodo, type Escopo, type PeriodoResolvido, type EstadoBloco } from "./dashboard";
-import { brl, fimDoMes, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
+import { brlK, curvaReceita, eixoSerieDoPeriodo, kpiDelta, periodoAnterior, resolverPeriodo, rotuloEixoSerie, type Escopo, type PeriodoResolvido, type EstadoBloco } from "./dashboard";
+import { brl, deIso, fimDoMes, horaCurta, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
 import type { TintKey } from "@/pages/dashboards/icons";
 
 const PALETA_LOJAS: TintKey[] = ["acc", "ok", "info", "warn", "bad"];
@@ -347,8 +347,10 @@ export interface EquipeView {
   /** Faixa de progresso da meta (loja ou rede) — com meta ativa. */
   metaGlobal: RedeMetaGlobal | null;
   leitura: string | null;
-  /** Série diária de faturamento para gráfico de Evolução na EquipePage. */
-  evolucaoFaturamento?: { label: string; valor: number }[];
+  /** Série acumulada Realizado × Meta (mesmo padrão da Visão Geral). */
+  evolucaoFaturamento?: { label: string; realizado: number; meta: number }[];
+  /** Subtítulo do eixo (ex.: "Este mês · por dia"). */
+  rotuloSerie?: string;
   vendedoras: VendedoraLinha[] | null;
   lojas: LojaEquipeResumo[] | null;
   desafios: DesafioView[] | null;
@@ -857,6 +859,110 @@ function montarMetaFaixa(realizado: number, total: number, competencia: string, 
   };
 }
 
+/* ------------------------- Evolução Fat vs Meta (padrão Visão Geral) ------------------------- */
+
+const MESES_CURTOS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+function fatDiaFiliais(filialIds: string[], iso: string): number {
+  return somarAgregados(
+    filialIds.map((id) => {
+      const dia = diaVendas(id, iso);
+      return dia ? agregadoDoDia(dia, null, iso === HOJE_ISO ? HORA_ATUAL : undefined) : { faturamento: 0, atendimentos: 0, itens: 0 };
+    }),
+  ).faturamento;
+}
+
+function fatHoraFiliais(filialIds: string[], iso: string, h: number): number {
+  let fat = 0;
+  for (const id of filialIds) {
+    const a = diaVendas(id, iso)?.porHora[h];
+    if (a) fat += a.faturamento;
+  }
+  return fat;
+}
+
+function mesesEntre(inicio: string, fim: string): string[] {
+  const out: string[] = [];
+  let y = Number(inicio.slice(0, 4));
+  let m = Number(inicio.slice(5, 7));
+  const yF = Number(fim.slice(0, 4));
+  const mF = Number(fim.slice(5, 7));
+  while (y < yF || (y === yF && m <= mF)) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return out;
+}
+
+/** Série acumulada Realizado × Meta — mesmo rateio da Visão Geral. */
+function montarEvolucaoFatVsMeta(
+  filialIds: string[],
+  periodo: PeriodoResolvido,
+  metaTotal: number,
+): { pontos: { label: string; realizado: number; meta: number }[]; rotuloSerie: string } | undefined {
+  const eixo = eixoSerieDoPeriodo(periodo);
+  const rotuloSerie = rotuloEixoSerie(periodo, eixo);
+  const pontos: { label: string; realizado: number; meta: number }[] = [];
+
+  if (eixo === "hora") {
+    const fs = filialIds.map((id) => filialPorId(id)).filter((f): f is Filial => Boolean(f));
+    if (fs.length === 0) return undefined;
+    const abertura = Math.min(...fs.map((f) => f.abertura));
+    const fechamento = Math.max(...fs.map((f) => f.fechamento));
+    const horas: number[] = [];
+    for (let h = abertura; h < fechamento; h++) horas.push(h);
+    const horasVisiveis = periodo.ehHoje ? horas.filter((h) => h <= HORA_ATUAL) : horas;
+    if (horasVisiveis.length < 2) return undefined;
+    const metaPorHora = metaTotal > 0 && horas.length > 0 ? metaTotal / horas.length : 0;
+    let acumR = 0;
+    let acumM = 0;
+    for (const h of horasVisiveis) {
+      acumR += fatHoraFiliais(filialIds, periodo.inicio, h);
+      acumM += metaPorHora;
+      pontos.push({ label: horaCurta(h), realizado: acumR, meta: acumM });
+    }
+  } else if (eixo === "mes") {
+    const meses = mesesEntre(periodo.inicio, periodo.fim);
+    if (meses.length < 2) return undefined;
+    const metaPorMes = metaTotal > 0 ? metaTotal / meses.length : 0;
+    let acumR = 0;
+    let acumM = 0;
+    for (const mes of meses) {
+      const inicioMes = `${mes}-01`;
+      const fimMes = fimDoMes(inicioMes);
+      const ini = inicioMes < periodo.inicio ? periodo.inicio : inicioMes;
+      const fim = fimMes > periodo.fim ? periodo.fim : fimMes;
+      for (const iso of intervaloDias(ini, fim)) {
+        acumR += fatDiaFiliais(filialIds, iso);
+      }
+      acumM += metaPorMes;
+      pontos.push({ label: mesAno(inicioMes).split(" de ")[0], realizado: acumR, meta: acumM });
+    }
+  } else {
+    const dias = intervaloDias(periodo.inicio, periodo.fim);
+    if (dias.length < 2) return undefined;
+    const metaPorDia = metaTotal > 0 ? metaTotal / dias.length : 0;
+    let acumR = 0;
+    let acumM = 0;
+    for (const iso of dias) {
+      acumR += fatDiaFiliais(filialIds, iso);
+      acumM += metaPorDia;
+      const d = deIso(iso);
+      pontos.push({
+        label: `${String(d.getDate()).padStart(2, "0")} ${MESES_CURTOS[d.getMonth()]}`,
+        realizado: acumR,
+        meta: acumM,
+      });
+    }
+  }
+
+  return pontos.length > 1 ? { pontos, rotuloSerie } : undefined;
+}
+
 /* ------------------------- Visão loja ------------------------- */
 
 function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: PeriodoResolvido, competencia: string, metaAtiva: boolean): EquipeView {
@@ -914,15 +1020,15 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
 
   // Faixa de progresso da meta da loja (mesmo card da rede).
   let metaGlobal: RedeMetaGlobal | null = null;
-  if (metaAtiva) {
-    const metaLoja = metaDaFilial(filialId, competencia);
-    if (metaLoja && metaLoja.valorLoja > 0) {
-      const primeiro = `${competencia}-01`;
-      const ultimo = fimDoMes(primeiro);
-      const realizado = agregadoLoja(filialId, primeiro, ultimo <= HOJE_ISO ? ultimo : HOJE_ISO).faturamento;
-      metaGlobal = montarMetaFaixa(realizado, metaLoja.valorLoja, competencia, [filial]);
-    }
+  const metaLojaValor = metaAtiva ? (metaDaFilial(filialId, competencia)?.valorLoja ?? 0) : 0;
+  if (metaAtiva && metaLojaValor > 0) {
+    const primeiro = `${competencia}-01`;
+    const ultimo = fimDoMes(primeiro);
+    const realizado = agregadoLoja(filialId, primeiro, ultimo <= HOJE_ISO ? ultimo : HOJE_ISO).faturamento;
+    metaGlobal = montarMetaFaixa(realizado, metaLojaValor, competencia, [filial]);
   }
+
+  const evolucao = montarEvolucaoFatVsMeta([filialId], periodo, metaLojaValor);
 
   return {
     escopo,
@@ -939,7 +1045,8 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
     kpiPremiacao: premiacao === null ? null : { valor: brl(premiacao), delta: undefined },
     metaGlobal,
     leitura: null,
-    evolucaoFaturamento: serieFat.length > 1 ? diasPeriodo.map((iso, i) => ({ label: iso.slice(5), valor: serieFat[i] })) : undefined,
+    evolucaoFaturamento: evolucao?.pontos,
+    rotuloSerie: evolucao?.rotuloSerie,
     vendedoras,
     lojas: null,
     desafios: metaAtiva ? desafiosViewDaCompetencia(competencia, [filial.id]) : null,
@@ -1053,6 +1160,12 @@ if (metaAtiva) {
     metaGlobal = montarMetaFaixa(realizado, metaGlobalTotal, competencia, filiais);
   }
 
+  const evolucaoRede = montarEvolucaoFatVsMeta(
+    filiais.map((f) => f.id),
+    periodo,
+    metaAtiva ? metaGlobalTotal : 0,
+  );
+
   return {
     escopo,
     periodo,
@@ -1068,7 +1181,8 @@ if (metaAtiva) {
     kpiPremiacao: premiacaoRede === null ? null : { valor: brl(premiacaoRede), delta: undefined },
     metaGlobal,
     leitura: null,
-    evolucaoFaturamento: serieFatRede.length > 1 ? diasPeriodoRede.map((iso, i) => ({ label: iso.slice(5), valor: serieFatRede[i] })) : undefined,
+    evolucaoFaturamento: evolucaoRede?.pontos,
+    rotuloSerie: evolucaoRede?.rotuloSerie,
     vendedoras: vendedorasFlat,
     lojas: lojas,
     desafios,
