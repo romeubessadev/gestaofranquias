@@ -5,7 +5,6 @@ import { Avisos } from "@/components/gestao/Avisos";
 import { Badge, Button, Card, CardTitle, DateRangePicker, EmptyState, PageHeader } from "@/components/ui";
 import { AreaLineChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
-import { BlocoLeitura } from "@/pages/dashboard/blocos";
 import { AvisoCompetencia, BlocoDesafios, BlocoKpisEquipe, CardVendedoras, FaixaMetaGlobal } from "./blocos";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { DateRange } from "@/components/ui/DateRangePicker";
@@ -37,7 +36,7 @@ const filtroSelectClass =
 
 /**
  * Tela Equipe: metas, desafios e premiação do mês (sempre visíveis — AD-046).
- * Chrome alinhado às demais subtelas do Dashboard (Período + Marca no header).
+ * Chrome alinhado às demais subtelas do Dashboard (Período + Marca + Grupo no header).
  */
 export function EquipePage() {
   const { escopo, mudar } = useEscopo();
@@ -45,6 +44,16 @@ export function EquipePage() {
   const periodoForaDoMes = Boolean(v.avisoCompetencia?.includes("seguem o período"));
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
+  const [grupoFiltro, setGrupoFiltro] = useState<string | null>(null);
+
+  // Se a loja mudar e o grupo sumir da lista, volta para "Todos".
+  const grupoAtivo = grupoFiltro && v.gruposDisponiveis.some((g) => g.nome === grupoFiltro) ? grupoFiltro : null;
+
+  const vendedorasFiltradas = useMemo(() => {
+    if (!v.vendedoras) return null;
+    if (!grupoAtivo) return v.vendedoras;
+    return v.vendedoras.filter((l) => l.turno === grupoAtivo);
+  }, [v.vendedoras, grupoAtivo]);
 
   const dateRange: DateRange | null = useMemo(() => {
     if (escopo.periodo.tipo === "personalizado" && escopo.periodo.inicio && escopo.periodo.fim) {
@@ -99,9 +108,9 @@ export function EquipePage() {
   return (
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
-        crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Equipe" }]}
         title="Equipe"
-        subtitle="Quem precisa de atenção, por quê, e quanto vai custar."
+        subtitle="Performance individual · escada de premiação · desafios"
+        crumbs={[{ label: "Dashboard" }, { label: "Equipe" }]}
         actions={
           <>
             <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
@@ -109,11 +118,22 @@ export function EquipePage() {
               {rotuloAtualizacao}
             </span>
             <Button
+              variant="secondary"
               size="sm"
               onClick={forcarAtualizacao}
               disabled={refreshing}
               icon={
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={refreshing ? "animate-spin" : ""}
+                >
                   <path d="M21 2v6h-6" />
                   <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
                   <path d="M3 22v-6h6" />
@@ -147,6 +167,18 @@ export function EquipePage() {
               <option value="WEPINK">WEPINK</option>
               <option value="WPINK">WPINK</option>
             </select>
+            <select
+              value={grupoAtivo ?? ""}
+              onChange={(e) => setGrupoFiltro(e.target.value || null)}
+              className={filtroSelectClass}
+            >
+              <option value="">Todos os grupos</option>
+              {v.gruposDisponiveis.map((g) => (
+                <option key={g.id} value={g.nome}>
+                  {g.nome}
+                </option>
+              ))}
+            </select>
           </>
         }
       />
@@ -160,8 +192,6 @@ export function EquipePage() {
             onVerMes={periodoForaDoMes ? () => mudar({ ...escopo, periodo: { tipo: "esteMes" } }) : undefined}
           />
         )}
-
-        {v.leitura && <BlocoLeitura texto={v.leitura} />}
 
         <BlocoKpisEquipe faturamento={v.kpiFaturamento} atendimentos={v.kpiAtendimentos} ticket={v.kpiTicket} pa={v.kpiPA} />
 
@@ -214,8 +244,8 @@ export function EquipePage() {
         {v.metaGlobal && <FaixaMetaGlobal meta={v.metaGlobal} />}
 
         <CardVendedoras
-          estado={v.estados.vendedoras}
-          lista={v.vendedoras}
+          estado={vendedorasFiltradas && vendedorasFiltradas.length > 0 ? "disponivel" : "sem_dados"}
+          lista={vendedorasFiltradas}
           metaAtiva={v.metaAtiva}
           mostrarShopping={v.visao === "rede"}
         />

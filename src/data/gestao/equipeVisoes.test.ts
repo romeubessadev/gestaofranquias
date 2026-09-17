@@ -566,7 +566,7 @@ describe("T5: premiação projetada (EQUIP-04/05)", () => {
     const metaLoja = 185000;
     expect(v.vendedoras!.length).toBeGreaterThan(0);
     for (const l of v.vendedoras!) {
-      expect(l.turno === "Manhã" || l.turno === "Tarde" || l.turno === "Sem turno").toBe(true);
+      expect(l.turno === "Grupo 1" || l.turno === "Grupo 2" || l.turno === "Sem grupo").toBe(true);
       expect(l.pctMetaGeral).toBeCloseTo((l.faturamentoValor / metaLoja) * 100, 6);
       if (l.degrauAtual) {
         expect(l.nivelAtual).toBeGreaterThan(0);
@@ -587,40 +587,11 @@ describe("T5: premiação projetada (EQUIP-04/05)", () => {
   });
 });
 
-describe("T5: leitura da IA da equipe (EQUIP-06)", () => {
-  it("mês ativo com someone em risco: leitura menciona quem está abaixo e caindo", () => {
+describe("T5: leitura da IA da equipe (EQUIP-06) — desativada por enquanto", () => {
+  it("não monta sugestão de IA na view", () => {
     const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
-    const emRisco = v.vendedoras!.filter((l) => l.atingimentoPct < 100 && l.tendencia === "caindo");
-    if (emRisco.length > 0) {
-      expect(v.leitura).not.toBeNull();
-      for (const l of emRisco) {
-        expect(v.leitura!).toContain(primeiroNomeDe(l.nome));
-      }
-      expect(v.leitura!).toContain("abaixo da meta");
-    } else {
-      // Sem ninguém em risco: leitura pode ser null ou só a linha de mix/ticket.
-      if (v.leitura) expect(v.leitura).not.toContain("abaixo da meta");
-    }
-  });
-
-  it("leitura tem no máximo 2 linhas: uma de mix/ticket e uma de risco", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
-    if (v.leitura) {
-      // Linha (a) fala de P.A./ticket; linha (b) de quem está abaixo da meta.
-      // Máximo uma ocorrência de cada marcador.
-      const ocorrencias = (marcador: string) => v.leitura!.split(marcador).length - 1;
-      expect(ocorrencias("P.A.")).toBeLessThanOrEqual(1);
-      expect(ocorrencias("abaixo da meta")).toBeLessThanOrEqual(1);
-    }
-  });
-
-  it("com filtro 7 dias a leitura ainda pode falar de meta (AD-046 — competência ativa)", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "7dias" }));
-    expect(v.metaAtiva).toBe(true);
-    // Leitura usa as linhas de meta da competência; menção a meta é válida.
-    if (v.leitura) {
-      expect(v.leitura.length).toBeGreaterThan(0);
-    }
+    expect(v.leitura).toBeNull();
+    expect(v.estados.leitura).toBe("sem_dados");
   });
 });
 
@@ -645,6 +616,3 @@ describe("Faturamento vs Meta — série acumulada (padrão Visão Geral)", () =
   });
 });
 
-function primeiroNomeDe(nomeCompleto: string): string {
-  return nomeCompleto.split(" ")[0];
-}

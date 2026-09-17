@@ -177,7 +177,9 @@ export function escadaVendedora(
 export interface KpiEquipeValor {
   valor: string;
   delta: { value: string; positive: boolean; vs?: string } | undefined;
-  /** Série diária para sparkline nos KPIs da Equipe (opcional). */
+  /** Linha auxiliar sob o valor (mesmo padrão VG/Fin/Prod). */
+  sub?: string;
+  /** Série diária (reservada; KPIs da Equipe não renderizam sparkline). */
   serie?: number[];
 }
 
@@ -187,7 +189,7 @@ export interface VendedoraLinha {
   /** Filial da vendedora — necessária na visão rede (coluna Shopping). */
   filialId: string;
   filialNome: string;
-  /** Nome do turno (Manhã/Tarde) ou "Sem turno". */
+  /** Nome do grupo (Grupo 1/Grupo 2) ou "Sem grupo". */
   turno: string;
   faturamentoValor: number;
   faturamento: string;
@@ -231,7 +233,7 @@ export interface DesafioParticipanteView {
   nome: string;
   /** Fantasia da loja — útil na visão rede. */
   loja: string;
-  /** Nome do turno (Manhã/Tarde) ou "—" se sem turno. */
+  /** Nome do grupo (Grupo 1/Grupo 2) ou "—" se sem grupo. */
   turno: string;
   progresso: number;
   /** Piso/alvo contra o qual a barra é medida. */
@@ -351,6 +353,8 @@ export interface EquipeView {
   evolucaoFaturamento?: { label: string; realizado: number; meta: number }[];
   /** Subtítulo do eixo (ex.: "Este mês · por dia"). */
   rotuloSerie?: string;
+  /** Grupos da loja/rede (ex.: Grupo 1, Grupo 2) para o filtro do header. */
+  gruposDisponiveis: { id: string; nome: string }[];
   vendedoras: VendedoraLinha[] | null;
   lojas: LojaEquipeResumo[] | null;
   desafios: DesafioView[] | null;
@@ -498,7 +502,7 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
       nome: c.nome,
       filialId,
       filialNome: filial.fantasia,
-      turno: c.turnoId ? turnos.find((t) => t.id === c.turnoId)?.nome ?? "Sem turno" : "Sem turno",
+      turno: c.turnoId ? turnos.find((t) => t.id === c.turnoId)?.nome ?? "Sem grupo" : "Sem grupo",
       faturamentoValor: faturamento,
       faturamento: brl(faturamento),
       atendimentos,
@@ -799,11 +803,10 @@ function premiacaoProjetada(filialId: string, competencia: string, vendedoras: V
 
 /**
  * Leitura da aba: no produto o LLM redige a partir dos números; aqui a frase
- * é montada por regra, com o padrão do leitura.ts do Dashboard. Até 2 linhas:
- * (a) efeito de ticket/P.A. da equipe no período e (b) destaque de quem está
- * abaixo da meta e caindo. Só diz o que os números da tela não dizem.
+ * é montada por regra. Desativada na UI por enquanto (EQUIP-06) — mantida
+ * exportada para reativar sem reescrever a lógica.
  */
-function montarLeituraEquipe(v: EquipeView): string | null {
+export function montarLeituraEquipe(v: EquipeView): string | null {
   const partes: string[] = [];
   const linhas = v.vendedoras ?? [];
 
@@ -963,6 +966,22 @@ function montarEvolucaoFatVsMeta(
   return pontos.length > 1 ? { pontos, rotuloSerie } : undefined;
 }
 
+function gruposDaFilial(filialId: string): { id: string; nome: string }[] {
+  return turnos.filter((t) => t.filialId === filialId).map((t) => ({ id: t.id, nome: t.nome }));
+}
+
+/** Grupos únicos por nome (rede: Grupo 1/Grupo 2 aparecem em várias lojas). */
+function gruposDoEscopo(filialIds: string[]): { id: string; nome: string }[] {
+  const ids = filialIds.length > 0 ? filialIds : filiais.map((f) => f.id);
+  const visto = new Map<string, { id: string; nome: string }>();
+  for (const id of ids) {
+    for (const g of gruposDaFilial(id)) {
+      if (!visto.has(g.nome)) visto.set(g.nome, { id: g.nome, nome: g.nome });
+    }
+  }
+  return [...visto.values()];
+}
+
 /* ------------------------- Visão loja ------------------------- */
 
 function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: PeriodoResolvido, competencia: string, metaAtiva: boolean): EquipeView {
@@ -1028,6 +1047,7 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
     metaGlobal = montarMetaFaixa(realizado, metaLojaValor, competencia, [filial]);
   }
 
+  const nDias = diasPeriodo.length;
   const evolucao = montarEvolucaoFatVsMeta([filialId], periodo, metaLojaValor);
 
   return {
@@ -1038,15 +1058,35 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
     metaAtiva,
     avisoCompetencia: null, // preenchido em montarEquipeView
     avisos,
-    kpiFaturamento: { valor: brlK(atual.faturamento), delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined, serie: serieFat.length > 1 ? serieFat : undefined },
-    kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined, serie: serieAtend.length > 1 ? serieAtend : undefined },
-    kpiTicket: { valor: brl(ticket), delta: temComparacao ? kpiDelta(ticket, ticketAnt, vsRotulo) : undefined, serie: serieTicket.length > 1 ? serieTicket : undefined },
-    kpiPA: { valor: num(pa, 2), delta: temComparacao ? kpiDelta(pa, paAnt, vsRotulo) : undefined, serie: seriePA.length > 1 ? seriePA : undefined },
+    kpiFaturamento: {
+      valor: brlK(atual.faturamento),
+      delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
+      sub: metaLojaValor > 0 ? `Meta: ${brlK(metaLojaValor)}` : undefined,
+      serie: serieFat.length > 1 ? serieFat : undefined,
+    },
+    kpiAtendimentos: {
+      valor: num(atual.atendimentos),
+      delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined,
+      sub: nDias > 1 ? `média ${num(atual.atendimentos / nDias, 0)}/dia` : undefined,
+      serie: serieAtend.length > 1 ? serieAtend : undefined,
+    },
+    kpiTicket: {
+      valor: brl(ticket),
+      delta: temComparacao ? kpiDelta(ticket, ticketAnt, vsRotulo) : undefined,
+      sub: `PA ${num(pa, 2)}`,
+      serie: serieTicket.length > 1 ? serieTicket : undefined,
+    },
+    kpiPA: {
+      valor: num(pa, 2),
+      delta: temComparacao ? kpiDelta(pa, paAnt, vsRotulo) : undefined,
+      serie: seriePA.length > 1 ? seriePA : undefined,
+    },
     kpiPremiacao: premiacao === null ? null : { valor: brl(premiacao), delta: undefined },
     metaGlobal,
     leitura: null,
     evolucaoFaturamento: evolucao?.pontos,
     rotuloSerie: evolucao?.rotuloSerie,
+    gruposDisponiveis: gruposDaFilial(filialId),
     vendedoras,
     lojas: null,
     desafios: metaAtiva ? desafiosViewDaCompetencia(competencia, [filial.id]) : null,
@@ -1166,6 +1206,12 @@ if (metaAtiva) {
     metaAtiva ? metaGlobalTotal : 0,
   );
 
+  const nDiasRede = diasPeriodoRede.length;
+  const paRede = divSeguro(atual.itens, atual.atendimentos);
+  const ticketRede = divSeguro(atual.faturamento, atual.atendimentos);
+  const paRedeAnt = divSeguro(anterior.itens, anterior.atendimentos);
+  const ticketRedeAnt = divSeguro(anterior.faturamento, anterior.atendimentos);
+
   return {
     escopo,
     periodo,
@@ -1174,15 +1220,35 @@ if (metaAtiva) {
     metaAtiva,
     avisoCompetencia: null,
     avisos: [],
-    kpiFaturamento: { valor: brlK(atual.faturamento), delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined, serie: serieFatRede.length > 1 ? serieFatRede : undefined },
-    kpiAtendimentos: { valor: num(atual.atendimentos), delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined, serie: serieAtendRede.length > 1 ? serieAtendRede : undefined },
-    kpiTicket: { valor: brl(divSeguro(atual.faturamento, atual.atendimentos)), delta: temComparacao ? kpiDelta(divSeguro(atual.faturamento, atual.atendimentos), divSeguro(anterior.faturamento, anterior.atendimentos), vsRotulo) : undefined, serie: serieTicketRede.length > 1 ? serieTicketRede : undefined },
-    kpiPA: { valor: num(divSeguro(atual.itens, atual.atendimentos), 2), delta: temComparacao ? kpiDelta(divSeguro(atual.itens, atual.atendimentos), divSeguro(anterior.itens, anterior.atendimentos), vsRotulo) : undefined, serie: seriePARede.length > 1 ? seriePARede : undefined },
+    kpiFaturamento: {
+      valor: brlK(atual.faturamento),
+      delta: temComparacao ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
+      sub: metaGlobalTotal > 0 ? `Meta: ${brlK(metaGlobalTotal)}` : undefined,
+      serie: serieFatRede.length > 1 ? serieFatRede : undefined,
+    },
+    kpiAtendimentos: {
+      valor: num(atual.atendimentos),
+      delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined,
+      sub: nDiasRede > 1 ? `média ${num(atual.atendimentos / nDiasRede, 0)}/dia` : undefined,
+      serie: serieAtendRede.length > 1 ? serieAtendRede : undefined,
+    },
+    kpiTicket: {
+      valor: brl(ticketRede),
+      delta: temComparacao ? kpiDelta(ticketRede, ticketRedeAnt, vsRotulo) : undefined,
+      sub: `PA ${num(paRede, 2)}`,
+      serie: serieTicketRede.length > 1 ? serieTicketRede : undefined,
+    },
+    kpiPA: {
+      valor: num(paRede, 2),
+      delta: temComparacao ? kpiDelta(paRede, paRedeAnt, vsRotulo) : undefined,
+      serie: seriePARede.length > 1 ? seriePARede : undefined,
+    },
     kpiPremiacao: premiacaoRede === null ? null : { valor: brl(premiacaoRede), delta: undefined },
     metaGlobal,
     leitura: null,
     evolucaoFaturamento: evolucaoRede?.pontos,
     rotuloSerie: evolucaoRede?.rotuloSerie,
+    gruposDisponiveis: gruposDoEscopo([]),
     vendedoras: vendedorasFlat,
     lojas: lojas,
     desafios,
@@ -1236,7 +1302,7 @@ export function montarEquipeView(escopo: Escopo): EquipeView {
     v.avisoCompetencia = `Meta e premiação valem para a competência ${mesAno(`${competencia}-01`)}.`;
   }
 
-  v.leitura = montarLeituraEquipe(v);
-  v.estados.leitura = v.leitura ? "disponivel" : "sem_dados";
+  v.leitura = null;
+  v.estados.leitura = "sem_dados";
   return v;
 }

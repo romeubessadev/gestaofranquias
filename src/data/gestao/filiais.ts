@@ -76,10 +76,10 @@ export interface Turno {
 }
 
 export const turnos: Turno[] = [
-  { id: "t-f1-manha", filialId: "f1", nome: "Manhã", horaInicio: 0, horaFim: 16 },
-  { id: "t-f1-tarde", filialId: "f1", nome: "Tarde", horaInicio: 16, horaFim: 24 },
-  { id: "t-f2-manha", filialId: "f2", nome: "Manhã", horaInicio: 0, horaFim: 13 },
-  { id: "t-f2-tarde", filialId: "f2", nome: "Tarde", horaInicio: 13, horaFim: 24 },
+  { id: "t-f1-manha", filialId: "f1", nome: "Grupo 1", horaInicio: 0, horaFim: 16 },
+  { id: "t-f1-tarde", filialId: "f1", nome: "Grupo 2", horaInicio: 16, horaFim: 24 },
+  { id: "t-f2-manha", filialId: "f2", nome: "Grupo 1", horaInicio: 0, horaFim: 13 },
+  { id: "t-f2-tarde", filialId: "f2", nome: "Grupo 2", horaInicio: 13, horaFim: 24 },
 ];
 
 export interface Tarefa {

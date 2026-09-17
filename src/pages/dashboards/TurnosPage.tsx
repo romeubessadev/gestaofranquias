@@ -35,8 +35,8 @@ const IconMeta = () => (
 );
 
 const CORES_TURNOS: Record<string, string> = {
-  Manhã: "var(--acc)",
-  Tarde: "var(--info)",
+  "Grupo 1": "var(--acc)",
+  "Grupo 2": "var(--info)",
   Noite: "var(--warn)",
 };
 

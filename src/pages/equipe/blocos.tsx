@@ -4,7 +4,6 @@
  * Badge, Avatar, EmptyState e o padrão EstadoBloco da Visão geral.
  */
 import { Avatar, Badge, Card, CardTitle, DataTable, EmptyState, ProgressBar, StatCard, type DataTableColumn } from "@/components/ui";
-import { Sparkline } from "@/components/charts";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { brl, brlK, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
@@ -55,7 +54,7 @@ const IconPA = () => (
   </svg>
 );
 
-/** Heroes alinhados à Visão Geral: Fat=acc, Vendas=ok, Ticket=info, PA=warn. */
+/** Mesmo padrão visual das demais telas (VG/Fin/Prod): ícone + valor + delta + sub + tooltip — sem sparkline. */
 const KPI_COLORS = [
   { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
   { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },
@@ -79,7 +78,7 @@ export function BlocoKpisEquipe({
       label: "Faturamento",
       valor: faturamento.valor,
       delta: faturamento.delta,
-      serie: faturamento.serie,
+      sub: faturamento.sub,
       tooltip: "Receita bruta total da equipe no período.",
       Icon: IconFat,
     },
@@ -87,7 +86,7 @@ export function BlocoKpisEquipe({
       label: "Atendimentos",
       valor: atendimentos.valor,
       delta: atendimentos.delta,
-      serie: atendimentos.serie,
+      sub: atendimentos.sub,
       tooltip: "Total de vendas realizadas no período.",
       Icon: IconVendas,
     },
@@ -95,7 +94,7 @@ export function BlocoKpisEquipe({
       label: "Ticket médio",
       valor: ticket.valor,
       delta: ticket.delta,
-      serie: ticket.serie,
+      sub: ticket.sub,
       tooltip: "Valor médio por venda (Faturamento ÷ Nº de vendas).",
       Icon: IconTicket,
     },
@@ -103,7 +102,7 @@ export function BlocoKpisEquipe({
       label: "P.A.",
       valor: pa.valor,
       delta: pa.delta,
-      serie: pa.serie,
+      sub: pa.sub,
       tooltip: "Itens por venda (Itens ÷ Nº de vendas).",
       Icon: IconPA,
     },
@@ -123,8 +122,8 @@ export function BlocoKpisEquipe({
             iconColor={c.iconColor}
             iconBg={c.iconBg}
             delta={kpi.delta}
+            sub={kpi.sub}
             tooltip={kpi.tooltip}
-            sparkline={kpi.serie && kpi.serie.length > 1 ? <Sparkline data={kpi.serie} /> : undefined}
           />
         );
       })}
