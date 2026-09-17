@@ -263,7 +263,7 @@ export default function GruposPage() {
       </div>
 
       {/* Faturamento por Dia × Grupo (StackedBarChart) */}
-      <Card>
+      <Card className="mt-4">
         <CardHeader>
           <div className="flex items-center gap-1.5">
             <CardTitle>Faturamento por Dia × Grupo</CardTitle>
@@ -293,7 +293,7 @@ export default function GruposPage() {
       </Card>
 
       {/* Par: Heatmap + Vendedoras por Hora */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <div className="flex items-center gap-1.5">
@@ -335,7 +335,7 @@ export default function GruposPage() {
 
       {/* Indicadores por Hora (condicional: período = 1 dia) */}
       {view.indicadoresPorHora && (
-        <Card>
+        <Card className="mt-4">
           <CardHeader>
             <div className="flex items-center gap-1.5">
               <CardTitle>Indicadores por Hora</CardTitle>
