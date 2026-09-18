@@ -11,7 +11,7 @@
  */
 import { vendedorElegivel, colaboradoresDaFilial, colaboradorPorId, type Colaborador } from "./equipe";
 import { metaDaFilial, type Degrau } from "./metas";
-import { desafiosAtivos, progressoIndividual, pisoDoDesafio, type Desafio } from "./desafios";
+import { desafiosAtivos, progressoIndividual, pisoDoDesafio, alvoGerenteDoDesafio, progressoGerenteCapped, type Desafio } from "./desafios";
 import { HOJE_ISO, HORA_ATUAL } from "./relogio";
 import { agregadoDoDia, diaVendas, lojaAberta, somarAgregados, type Agregado } from "./vendas";
 import { filialPorId, filiais, grupos, type Filial } from "./filiais";
@@ -261,13 +261,23 @@ export interface DesafioView {
   corIcone: string;
   alvoIndividual: number;
   unidade: Desafio["unidade"];
+  /** Prêmio da vendedora que fechar. */
   premio: number;
+  /** Prêmio do gerente se a regra de N vendedoras fechar. */
+  premioGerente: number;
+  /** Quantas vendedoras precisam atingir (parametrização do gerente). */
+  minimoVendedorasAtingindo: number;
   participantes: number;
   engajadas: number;
+  /**
+   * Progresso rumo à meta do gerente (soma capped no piso por pessoa).
+   * Regra A: ninguém contribui além do alvo individual.
+   */
   progressoAgregado: number;
+  /** Meta do gerente = piso × minimoVendedorasAtingindo (limitado ao escopo). */
   alvoAgregado: number;
   progressoPct: number;
-  /** Ex.: "48/90 un" — progresso agregado do escopo. */
+  /** Ex.: "6/9 un" — progresso da meta do gerente. */
   progressoAgregadoRotulo: string;
   /** Quantas participantes já atingiram o alvo individual. */
   atingiram: number;
@@ -626,9 +636,15 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
       status: statusParticipante(progresso, piso),
     };
   });
-  const progressoAgregado = linhas.reduce((s, p) => s + p.progresso, 0);
   const piso = pisoDoDesafio(d);
-  const alvoAgregado = piso * ids.length;
+  const atingiram = linhas.filter((p) => p.status === "atingiu").length;
+  const minimoGerente = Math.min(d.minimoVendedorasAtingindo, ids.length);
+  /** Regra A: cada vendedora contribui no máximo até o piso. */
+  const progressoAgregado = progressoGerenteCapped(
+    linhas.map((p) => p.progresso),
+    piso,
+  );
+  const alvoAgregado = alvoGerenteDoDesafio(d, ids.length);
   const projetado = diasDecorridos > 0 ? (progressoAgregado / diasDecorridos) * diasTotais : 0;
   const semEngajamento = progressoAgregado <= 0;
   const ranking = [...linhas].sort(
@@ -678,7 +694,10 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     prazoRotulo = diasRestantes === 1 ? "Termina em 1d" : `Termina em ${diasRestantes}d`;
   }
 
-  const fechaNoRitmo = semEngajamento || statusLabel !== "Ativo" ? false : projetado >= alvoAgregado;
+  const fechaNoRitmo =
+    semEngajamento || statusLabel !== "Ativo"
+      ? false
+      : atingiram >= minimoGerente || projetado >= alvoAgregado;
   const descricao =
     minimoRotulo != null
       ? `Meta: ${metaRotulo} · Mínimo: ${minimoRotulo} · Prêmio: ${brl(d.premio)}`
@@ -696,13 +715,15 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     alvoIndividual: d.alvoIndividual,
     unidade: d.unidade,
     premio: d.premio,
+    premioGerente: d.premioGerente,
+    minimoVendedorasAtingindo: minimoGerente,
     participantes: ids.length,
     engajadas: linhas.filter((p) => p.status !== "nao_comecou").length,
     progressoAgregado,
     alvoAgregado,
     progressoPct: alvoAgregado > 0 ? (progressoAgregado / alvoAgregado) * 100 : 0,
     progressoAgregadoRotulo: fmtProgressoRotulo(progressoAgregado, alvoAgregado, d),
-    atingiram: linhas.filter((p) => p.status === "atingiu").length,
+    atingiram,
     projetadoAgregado: projetado,
     fechaNoRitmo,
     semEngajamento,

@@ -555,6 +555,9 @@ export function BlocoDesafios({
         <span>
           Prêmio: <span className="font-bold text-ok">{brl(d.premio)}</span>
         </span>
+        <span>
+          Gerente: <span className="font-bold text-ok">{brl(d.premioGerente)}</span>
+        </span>
       </div>
 
       <div className="mb-3.5">
@@ -564,13 +567,13 @@ export function BlocoDesafios({
             <span className="ml-1.5 text-t2">· {num(d.progressoPct, 0)}%</span>
           </p>
           <p className="text-[11.5px] font-semibold text-t2">
-            <span className="font-bold text-t0">{d.atingiram}</span>/{d.participantes} atingiram
+            <span className="font-bold text-t0">{d.atingiram}</span>/{d.minimoVendedorasAtingindo} atingiram
           </p>
         </div>
         <ProgressBar
           value={Math.min(100, d.progressoPct)}
           height={7}
-          color={d.progressoPct >= 100 ? "var(--ok)" : "var(--acc)"}
+          color={d.progressoPct >= 100 || d.atingiram >= d.minimoVendedorasAtingindo ? "var(--ok)" : "var(--acc)"}
         />
       </div>
 

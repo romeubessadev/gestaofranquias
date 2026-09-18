@@ -30,8 +30,18 @@ export interface Desafio {
    */
   minimo: number | null;
   unidade: UnidadeDesafio;
-  /** R$ por participante que fechar o desafio. */
+  /** R$ por participante (vendedora) que fechar o desafio. */
   premio: number;
+  /**
+   * R$ do gerente se a regra de loja fechar
+   * (mín. N vendedoras atingindo o alvo individual).
+   */
+  premioGerente: number;
+  /**
+   * Quantas vendedoras precisam bater o alvo individual
+   * para o gerente fechar. Meta gerente = este × piso/alvo.
+   */
+  minimoVendedorasAtingindo: number;
   /** "AAAA-MM" */
   competencia: string;
   /** Início da janela do desafio (ISO). */
@@ -88,6 +98,8 @@ export const desafios: Desafio[] = [
     minimo: 3,
     unidade: "un",
     premio: 80,
+    premioGerente: 150,
+    minimoVendedorasAtingindo: 3,
     competencia: "2026-09",
     inicio: "2026-09-01",
     fim: "2026-09-10",
@@ -103,6 +115,8 @@ export const desafios: Desafio[] = [
     minimo: 15,
     unidade: "un",
     premio: 50,
+    premioGerente: 120,
+    minimoVendedorasAtingindo: 4,
     competencia: "2026-09",
     inicio: "2026-09-01",
     fim: "2026-09-30",
@@ -118,6 +132,8 @@ export const desafios: Desafio[] = [
     minimo: 1.9,
     unidade: "x",
     premio: 60,
+    premioGerente: 200,
+    minimoVendedorasAtingindo: 5,
     competencia: "2026-09",
     inicio: "2026-09-01",
     fim: "2026-09-30",
@@ -133,6 +149,8 @@ export const desafios: Desafio[] = [
     minimo: 185,
     unidade: "R$",
     premio: 100,
+    premioGerente: 250,
+    minimoVendedorasAtingindo: 5,
     competencia: "2026-09",
     inicio: "2026-09-20",
     fim: "2026-09-30",
@@ -149,6 +167,23 @@ export function desafiosAtivos(competencia: string): Desafio[] {
 /** Piso efetivo: minimo configurado ou o próprio alvo. */
 export function pisoDoDesafio(d: Desafio): number {
   return d.minimo ?? d.alvoIndividual;
+}
+
+/**
+ * Meta do gerente: piso × N vendedoras que precisam atingir.
+ * No escopo filtrado, N nunca passa do nº de participantes visíveis.
+ */
+export function alvoGerenteDoDesafio(d: Desafio, participantesNoEscopo: number): number {
+  const n = Math.min(d.minimoVendedorasAtingindo, Math.max(0, participantesNoEscopo));
+  return pisoDoDesafio(d) * n;
+}
+
+/**
+ * Progresso rumo à meta do gerente (regra A): cada vendedora contribui no
+ * máximo até o piso individual — uma não “carrega” as outras.
+ */
+export function progressoGerenteCapped(progressos: number[], piso: number): number {
+  return progressos.reduce((s, p) => s + Math.min(Math.max(0, p), piso), 0);
 }
 
 /**

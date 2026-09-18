@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { desafios, desafiosAtivos, progressoIndividual } from "./desafios";
+import {
+  alvoGerenteDoDesafio,
+  desafios,
+  desafiosAtivos,
+  pisoDoDesafio,
+  progressoGerenteCapped,
+  progressoIndividual,
+} from "./desafios";
 import { colaboradorPorId } from "./equipe";
 
 describe("T1: desafios ativos (EQUIP-05)", () => {
@@ -21,6 +28,9 @@ describe("T1: desafios ativos (EQUIP-05)", () => {
     for (const d of desafios) {
       expect(["un", "x", "R$"]).toContain(d.unidade);
       expect(d.premio).toBeGreaterThan(0);
+      expect(d.premioGerente).toBeGreaterThan(0);
+      expect(d.minimoVendedorasAtingindo).toBeGreaterThan(0);
+      expect(d.minimoVendedorasAtingindo).toBeLessThanOrEqual(d.participantes.length);
     }
   });
 
@@ -77,5 +87,13 @@ describe("T1: desafios ativos (EQUIP-05)", () => {
       expect(d.inicio.startsWith("2026-09")).toBe(true);
       expect(d.fim.startsWith("2026-09")).toBe(true);
     }
+  });
+
+  it("meta do gerente = piso × N; progresso capped (regra A) não deixa 1 pessoa carregar", () => {
+    const perf = desafiosAtivos("2026-09").find((d) => d.id === "d-perfumaria")!;
+    expect(alvoGerenteDoDesafio(perf, perf.participantes.length)).toBe(pisoDoDesafio(perf) * 3);
+    // 1 pessoa com 10 e 4 com 0 → capped = 3 (não 10)
+    expect(progressoGerenteCapped([10, 0, 0, 0, 0], 3)).toBe(3);
+    expect(progressoGerenteCapped([3, 3, 3, 0, 0], 3)).toBe(9);
   });
 });

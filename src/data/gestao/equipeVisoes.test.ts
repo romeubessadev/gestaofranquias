@@ -432,19 +432,20 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
 });
 
 describe("T5: desafios na visão (EQUIP-05)", () => {
-  it("progresso agregado é a soma do progresso individual e alvo agregado = alvo × participantes", () => {
+  it("progresso agregado é a soma capped no piso (regra A) e alvo = piso × N gerente", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
     expect(v.desafios!.length).toBe(4);
     for (const d of v.desafios!) {
-      expect(d.progressoAgregado).toBeCloseTo(
-        d.ranking.reduce((s, p) => s + p.progresso, 0),
-        6,
-      );
-      expect(d.alvoAgregado).toBe((d.minimo ?? d.alvoIndividual) * d.participantes);
+      const piso = d.minimo ?? d.alvoIndividual;
+      const capped = d.ranking.reduce((s, p) => s + Math.min(p.progresso, piso), 0);
+      expect(d.progressoAgregado).toBeCloseTo(capped, 6);
+      expect(d.alvoAgregado).toBe(piso * d.minimoVendedorasAtingindo);
+      expect(d.minimoVendedorasAtingindo).toBeLessThanOrEqual(d.participantes);
       expect(d.ranking.length).toBe(d.participantes);
       expect(d.progressoAgregadoRotulo).toContain("/");
       expect(d.atingiram).toBe(d.ranking.filter((p) => p.status === "atingiu").length);
       expect(d.atingiram).toBeLessThanOrEqual(d.participantes);
+      expect(d.premioGerente).toBeGreaterThan(0);
       expect(d.descricao).toContain("Meta:");
       expect(d.descricao).toContain("Prêmio:");
       expect(d.metaRotulo).toBeTruthy();
@@ -492,6 +493,8 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
       alvoIndividual: 10,
       unidade: "un",
       premio: 40,
+      premioGerente: 80,
+      minimoVendedorasAtingindo: 2,
       competencia: "2026-09",
       inicio: "2026-09-01",
       fim: "2026-09-30",
