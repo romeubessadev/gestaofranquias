@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { isNavGroup } from "./nav-config";
 import { navDoPapel } from "./nav-gestao";
 import { useSessaoAtiva } from "@/session/SessionProvider";
@@ -15,6 +15,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const [query, setQuery] = useState("");
   const [activeIdx, setActiveIdx] = useState(0);
   const navigate = useNavigate();
+  const location = useLocation();
   const sessao = useSessaoAtiva();
 
   const flatItems = useMemo<FlatItem[]>(
@@ -37,7 +38,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   }, [open]);
 
   function go(item: FlatItem) {
-    navigate(item.to);
+    navigate({ pathname: item.to, search: location.search });
     onClose();
   }
 

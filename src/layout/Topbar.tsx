@@ -28,13 +28,14 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
   const { escopo, mudar } = useEscopo();
   const notificacoes = sessao.papel === "VENDEDOR" ? notificacoesVendedora : notificacoesGestor;
 
-  // No Dashboard, a loja é o filtro mais importante da tela: ocupa o lugar
-  // do "Buscar telas" em vez de dividir espaço lá embaixo, escondida numa modal.
-  const noDashboard =
+  // Loja é filtro global: Topbar nas telas do produto (não só Dashboard).
+  const mostraSeletorLoja =
     location.pathname === paths.dashboard ||
     location.pathname.startsWith(paths.dashboard + "/") ||
     location.pathname === paths.aoVivo.root ||
-    location.pathname.startsWith(paths.aoVivo.root + "/");
+    location.pathname.startsWith(paths.aoVivo.root + "/") ||
+    location.pathname === paths.metas ||
+    location.pathname.startsWith(paths.configuracoes.root);
   const minhas = filiais.filter((f) => sessao.filiais.includes(f.id));
 
   return (
@@ -51,7 +52,7 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
         </svg>
       </button>
 
-      {noDashboard ? (
+      {mostraSeletorLoja ? (
         <div className="min-w-0 flex-1 sm:max-w-sm">
           <SeletorLoja escopo={escopo} onChange={mudar} minhas={minhas} />
         </div>

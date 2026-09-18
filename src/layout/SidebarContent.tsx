@@ -39,6 +39,12 @@ function GroupIcon({ d }: { d: string }) {
   );
 }
 
+/** Mantém `?filial=` (e demais query) ao trocar de tela pelo menu. */
+function comBusca(to: string, search: string) {
+  if (!search || search === "?") return to;
+  return `${to}${search.startsWith("?") ? search : `?${search}`}`;
+}
+
 export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const location = useLocation();
   const sessao = useSessaoAtiva();
@@ -55,6 +61,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: 
   }
 
   const vendedoraSemApp = sessao.papel === "VENDEDOR" && !sessao.appInstalado;
+  const busca = location.search;
 
   return (
     <div className="flex h-full flex-col">
@@ -70,7 +77,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: 
             return (
               <NavLink
                 key={entry.label}
-                to={entry.to}
+                to={comBusca(entry.to, busca)}
                 onClick={onNavigate}
                 title={collapsed ? entry.label : undefined}
                 className={({ isActive }) => cn(linkBase, collapsed && "justify-center", (isActive || entry.activePaths?.includes(location.pathname)) && linkActive)}
@@ -94,7 +101,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: 
               {!collapsed && open && (
                 <div className="ml-[21px] mt-1 flex flex-col gap-0.5 border-l border-line pl-4">
                   {entry.items.map((item) => (
-                    <NavLink key={item.to} to={item.to} end onClick={onNavigate} className={({ isActive }) => cn("flex items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-[12.5px] font-medium text-t1 hover:bg-bg-3 hover:text-t0", isActive && linkActive)}>
+                    <NavLink key={item.to} to={comBusca(item.to, busca)} end onClick={onNavigate} className={({ isActive }) => cn("flex items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-[12.5px] font-medium text-t1 hover:bg-bg-3 hover:text-t0", isActive && linkActive)}>
                       <span className={cn("h-[5px] w-[5px] shrink-0 rounded-full", !item.dot && "bg-t2")} style={item.dot ? { background: item.dot } : undefined} />
                       <span className="flex-1 truncate">{item.label}</span>
                     </NavLink>
