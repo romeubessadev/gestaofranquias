@@ -17,6 +17,8 @@ const IconVendas = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
     <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
   </svg>
 );
 const IconFat = () => (
@@ -38,30 +40,32 @@ const IconPct = () => (
     <circle cx="17.5" cy="17.5" r="2.5" />
   </svg>
 );
-
+/** Mesmo cart da Visão Geral / Financeiro (CMV) — usado em Itens hoje. */
 const IconItens = () => (
-  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-    <line x1="12" y1="22.08" x2="12" y2="12" />
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="8" cy="21" r="1" />
+    <circle cx="19" cy="21" r="1" />
+    <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
   </svg>
 );
+/** Mesmo ticket/cartão da Visão Geral. */
 const IconTicket = () => (
-  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="7" width="20" height="10" rx="2" />
-    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-    <path d="M12 12h.01" />
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+    <line x1="1" y1="10" x2="23" y2="10" />
   </svg>
 );
 
 const KPI_ICONS = [IconVendas, IconFat, IconMeta, IconPct];
 const KPI_HOJE_ICONS = [IconVendas, IconFat, IconTicket, IconItens];
+/** Mesma sequência de tint dos heroes da Visão Geral / Financeiro. */
 const KPI_COLORS = [
-  { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
+  { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
   { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
   { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },
-  { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
+  { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
 ];
+const KPI_HOJE_TINTS: TintKey[] = ["acc", "warn", "ok", "info"];
 
 function AbaMetas({
   metaGlobal,
@@ -203,7 +207,7 @@ export default function AoVivoPage() {
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {view.kpisHoje.map((kpi, i) => {
           const Icon = KPI_HOJE_ICONS[i] ?? IconVendas;
-          const tint = TINT[kpi.tint as TintKey];
+          const tint = TINT[KPI_HOJE_TINTS[i] ?? "acc"];
           return (
             <Card key={kpi.label} padding="sm" className="flex items-center gap-3.5">
               <span
@@ -261,17 +265,18 @@ export default function AoVivoPage() {
         />
       </Card>
 
-      <Card className="mt-4 flex flex-col" padding="lg">
-        <BlocoRankingLojas lojas={view.rankingLojas} />
-      </Card>
-
-      <Card className="mt-4" padding="lg">
-        <div className="mb-4 flex items-center gap-2">
-          <TrophyIcon size={16} className="text-acc" />
-          <CardTitle>Ranking Vendedoras</CardTitle>
-        </div>
-        <BlocoRankingGeral ranking={view.ranking} vendedoras={equipeView.vendedoras} />
-      </Card>
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card className="flex flex-col" padding="lg">
+          <BlocoRankingLojas lojas={view.rankingLojas} />
+        </Card>
+        <Card className="flex flex-col" padding="lg">
+          <div className="mb-4 flex items-center gap-2">
+            <TrophyIcon size={16} className="text-acc" />
+            <CardTitle>Ranking Vendedoras</CardTitle>
+          </div>
+          <BlocoRankingGeral ranking={view.ranking} vendedoras={equipeView.vendedoras} />
+        </Card>
+      </div>
     </div>
   );
 }
