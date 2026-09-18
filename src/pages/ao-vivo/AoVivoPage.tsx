@@ -76,13 +76,58 @@ export default function AoVivoPage() {
               <span className={`inline-block h-2 w-2 rounded-full ${minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
               {rotuloAtualizacao}
             </span>
-            <Button size="sm" variant="secondary" onClick={forcarAtualizacao} disabled={refreshing}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={forcarAtualizacao}
+              disabled={refreshing}
+              icon={
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={refreshing ? "animate-spin" : ""}
+                >
+                  <path d="M21 2v6h-6" />
+                  <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                  <path d="M3 22v-6h6" />
+                  <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                </svg>
+              }
+            >
               Atualizar
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => navigate(paths.aoVivo.compartilhar)}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => navigate(paths.aoVivo.compartilhar)}
+              icon={
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="18" cy="5" r="3" />
+                  <circle cx="6" cy="12" r="3" />
+                  <circle cx="18" cy="19" r="3" />
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                </svg>
+              }
+            >
               Compartilhar
             </Button>
-            <Button size="sm" onClick={() => navigate(paths.aoVivo.tv)}>
+            <Button
+              size="sm"
+              onClick={() => navigate(paths.aoVivo.tv)}
+              icon={
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
+                  <polyline points="17 2 12 7 7 2" />
+                </svg>
+              }
+            >
               Modo TV
             </Button>
           </>
