@@ -39,7 +39,7 @@ Princípios do Dashboard:
 Módulos (ordem de prioridade a definir depois):
 - **Ao Vivo (Real Time)** — o que está acontecendo agora nas lojas. Justifica sair do dashboard por ser "tempo real", não analítico histórico.
 - **Vendedores** — gestão ativa da equipe (CRUD, metas individuais, comissões).
-- **Metas** — CRUD de metas de faturamento/comissão por loja/período/equipe. Reaproveitar layout do BI (ver referências metas01-03).
+- **Metas** — CRUD de metas de faturamento/comissão por loja/período/equipe. Fora do Dashboard (menu próprio). Reaproveitar layout do BI (ver referências metas01-03).
 - **Desafios** — gamificação (ver `dashboard-desafios01.png`: desafio, progresso, engajadas, prêmio).
 - **Estoque** — separado do dashboard porque o usuário olha o estoque para **tomar ação** (ex.: gerar pedido de compra).
 - **Compras** — pedido, cotação, recebimento.
@@ -274,6 +274,7 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
 8. ✅ **Equipe ≠ Grupos** (2026-09-17) — telas SEPARADAS (indivíduo vs operação por grupo). Sem filtro de grupo na Equipe. Chrome da Equipe alinhado às demais subtelas (`/dashboard/equipe`, PageHeader com DateRangePicker + marca).
 9. ✅ **Turno → Grupo** (2026-09-17) — nomenclatura de produto: `GruposPage`, `montarGruposView`, `paths.grupos`, tipos `Grupo`/`grupoId`. URLs legadas `/dashboard/turnos` e `/configuracoes/turnos-e-tarefas` redirecionam.
 10. ✅ **Dashboard > Grupos pausado** (2026-09-17) — fora do menu e das abas; `/dashboard/grupos` redireciona para Visão Geral. Código (`GruposPage.tsx`, `montarGruposView`) permanece para retomar depois. Foco passa às telas fora do Dashboard.
+11. ✅ **Metas fora do Dashboard** (2026-09-17) — item de menu abaixo do Dashboard (`/metas`). Saiu de Configurações; URL legada `/configuracoes/metas` redireciona. Esqueleto em `src/pages/metas/MetasPage.tsx` (listagem fixture; CRUD amanhã).
 
 ---
 

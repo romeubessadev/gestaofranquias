@@ -11,6 +11,7 @@ import { acessoRoutes } from "@/pages/acesso/routes";
 import { onboardingRoutes } from "@/pages/onboarding/routes";
 import { dashboardRoutes } from "@/pages/dashboard/routes";
 import { equipeRoutes } from "@/pages/equipe/routes";
+import { metasRoutes } from "@/pages/metas/routes";
 import { emBreveRoutes } from "@/pages/embreve/routes";
 
 /* Template Vela (referência, acessível por URL) */
@@ -61,6 +62,7 @@ const routeTree: RouteObject[] = [
         children: [
           ...dashboardRoutes,
           ...equipeRoutes,
+          ...metasRoutes,
           ...emBreveRoutes,
           ...dashboardsRoutes,
           ...usersRoutes,

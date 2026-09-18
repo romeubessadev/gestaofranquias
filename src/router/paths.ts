@@ -38,9 +38,12 @@ export const paths = {
   equipe: "/dashboard/equipe",
   /** Redirect legado — URL antiga da Equipe. */
   equipeLegado: "/equipe",
+  /** CRUD de metas (fora do Dashboard). */
+  metas: "/metas",
   analise: "/analise",
   configuracoes: {
     root: "/configuracoes",
+    /** Legado — redireciona para paths.metas. */
     metas: "/configuracoes/metas",
     desafios: "/configuracoes/desafios",
     colaboradores: "/configuracoes/colaboradores",

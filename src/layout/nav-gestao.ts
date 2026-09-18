@@ -25,11 +25,11 @@ const navGestor: NavEntry[] = [
       { label: "Equipe", to: paths.equipe, dot: "var(--info)" },
     ],
   },
+  { label: "Metas", icon: ICONE.meta, to: paths.metas },
   {
     label: "Configurações",
     icon: ICONE.config,
     items: [
-      { label: "Metas", to: paths.configuracoes.metas },
       { label: "Desafios", to: paths.configuracoes.desafios },
       { label: "Colaboradores", to: paths.configuracoes.colaboradores },
       { label: "Grupos e tarefas", to: paths.configuracoes.grupos },
@@ -45,6 +45,7 @@ const navGestor: NavEntry[] = [
 
 const navGerente: NavEntry[] = [
   { label: "Dashboard", icon: ICONE.dashboard, to: paths.dashboard, activePaths: [paths.equipe] },
+  { label: "Metas", icon: ICONE.meta, to: paths.metas },
   {
     label: "Configurações",
     icon: ICONE.config,
