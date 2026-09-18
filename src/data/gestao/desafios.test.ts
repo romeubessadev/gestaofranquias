@@ -89,11 +89,29 @@ describe("T1: desafios ativos (EQUIP-05)", () => {
     }
   });
 
-  it("meta do gerente = piso × N; progresso capped (regra A) não deixa 1 pessoa carregar", () => {
+  it("meta do gerente: un = piso × N; índices (pa/ticket) = o próprio piso; capped não deixa 1 carregar", () => {
     const perf = desafiosAtivos("2026-09").find((d) => d.id === "d-perfumaria")!;
+    const pa = desafiosAtivos("2026-09").find((d) => d.id === "d-pa")!;
     expect(alvoGerenteDoDesafio(perf, perf.participantes.length)).toBe(pisoDoDesafio(perf) * 3);
+    expect(alvoGerenteDoDesafio(pa, pa.participantes.length)).toBe(pisoDoDesafio(pa));
     // 1 pessoa com 10 e 4 com 0 → capped = 3 (não 10)
     expect(progressoGerenteCapped([10, 0, 0, 0, 0], 3)).toBe(3);
     expect(progressoGerenteCapped([3, 3, 3, 0, 0], 3)).toBe(9);
+  });
+
+  it("progresso de P.A. fica na faixa de índice (~0,5–2,5), não soma absurda", () => {
+    const pa = desafiosAtivos("2026-09").find((d) => d.id === "d-pa")!;
+    for (const id of pa.participantes) {
+      const p = progressoIndividual(pa, id);
+      expect(p).toBeGreaterThanOrEqual(0);
+      expect(p).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it("desafio a começar (ticket) ainda não tem progresso", () => {
+    const ticket = desafiosAtivos("2026-09").find((d) => d.id === "d-ticket")!;
+    for (const id of ticket.participantes) {
+      expect(progressoIndividual(ticket, id)).toBe(0);
+    }
   });
 });

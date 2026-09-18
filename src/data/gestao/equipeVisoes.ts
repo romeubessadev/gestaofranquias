@@ -11,7 +11,16 @@
  */
 import { vendedorElegivel, colaboradoresDaFilial, colaboradorPorId, type Colaborador } from "./equipe";
 import { metaDaFilial, type Degrau } from "./metas";
-import { desafiosAtivos, progressoIndividual, pisoDoDesafio, alvoGerenteDoDesafio, progressoGerenteCapped, type Desafio } from "./desafios";
+import {
+  alvoGerenteDoDesafio,
+  desafioEhIndice,
+  desafiosAtivos,
+  mediaProgressos,
+  pisoDoDesafio,
+  progressoGerenteCapped,
+  progressoIndividual,
+  type Desafio,
+} from "./desafios";
 import { HOJE_ISO, HORA_ATUAL } from "./relogio";
 import { agregadoDoDia, diaVendas, lojaAberta, somarAgregados, type Agregado } from "./vendas";
 import { filialPorId, filiais, grupos, type Filial } from "./filiais";
@@ -270,11 +279,12 @@ export interface DesafioView {
   participantes: number;
   engajadas: number;
   /**
-   * Progresso rumo à meta do gerente (soma capped no piso por pessoa).
-   * Regra A: ninguém contribui além do alvo individual.
+   * Progresso agregado: un/R$ = soma capped (regra A); pa/ticket = média da equipe.
    */
   progressoAgregado: number;
-  /** Meta do gerente = piso × minimoVendedorasAtingindo (limitado ao escopo). */
+  /**
+   * Alvo agregado: un/R$ = piso × N gerente; pa/ticket = o próprio piso (ex.: 1,90).
+   */
   alvoAgregado: number;
   progressoPct: number;
   /** Ex.: "6/9 un" — progresso da meta do gerente. */
@@ -639,11 +649,11 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
   const piso = pisoDoDesafio(d);
   const atingiram = linhas.filter((p) => p.status === "atingiu").length;
   const minimoGerente = Math.min(d.minimoVendedorasAtingindo, ids.length);
-  /** Regra A: cada vendedora contribui no máximo até o piso. */
-  const progressoAgregado = progressoGerenteCapped(
-    linhas.map((p) => p.progresso),
-    piso,
-  );
+  const progressos = linhas.map((p) => p.progresso);
+  /** Índices (P.A./ticket): média vs piso. Un/R$: soma capped (regra A). */
+  const progressoAgregado = desafioEhIndice(d)
+    ? mediaProgressos(progressos)
+    : progressoGerenteCapped(progressos, piso);
   const alvoAgregado = alvoGerenteDoDesafio(d, ids.length);
   const projetado = diasDecorridos > 0 ? (progressoAgregado / diasDecorridos) * diasTotais : 0;
   const semEngajamento = progressoAgregado <= 0;

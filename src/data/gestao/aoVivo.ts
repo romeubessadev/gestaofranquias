@@ -4,7 +4,7 @@
 import { brl, brlK, fimDoMes, intervaloDias, num, pct } from "@/lib/formato";
 import { type Escopo } from "./dashboard";
 import { colaboradores, vendedorElegivel, type Colaborador } from "./equipe";
-import { desafiosAtivos, progressoIndividual, type Desafio } from "./desafios";
+import { desafiosAtivos, desafioEhIndice, progressoIndividual, type Desafio } from "./desafios";
 import { filiais, grupos, type Filial } from "./filiais";
 import { metaDaFilial, degrausPadrao } from "./metas";
 import { HOJE_ISO, HORA_ATUAL } from "./relogio";
@@ -267,7 +267,10 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
 
     const top3 = parts.slice(0, 3);
     const soma = parts.reduce((s, p) => s + p.valor, 0);
-    const alvoAgg = d.alvoIndividual * Math.max(1, parts.length);
+    const media = parts.length ? soma / parts.length : 0;
+    const usaMedia = desafioEhIndice(d);
+    const realizado = usaMedia ? media : soma;
+    const alvoAgg = usaMedia ? d.alvoIndividual : d.alvoIndividual * Math.max(1, parts.length);
     return {
       id: d.id,
       nome: d.nome,
@@ -276,11 +279,11 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
       premio: d.premio,
       acumuladoRotulo:
         d.unidade === "R$"
-          ? `${brl(soma)} / ${brl(alvoAgg)}`
+          ? `${brl(realizado)} / ${brl(alvoAgg)}`
           : d.unidade === "x"
-            ? `${soma.toFixed(2)} / ${alvoAgg.toFixed(2)}`
-            : `${num(soma)} / ${num(alvoAgg)} ${d.unidade}`,
-      progressoPct: alvoAgg > 0 ? Math.min(100, (soma / alvoAgg) * 100) : 0,
+            ? `${realizado.toFixed(2)} / ${alvoAgg.toFixed(2)}`
+            : `${num(realizado)} / ${num(alvoAgg)} ${d.unidade}`,
+      progressoPct: alvoAgg > 0 ? Math.min(100, (realizado / alvoAgg) * 100) : 0,
       top3,
     };
   });

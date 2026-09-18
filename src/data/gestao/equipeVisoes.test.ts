@@ -432,14 +432,23 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
 });
 
 describe("T5: desafios na visão (EQUIP-05)", () => {
-  it("progresso agregado é a soma capped no piso (regra A) e alvo = piso × N gerente", () => {
+  it("progresso agregado: un/R$ = soma capped; pa/ticket = média vs piso", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
     expect(v.desafios!.length).toBe(4);
     for (const d of v.desafios!) {
       const piso = d.minimo ?? d.alvoIndividual;
-      const capped = d.ranking.reduce((s, p) => s + Math.min(p.progresso, piso), 0);
-      expect(d.progressoAgregado).toBeCloseTo(capped, 6);
-      expect(d.alvoAgregado).toBe(piso * d.minimoVendedorasAtingindo);
+      const progressos = d.ranking.map((p) => p.progresso);
+      if (d.tipo === "pa" || d.tipo === "ticket") {
+        const media = progressos.length ? progressos.reduce((s, p) => s + p, 0) / progressos.length : 0;
+        expect(d.progressoAgregado).toBeCloseTo(media, 6);
+        expect(d.alvoAgregado).toBe(piso);
+        // Rótulo na escala do índice (ex.: 1,67/1,90), nunca soma tipo 9,50.
+        expect(d.progressoAgregado).toBeLessThanOrEqual(piso * 1.5 + 0.01);
+      } else {
+        const capped = progressos.reduce((s, p) => s + Math.min(p, piso), 0);
+        expect(d.progressoAgregado).toBeCloseTo(capped, 6);
+        expect(d.alvoAgregado).toBe(piso * d.minimoVendedorasAtingindo);
+      }
       expect(d.minimoVendedorasAtingindo).toBeLessThanOrEqual(d.participantes);
       expect(d.ranking.length).toBe(d.participantes);
       expect(d.progressoAgregadoRotulo).toContain("/");
@@ -463,6 +472,16 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
     }
   });
 
+  it("demo cobre as 3 cores de barra agregada (vermelho / amarelo / verde)", () => {
+    const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    const byId = Object.fromEntries(v.desafios!.map((d) => [d.id, d]));
+    expect(byId["d-perfumaria"].progressoPct).toBeLessThan(50);
+    expect(byId["d-bodycream"].progressoPct).toBeGreaterThanOrEqual(50);
+    expect(byId["d-bodycream"].progressoPct).toBeLessThan(80);
+    expect(byId["d-pa"].progressoPct).toBeGreaterThanOrEqual(80);
+    expect(byId["d-ticket"].progressoPct).toBe(0);
+  });
+
   it("ranking lista todos os participantes ordenados por status e progresso", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
     for (const d of v.desafios!) {
@@ -475,12 +494,17 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
     }
   });
 
-  it("engajadas nunca excede participantes; com engajamento, engajadas > 0", () => {
+  it("engajadas nunca excede participantes; desafios já iniciados têm engajamento no mock", () => {
     const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
     for (const d of v.desafios!) {
       expect(d.engajadas).toBeLessThanOrEqual(d.participantes);
-      expect(d.engajadas).toBeGreaterThan(0); // mock tem progresso pra todo mundo
-      expect(d.semEngajamento).toBe(false);
+      if (d.statusLabel === "A começar") {
+        expect(d.engajadas).toBe(0);
+        expect(d.semEngajamento).toBe(true);
+      } else {
+        expect(d.engajadas).toBeGreaterThan(0);
+        expect(d.semEngajamento).toBe(false);
+      }
     }
   });
 

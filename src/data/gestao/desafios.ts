@@ -10,8 +10,12 @@
  *
  * Nunca em reais como tipo de premiação (prêmio é o único campo monetário
  * de recompensa). Cada desafio tem janela própria (inicio/fim).
+ *
+ * Progresso individual é fixture explícita (não PRNG) para a demo cobrir
+ * barras vermelha / amarela / verde com valores realistas por tipo.
  */
 import { colaboradores, vendedorElegivel } from "./equipe";
+import { HOJE_ISO } from "./relogio";
 
 export type TipoDesafio = "produto" | "quantidade" | "faturamento" | "pa" | "ticket";
 export type UnidadeDesafio = "un" | "x" | "R$";
@@ -39,7 +43,7 @@ export interface Desafio {
   premioGerente: number;
   /**
    * Quantas vendedoras precisam bater o alvo individual
-   * para o gerente fechar. Meta gerente = este × piso/alvo.
+   * para o gerente fechar. Meta gerente = este × piso/alvo (tipos un/R$ soma).
    */
   minimoVendedorasAtingindo: number;
   /** "AAAA-MM" */
@@ -51,24 +55,6 @@ export interface Desafio {
   /** Produto/categoria alvo (tipo produto/quantidade), quando aplicável. */
   produtoId: number | null;
   participantes: string[];
-}
-
-/** PRNG determinístico (mulberry32) — cópia da técnica de vendas.ts. */
-function prng(seed: number) {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function hash(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return h >>> 0;
 }
 
 /**
@@ -87,12 +73,18 @@ const ATIVAS_SETEMBRO = colaboradores
 /**
  * Desafios de setembro/2026 — tipicamente 4, com status mistos no relógio
  * do mock (HOJE = 2026-09-15): encerrado, ativo, ativo, a começar.
+ *
+ * Barras agregadas (régua ProgressBar):
+ * - Perfumaria (encerrado) → vermelha (~44%)
+ * - Body Cream (ativo) → amarela (~70%)
+ * - P.A. (ativo) → verde (~média 1,80 / 1,90)
+ * - Ticket (a começar) → 0% (ainda não começou)
  */
 export const desafios: Desafio[] = [
   {
     id: "d-perfumaria",
     nome: "Perfumaria — 3 acima de R$ 150",
-    objetivo: "Quem vender 3 perfumes acima de R$ 150 (mínimo 3 unidades) ganha R$ 50,00.",
+    objetivo: "Vender 3 perfumes acima de R$ 150 e ganhar R$ 50,00.",
     tipo: "quantidade",
     alvoIndividual: 3,
     minimo: 3,
@@ -109,7 +101,7 @@ export const desafios: Desafio[] = [
   {
     id: "d-bodycream",
     nome: "Body Cream — quem vender mais",
-    objetivo: "Quem vender mais Body Cream (mínimo 15 unidades) ganha R$ 50,00.",
+    objetivo: "Quem vender mais Body Cream (mínimo 15 un) ganha R$ 50,00.",
     tipo: "produto",
     alvoIndividual: 15,
     minimo: 15,
@@ -126,7 +118,7 @@ export const desafios: Desafio[] = [
   {
     id: "d-pa",
     nome: "P.A. acima de 1,90",
-    objetivo: "Quem mantiver P.A. acima de 1,90 no mês (mínimo 1,90) ganha R$ 50,00.",
+    objetivo: "Manter P.A. acima de 1,90 no mês e ganhar R$ 50,00.",
     tipo: "pa",
     alvoIndividual: 1.9,
     minimo: 1.9,
@@ -143,7 +135,7 @@ export const desafios: Desafio[] = [
   {
     id: "d-ticket",
     nome: "Ticket médio acima de R$ 185",
-    objetivo: "Quem mantiver ticket médio acima de R$ 185 (mínimo R$ 185) ganha R$ 50,00.",
+    objetivo: "Manter ticket médio acima de R$ 185 e ganhar R$ 50,00.",
     tipo: "ticket",
     alvoIndividual: 185,
     minimo: 185,
@@ -159,6 +151,51 @@ export const desafios: Desafio[] = [
   },
 ];
 
+/**
+ * Progresso fixo por participante — valores na unidade do desafio.
+ * Cobrem <50% (vermelho), 50–79% (amarelo) e ≥80% (verde) nas barras.
+ */
+const PROGRESSO_FIXO: Record<string, Record<string, number>> = {
+  // Encerrado: poucos fecharam → agregado gerente vermelho (~44%).
+  "d-perfumaria": {
+    c01: 2, // 67% amarelo
+    c02: 1, // 33% vermelho
+    c07: 0,
+    c11: 1, // 33%
+    c12: 0,
+    c14: 0,
+  },
+  // Ativo: ritmo médio → agregado gerente amarelo (~70%).
+  "d-bodycream": {
+    c01: 9, // 60% amarelo
+    c03: 8, // 53%
+    c04: 7, // 47% vermelho
+    c08: 6, // 40%
+    c13: 5, // 33%
+    c15: 4, // 27%
+    c17: 3, // 20%
+  },
+  // Ativo: média da equipe ~1,67 (barra agregada = média/1,90 → verde).
+  "d-pa": {
+    c01: 2.1, // atingiu
+    c02: 2.05,
+    c03: 1.98,
+    c04: 1.95,
+    c05: 1.92,
+    c07: 1.88, // quase
+    c08: 1.85,
+    c11: 1.82,
+    c12: 1.78,
+    c13: 1.55, // amarelo
+    c14: 1.48,
+    c15: 1.4,
+    c16: 0.88, // vermelho
+    c17: 0.72,
+  },
+  // A começar (20/09): sem progresso até a janela abrir.
+  "d-ticket": {},
+};
+
 /** Desafios da competência. Sem desafios: lista vazia (a tela segue). */
 export function desafiosAtivos(competencia: string): Desafio[] {
   return desafios.filter((d) => d.competencia === competencia);
@@ -169,44 +206,44 @@ export function pisoDoDesafio(d: Desafio): number {
   return d.minimo ?? d.alvoIndividual;
 }
 
+/** P.A. e ticket são índices — agregação por média, não por soma. */
+export function desafioEhIndice(d: Pick<Desafio, "tipo">): boolean {
+  return d.tipo === "pa" || d.tipo === "ticket";
+}
+
 /**
- * Meta do gerente: piso × N vendedoras que precisam atingir.
+ * Meta do gerente (tipos un / R$ soma): piso × N vendedoras que precisam atingir.
  * No escopo filtrado, N nunca passa do nº de participantes visíveis.
+ * Para índices (pa/ticket), a UI usa o próprio piso como alvo da média.
  */
 export function alvoGerenteDoDesafio(d: Desafio, participantesNoEscopo: number): number {
+  if (desafioEhIndice(d)) return pisoDoDesafio(d);
   const n = Math.min(d.minimoVendedorasAtingindo, Math.max(0, participantesNoEscopo));
   return pisoDoDesafio(d) * n;
 }
 
 /**
- * Progresso rumo à meta do gerente (regra A): cada vendedora contribui no
- * máximo até o piso individual — uma não “carrega” as outras.
+ * Progresso rumo à meta do gerente (regra A, tipos un/R$): cada vendedora
+ * contribui no máximo até o piso individual — uma não “carrega” as outras.
  */
 export function progressoGerenteCapped(progressos: number[], piso: number): number {
   return progressos.reduce((s, p) => s + Math.min(Math.max(0, p), piso), 0);
 }
 
+/** Média aritmética (índices pa/ticket). */
+export function mediaProgressos(progressos: number[]): number {
+  if (progressos.length === 0) return 0;
+  return progressos.reduce((s, p) => s + Math.max(0, p), 0) / progressos.length;
+}
+
 /**
- * Progresso individual do participante no desafio, até agora (relógio do mock:
- * 15/09, 14h). un/R$: realizado; pa/ticket: valor do índice.
- * Determinístico pela chave desafio|participante.
+ * Progresso individual do participante no desafio.
+ * Antes do início da janela → 0. Determinístico via fixture.
  */
 export function progressoIndividual(d: Desafio, colaboradorId: string): number {
   if (!d.participantes.includes(colaboradorId)) return 0;
-  const r = prng(hash(`${d.id}|${colaboradorId}`));
-  if (d.tipo === "pa" || d.tipo === "ticket") {
-    const fator = 0.95 + (r() * 2 - 1) * 0.25;
-    return Math.round(d.alvoIndividual * fator * 100) / 100;
-  }
-  if (d.tipo === "faturamento") {
-    const diasDecorridos = 15;
-    const diasTotais = 31;
-    const base = d.alvoIndividual * (diasDecorridos / diasTotais) * (0.65 + r() * 1.1);
-    return Math.max(0, Math.round(base));
-  }
-  // quantidade / produto: unidades inteiras (não existe 8,1 un)
-  const diasDecorridos = 15;
-  const diasTotais = 31;
-  const base = d.alvoIndividual * (diasDecorridos / diasTotais) * (0.65 + r() * 1.1);
-  return Math.max(0, Math.round(base));
+  if (HOJE_ISO < d.inicio) return 0;
+  const fixo = PROGRESSO_FIXO[d.id]?.[colaboradorId];
+  if (fixo != null) return fixo;
+  return 0;
 }
