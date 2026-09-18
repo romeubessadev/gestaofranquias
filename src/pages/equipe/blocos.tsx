@@ -439,60 +439,58 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
         Rótulos na mesma linha, alinhados à proporção da barra (mesmo % dos ticks).
         Largura mínima cresce pelo menor intervalo entre degraus (ex.: 100→110)
         pra caber o texto sem sobrepor; no mobile rola na horizontal.
+        Barra sem padding lateral — alinha com o % acima.
       */}
       {(() => {
         const LABEL_MIN_PX = 118;
         const GAP_PX = 12;
-        const PAD_PX = LABEL_MIN_PX / 2;
         let menorFrac = 1;
         for (let i = 1; i < degrausPadrao.length; i++) {
           const frac = (degrausPadrao[i].atingimentoMinPct - degrausPadrao[i - 1].atingimentoMinPct) / escalaMax;
           if (frac > 0 && frac < menorFrac) menorFrac = frac;
         }
-        // Distância em px entre centros = frac * barraW ≥ LABEL_MIN + GAP
-        const barraMinW = Math.ceil((LABEL_MIN_PX + GAP_PX) / menorFrac);
-        const trackMinW = barraMinW + PAD_PX * 2;
+        const trackMinW = Math.ceil((LABEL_MIN_PX + GAP_PX) / menorFrac);
 
         return (
           <div className="mt-4 min-w-0 overflow-x-auto overscroll-x-contain touch-pan-x">
-            <div className="box-border w-full" style={{ minWidth: trackMinW }}>
-              <div style={{ paddingLeft: PAD_PX, paddingRight: PAD_PX }}>
-                <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
-                  <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${fillPct}%`, background: corBarra }} />
-                  {degrausPadrao.map((d) => {
-                    const left = (d.atingimentoMinPct / escalaMax) * 100;
-                    const atingido = meta.pct >= d.atingimentoMinPct;
-                    return (
-                      <span
-                        key={`tick-${d.nome}`}
-                        className="absolute top-0 bottom-0 w-0.5 -translate-x-1/2"
-                        style={{ left: `${left}%`, background: atingido ? "var(--t0)" : "var(--t2)", opacity: atingido ? 0.55 : 0.35 }}
-                      />
-                    );
-                  })}
-                </div>
+            <div className="w-full" style={{ minWidth: trackMinW }}>
+              <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
+                <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${fillPct}%`, background: corBarra }} />
+                {degrausPadrao.map((d) => {
+                  const left = (d.atingimentoMinPct / escalaMax) * 100;
+                  const atingido = meta.pct >= d.atingimentoMinPct;
+                  return (
+                    <span
+                      key={`tick-${d.nome}`}
+                      className="absolute top-0 bottom-0 w-0.5 -translate-x-1/2"
+                      style={{ left: `${left}%`, background: atingido ? "var(--t0)" : "var(--t2)", opacity: atingido ? 0.55 : 0.35 }}
+                    />
+                  );
+                })}
+              </div>
 
-                <div className="relative mt-2 h-7 w-full">
-                  {degrausPadrao.map((d, i) => {
-                    const left = (d.atingimentoMinPct / escalaMax) * 100;
-                    const atingido = meta.pct >= d.atingimentoMinPct;
-                    const rotuloCurto = d.nome.replace(/^Meta\s+/i, "");
-                    return (
-                      <p
-                        key={d.nome}
-                        className={cn(
-                          "absolute top-0 -translate-x-1/2 whitespace-nowrap text-center text-[10px] font-bold leading-tight",
-                          atingido ? "text-acc" : "text-t2",
-                        )}
-                        style={{ left: `${left}%` }}
-                        title={`Nível ${i + 1} · ${d.nome} · ${num(d.comissaoPct, 1)}%`}
-                      >
-                        N{i + 1} · {rotuloCurto}
-                        <span className="font-semibold opacity-75"> ({num(d.comissaoPct, 1)}%)</span>
-                      </p>
-                    );
-                  })}
-                </div>
+              <div className="relative mt-2 h-7 w-full">
+                {degrausPadrao.map((d, i) => {
+                  const left = (d.atingimentoMinPct / escalaMax) * 100;
+                  const atingido = meta.pct >= d.atingimentoMinPct;
+                  const isLast = i === degrausPadrao.length - 1;
+                  const rotuloCurto = d.nome.replace(/^Meta\s+/i, "");
+                  return (
+                    <p
+                      key={d.nome}
+                      className={cn(
+                        "absolute top-0 whitespace-nowrap text-[10px] font-bold leading-tight",
+                        isLast ? "right-0 text-right" : "-translate-x-1/2 text-center",
+                        atingido ? "text-acc" : "text-t2",
+                      )}
+                      style={isLast ? undefined : { left: `${left}%` }}
+                      title={`Nível ${i + 1} · ${d.nome} · ${num(d.comissaoPct, 1)}%`}
+                    >
+                      N{i + 1} · {rotuloCurto}
+                      <span className="font-semibold opacity-75"> ({num(d.comissaoPct, 1)}%)</span>
+                    </p>
+                  );
+                })}
               </div>
             </div>
           </div>
