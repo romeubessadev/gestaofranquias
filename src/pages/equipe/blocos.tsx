@@ -565,6 +565,23 @@ export function BlocoDesafios({
         </span>
       </div>
 
+      <div className="mb-3.5">
+        <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <p className="font-mono text-[12.5px] font-bold tabular-nums text-t0">
+            {d.progressoAgregadoRotulo}
+            <span className="ml-1.5 text-t2">· {num(d.progressoPct, 0)}%</span>
+          </p>
+          <p className="text-[11.5px] font-semibold text-t2">
+            <span className="font-bold text-t0">{d.atingiram}</span>/{d.participantes} atingiram
+          </p>
+        </div>
+        <ProgressBar
+          value={Math.min(100, d.progressoPct)}
+          height={7}
+          color={d.progressoPct >= 100 ? "var(--ok)" : "var(--acc)"}
+        />
+      </div>
+
       <div className={cn("border-t border-line pt-3", !embedded && "overflow-x-auto")}>
         <div
           className={cn(

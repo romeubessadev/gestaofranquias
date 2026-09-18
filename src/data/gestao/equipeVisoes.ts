@@ -267,6 +267,10 @@ export interface DesafioView {
   progressoAgregado: number;
   alvoAgregado: number;
   progressoPct: number;
+  /** Ex.: "48/90 un" — progresso agregado do escopo. */
+  progressoAgregadoRotulo: string;
+  /** Quantas participantes já atingiram o alvo individual. */
+  atingiram: number;
   projetadoAgregado: number;
   fechaNoRitmo: boolean;
   semEngajamento: boolean;
@@ -697,6 +701,8 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     progressoAgregado,
     alvoAgregado,
     progressoPct: alvoAgregado > 0 ? (progressoAgregado / alvoAgregado) * 100 : 0,
+    progressoAgregadoRotulo: fmtProgressoRotulo(progressoAgregado, alvoAgregado, d),
+    atingiram: linhas.filter((p) => p.status === "atingiu").length,
     projetadoAgregado: projetado,
     fechaNoRitmo,
     semEngajamento,
