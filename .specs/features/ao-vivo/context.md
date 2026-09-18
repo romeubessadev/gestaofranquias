@@ -32,8 +32,8 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 - Atingimento (% do mês até agora)
 
 ### Abas principais
-- **Ranking** — card **isolado** (fora das abas), com Segmented **Pódio** | **Ranking geral** (não empilha os dois).
-- Abas accent: **Desafios** | **Metas** (desafios ativos; meta com Por Vendedor | Por Grupo).
+- Card principal (tabs accent): **Ranking** (pódio top 3) | **Desafios** | **Metas**.
+- Card separado: **Ranking geral** (lista completa da competência).
 
 ### Evolução + IA
 - Evolução: tabela + AreaLineChart (P2).

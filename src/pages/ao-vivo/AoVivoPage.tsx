@@ -5,7 +5,7 @@ import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarAoVivoView } from "@/data/gestao/aoVivo";
 import { paths } from "@/router/paths";
 import { FlameIcon, TargetIcon, TrophyIcon } from "@/pages/dashboards/icons";
-import { BlocoDesafios, BlocoEvolucao, BlocoIaInsights, BlocoMetas, BlocoRanking } from "./blocos";
+import { BlocoDesafios, BlocoEvolucao, BlocoIaInsights, BlocoMetas, BlocoRanking, BlocoRankingGeral } from "./blocos";
 
 const IconVendas = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -155,18 +155,16 @@ export default function AoVivoPage() {
       </div>
 
       <Card className="mt-4" padding="lg">
-        <div className="mb-4 flex items-center gap-2">
-          <TrophyIcon size={16} className="text-acc" />
-          <CardTitle>Ranking</CardTitle>
-        </div>
-        <BlocoRanking ranking={view.ranking} />
-      </Card>
-
-      <Card className="mt-4" padding="lg">
         <Tabs
           variant="accent"
-          defaultKey="desafios"
+          defaultKey="ranking"
           items={[
+            {
+              key: "ranking",
+              label: "Ranking",
+              icon: <TrophyIcon size={14} />,
+              content: <BlocoRanking ranking={view.ranking} />,
+            },
             {
               key: "desafios",
               label: "Desafios",
@@ -181,6 +179,14 @@ export default function AoVivoPage() {
             },
           ]}
         />
+      </Card>
+
+      <Card className="mt-4" padding="lg">
+        <div className="mb-4 flex items-center gap-2">
+          <TrophyIcon size={16} className="text-acc" />
+          <CardTitle>Ranking geral</CardTitle>
+        </div>
+        <BlocoRankingGeral ranking={view.ranking} />
       </Card>
 
       <div className="mt-4">

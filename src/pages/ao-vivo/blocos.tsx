@@ -8,9 +8,8 @@ import { useState } from "react";
 const PODIO_ALTURA = ["h-28", "h-36", "h-24"];
 const PODIO_ORDEM = [1, 0, 2]; // visual: 2º | 1º | 3º
 
+/** Pódio top 3 — aba Ranking do card principal. */
 export function BlocoRanking({ ranking }: { ranking: RankingLinha[] }) {
-  const [modo, setModo] = useState<"podio" | "geral">("podio");
-
   if (ranking.length === 0) {
     return (
       <EmptyState
@@ -21,75 +20,81 @@ export function BlocoRanking({ ranking }: { ranking: RankingLinha[] }) {
   }
 
   const top3 = ranking.slice(0, 3);
-  const temPodio = top3.length >= 3;
+  if (top3.length < 3) {
+    return (
+      <EmptyState
+        title="Pódio incompleto"
+        description="É preciso pelo menos 3 vendedores com venda no mês para montar o pódio."
+      />
+    );
+  }
+
   const podiumSlots = PODIO_ORDEM.map((i) => top3[i]).filter(Boolean);
-  const modoAtivo = temPodio ? modo : "geral";
 
   return (
-    <div className="flex flex-col gap-4">
-      {temPodio && (
-        <Segmented
-          options={[
-            { value: "podio", label: "Pódio" },
-            { value: "geral", label: "Ranking geral" },
-          ]}
-          value={modoAtivo}
-          onChange={(v) => setModo((v as "podio" | "geral") ?? "podio")}
-        />
-      )}
+    <div className="flex items-end justify-center gap-3 sm:gap-6">
+      {podiumSlots.map((l) => {
+        const idx = top3.indexOf(l);
+        return (
+          <div key={l.colaboradorId} className="flex w-[28%] max-w-[140px] flex-col items-center text-center">
+            <Avatar size="lg" name={l.nome} />
+            <p className="mt-2 truncate text-[13px] font-bold text-t0">{l.nome.split(" ")[0]}</p>
+            <p className="text-[11px] font-semibold text-t2">
+              {num(l.vendas)} vendas · {brlK(l.faturamento)}
+            </p>
+            <div
+              className={cn(
+                "mt-3 flex w-full items-end justify-center rounded-t-xl border border-line bg-bg-inset font-extrabold text-acc",
+                PODIO_ALTURA[idx] ?? "h-20",
+              )}
+            >
+              <span className="pb-3 text-lg">{l.posicao}º</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
-      {modoAtivo === "podio" && temPodio ? (
-        <div className="flex items-end justify-center gap-3 sm:gap-6">
-          {podiumSlots.map((l) => {
-            const idx = top3.indexOf(l);
-            return (
-              <div key={l.colaboradorId} className="flex w-[28%] max-w-[140px] flex-col items-center text-center">
-                <Avatar size="lg" name={l.nome} />
-                <p className="mt-2 truncate text-[13px] font-bold text-t0">{l.nome.split(" ")[0]}</p>
-                <p className="text-[11px] font-semibold text-t2">
-                  {num(l.vendas)} vendas · {brlK(l.faturamento)}
-                </p>
-                <div
-                  className={cn(
-                    "mt-3 flex w-full items-end justify-center rounded-t-xl border border-line bg-bg-inset font-extrabold text-acc",
-                    PODIO_ALTURA[idx] ?? "h-20",
-                  )}
-                >
-                  <span className="pb-3 text-lg">{l.posicao}º</span>
+/** Lista completa — card separado abaixo do principal. */
+export function BlocoRankingGeral({ ranking }: { ranking: RankingLinha[] }) {
+  if (ranking.length === 0) {
+    return (
+      <EmptyState
+        title="Nenhuma venda no mês"
+        description="Lance vendas para ver o ranking geral da competência."
+      />
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[420px] border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
+            <th className="px-1 pb-2 text-left font-bold">#</th>
+            <th className="px-1 pb-2 text-left font-bold">Vendedor</th>
+            <th className="px-1 pb-2 text-right font-bold">Vendas</th>
+            <th className="px-1 pb-2 text-right font-bold">Faturamento</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ranking.map((l) => (
+            <tr key={l.colaboradorId} className="border-b border-line/60 last:border-0">
+              <td className="py-2.5 pl-1 pr-2 font-mono text-[12.5px] font-bold text-t2">{l.posicao}º</td>
+              <td className="py-2.5">
+                <div className="flex items-center gap-2">
+                  <Avatar size="sm" name={l.nome} />
+                  <span className="font-semibold text-t0">{l.nome}</span>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[420px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
-                <th className="px-1 pb-2 text-left font-bold">#</th>
-                <th className="px-1 pb-2 text-left font-bold">Vendedor</th>
-                <th className="px-1 pb-2 text-right font-bold">Vendas</th>
-                <th className="px-1 pb-2 text-right font-bold">Faturamento</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ranking.map((l) => (
-                <tr key={l.colaboradorId} className="border-b border-line/60 last:border-0">
-                  <td className="py-2.5 pl-1 pr-2 font-mono text-[12.5px] font-bold text-t2">{l.posicao}º</td>
-                  <td className="py-2.5">
-                    <div className="flex items-center gap-2">
-                      <Avatar size="sm" name={l.nome} />
-                      <span className="font-semibold text-t0">{l.nome}</span>
-                    </div>
-                  </td>
-                  <td className="py-2.5 text-right font-mono text-[12.5px] font-bold text-t0">{num(l.vendas)}</td>
-                  <td className="py-2.5 text-right font-mono text-[12.5px] font-bold text-ok">{brl(l.faturamento)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </td>
+              <td className="py-2.5 text-right font-mono text-[12.5px] font-bold text-t0">{num(l.vendas)}</td>
+              <td className="py-2.5 text-right font-mono text-[12.5px] font-bold text-ok">{brl(l.faturamento)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
