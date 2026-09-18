@@ -200,9 +200,15 @@ Um único badge no canto superior direito (ícone de relógio + prazo curto). A 
 
 Janela completa (`{dd/mm} – {dd/mm}`) só no `title` do badge (hover), não na face do card.
 
-### Loja (visão rede)
+### Layout do card (ref: ProjectsList — Billing Platform v2)
 
-Na visão **Todas as lojas**, o card mostra o nome curto da loja abaixo do título (`Campo Grande` · `Três Lagoas`). Com 1 loja selecionada, o rótulo some (redundante).
+| Slot do template | Campo do desafio |
+|---|---|
+| Título (`Billing Platform v2`) | `nome` |
+| Sub (`Internal — Finance`) | `lojaRotulo` (sempre) |
+| Descrição | `objetivo` |
+| Badge canto | prazo (`15d` / `Em 5d` / `Encerrado`) |
+| Barra + % ao lado (cor da barra) | progresso agregado |
 
 ### Texto gerado do objetivo (template)
 

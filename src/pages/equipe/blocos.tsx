@@ -516,9 +516,12 @@ export function BlocoDesafios({
     return embedded ? empty : <Card>{empty}</Card>;
   }
 
-  const cards = desafios.map((d) => (
+  const cards = desafios.map((d) => {
+    const pctAgg = Math.min(100, d.progressoPct);
+    const corAgg = progressColor(pctAgg);
+    return (
     <div key={d.id} className="flex flex-col rounded-[var(--radius-vela-lg)] border border-line bg-bg-inset p-4 sm:p-5">
-      <div className="mb-3 flex items-start gap-3">
+      <div className="mb-3.5 flex items-center gap-3">
         <span
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px]"
           style={{
@@ -530,23 +533,18 @@ export function BlocoDesafios({
           <FlameIcon size={22} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-[14.5px] font-bold leading-snug text-t0">{d.nome}</p>
-              {d.exibirLoja && (
-                <p className="mt-0.5 text-[11.5px] font-semibold text-t2">{d.lojaRotulo}</p>
-              )}
-            </div>
-            <span className="shrink-0" title={d.janelaRotulo}>
-              <Badge variant={d.statusVariant} className="gap-1">
-                <IconRelogio />
-                {d.prazoRotulo}
-              </Badge>
-            </span>
-          </div>
-          <p className="mt-1 text-[12px] leading-snug text-t2">{d.objetivo}</p>
+          <p className="truncate text-[14.5px] font-bold text-t0">{d.nome}</p>
+          <p className="mt-0.5 truncate text-[11.5px] text-t2">{d.lojaRotulo}</p>
         </div>
+        <span className="shrink-0" title={d.janelaRotulo}>
+          <Badge variant={d.statusVariant} className="gap-1">
+            <IconRelogio />
+            {d.prazoRotulo}
+          </Badge>
+        </span>
       </div>
+
+      <p className="mb-3.5 line-clamp-2 text-[12.5px] leading-relaxed text-t1">{d.objetivo}</p>
 
       <div className="mb-3.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-t2">
         <span>
@@ -565,20 +563,22 @@ export function BlocoDesafios({
         </span>
       </div>
 
-      <div className="mb-3.5">
-        <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <p className="font-mono text-[12.5px] font-bold tabular-nums text-t0">
-            {d.progressoAgregadoRotulo}
-            <span className="ml-1.5 text-t2">· {num(d.progressoPct, 0)}%</span>
-          </p>
-          <p className="text-[11.5px] font-semibold text-t2">
-            <span className="font-bold text-t0">{d.atingiram}</span>/{d.participantes} atingiram
-            {d.minimoVendedorasAtingindo > 0 && d.minimoVendedorasAtingindo !== d.participantes && (
-              <span className="text-t2"> · gerente {d.minimoVendedorasAtingindo}</span>
-            )}
-          </p>
+      <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="font-mono text-[12.5px] font-bold tabular-nums text-t0">{d.progressoAgregadoRotulo}</p>
+        <p className="text-[11.5px] font-semibold text-t2">
+          <span className="font-bold text-t0">{d.atingiram}</span>/{d.participantes} atingiram
+          {d.minimoVendedorasAtingindo > 0 && d.minimoVendedorasAtingindo !== d.participantes && (
+            <span className="text-t2"> · gerente {d.minimoVendedorasAtingindo}</span>
+          )}
+        </p>
+      </div>
+      <div className="mb-3.5 flex items-center gap-2.5">
+        <div className="min-w-0 flex-1">
+          <ProgressBar value={pctAgg} height={7} />
         </div>
-        <ProgressBar value={Math.min(100, d.progressoPct)} height={7} />
+        <span className="shrink-0 font-mono text-xs font-bold" style={{ color: corAgg }}>
+          {num(pctAgg, 0)}%
+        </span>
       </div>
 
       <div className={cn("border-t border-line pt-3", !embedded && "overflow-x-auto")}>
@@ -588,7 +588,10 @@ export function BlocoDesafios({
             embedded ? undefined : "max-h-[260px] overflow-y-auto",
           )}
         >
-          {d.ranking.map((p, idx) => (
+          {d.ranking.map((p, idx) => {
+            const pct = Math.min(100, p.progressoPct);
+            const cor = progressColor(pct);
+            return (
             <div key={p.colaboradorId} className="flex items-center gap-2">
               <span className="w-6 shrink-0 text-[12px] font-extrabold text-t2">{idx + 1}º</span>
               <Avatar name={p.nome} size="xs" />
@@ -601,19 +604,25 @@ export function BlocoDesafios({
               <span className="w-[88px] shrink-0 text-right font-mono text-[11px] font-semibold tabular-nums text-t1">
                 {p.progressoRotulo}
               </span>
-              <div className="w-[72px] shrink-0">
-                <ProgressBar value={Math.min(100, p.progressoPct)} height={5} />
+              <div className="flex w-[110px] shrink-0 items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <ProgressBar value={pct} height={5} />
+                </div>
+                <span className="w-8 shrink-0 text-right font-mono text-[11px] font-bold" style={{ color: cor }}>
+                  {num(pct, 0)}%
+                </span>
               </div>
-              <span className="w-8 shrink-0 text-right text-[11px] font-semibold text-t2">{num(p.progressoPct, 0)}%</span>
             </div>
-          ))}
+            );
+          })}
           {d.ranking.length === 0 && (
             <p className="py-3 text-center text-[12.5px] text-t2">Nenhuma participante no escopo atual.</p>
           )}
         </div>
       </div>
     </div>
-  ));
+    );
+  });
 
   /** Ao vivo: 1 por linha + altura limitada com scroll. Equipe: grade 2 colunas. */
   const grade = embedded ? (
