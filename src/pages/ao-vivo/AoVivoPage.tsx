@@ -185,7 +185,7 @@ export default function AoVivoPage() {
         })}
       </div>
 
-      <Card className="mt-4" padding="lg">
+      <Card className="mt-4 min-w-0 overflow-hidden" padding="lg">
         <CardTitle className="mb-4">Andamento da competência</CardTitle>
         <Tabs
           variant="accent"

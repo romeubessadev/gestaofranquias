@@ -519,8 +519,8 @@ export function BlocoDesafios({
     const pctAgg = Math.min(100, d.progressoPct);
     const corAgg = progressColor(pctAgg);
     return (
-    <div key={d.id} className="flex flex-col rounded-[var(--radius-vela-lg)] border border-line bg-bg-inset p-4 sm:p-5">
-      <div className="mb-3.5 flex items-center gap-3">
+    <div key={d.id} className="flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-vela-lg)] border border-line bg-bg-inset p-4 sm:p-5">
+      <div className="mb-3.5 flex min-w-0 items-center gap-3">
         <span
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px]"
           style={{
@@ -575,11 +575,11 @@ export function BlocoDesafios({
         </span>
       </div>
 
-      <div className={cn("border-t border-line pt-3", !embedded && "overflow-x-auto")}>
+      <div className="min-w-0 overflow-x-auto border-t border-line pt-3">
         <div
           className={cn(
             "min-w-[420px] space-y-2.5",
-            embedded ? undefined : "max-h-[260px] overflow-y-auto",
+            !embedded && "max-h-[260px] overflow-y-auto",
           )}
         >
           {d.ranking.map((p, idx) => {
@@ -620,9 +620,9 @@ export function BlocoDesafios({
 
   /** Ao vivo: 1 por linha + altura limitada com scroll. Equipe: 1 = largura total; 2+ = metade. */
   const grade = embedded ? (
-    <div className="max-h-[min(520px,70vh)] space-y-4 overflow-y-auto pr-1">{cards}</div>
+    <div className="max-h-[min(520px,70vh)] min-w-0 space-y-4 overflow-x-hidden overflow-y-auto pr-1">{cards}</div>
   ) : (
-    <div className={`grid grid-cols-1 gap-4 ${desafios.length >= 2 ? "md:grid-cols-2" : ""}`}>{cards}</div>
+    <div className={`grid min-w-0 grid-cols-1 gap-4 ${desafios.length >= 2 ? "md:grid-cols-2" : ""}`}>{cards}</div>
   );
 
   if (embedded) return grade;

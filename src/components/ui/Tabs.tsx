@@ -66,7 +66,7 @@ export function Tabs({
           );
         })}
       </div>
-      <div className="mt-4">{activeItem?.content}</div>
+      <div className="mt-4 min-w-0">{activeItem?.content}</div>
     </div>
   );
 }
