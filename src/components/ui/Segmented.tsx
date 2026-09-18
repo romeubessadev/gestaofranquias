@@ -37,7 +37,7 @@ export function Segmented<T extends string = string>({
             type="button"
             onClick={() => onChange(allowClear && ativa ? null : opt.value)}
             className={cn(
-              "h-8 rounded-[9px] border px-3 text-xs font-semibold transition-colors",
+              "h-8 cursor-pointer rounded-[9px] border px-3 text-xs font-semibold transition-colors",
               ativa ? "border-acc bg-acc-soft text-acc" : "border-line text-t1 hover:border-acc",
             )}
           >

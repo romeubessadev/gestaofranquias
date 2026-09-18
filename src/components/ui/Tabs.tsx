@@ -48,7 +48,7 @@ export function Tabs({
               type="button"
               onClick={() => setActive(item.key)}
               className={cn(
-                "inline-flex shrink-0 items-center gap-2 whitespace-nowrap font-semibold transition-colors",
+                "inline-flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap font-semibold transition-colors",
                 variant === "accent"
                   ? cn(
                       "rounded-[10px] border-[1.5px] px-3.5 py-2 text-xs font-bold",
