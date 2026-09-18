@@ -568,7 +568,7 @@ export function BlocoDesafios({
       </div>
 
       {/* Só o que a barra mede (média no P.A./ticket; soma capped nas un). */}
-      <div className="mb-1.5 flex justify-end">
+      <div className="mb-1.5">
         <p className="font-mono text-[12.5px] font-bold tabular-nums text-t0">{d.progressoAgregadoRotulo}</p>
       </div>
       <div className="mb-3.5 flex items-center gap-2.5">

@@ -209,7 +209,8 @@ Janela completa (`{dd/mm} – {dd/mm}`) só no `title` do badge (hover), não na
 | Descrição | `objetivo` |
 | Badge canto | prazo (`15d` / `Em 5d` / `Encerrado`) |
 | Barra + % ao lado (cor da barra) | progresso agregado |
-| Rótulo da barra | alinhado à direita: `1,67/1,90` ou `4/9 un` (o que a barra mede) |
+| Rótulo da barra | alinhado à esquerda: `1,67/1,90` ou `4/9 un` (o que a barra mede) |
+| Meta | só o valor (`1,90` · `15 un` · `R$ 185`) — sem “Atingir/Vender” |
 | Gerente | `Gerente: R$ 50 · 5 vendedoras` (regra do prêmio, fora da barra) |
 
 ### Texto gerado do objetivo (template)

@@ -260,7 +260,7 @@ export interface DesafioView {
   /** Objetivo + meta + mínimo + prêmio concatenados (estilo Projects.desc). */
   descricao: string;
   objetivo: string;
-  /** Ex.: "Vender 15 un" / "Atingir 1,90". */
+  /** Ex.: "15 un" / "1,90" / "R$ 185" — só o valor (o verbo fica no objetivo). */
   metaRotulo: string;
   /** Valor mínimo configurado (null = sem piso explícito). */
   minimo: number | null;
@@ -675,14 +675,10 @@ function desafioView(
   );
   const metaRotulo =
     d.tipo === "pa"
-      ? `Atingir ${num(d.alvoIndividual, 2)}`
-      : d.tipo === "ticket" || d.unidade === "R$"
-        ? `Atingir ${brlK(d.alvoIndividual)}`
-        : d.tipo === "faturamento"
-          ? `Vender ${brlK(d.alvoIndividual)}`
-          : d.tipo === "produto"
-            ? `Vender mais (mín. ${num(piso, 0)} un)`
-            : `Vender ${num(d.alvoIndividual, 0)} un`;
+      ? num(d.alvoIndividual, 2)
+      : d.tipo === "ticket" || d.unidade === "R$" || d.tipo === "faturamento"
+        ? brlK(d.alvoIndividual)
+        : `${num(d.tipo === "produto" ? piso : d.alvoIndividual, 0)} un`;
   const minimoRotulo =
     d.minimo == null
       ? null
