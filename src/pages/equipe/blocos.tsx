@@ -436,56 +436,64 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
       </div>
 
       {/*
-        Rótulos alinhados aos ticks (mesmo % da barra no mobile e no desktop).
-        min-w garante espaço entre os nomes; overflow só no eixo X.
+        Marcos na barra + rótulos. N3/N4 ficam perto (100% vs 110%): no mobile
+        encurtamos o texto e alternamos a linha pra não sobrepor.
       */}
-      <div className="mt-4 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x">
-        <div className="min-w-[960px]">
-          <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
-            <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${fillPct}%`, background: corBarra }} />
-            {degrausPadrao.map((d) => {
-              const left = (d.atingimentoMinPct / escalaMax) * 100;
-              const atingido = meta.pct >= d.atingimentoMinPct;
-              return (
-                <span
-                  key={`tick-${d.nome}`}
-                  className="absolute top-0 bottom-0 w-0.5 -translate-x-1/2"
-                  style={{ left: `${left}%`, background: atingido ? "var(--t0)" : "var(--t2)", opacity: atingido ? 0.55 : 0.35 }}
-                />
-              );
-            })}
-          </div>
+      <div className="mt-4 min-w-0">
+        <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
+          <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${fillPct}%`, background: corBarra }} />
+          {degrausPadrao.map((d) => {
+            const left = (d.atingimentoMinPct / escalaMax) * 100;
+            const atingido = meta.pct >= d.atingimentoMinPct;
+            return (
+              <span
+                key={`tick-${d.nome}`}
+                className="absolute top-0 bottom-0 w-0.5 -translate-x-1/2"
+                style={{ left: `${left}%`, background: atingido ? "var(--t0)" : "var(--t2)", opacity: atingido ? 0.55 : 0.35 }}
+              />
+            );
+          })}
+        </div>
 
-          <div className="relative mt-2 h-7">
-            {degrausPadrao.map((d, i) => {
-              const left = (d.atingimentoMinPct / escalaMax) * 100;
-              const atingido = meta.pct >= d.atingimentoMinPct;
-              const isLast = i === degrausPadrao.length - 1;
-              const rotuloCurto = d.nome.replace(/^Meta\s+/i, "");
-              return (
-                <p
-                  key={d.nome}
-                  className={cn(
-                    "absolute top-0 whitespace-nowrap text-[10px] font-bold leading-tight",
-                    isLast ? "right-0 text-right" : "-translate-x-1/2 text-center",
-                    atingido ? "text-acc" : "text-t2",
-                  )}
-                  style={isLast ? undefined : { left: `${left}%` }}
-                  title={`Nível ${i + 1} · ${d.nome} · ${num(d.comissaoPct, 1)}%`}
-                >
+        <div className="relative mt-2 h-11 sm:h-7">
+          {degrausPadrao.map((d, i) => {
+            const left = (d.atingimentoMinPct / escalaMax) * 100;
+            const atingido = meta.pct >= d.atingimentoMinPct;
+            const isLast = i === degrausPadrao.length - 1;
+            const proximo = degrausPadrao[i + 1];
+            const gapPct = proximo ? proximo.atingimentoMinPct - d.atingimentoMinPct : Infinity;
+            // Escala 110: Hiper→Desafio = 10 pts — sobe o rótulo pra não colidir com o último.
+            const sobeLinha = !isLast && gapPct <= 15;
+            const rotuloCurto = d.nome.replace(/^Meta\s+/i, "");
+            return (
+              <p
+                key={d.nome}
+                className={cn(
+                  "absolute whitespace-nowrap text-[10px] font-bold leading-tight",
+                  isLast ? "right-0 text-right" : "-translate-x-1/2 text-center",
+                  sobeLinha ? "top-5" : "top-0",
+                  atingido ? "text-acc" : "text-t2",
+                )}
+                style={isLast ? undefined : { left: `${left}%` }}
+                title={`Nível ${i + 1} · ${d.nome} · ${num(d.comissaoPct, 1)}%`}
+              >
+                <span className="sm:hidden">
+                  N{i + 1} · {rotuloCurto}
+                </span>
+                <span className="hidden sm:inline">
                   N{i + 1} · {rotuloCurto}
                   <span className="font-semibold opacity-75"> ({num(d.comissaoPct, 1)}%)</span>
-                </p>
-              );
-            })}
-          </div>
+                </span>
+              </p>
+            );
+          })}
         </div>
       </div>
     </>
   );
 
-  if (embedded) return <div>{body}</div>;
-  return <Card>{body}</Card>;
+  if (embedded) return <div className="min-w-0">{body}</div>;
+  return <Card className="min-w-0 overflow-hidden">{body}</Card>;
 }
 
 /* ------------------------- Desafios ------------------------- */
