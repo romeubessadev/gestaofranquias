@@ -855,8 +855,10 @@ function montarMetaFaixa(realizado: number, total: number, competencia: string, 
     if (fracaoAcum > 0) projetadoPct = (realizado / fracaoAcum / total) * 100;
   }
   const abertosRestantes = intervaloDias(HOJE_ISO, ultimo).filter((iso) => filiaisEscopo.some((f) => lojaAberta(f, iso)));
+  const nomeMeta =
+    filiaisEscopo.map((f) => metaDaFilial(f.id, competencia)?.nome).find((n): n is string => Boolean(n)) ?? mesAno(primeiro);
   return {
-    competTexto: mesAno(primeiro),
+    competTexto: nomeMeta,
     realizado,
     total,
     pct,
