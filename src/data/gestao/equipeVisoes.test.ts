@@ -461,7 +461,7 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
   it("ranking lista todos os participantes ordenados por status e progresso", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
     for (const d of v.desafios!) {
-      expect(d.emoji).toBeTruthy();
+      expect(d.corIcone).toBeTruthy();
       expect(d.projetadoAgregado).toBeGreaterThanOrEqual(0);
       for (const p of d.ranking) {
         expect(p.progresso).toBeGreaterThanOrEqual(0);

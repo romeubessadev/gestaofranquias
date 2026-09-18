@@ -257,7 +257,8 @@ export interface DesafioView {
   /** Se há mínimo discriminado no card (minimo != null). */
   temMinimo: boolean;
   tipo: Desafio["tipo"];
-  emoji: string;
+  /** Cor do ícone de fogo no card (CSS color / token). */
+  corIcone: string;
   alvoIndividual: number;
   unidade: Desafio["unidade"];
   premio: number;
@@ -552,19 +553,20 @@ const TIPO_TEXTO: Record<Desafio["tipo"], string> = {
   ticket: "Ticket médio",
 };
 
-const EMOJI_DESAFIO: Record<string, string> = {
-  "d-perfumaria": "🌸",
-  "d-bodycream": "🔥",
-  "d-pa": "📈",
-  "d-ticket": "💳",
+/** Ícone de fogo em todos os cards — só a cor muda (por desafio ou tipo). */
+const COR_ICONE_DESAFIO: Record<string, string> = {
+  "d-perfumaria": "var(--acc)",
+  "d-bodycream": "var(--warn)",
+  "d-pa": "var(--info)",
+  "d-ticket": "var(--ok)",
 };
 
-const EMOJI_TIPO: Record<Desafio["tipo"], string> = {
-  produto: "🧴",
-  quantidade: "📦",
-  faturamento: "💰",
-  pa: "📊",
-  ticket: "🎫",
+const COR_ICONE_TIPO: Record<Desafio["tipo"], string> = {
+  produto: "var(--acc)",
+  quantidade: "var(--warn)",
+  faturamento: "#9d86ff",
+  pa: "var(--info)",
+  ticket: "var(--ok)",
 };
 
 function fmtValorDesafio(v: number, d: Desafio): string {
@@ -684,7 +686,7 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     minimo: d.minimo,
     temMinimo: d.minimo != null,
     tipo: d.tipo,
-    emoji: EMOJI_DESAFIO[d.id] ?? EMOJI_TIPO[d.tipo],
+    corIcone: COR_ICONE_DESAFIO[d.id] ?? COR_ICONE_TIPO[d.tipo],
     alvoIndividual: d.alvoIndividual,
     unidade: d.unidade,
     premio: d.premio,

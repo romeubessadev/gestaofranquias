@@ -486,6 +486,14 @@ function IconRelogio() {
   );
 }
 
+function IconFogo() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2c.4 2.4-1.2 4.2-2.8 5.8C7.4 9.6 6 11.4 6 14a6 6 0 0 0 12 0c0-2.2-1-4-2.2-5.5-.5-.6-1-1.2-1.3-1.9-.4 1.2.1 2.4.8 3.4.4.6.7 1.2.7 2 0 2.2-1.8 4-4 4s-4-1.8-4-4c0-1.6.8-2.9 2-4.1C11.2 6.6 12.4 4.8 12 2z" />
+    </svg>
+  );
+}
+
 export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
   return (
     <Card padding="lg">
@@ -498,8 +506,15 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
         {desafios.map((d) => (
           <div key={d.id} className="flex flex-col rounded-[var(--radius-vela-lg)] border border-line bg-bg-inset p-4 sm:p-5">
             <div className="mb-3 flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-acc-soft text-xl" aria-hidden>
-                {d.emoji}
+              <span
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px]"
+                style={{
+                  color: d.corIcone,
+                  backgroundColor: `color-mix(in srgb, ${d.corIcone} 18%, transparent)`,
+                }}
+                aria-hidden
+              >
+                <IconFogo />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[14.5px] font-bold leading-snug text-t0">{d.nome}</p>
