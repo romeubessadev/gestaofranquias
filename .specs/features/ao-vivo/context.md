@@ -16,7 +16,7 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 
 ### Hierarquia / header
 - Não mostrar empresa (ex.: SB Empreendimentos) no header.
-- Título da página: **Ao vivo**; loja via SeletorLoja do Topbar (1 loja ou Todas).
+- Título da página: **Ao Vivo**; loja via SeletorLoja do Topbar (1 loja ou Todas).
 
 ### Periodicidade (travado — opção 1)
 - **Sem** toggle global Hoje|Mês.

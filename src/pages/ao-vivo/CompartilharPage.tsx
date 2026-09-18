@@ -9,11 +9,11 @@ export default function CompartilharPage() {
       <PageHeader
         title="Compartilhar"
         subtitle="Link e layout para notebook/TV da loja."
-        crumbs={[{ label: "Ao vivo", to: paths.aoVivo.root }, { label: "Compartilhar" }]}
+        crumbs={[{ label: "Ao Vivo", to: paths.aoVivo.root }, { label: "Compartilhar" }]}
         actions={
           <Link to={paths.aoVivo.root}>
             <Button variant="secondary" size="sm">
-              Voltar ao Ao vivo
+              Voltar ao Ao Vivo
             </Button>
           </Link>
         }
