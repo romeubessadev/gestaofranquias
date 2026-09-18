@@ -33,9 +33,10 @@ export const degrausPadrao: Degrau[] = [
 ];
 
 export const metas: Meta[] = [
-  { id: "m-f1-2026-07", filialId: "f1", competencia: "2026-07", nome: "Julho 2026", valorLoja: 168000, degraus: degrausPadrao },
-  { id: "m-f1-2026-08", filialId: "f1", competencia: "2026-08", nome: "Agosto 2026", valorLoja: 172000, degraus: degrausPadrao },
-  { id: "m-f1-2026-09", filialId: "f1", competencia: "2026-09", nome: "Setembro 2026", valorLoja: 185000, degraus: degrausPadrao },
+  // f1 (Shopping Campo Grande) = loja âncora, meta bem acima de f2
+  { id: "m-f1-2026-07", filialId: "f1", competencia: "2026-07", nome: "Julho 2026", valorLoja: 240000, degraus: degrausPadrao },
+  { id: "m-f1-2026-08", filialId: "f1", competencia: "2026-08", nome: "Agosto 2026", valorLoja: 250000, degraus: degrausPadrao },
+  { id: "m-f1-2026-09", filialId: "f1", competencia: "2026-09", nome: "Setembro 2026", valorLoja: 280000, degraus: degrausPadrao },
   { id: "m-f2-2026-07", filialId: "f2", competencia: "2026-07", nome: "Julho 2026", valorLoja: 88000, degraus: degrausPadrao },
   { id: "m-f2-2026-08", filialId: "f2", competencia: "2026-08", nome: "Agosto 2026", valorLoja: 92000, degraus: degrausPadrao },
   { id: "m-f2-2026-09", filialId: "f2", competencia: "2026-09", nome: "Setembro 2026", valorLoja: 98000, degraus: degrausPadrao },

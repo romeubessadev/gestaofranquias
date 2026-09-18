@@ -376,7 +376,7 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
 
     const loja = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
     expect(loja.metaGlobal).not.toBeNull();
-    expect(loja.metaGlobal!.total).toBe(185000);
+    expect(loja.metaGlobal!.total).toBe(280000);
     expect(loja.metaGlobal!.inicio).toBe("2026-09-01");
     expect(loja.metaGlobal!.fim).toBe("2026-09-30");
   });
@@ -617,7 +617,7 @@ describe("T5: premiação projetada (EQUIP-04/05)", () => {
 
   it("ranking inteligente: grupo, % meta geral, nível e comissão alinhados à escada", () => {
     const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
-    const metaLoja = 185000;
+    const metaLoja = 280000;
     expect(v.vendedoras!.length).toBeGreaterThan(0);
     for (const l of v.vendedoras!) {
       expect(l.grupo === "Grupo 1" || l.grupo === "Grupo 2" || l.grupo === "Sem grupo").toBe(true);

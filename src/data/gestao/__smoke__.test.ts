@@ -5,6 +5,6 @@ import { metaDaFilial } from "./metas";
 describe("smoke", () => {
   it("lê uma meta mockada da camada de domínio", () => {
     const meta = metaDaFilial("f1", "2026-09");
-    expect(meta?.valorLoja).toBe(185000);
+    expect(meta?.valorLoja).toBe(280000);
   });
 });
