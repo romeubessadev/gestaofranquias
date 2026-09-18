@@ -2669,7 +2669,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     .sort((a, b) => b.valor - a.valor)
     .slice(0, 5);
 
-  // Ranking de lojas (faturamento + % da meta + trend)
+  // Ranking de lojas (faturamento + % da meta + trend) — fantasia = mesmo rótulo do SeletorLoja
   const rankingLojas: (TopItem & { pctMeta?: number; trend?: number })[] = fs.map((f) => {
     const fatPeriodo = agregadoPeriodo(f, periodo.inicio, periodo.fim, divisao).faturamento;
     const metaFilial = metaDaFilial(f.id, periodo.inicio.slice(0, 7));
@@ -2678,7 +2678,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     const fatAnterior = agregadoPeriodo(f, ant.inicio, ant.fim, divisao).faturamento;
     const trend = fatAnterior > 0 ? Math.round(((fatPeriodo - fatAnterior) / fatAnterior) * 100) : undefined;
     return {
-      nome: f.nome,
+      nome: f.fantasia,
       valor: fatPeriodo,
       pctMeta: pctMeta ?? undefined,
       trend,

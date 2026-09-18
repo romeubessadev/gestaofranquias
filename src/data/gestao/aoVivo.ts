@@ -268,7 +268,7 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
       const fat = agregadoFiliais([f], mesInicio, mesFim).faturamento;
       const metaFilial = metaDaFilial(f.id, competencia);
       const pctMeta = metaFilial && metaFilial.valorLoja > 0 ? (fat / metaFilial.valorLoja) * 100 : undefined;
-      return { id: f.id, nome: f.nome, valor: fat, pctMeta };
+      return { id: f.id, nome: f.fantasia, valor: fat, pctMeta };
     })
     .sort((a, b) => b.valor - a.valor);
 
