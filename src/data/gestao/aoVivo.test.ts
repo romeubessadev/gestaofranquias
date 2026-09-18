@@ -19,7 +19,7 @@ describe("montarAoVivoView", () => {
     expect(v.kpisHoje).toHaveLength(4);
     expect(v.kpisHoje[0].label).toBe("Vendas hoje");
     expect(v.kpisHoje[1].label).toBe("Faturamento hoje");
-    expect(v.kpisHoje[2].label).toBe("Ticket médio");
+    expect(v.kpisHoje[2].label).toBe("Ticket médio hoje");
     expect(v.kpisHoje[3].label).toBe("Itens hoje");
   });
 

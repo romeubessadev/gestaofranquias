@@ -28,7 +28,7 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 
 ### KPIs (Indicadores)
 - **Principais (mês):** Total de Vendas · Faturamento · Meta Mensal · Atingimento — competência.
-- **Strip do dia** (padrão Sales quick stats, abaixo dos principais): Vendas hoje · Faturamento hoje · Ticket médio · Itens hoje.
+- **Strip do dia** (padrão Sales quick stats, abaixo dos principais): Vendas hoje · Faturamento hoje · Ticket médio hoje · Itens hoje.
 - Sem “Hoje …” no subtítulo dos KPIs principais (pulso do dia vive no strip).
 
 ### Abas principais

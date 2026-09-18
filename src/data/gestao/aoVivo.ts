@@ -240,7 +240,7 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
       tint: "warn",
     },
     {
-      label: "Ticket médio",
+      label: "Ticket médio hoje",
       valor: ticketHoje > 0 ? brl(ticketHoje) : "—",
       sub: "Por venda",
       tint: "ok",
