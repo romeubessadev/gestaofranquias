@@ -189,7 +189,7 @@ Um único badge no canto superior direito (ícone de relógio + prazo curto). A 
 |---|---|---|
 | Em andamento | `{N}d` | success |
 | Ainda não começou | `Em {N}d` / `Hoje` | info |
-| Já acabou | `Fim` | neutral |
+| Já acabou | `Encerrado` | neutral |
 
 Janela completa (`{dd/mm} – {dd/mm}`) só no `title` do badge (hover), não na face do card.
 

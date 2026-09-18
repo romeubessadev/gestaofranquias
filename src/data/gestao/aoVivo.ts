@@ -154,7 +154,7 @@ function desafioAtivoAgora(d: Desafio): boolean {
 }
 
 function diasRestantesRotulo(d: Desafio): string {
-  if (HOJE_ISO > d.fim) return "Fim";
+  if (HOJE_ISO > d.fim) return "Encerrado";
   if (HOJE_ISO < d.inicio) {
     const n = intervaloDias(HOJE_ISO, d.inicio).length - 1;
     return n <= 0 ? "Hoje" : `Em ${n}d`;

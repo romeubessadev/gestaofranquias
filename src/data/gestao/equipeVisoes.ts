@@ -695,7 +695,7 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     statusVariant = "neutral";
     prazoTom = "bad";
     diasRestantes = 0;
-    prazoRotulo = "Fim";
+    prazoRotulo = "Encerrado";
   } else {
     statusLabel = "Ativo";
     statusVariant = "success";
