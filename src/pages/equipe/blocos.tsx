@@ -568,13 +568,8 @@ export function BlocoDesafios({
       </div>
 
       {/* Só o que a barra mede (média no P.A./ticket; soma capped nas un). */}
-      <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <p className="font-mono text-[12.5px] font-bold tabular-nums text-t0">
-          {(d.tipo === "pa" || d.tipo === "ticket") && (
-            <span className="mr-1.5 font-sans text-[11.5px] font-semibold text-t2">Média</span>
-          )}
-          {d.progressoAgregadoRotulo}
-        </p>
+      <div className="mb-1.5 flex justify-end">
+        <p className="font-mono text-[12.5px] font-bold tabular-nums text-t0">{d.progressoAgregadoRotulo}</p>
       </div>
       <div className="mb-3.5 flex items-center gap-2.5">
         <div className="min-w-0 flex-1">
