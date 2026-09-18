@@ -415,7 +415,7 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           <Badge variant={fecha ? "success" : "warning"}>{fecha ? "Projeção: meta atingida" : "Projeção abaixo da meta"}</Badge>
-          <Badge variant={meta.diasRestantes > 0 ? "success" : "neutral"} className="gap-1">
+          <Badge variant="neutral" className="gap-1">
             <IconRelogio />
             {meta.diasRestantes > 0 ? `${meta.diasRestantes}d` : "Encerrado"}
           </Badge>
@@ -532,7 +532,7 @@ export function BlocoDesafios({
           <p className="mt-0.5 truncate text-[11.5px] text-t2">{d.lojaRotulo}</p>
         </div>
         <span className="shrink-0" title={d.janelaRotulo}>
-          <Badge variant={d.statusVariant} className="gap-1">
+          <Badge variant="neutral" className="gap-1">
             <IconRelogio />
             {d.prazoRotulo}
           </Badge>

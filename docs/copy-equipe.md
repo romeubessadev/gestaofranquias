@@ -120,7 +120,7 @@ Vocabulário do negócio:
 | Tooltip (?) | `Progresso da meta da competência frente à escada de premiação (Meta, Super Meta, Hiper Meta e Meta Desafio).` | | |
 | Marcos da barra | `N1 · Meta (1,5%)` · `N2 · Super (2,0%)` · `N3 · Hiper (2,5%)` · `N4 · Desafio (3,0%)` | | |
 | Badge ok / alerta | canto superior direito |
-| Badge dias | relógio + `{N}d` em verde (success), igual desafio ativo; `Encerrado` em cinza |
+| Badge dias | relógio + prazo sempre em cinza (`neutral`), independente do status |
 
 
 ---
