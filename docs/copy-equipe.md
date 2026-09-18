@@ -169,6 +169,14 @@ Vocabulário do negócio:
 | `{Grupo 1\|Grupo 2\|Sem grupo}` | | |
 | `{Grupo} · {loja}` _(visão rede)_ | | |
 
+### Ranking dentro do card de Desafio
+
+| Elemento | Texto / UI |
+|---|---|
+| Grupo | Badge neutro (`Grupo 1`) |
+| Loja | Badge neutro (`Campo Grande`) — só na visão Todas as lojas |
+| Prêmio / Gerente | Mesmo tom dos outros valores (`text-t0`), sem verde |
+
 ---
 
 ## 7. Card — Desafios ⚠️ (título prioridade de refino)

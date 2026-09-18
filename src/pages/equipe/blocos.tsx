@@ -558,10 +558,10 @@ export function BlocoDesafios({
           </span>
         )}
         <span>
-          Prêmio: <span className="font-bold text-ok">{brl(d.premio)}</span>
+          Prêmio: <span className="font-bold text-t0">{brl(d.premio)}</span>
         </span>
         <span>
-          Gerente: <span className="font-bold text-ok">{brl(d.premioGerente)}</span>
+          Gerente: <span className="font-bold text-t0">{brl(d.premioGerente)}</span>
         </span>
       </div>
 
@@ -584,7 +584,7 @@ export function BlocoDesafios({
       <div className={cn("border-t border-line pt-3", !embedded && "overflow-x-auto")}>
         <div
           className={cn(
-            "min-w-[420px] space-y-2.5",
+            "min-w-[480px] space-y-2.5",
             embedded ? undefined : "max-h-[260px] overflow-y-auto",
           )}
         >
@@ -592,11 +592,20 @@ export function BlocoDesafios({
             <div key={p.colaboradorId} className="flex items-center gap-2">
               <span className="w-6 shrink-0 text-[12px] font-extrabold text-t2">{idx + 1}º</span>
               <Avatar name={p.nome} size="xs" />
-              <div className="min-w-[110px] flex-1">
+              <div className="min-w-[140px] flex-1">
                 <p className="truncate text-[12.5px] font-semibold text-t0">{p.nome.split(" ")[0]}</p>
-                <p className="truncate text-[10.5px] text-t2">
-                  {p.grupo} · {lojaCurta(p.loja)}
-                </p>
+                <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                  {p.grupo !== "—" && (
+                    <Badge variant="neutral" className="px-1.5 py-0.5 text-[10px]">
+                      {p.grupo}
+                    </Badge>
+                  )}
+                  {d.exibirLoja && (
+                    <Badge variant="neutral" className="px-1.5 py-0.5 text-[10px]">
+                      {lojaCurta(p.loja)}
+                    </Badge>
+                  )}
+                </div>
               </div>
               <span className="w-[88px] shrink-0 text-right font-mono text-[11px] font-semibold tabular-nums text-t1">
                 {p.progressoRotulo}
