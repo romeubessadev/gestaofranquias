@@ -449,6 +449,7 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
       expect(d.temMinimo).toBe(true);
       expect(d.diasRestantes).toBeGreaterThanOrEqual(0);
       expect(d.prazoRotulo).toBeTruthy();
+      expect(d.janelaRotulo).toMatch(/^\d{2}\/\d{2} – \d{2}\/\d{2}$/);
       expect(["Ativo", "Encerrado", "A começar"]).toContain(d.statusLabel);
       for (const p of d.ranking) {
         expect(p.loja).toBeTruthy();

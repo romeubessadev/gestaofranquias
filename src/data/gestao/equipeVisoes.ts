@@ -16,7 +16,7 @@ import { HOJE_ISO, HORA_ATUAL } from "./relogio";
 import { agregadoDoDia, diaVendas, lojaAberta, somarAgregados, type Agregado } from "./vendas";
 import { filialPorId, filiais, grupos, type Filial } from "./filiais";
 import { brlK, curvaReceita, eixoSerieDoPeriodo, kpiDelta, periodoAnterior, resolverPeriodo, rotuloEixoSerie, type Escopo, type PeriodoResolvido, type EstadoBloco } from "./dashboard";
-import { brl, deIso, fimDoMes, horaCurta, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
+import { brl, dataCurta, deIso, fimDoMes, horaCurta, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
 import type { TintKey } from "@/pages/dashboards/icons";
 
 const PALETA_LOJAS: TintKey[] = ["acc", "ok", "info", "warn", "bad"];
@@ -275,6 +275,8 @@ export interface DesafioView {
   diasRestantes: number;
   /** Rótulo do badge de prazo: "15d" · "Em 5d" · "Encerrado". */
   prazoRotulo: string;
+  /** Janela do desafio, ex.: "01/09 – 15/09". */
+  janelaRotulo: string;
   /** Tom do prazo: ok=ativo, muted=a começar, bad=encerrado. */
   prazoTom: "ok" | "bad" | "muted";
   /** Status temporal do desafio. */
@@ -701,6 +703,7 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     tipoTexto: TIPO_TEXTO[d.tipo],
     diasRestantes,
     prazoRotulo,
+    janelaRotulo: `${dataCurta(d.inicio)} – ${dataCurta(d.fim)}`,
     prazoTom,
     statusLabel,
     statusVariant,

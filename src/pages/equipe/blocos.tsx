@@ -511,11 +511,12 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
               <div className="min-w-0 flex-1">
                 <p className="text-[14.5px] font-bold leading-snug text-t0">{d.nome}</p>
                 <p className="mt-1 text-[12px] leading-snug text-t2">{d.objetivo}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Badge variant={d.statusVariant} className="gap-1">
                     <IconRelogio />
                     {d.prazoRotulo}
                   </Badge>
+                  <span className="text-[11.5px] font-semibold tabular-nums text-t2">{d.janelaRotulo}</span>
                 </div>
               </div>
             </div>

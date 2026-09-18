@@ -191,6 +191,8 @@ Um único badge (ícone de relógio + prazo). A cor carrega o status; o texto n�
 | Ainda não começou | `Começa em {N}d` / `Começa hoje` | info |
 | Já acabou | `Encerrado` | neutral |
 
+Janela ao lado do badge: `{dd/mm} – {dd/mm}` (início e fim do desafio).
+
 ### Texto gerado do objetivo (template)
 
 ```
