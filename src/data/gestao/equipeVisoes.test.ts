@@ -553,6 +553,15 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
     }
   });
 
+  it("desafios ordenados: ativos → a começar → encerrados", () => {
+    const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    const ordem = { Ativo: 0, "A começar": 1, Encerrado: 2 } as const;
+    const ranks = v.desafios!.map((d) => ordem[d.statusLabel]);
+    expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+    expect(v.desafios![0].statusLabel).toBe("Ativo");
+    expect(v.desafios![v.desafios!.length - 1].statusLabel).toBe("Encerrado");
+  });
+
   it("sem meta ativa não há desafios na view (já coberto), e desafios da competência vazia não quebram", () => {
     // 2026-07 tem meta mas não tem desafios: desafiosView devolve lista vazia.
     const ativos = desafiosAtivos("2026-07");

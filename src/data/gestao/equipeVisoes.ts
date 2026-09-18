@@ -756,9 +756,22 @@ function diasAbertosDaCompetencia(competencia: string, filiaisIds: string[]): { 
   return { decorridos, totais: abertos.length };
 }
 
+const ORDEM_STATUS_DESAFIO: Record<DesafioView["statusLabel"], number> = {
+  Ativo: 0,
+  "A começar": 1,
+  Encerrado: 2,
+};
+
 function desafiosViewDaCompetencia(competencia: string, filiaisIds: string[]): DesafioView[] {
   const { decorridos, totais } = diasAbertosDaCompetencia(competencia, filiaisIds);
-  return desafiosAtivos(competencia).map((d) => desafioView(d, decorridos, totais, filiaisIds));
+  return desafiosAtivos(competencia)
+    .map((d) => desafioView(d, decorridos, totais, filiaisIds))
+    .sort(
+      (a, b) =>
+        ORDEM_STATUS_DESAFIO[a.statusLabel] - ORDEM_STATUS_DESAFIO[b.statusLabel] ||
+        a.diasRestantes - b.diasRestantes ||
+        a.nome.localeCompare(b.nome, "pt-BR"),
+    );
 }
 
 /**
