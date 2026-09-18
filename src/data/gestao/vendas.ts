@@ -47,7 +47,8 @@ const PARAMETROS: Record<string, ParametrosFilial> = {
     pa: 2.35,
     pesosSemana: [0.95, 0.72, 0.8, 0.86, 0.92, 1.18, 1.5],
     pesosHora: [0.03, 0.05, 0.09, 0.11, 0.08, 0.07, 0.07, 0.08, 0.1, 0.12, 0.11, 0.09],
-    tendencia: { "2026-06": 0.93, "2026-07": 0.96, "2026-08": 1.0, "2026-09": 3.25 },
+    // set/26: levemente acima de 100% (Hiper / N3); Desafio = 110%.
+    tendencia: { "2026-06": 0.93, "2026-07": 0.96, "2026-08": 1.0, "2026-09": 2.1 },
     categorias: { 1: 0.38, 2: 0.22, 3: 0.13, 4: 0.08, 5: 0.07, 6: 0.05, 7: 0.07 },
     meios: { Pix: 0.34, "Cartão de crédito": 0.41, "Cartão de débito": 0.19, Dinheiro: 0.06 },
   },

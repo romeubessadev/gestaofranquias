@@ -22,14 +22,18 @@ export interface Meta {
   degraus: Degrau[];
 }
 
-/** Escada padrão: Meta → Super → Hiper → Meta Desafio (+R$ 50/nível, acumulativo). */
+/**
+ * Escada padrão (demo / default de fábrica).
+ * Tipicamente: Meta 50% → Super 75% → Hiper 100% (= meta da loja) → Desafio 110%.
+ * Não é regra fixa — a loja configura os % na tela de Metas.
+ */
 export const BONUS_POR_NIVEL = 50;
 
 export const degrausPadrao: Degrau[] = [
-  { nome: "Meta", atingimentoMinPct: 100, comissaoPct: 1.5, bonus: BONUS_POR_NIVEL * 1 },
-  { nome: "Super Meta", atingimentoMinPct: 120, comissaoPct: 2.0, bonus: BONUS_POR_NIVEL * 2 },
-  { nome: "Hiper Meta", atingimentoMinPct: 150, comissaoPct: 2.5, bonus: BONUS_POR_NIVEL * 3 },
-  { nome: "Meta Desafio", atingimentoMinPct: 180, comissaoPct: 3.0, bonus: BONUS_POR_NIVEL * 4 },
+  { nome: "Meta", atingimentoMinPct: 50, comissaoPct: 1.5, bonus: BONUS_POR_NIVEL * 1 },
+  { nome: "Super Meta", atingimentoMinPct: 75, comissaoPct: 2.0, bonus: BONUS_POR_NIVEL * 2 },
+  { nome: "Hiper Meta", atingimentoMinPct: 100, comissaoPct: 2.5, bonus: BONUS_POR_NIVEL * 3 },
+  { nome: "Meta Desafio", atingimentoMinPct: 110, comissaoPct: 3.0, bonus: BONUS_POR_NIVEL * 4 },
 ];
 
 export const metas: Meta[] = [

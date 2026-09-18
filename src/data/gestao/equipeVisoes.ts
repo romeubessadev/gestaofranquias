@@ -424,16 +424,17 @@ function tendenciaVendedora(c: Colaborador, filialId: string, fimIso: string): V
  * Fatores relativos de ritmo entre vendedoras (demo do ranking).
  * Só redistribuem o faturamento **já gerado** — a soma das linhas permanece
  * igual à soma bruta, então Progresso da Meta (Σ linhas) fecha com o ranking.
- * f1 (Shopping CG) no mock de set/26 está no Hiper (N3); fatores espalham N1–N4.
+ * f1 (Shopping CG) no mock de set/26 está no Hiper (N3 ≈100% da meta);
+ * fatores espalham vendedoras entre N1–N4 (Desafio = 110%).
  */
 const DEMO_FATOR_RITMO: Record<string, number> = {
   // f1 — Campo Grande (loja no Hiper / N3)
-  c01: 1.55,
-  c02: 1.35,
-  c03: 1.2,
-  c04: 1.05,
+  c01: 1.25,
+  c02: 1.15,
+  c03: 1.08,
+  c04: 1.0,
   c05: 0.9,
-  c07: 0.85,
+  c07: 0.8,
   c08: 0.55,
   // f2 — Três Lagoas (ritmo normal)
   c11: 1.65,
@@ -561,7 +562,10 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
       metaProporcional: metaInd?.proporcional ?? false,
       diasElegiveis: metaInd?.diasElegiveis ?? 0,
       atingimentoPct: metaInd && metaInd.valor > 0 ? (faturamento / metaInd.valor) * 100 : 0,
-      barraPct: metaInd && metaInd.valor > 0 ? Math.min(100, (faturamento / metaInd.valor) * 100) : 0,
+      barraPct:
+        metaInd && metaInd.valor > 0
+          ? Math.min(100, (faturamento / metaInd.valor) * 100 / Math.max(...degraus.map((d) => d.atingimentoMinPct), 100) * 100)
+          : 0,
       pctMetaGeral: metaLoja > 0 ? (faturamento / metaLoja) * 100 : 0,
       // Marcos da escada para a barra segmentada do mockup (posição % de cada
       // degrau + % de premiação que ele paga acima dele).

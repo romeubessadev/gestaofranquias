@@ -106,41 +106,41 @@ describe("T3: escada de degraus e premiação (EQUIP-04)", () => {
   const escadaDe = (degraus: Degrau[], meta = metaBase) => (realizado: number) => escadaVendedora(realizado, meta, degraus);
 
   it("antes do primeiro degrau: degrau null, premiação e bônus 0", () => {
-    const e = escadaDe(degrausPadrao)(400); // 40% < 100%
+    const e = escadaDe(degrausPadrao)(400); // 40% < Meta (50%)
     expect(e!.degrau).toBeNull();
     expect(e!.premiacao).toBe(0);
     expect(e!.bonus).toBe(0);
   });
 
-  it("fronteira exata: 100% entra no degrau Meta, 120% no Super Meta", () => {
-    const exata = escadaDe(degrausPadrao)(1000);
+  it("fronteira exata: 50% → Meta, 75% → Super Meta", () => {
+    const exata = escadaDe(degrausPadrao)(500);
     expect(exata!.degrau!.nome).toBe("Meta");
-    expect(exata!.premiacao).toBeCloseTo(1000 * 0.015, 6);
+    expect(exata!.premiacao).toBeCloseTo(500 * 0.015, 6);
     expect(exata!.bonus).toBe(50);
-    const superMeta = escadaDe(degrausPadrao)(1200);
+    const superMeta = escadaDe(degrausPadrao)(750);
     expect(superMeta!.degrau!.nome).toBe("Super Meta");
-    expect(superMeta!.premiacao).toBeCloseTo(1200 * 0.02, 6);
+    expect(superMeta!.premiacao).toBeCloseTo(750 * 0.02, 6);
     expect(superMeta!.bonus).toBe(100);
   });
 
-  it("degrau alcançado é o maior possível (150% → Hiper, não Super)", () => {
-    const e = escadaDe(degrausPadrao)(1500);
+  it("degrau alcançado é o maior possível (100% → Hiper, não Super)", () => {
+    const e = escadaDe(degrausPadrao)(1000);
     expect(e!.degrau!.nome).toBe("Hiper Meta");
   });
 
   it("bônus entra uma única vez (não dobra na projeção)", () => {
-    const e = escadaDe(degrausPadrao)(1500);
+    const e = escadaDe(degrausPadrao)(1000);
     // bônus do Hiper = 150, uma vez; premiação separada do bônus.
     expect(e!.bonus).toBe(150);
-    expect(e!.premiacao).toBeCloseTo(1500 * 0.025, 6);
+    expect(e!.premiacao).toBeCloseTo(1000 * 0.025, 6);
   });
 
   it("próximo degrau: falta = meta × minPct ÷ 100 − realizado", () => {
-    const e = escadaDe(degrausPadrao)(1000);
+    const e = escadaDe(degrausPadrao)(500); // 50% → Meta; próximo = Super 75%
     expect(e!.proximo!.nome).toBe("Super Meta");
-    expect(e!.proximo!.faltaValor).toBeCloseTo(1200 - 1000, 6);
+    expect(e!.proximo!.faltaValor).toBeCloseTo(750 - 500, 6);
     // Já no último: null.
-    const topo = escadaDe(degrausPadrao)(1900);
+    const topo = escadaDe(degrausPadrao)(1200); // 120% > Desafio 110%
     expect(topo!.proximo).toBeNull();
   });
 
@@ -639,8 +639,9 @@ describe("T5: premiação projetada (EQUIP-04/05)", () => {
     const mediaPonderada = (somaFat / somaMeta) * 100;
     expect(mediaPonderada).toBeCloseTo(v.metaGlobal!.pct, 6);
 
-    // Demo: Shopping CG (f1) já no Hiper (N3 ≥150%); vendedoras espalhadas N1–N4.
-    expect(v.metaGlobal!.pct).toBeGreaterThanOrEqual(150);
+    // Demo: Shopping CG (f1) no Hiper (N3 ≈100% da meta); Desafio = 110%.
+    expect(v.metaGlobal!.pct).toBeGreaterThanOrEqual(100);
+    expect(v.metaGlobal!.pct).toBeLessThan(110);
     const niveis = new Set(v.vendedoras!.map((l) => l.nivelAtual).filter((n): n is number => n != null));
     expect(Math.max(...niveis)).toBeGreaterThanOrEqual(3);
     expect(niveis.size).toBeGreaterThanOrEqual(3);

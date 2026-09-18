@@ -168,11 +168,12 @@ function CelulaFaturamento({ l }: { l: LinhaRank }) {
 
 function CelulaPctIndividual({ l }: { l: LinhaRank }) {
   if (l.semMeta) return <span className="text-t2">—</span>;
+  const escala = Math.max(...l.marcosEscada.map((m) => m.pct), 100);
   return (
     <div className="w-[88px]">
       <p className="font-mono text-[12.5px] font-bold text-t0">{num(l.atingimentoPct, 0)}%</p>
       <div className="mt-1">
-        <ProgressBar value={Math.min(100, l.atingimentoPct)} height={5} />
+        <ProgressBar value={Math.min(100, (l.atingimentoPct / escala) * 100)} height={5} />
       </div>
     </div>
   );
