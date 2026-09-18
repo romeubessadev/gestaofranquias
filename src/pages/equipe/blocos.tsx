@@ -614,11 +614,11 @@ export function BlocoDesafios({
     );
   });
 
-  /** Ao vivo: 1 por linha + altura limitada com scroll. Equipe: grade 2 colunas. */
+  /** Ao vivo: 1 por linha + altura limitada com scroll. Equipe: 1 = largura total; 2+ = metade. */
   const grade = embedded ? (
     <div className="max-h-[min(520px,70vh)] space-y-4 overflow-y-auto pr-1">{cards}</div>
   ) : (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">{cards}</div>
+    <div className={`grid grid-cols-1 gap-4 ${desafios.length >= 2 ? "md:grid-cols-2" : ""}`}>{cards}</div>
   );
 
   if (embedded) return grade;
