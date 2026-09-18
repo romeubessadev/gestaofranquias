@@ -9,14 +9,6 @@ import { AvisoCompetencia, BlocoDesafios, BlocoKpisEquipe, CardVendedoras, Faixa
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 
-const TipHelp = ({ label }: { label: string }) => (
-  <Tooltip label={label}>
-    <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
-      ?
-    </span>
-  </Tooltip>
-);
-
 /** Badge de delta — só % no chip; base do comparativo no tooltip (igual Visão Geral). */
 function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; diff?: string } }) {
   if (!delta) return null;
@@ -36,11 +28,12 @@ const filtroSelectClass =
 
 /**
  * Tela Equipe: metas, desafios e premiação do mês (sempre visíveis — AD-046).
- * Chrome alinhado às demais subtelas do Dashboard (Período + Marca + Grupo no header).
+ * Chrome: Período + Grupo (sem filtro de Marca — não impacta esta leitura).
  */
 export function EquipePage() {
   const { escopo, mudar } = useEscopo();
-  const v = useMemo(() => montarEquipeView(escopo), [escopo]);
+  // Equipe é visão individual (meta/escada/desafios da loja) — marca não altera a leitura.
+  const v = useMemo(() => montarEquipeView({ ...escopo, divisao: null }), [escopo]);
   const periodoForaDoMes = Boolean(v.avisoCompetencia?.includes("seguem o período"));
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -88,10 +81,6 @@ export function EquipePage() {
       ...escopo,
       periodo: { tipo: "personalizado", inicio: r[0].toISOString().slice(0, 10), fim: r[1].toISOString().slice(0, 10) },
     });
-  }
-
-  function onMarcaChange(divisao: "WEPINK" | "WPINK" | null) {
-    mudar({ ...escopo, divisao });
   }
 
   const forcarAtualizacao = useCallback(() => {
@@ -158,15 +147,6 @@ export function EquipePage() {
             </Button>
             <DateRangePicker value={dateRange} onChange={onDateChange} size="sm" />
             <select
-              value={escopo.divisao ?? ""}
-              onChange={(e) => onMarcaChange(e.target.value ? (e.target.value as "WEPINK" | "WPINK") : null)}
-              className={filtroSelectClass}
-            >
-              <option value="">Todas as marcas</option>
-              <option value="WEPINK">WEPINK</option>
-              <option value="WPINK">WPINK</option>
-            </select>
-            <select
               value={grupoAtivo ?? ""}
               onChange={(e) => setGrupoFiltro(e.target.value || null)}
               className={filtroSelectClass}
@@ -200,7 +180,6 @@ export function EquipePage() {
               <div>
                 <div className="flex items-center gap-1.5">
                   <CardTitle>Faturamento vs Meta</CardTitle>
-                  <TipHelp label="Compare o ritmo do faturamento com a meta acumulada e identifique se a equipe está acima ou abaixo do esperado." />
                 </div>
                 {v.rotuloSerie && <p className="mt-0.5 text-[11px] font-semibold text-t2">{v.rotuloSerie}</p>}
                 <div className="mt-2.5 flex flex-wrap gap-5">

@@ -1360,6 +1360,13 @@ export interface EvolucaoMensalLinha {
   ticketMedio: number;
 }
 
+export interface FaturamentoPorMarca {
+  marca: string;
+  valor: number;
+  pct: number;
+  cor: string;
+}
+
 export interface FinanceiroView {
   escopo: Escopo;
   periodo: PeriodoResolvido;
@@ -1374,6 +1381,8 @@ export interface FinanceiroView {
   resultadoOperacional: ResultadoOpMes[];
   deltaResultado?: { value: string; positive: boolean; vs?: string; diff?: string };
   formasPagamento: FormaPagamentoFat[];
+  /** Só quando filtro = todas as marcas; null se WEPINK ou WPINK isolada. */
+  faturamentoPorMarca: FaturamentoPorMarca[] | null;
   custosFixosFranquia: LinhaCustoFixo[];
   evolucaoMensal: EvolucaoMensalLinha[];
   /** Sempre contexto mensal — não segue o eixo curto. */
@@ -1396,26 +1405,10 @@ const PCT_CUSTOS_FIXOS = {
   taxaMktWpink: 2,
 } as const;
 
-/** Custos fixos e franquia mockados por filial (mensais). Na futura aba DRE viram CRUD. */
-function custosFixosDaFilial(f: Filial): {
-  aluguelFixo: number;
-  aluguelPct: number;
-  royaltiesWepink: number;
-  royaltiesWpink: number;
-  taxaMktWepink: number;
-  taxaMktWpink: number;
-} {
-  // Valores base proporcionais ao porte da filial (baseDia dos parâmetros de vendas).
+/** Aluguel fixo mockado por filial (mensal). Variáveis (% sobre fat) são calculadas no view. */
+function aluguelFixoDaFilial(f: Filial): number {
   const base = f.id === "f1" ? 6100 : 3450;
-  const fator = base / 5000;
-  return {
-    aluguelFixo: Math.round(18000 * fator),
-    aluguelPct: Math.round(9000 * fator),
-    royaltiesWepink: Math.round(7000 * fator),
-    royaltiesWpink: Math.round(5000 * fator),
-    taxaMktWepink: Math.round(6000 * fator),
-    taxaMktWpink: Math.round(4000 * fator),
-  };
+  return Math.round(18000 * (base / 5000));
 }
 
 /** Últimos N meses (incluindo o atual) em ordem cronológica. */
@@ -1530,14 +1523,13 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
       sub: `CMV ${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}%`,
       delta: temComp ? kpiDelta(custoAtual, custoAnterior, vsRotulo) : undefined,
       serie: serieCmv,
-      tooltip: "Quanto do faturamento foi consumido pelo custo dos produtos vendidos. Quanto maior o CMV, menor tende a ser a margem.",
+      tooltip: "Custo dos produtos vendidos. Quanto maior o CMV %, menor tende a ser a margem.",
     },
     {
       label: "Lucro bruto",
       valor: brlK(lucroAtual),
       delta: temComp ? kpiDelta(lucroAtual, lucroAnterior, vsRotulo) : undefined,
       serie: serieLucro,
-      tooltip: "Quanto sobra do faturamento após descontar o CMV.",
     },
     {
       label: "Margem",
@@ -1553,20 +1545,31 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
   const rotuloSerie = rotuloEixoSerie(periodo, eixoSerie);
   const resultadoRateado = eixoSerie !== "mes";
 
-  // Custos fixos e franquia (mensais mockados — base do mini-DRE e rateio da série).
-  const custosAgg = fs.reduce(
-    (acc, f) => {
-      const c = custosFixosDaFilial(f);
-      acc.aluguelFixo += c.aluguelFixo;
-      acc.aluguelPct += c.aluguelPct;
-      acc.royaltiesWepink += c.royaltiesWepink;
-      acc.royaltiesWpink += c.royaltiesWpink;
-      acc.taxaMktWepink += c.taxaMktWepink;
-      acc.taxaMktWpink += c.taxaMktWpink;
-      return acc;
-    },
-    { aluguelFixo: 0, aluguelPct: 0, royaltiesWepink: 0, royaltiesWpink: 0, taxaMktWepink: 0, taxaMktWpink: 0 },
-  );
+  // Faturamento por marca (sempre calculado; donut só quando filtro = todas).
+  const fatWepink = somarAgregados(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, "WEPINK"))).faturamento;
+  const fatWpink = somarAgregados(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, "WPINK"))).faturamento;
+  const fatTodasMarcas = fatWepink + fatWpink;
+
+  // Custos: aluguel fixo compartilhado; variáveis % só sobre a(s) marca(s) do filtro.
+  const aluguelFixo = fs.reduce((s, f) => s + aluguelFixoDaFilial(f), 0);
+  const baseAluguelPct = divisao === "WEPINK" ? fatWepink : divisao === "WPINK" ? fatWpink : fatTodasMarcas;
+  const aluguelPct = Math.round(baseAluguelPct * (PCT_CUSTOS_FIXOS.aluguelShopping / 100));
+  const royaltiesWepink =
+    !divisao || divisao === "WEPINK" ? Math.round(fatWepink * (PCT_CUSTOS_FIXOS.royaltiesWepink / 100)) : 0;
+  const royaltiesWpink =
+    !divisao || divisao === "WPINK" ? Math.round(fatWpink * (PCT_CUSTOS_FIXOS.royaltiesWpink / 100)) : 0;
+  const taxaMktWepink =
+    !divisao || divisao === "WEPINK" ? Math.round(fatWepink * (PCT_CUSTOS_FIXOS.taxaMktWepink / 100)) : 0;
+  const taxaMktWpink =
+    !divisao || divisao === "WPINK" ? Math.round(fatWpink * (PCT_CUSTOS_FIXOS.taxaMktWpink / 100)) : 0;
+  const custosAgg = {
+    aluguelFixo,
+    aluguelPct,
+    royaltiesWepink,
+    royaltiesWpink,
+    taxaMktWepink,
+    taxaMktWpink,
+  };
   const totalCustosFixos =
     custosAgg.aluguelFixo +
     custosAgg.aluguelPct +
@@ -1687,18 +1690,35 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
       cor: CORES_FORMAS[forma] ?? "var(--t2)",
     }));
 
-  // Mini-DRE do período → Resultado Operacional (custos mensais cheios no snapshot).
+  // Mini-DRE → Resultado Operacional. Linhas de marca só aparecem no filtro correspondente.
+  const linhasMarca: LinhaCustoFixo[] = [];
+  if (!divisao || divisao === "WEPINK") {
+    linhasMarca.push(
+      { rotulo: `Royalties WEPINK (${PCT_CUSTOS_FIXOS.royaltiesWepink}%)`, valor: custosAgg.royaltiesWepink },
+      { rotulo: `Marketing WEPINK (${PCT_CUSTOS_FIXOS.taxaMktWepink}%)`, valor: custosAgg.taxaMktWepink },
+    );
+  }
+  if (!divisao || divisao === "WPINK") {
+    linhasMarca.push(
+      { rotulo: `Royalties WPINK (${PCT_CUSTOS_FIXOS.royaltiesWpink}%)`, valor: custosAgg.royaltiesWpink },
+      { rotulo: `Marketing WPINK (${PCT_CUSTOS_FIXOS.taxaMktWpink}%)`, valor: custosAgg.taxaMktWpink },
+    );
+  }
   const custosFixosFranquia: LinhaCustoFixo[] = [
     { rotulo: "Lucro bruto", valor: lucroAtual },
     { rotulo: "Aluguel fixo", valor: custosAgg.aluguelFixo },
     { rotulo: `Aluguel variável shopping (${PCT_CUSTOS_FIXOS.aluguelShopping}%)`, valor: custosAgg.aluguelPct },
-    { rotulo: `Royalties WEPINK (${PCT_CUSTOS_FIXOS.royaltiesWepink}%)`, valor: custosAgg.royaltiesWepink },
-    { rotulo: `Royalties WPINK (${PCT_CUSTOS_FIXOS.royaltiesWpink}%)`, valor: custosAgg.royaltiesWpink },
-    { rotulo: `Marketing WEPINK (${PCT_CUSTOS_FIXOS.taxaMktWepink}%)`, valor: custosAgg.taxaMktWepink },
-    { rotulo: `Marketing WPINK (${PCT_CUSTOS_FIXOS.taxaMktWpink}%)`, valor: custosAgg.taxaMktWpink },
+    ...linhasMarca,
     { rotulo: "Total de custos", valor: totalCustosFixos, ehTotal: true },
     { rotulo: "Resultado operacional", valor: resultadoAtual, ehResultado: true },
   ];
+
+  const faturamentoPorMarca: FaturamentoPorMarca[] | null = divisao
+    ? null
+    : [
+        { marca: "WEPINK", valor: fatWepink, pct: fatTodasMarcas > 0 ? (fatWepink / fatTodasMarcas) * 100 : 0, cor: "var(--acc)" },
+        { marca: "WPINK", valor: fatWpink, pct: fatTodasMarcas > 0 ? (fatWpink / fatTodasMarcas) * 100 : 0, cor: "var(--info)" },
+      ].filter((m) => m.valor > 0);
 
   // Evolução Mensal — sempre últimos 6 meses (contexto; não finge o range curto).
   const rotuloEvolucaoMensal = "Últimos 6 meses";
@@ -1726,6 +1746,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     resultadoOperacional,
     deltaResultado,
     formasPagamento,
+    faturamentoPorMarca,
     custosFixosFranquia,
     evolucaoMensal,
     rotuloEvolucaoMensal,
@@ -1920,7 +1941,6 @@ export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | nul
       label: "Lucro bruto",
       valor: brlK(totalLucro),
       delta: temComp ? kpiDelta(totalLucro, antTotalLucro, vsRotulo) : undefined,
-      tooltip: "Quanto sobra do faturamento após descontar o CMV.",
     },
     {
       label: "Margem",
@@ -2398,28 +2418,25 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
       sub: metaTotal > 0 ? `Meta: ${brlK(metaTotal)}` : undefined,
       delta: temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
       serie: serieFat,
-      tooltip: "Total faturado no período selecionado.",
     },
     {
       label: "CMV",
       valor: brlK(custoAtual),
       sub: `CMV ${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}%`,
       delta: temComp ? kpiDelta(custoAtual, custoAnterior, vsRotulo) : undefined,
-      tooltip: "Mostra quanto do faturamento foi consumido pelo custo dos produtos vendidos. Quanto maior o percentual de CMV, maior a pressão sobre a margem.",
+      tooltip: "Custo dos produtos vendidos. Quanto maior o CMV %, maior a pressão sobre a margem.",
     },
     {
       label: "Nº de vendas",
       valor: num(atual.atendimentos),
       sub: `${num(atual.itens)} itens vendidos`,
       delta: temComp ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo, false) : undefined,
-      tooltip: "Quantidade de vendas realizadas no período selecionado.",
     },
     {
       label: "Ticket médio",
       valor: brl(ticketAtual),
       sub: `P.A. ${divSeguro(atual.itens, atual.atendimentos).toFixed(2)}`,
       delta: temComp ? kpiDelta(ticketAtual, ticketAnterior, vsRotulo) : undefined,
-      tooltip: "Valor médio faturado por venda no período selecionado.",
     },
   ];
 

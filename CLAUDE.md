@@ -271,8 +271,10 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  - Snapshots (KPIs, Formas, Custos…) não usam subtítulo de eixo.
  - Exceções: **Dia da Semana** oculto em 1 dia; **Evolução Mensal** sempre `Últimos 6 meses`; **Resultado** rateia custos fixos em hora/dia.
 7. ✅ **Ordem de execução** — (a) refinar em texto + mock ASCII no CLAUDE.md primeiro; (b) começar pela tela **EQUIPE**; (c) depois Financeiro e Produtos; (d) **Visão Geral por último** (é o resumo de todas). Nav+router como esqueleto antes dos componentes.
-8. ✅ **Equipe ≠ Grupos** (2026-09-17) — telas SEPARADAS (indivíduo vs operação por grupo). Sem filtro de grupo na Equipe. Chrome da Equipe alinhado às demais subtelas (`/dashboard/equipe`, PageHeader com DateRangePicker + marca).
+8. ✅ **Equipe ≠ Grupos** (2026-09-17) — telas SEPARADAS (indivíduo vs operação por grupo). Chrome Equipe: Período + Grupo — **sem filtro de Marca** (2026-09-18: marca não impacta meta/escada/desafios; view força `divisao: null`).
 9. ✅ **Turno → Grupo** (2026-09-17) — nomenclatura de produto: `GruposPage`, `montarGruposView`, `paths.grupos`, tipos `Grupo`/`grupoId`. URLs legadas `/dashboard/turnos` e `/configuracoes/turnos-e-tarefas` redirecionam.
+10. ✅ **TipHelp (?)** (2026-09-18) — só em jargão / comportamento não óbvio (CMV, P.A., Curva ABC, Resultado rateado, Custos, Escada, Desafios, Total da tabela). Remover quando o título já explica (Faturamento, Nº vendas, Ticket, Lucro bruto, Formas, etc.).
+11. ✅ **Financeiro — Custos antes de Formas** (2026-09-18) — ordem: Custos da Operação → Formas → (opcional) Faturamento por Marca. Donut de marcas só com filtro "Todas as marcas". Custos variáveis (aluguel %, royalties, marketing) calculados só sobre a(s) marca(s) do filtro; linhas da outra marca ocultas.
 10. ✅ **Dashboard > Grupos pausado** (2026-09-17) — fora do menu e das abas; `/dashboard/grupos` redireciona para Visão Geral. Código (`GruposPage.tsx`, `montarGruposView`) permanece para retomar depois. Foco passa às telas fora do Dashboard.
 11. ✅ **Metas fora do Dashboard** (2026-09-17) — item de menu abaixo do Dashboard (`/metas`). Saiu de Configurações; URL legada `/configuracoes/metas` redireciona. Esqueleto em `src/pages/metas/MetasPage.tsx` (listagem fixture; CRUD amanhã).
 

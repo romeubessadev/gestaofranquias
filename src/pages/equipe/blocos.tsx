@@ -79,7 +79,6 @@ export function BlocoKpisEquipe({
       valor: faturamento.valor,
       delta: faturamento.delta,
       sub: faturamento.sub,
-      tooltip: undefined as string | undefined,
       Icon: IconFat,
     },
     {
@@ -87,7 +86,6 @@ export function BlocoKpisEquipe({
       valor: atendimentos.valor,
       delta: atendimentos.delta,
       sub: atendimentos.sub,
-      tooltip: undefined as string | undefined,
       Icon: IconVendas,
     },
     {
@@ -95,7 +93,6 @@ export function BlocoKpisEquipe({
       valor: ticket.valor,
       delta: ticket.delta,
       sub: ticket.sub,
-      tooltip: "Valor médio faturado por venda no período.",
       Icon: IconTicket,
     },
     {
@@ -123,7 +120,7 @@ export function BlocoKpisEquipe({
             iconBg={c.iconBg}
             delta={kpi.delta}
             sub={kpi.sub}
-            tooltip={kpi.tooltip}
+            tooltip={"tooltip" in kpi ? kpi.tooltip : undefined}
           />
         );
       })}

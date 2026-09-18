@@ -1,5 +1,4 @@
 import { useMemo, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, DonutChart } from "@/components/charts";
@@ -8,7 +7,6 @@ import { montarVisaoGeralView, type VisaoKpi } from "@/data/gestao/dashboard";
 import { brlK } from "@/lib/formato";
 import { deIso } from "@/lib/formato";
 import type { DateRange } from "@/components/ui/DateRangePicker";
-import { paths } from "@/router/paths";
 
 const IconFat = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -93,8 +91,6 @@ export default function VisaoGeralPage() {
   function onMarcaChange(v: "WEPINK" | "WPINK" | null) {
     mudar({ ...escopo, divisao: v });
   }
-
-  const navigate = useNavigate();
 
   const forcarAtualizacao = useCallback(() => {
     setRefreshing(true);
@@ -446,12 +442,6 @@ export default function VisaoGeralPage() {
           <CardHeader>
             <div className="flex w-full items-center justify-between gap-1.5">
               <CardTitle>Top Vendedoras</CardTitle>
-              <button
-                onClick={() => navigate(paths.equipe)}
-                className="cursor-pointer text-[13px] font-semibold text-acc hover:text-acc/80 transition-colors"
-              >
-                Ver equipe
-              </button>
             </div>
           </CardHeader>
           <div className="flex flex-col gap-4 px-4 pb-4">
@@ -491,12 +481,6 @@ export default function VisaoGeralPage() {
           <CardHeader>
             <div className="flex w-full items-center justify-between gap-1.5">
               <CardTitle>Top Produtos</CardTitle>
-              <button
-                onClick={() => navigate("/dashboard/produtos")}
-                className="cursor-pointer text-[13px] font-semibold text-acc hover:text-acc/80 transition-colors"
-              >
-                Ver produtos
-              </button>
             </div>
           </CardHeader>
           <div className="overflow-x-auto">

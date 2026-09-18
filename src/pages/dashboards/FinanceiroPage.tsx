@@ -314,8 +314,46 @@ export default function FinanceiroPage() {
         })()}
       </div>
 
-      {/* Par: Formas de Pagamento + Custos da Operação */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* Custos antes de Formas (leitura natural após Resultado / margem op.).
+          Com todas as marcas: 3 colunas (Custos | Formas | Marcas). Com 1 marca: 2 colunas. */}
+      <div
+        className={cn(
+          "mt-4 grid grid-cols-1 gap-4",
+          view.faturamentoPorMarca ? "lg:grid-cols-3" : "lg:grid-cols-2",
+        )}
+      >
+        <Card className="flex flex-col">
+          <CardHeader>
+            <div className="flex items-center gap-1.5">
+              <CardTitle>Custos da Operação</CardTitle>
+              <TipHelp label="Desconta do lucro bruto os custos da operação (aluguel, royalties e marketing). O que sobra é o resultado operacional." />
+            </div>
+          </CardHeader>
+          <div className="px-4 pb-4">
+            {view.custosFixosFranquia.map((linha) => {
+              const estilo = estiloLinhaCusto(linha);
+              return (
+                <div key={linha.rotulo} className="flex items-center justify-between border-b border-line py-3 last:border-b-0">
+                  <span
+                    className={cn(
+                      estilo.bold ? "text-sm font-extrabold text-t0" : "text-[13px] font-semibold",
+                      estilo.indent ? "pl-4 text-t2 sm:pl-5" : "text-t0",
+                    )}
+                  >
+                    {linha.rotulo}
+                  </span>
+                  <span
+                    className={cn("font-mono tabular-nums", estilo.bold ? "text-[15px] font-extrabold" : "text-[13.5px] font-bold")}
+                    style={{ color: estilo.color ?? "var(--t0)" }}
+                  >
+                    {estilo.valor}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
         <Card className="flex flex-col">
           <CardHeader>
             <CardTitle>Formas de Pagamento</CardTitle>
@@ -327,7 +365,6 @@ export default function FinanceiroPage() {
               const total = view.formasPagamento.reduce((s, f) => s + f.valor, 0) || 1;
               return (
                 <div className="flex flex-1 flex-col justify-center px-4 pb-4">
-                  {/* Padrão Expense breakdown (FinanceDashboard) */}
                   <div className="mx-auto my-2">
                     <DonutChart
                       segments={view.formasPagamento.map((f) => ({
@@ -358,37 +395,48 @@ export default function FinanceiroPage() {
           )}
         </Card>
 
-        <Card className="flex flex-col">
-          <CardHeader>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Custos da Operação</CardTitle>
-              <TipHelp label="Veja quanto os custos da operação consomem do lucro bruto e quanto sobra como resultado operacional." />
-            </div>
-          </CardHeader>
-          <div className="px-4 pb-4">
-            {view.custosFixosFranquia.map((linha) => {
-              const estilo = estiloLinhaCusto(linha);
-              return (
-                <div key={linha.rotulo} className="flex items-center justify-between border-b border-line py-3 last:border-b-0">
-                  <span
-                    className={cn(
-                      estilo.bold ? "text-sm font-extrabold text-t0" : "text-[13px] font-semibold",
-                      estilo.indent ? "pl-4 text-t2 sm:pl-5" : "text-t0",
-                    )}
-                  >
-                    {linha.rotulo}
-                  </span>
-                  <span
-                    className={cn("font-mono tabular-nums", estilo.bold ? "text-[15px] font-extrabold" : "text-[13.5px] font-bold")}
-                    style={{ color: estilo.color ?? "var(--t0)" }}
-                  >
-                    {estilo.valor}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+        {view.faturamentoPorMarca && (
+          <Card className="flex flex-col">
+            <CardHeader>
+              <CardTitle>Faturamento por Marca</CardTitle>
+            </CardHeader>
+            {view.faturamentoPorMarca.length === 0 ? (
+              <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+            ) : (
+              (() => {
+                const total = view.faturamentoPorMarca.reduce((s, m) => s + m.valor, 0) || 1;
+                return (
+                  <div className="flex flex-1 flex-col justify-center px-4 pb-4">
+                    <div className="mx-auto my-2">
+                      <DonutChart
+                        segments={view.faturamentoPorMarca.map((m) => ({
+                          label: m.marca,
+                          value: m.valor,
+                          color: m.cor,
+                        }))}
+                        centerLabel="Total"
+                        centerValue={brlK(total)}
+                      />
+                    </div>
+                    <div className="mt-2 flex flex-col gap-2">
+                      {view.faturamentoPorMarca.map((m) => {
+                        const pct = Math.round((m.valor / total) * 100);
+                        return (
+                          <div key={m.marca} className="flex items-center gap-2.5">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: m.cor }} />
+                            <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{m.marca}</span>
+                            <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlK(m.valor)}</span>
+                            <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()
+            )}
+          </Card>
+        )}
       </div>
 
       {/* Evolução Mensal — DataTable (desktop) + cards (mobile) */}

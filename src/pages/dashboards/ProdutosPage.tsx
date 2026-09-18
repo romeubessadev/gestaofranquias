@@ -284,7 +284,6 @@ export default function ProdutosPage() {
             <div>
               <div className="flex items-center gap-1.5">
                 <CardTitle>Faturamento por Categoria</CardTitle>
-                <TipHelp label="Identifique quais categorias mais contribuem para o faturamento e como o mix está distribuído entre elas." />
               </div>
               <p className="mt-1.5 text-2xl font-extrabold text-t0">
                 {view.kpis[0]?.valor ?? brlK(view.categorias.reduce((s, c) => s + c.faturamento, 0))}
@@ -462,7 +461,6 @@ export default function ProdutosPage() {
         <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex items-center gap-1.5">
             <CardTitle>Desempenho por Produto</CardTitle>
-            <TipHelp label="Compare faturamento, custo, margem e volume para entender o desempenho de cada produto no mix." />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <input
