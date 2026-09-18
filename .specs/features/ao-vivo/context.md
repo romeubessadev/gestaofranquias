@@ -32,16 +32,15 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 - Atingimento (% do mês até agora)
 
 ### Abas principais
-- **Ranking** — ranking de vendedores do **mês** (pódio top 3 + lista).
-- **Desafios** — desafios ativos.
-- **Metas** — meta ativa; Por Vendedor | Por Grupo; escada de níveis.
+- **Ranking** — card **isolado** (fora das abas), com Segmented **Pódio** | **Ranking geral** (não empilha os dois).
+- Abas accent: **Desafios** | **Metas** (desafios ativos; meta com Por Vendedor | Por Grupo).
 
 ### Evolução + IA
 - Evolução: tabela + AreaLineChart (P2).
 - IA Insights: banner só no app gestor; mock ao clicar (P2). Sem IA na futura TV.
 
 ### Cabeçalho (ações)
-- Botões **Compartilhar** e **Modo TV** no `PageHeader` (visíveis e **funcionais**).
+- **Atualizar** = botão primary; **Compartilhar** e **Modo TV** = secondary.
 - Navegação para rotas de compartilhamento (`/ao-vivo/compartilhar` e modo TV correspondente); a UI completa da visão externa entra no feature seguinte — neste corte bastam shells/placeholders navegáveis.
 - Sem bloqueio / sem “Em breve” nos botões.
 

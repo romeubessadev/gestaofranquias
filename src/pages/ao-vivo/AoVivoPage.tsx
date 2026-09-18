@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Card, PageHeader, StatCard, Tabs } from "@/components/ui";
+import { Button, Card, CardTitle, PageHeader, StatCard, Tabs } from "@/components/ui";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarAoVivoView } from "@/data/gestao/aoVivo";
 import { paths } from "@/router/paths";
@@ -79,7 +79,7 @@ export default function AoVivoPage() {
             </span>
             <Button
               size="sm"
-              variant="secondary"
+              variant="primary"
               onClick={forcarAtualizacao}
               disabled={refreshing}
               icon={
@@ -121,6 +121,7 @@ export default function AoVivoPage() {
             </Button>
             <Button
               size="sm"
+              variant="secondary"
               onClick={() => navigate(paths.aoVivo.tv)}
               icon={
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -154,16 +155,18 @@ export default function AoVivoPage() {
       </div>
 
       <Card className="mt-4" padding="lg">
+        <div className="mb-4 flex items-center gap-2">
+          <TrophyIcon size={16} className="text-acc" />
+          <CardTitle>Ranking</CardTitle>
+        </div>
+        <BlocoRanking ranking={view.ranking} />
+      </Card>
+
+      <Card className="mt-4" padding="lg">
         <Tabs
           variant="accent"
-          defaultKey="ranking"
+          defaultKey="desafios"
           items={[
-            {
-              key: "ranking",
-              label: "Ranking",
-              icon: <TrophyIcon size={14} />,
-              content: <BlocoRanking ranking={view.ranking} />,
-            },
             {
               key: "desafios",
               label: "Desafios",
