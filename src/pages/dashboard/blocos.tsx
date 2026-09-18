@@ -112,7 +112,7 @@ export function BlocoVendaNecessaria({ venda }: { venda: VendaNecessariaView }) 
         {venda.valor !== null && venda.valor <= 0 ? "Cumprida ✓" : `Faltam ${brl(venda.faltaRestante)} em ${venda.diasRestantes} dias abertos`}
       </p>
       {venda.realizadoHoje > 0 && (
-        <ProgressBar value={feitoHojePct} color="var(--acc)" label="Realizado hoje" />
+        <ProgressBar value={feitoHojePct} label="Realizado hoje" />
       )}
       {venda.metaMesAtingida && <Badge variant="success">Meta do mês atingida</Badge>}
     </Card>
@@ -142,7 +142,7 @@ export function BlocoProjecao({ projecao, metaValor }: { projecao: ProjecaoView;
     <Card className="flex h-full flex-col gap-2">
       <CardTitle>Projeção de fechamento</CardTitle>
       <p className="text-2xl font-extrabold text-t0">{projecao.valor !== null ? brl(projecao.valor) : "—"}</p>
-      <ProgressBar value={pct} color={pct >= 100 ? "var(--ok)" : "var(--warn)"} label={`vs meta ${metaValor > 0 ? brl(metaValor) : ""}`} />
+      <ProgressBar value={pct} label={`vs meta ${metaValor > 0 ? brl(metaValor) : ""}`} />
       {projecao.indice !== null && <p className="text-[12px] text-t2">Índice {projecao.indice.toFixed(3)} na curva restante</p>}
     </Card>
   );
@@ -161,14 +161,14 @@ export function BlocoDiagnostico({ diagnostico }: { diagnostico: LacunaView }) {
             <span className="text-t1">Fluxo (atendimentos)</span>
             <span className="font-bold text-t0">{diagnostico.efeitoFluxo > 0 ? `−${brl(Math.abs(diagnostico.efeitoFluxo))}` : brl(diagnostico.efeitoFluxo)}</span>
           </div>
-          <ProgressBar value={maior > 0 ? Math.max(0, (diagnostico.efeitoFluxo / maior) * 100) : 0} color="var(--info)" />
+          <ProgressBar value={maior > 0 ? Math.max(0, (diagnostico.efeitoFluxo / maior) * 100) : 0} />
         </div>
         <div>
           <div className="mb-1 flex items-center justify-between text-[12.5px]">
             <span className="text-t1">Ticket médio</span>
             <span className="font-bold text-t0">{diagnostico.efeitoTicket > 0 ? `+${brl(Math.abs(diagnostico.efeitoTicket))}` : brl(diagnostico.efeitoTicket)}</span>
           </div>
-          <ProgressBar value={maior > 0 ? Math.max(0, (diagnostico.efeitoTicket / maior) * 100) : 0} color="var(--warn)" />
+          <ProgressBar value={maior > 0 ? Math.max(0, (diagnostico.efeitoTicket / maior) * 100) : 0} />
         </div>
         {diagnostico.alavancaDominante && (
           <Badge variant="info" dot>
@@ -365,7 +365,7 @@ export function BlocoRegua({
                 )}
               </span>
             </div>
-            <ProgressBar value={l.barraPct} color={TINT[l.tint].fg} height={7} />
+            <ProgressBar value={l.barraPct} height={7} />
             <p className="mt-1 text-[11.5px] text-t2">{l.atingimentoTexto}</p>
           </button>
         ))}
@@ -606,7 +606,7 @@ export function BlocoChecklist({ c }: { c: ChecklistDia }) {
               {t.feitas} de {t.total}
             </span>
           </div>
-          <ProgressBar value={pctFeito} height={7} color={t.estado === "andamento" ? "var(--acc)" : "var(--ok)"} />
+          <ProgressBar value={pctFeito} height={7} />
           <p className="mt-1 text-[11.5px] font-normal text-t2">{estadoTexto}</p>
         </div>
       ),
@@ -697,7 +697,7 @@ export function BlocoCategorias({ categorias, escopoId }: { categorias: Categori
                   <span className="font-mono font-bold text-t0">{c.receita}</span> · margem <span className="font-mono font-bold text-ok">{c.margem}</span> · {c.margemPct}
                 </span>
               </div>
-              <ProgressBar value={c.barraPct} color="var(--acc)" height={7} />
+              <ProgressBar value={c.barraPct} height={7} />
             </button>
           ))}
         </div>

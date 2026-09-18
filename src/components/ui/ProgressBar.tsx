@@ -1,12 +1,30 @@
+/** Régua de progresso: <50 bad · 50–79 warn · ≥80 ok. */
+export function progressColor(value: number): string {
+  const v = Math.min(100, Math.max(0, value));
+  if (v < 50) return "var(--bad)";
+  if (v < 80) return "var(--warn)";
+  return "var(--ok)";
+}
+
+/** Classe de texto alinhada à mesma régua (text-bad / text-warn / text-ok). */
+export function progressTextClass(value: number): string {
+  const v = Math.min(100, Math.max(0, value));
+  if (v < 50) return "text-bad";
+  if (v < 80) return "text-warn";
+  return "text-ok";
+}
+
 export interface ProgressBarProps {
   value: number; // 0-100
+  /** Se omitido, usa a régua progressiva por valor. */
   color?: string;
   trackColor?: string;
   height?: number;
   label?: string;
 }
 
-export function ProgressBar({ value, color = "var(--acc)", trackColor = "var(--bg-3)", height = 8, label }: ProgressBarProps) {
+export function ProgressBar({ value, color, trackColor = "var(--bg-3)", height = 8, label }: ProgressBarProps) {
+  const fill = color ?? progressColor(value);
   return (
     <div>
       {label && (
@@ -17,8 +35,8 @@ export function ProgressBar({ value, color = "var(--acc)", trackColor = "var(--b
       )}
       <div className="w-full overflow-hidden rounded-full" style={{ height, background: trackColor }}>
         <div
-          className="h-full rounded-full transition-[width] duration-500"
-          style={{ width: `${Math.min(100, Math.max(0, value))}%`, background: color }}
+          className="h-full rounded-full transition-[width,background] duration-500"
+          style={{ width: `${Math.min(100, Math.max(0, value))}%`, background: fill }}
         />
       </div>
     </div>
@@ -29,13 +47,14 @@ export function RadialProgress({
   value,
   size = 64,
   stroke = 7,
-  color = "var(--acc)",
+  color,
   trackColor = "var(--bg-3)",
   label,
 }: {
   value: number;
   size?: number;
   stroke?: number;
+  /** Se omitido, usa a régua progressiva por valor. */
   color?: string;
   trackColor?: string;
   /** Subtítulo abaixo do % (ex.: "da meta"). */
@@ -45,6 +64,7 @@ export function RadialProgress({
   const c = 2 * Math.PI * r;
   const offset = c - (Math.min(100, Math.max(0, value)) / 100) * c;
   const large = size >= 120;
+  const strokeColor = color ?? progressColor(value);
 
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
@@ -55,12 +75,12 @@ export function RadialProgress({
           cy={size / 2}
           r={r}
           fill="none"
-          stroke={color}
+          stroke={strokeColor}
           strokeWidth={stroke}
           strokeDasharray={c}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          style={{ transition: "stroke-dashoffset .5s ease" }}
+          style={{ transition: "stroke-dashoffset .5s ease, stroke .5s ease" }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -72,4 +92,3 @@ export function RadialProgress({
     </div>
   );
 }
-

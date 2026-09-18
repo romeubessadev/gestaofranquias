@@ -163,7 +163,6 @@ export default function VisaoGeralPage() {
             );
           }
           const pct = Math.round(meta.pct);
-          const cor = pct >= 100 ? "var(--ok)" : pct >= 70 ? "var(--acc)" : "var(--bad)";
           const faltamValor = Math.max(0, meta.alvo - meta.realizado);
           const projecaoValor = view.projecaoFechamento?.replace(/^Projeção:\s*/i, "") ?? "—";
           return (
@@ -177,7 +176,7 @@ export default function VisaoGeralPage() {
                 </Tooltip>
               </div>
               <div className="relative mx-auto mb-4 h-[150px] w-[150px]">
-                <RadialProgress value={pct} size={150} stroke={15} color={cor} trackColor="var(--bg-inset)" label="da meta" />
+                <RadialProgress value={pct} size={150} stroke={15} trackColor="var(--bg-inset)" label="da meta" />
               </div>
               <div className="flex flex-col gap-2.5">
                 <div className="flex justify-between">

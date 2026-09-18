@@ -64,11 +64,7 @@ export function CommissionLadder({
                 {formatValue(realizado)} / {formatValue(degrau.valor)}
               </span>
             </div>
-            <ProgressBar
-              value={pct}
-              color={atingido ? "var(--ok)" : "var(--acc)"}
-              height={10}
-            />
+            <ProgressBar value={pct} height={10} />
             <span className="text-[11px] text-t2">
               {atingido
                 ? `✓ ${degrau.label} batida!`

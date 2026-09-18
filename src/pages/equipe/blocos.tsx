@@ -3,7 +3,7 @@
  * Reusa os componentes do tema: StatCard, DataTable, Card, ProgressBar,
  * Badge, Avatar, EmptyState e o padrão EstadoBloco da Visão geral.
  */
-import { Avatar, Badge, Card, CardTitle, DataTable, EmptyState, ProgressBar, StatCard, type DataTableColumn } from "@/components/ui";
+import { Avatar, Badge, Card, CardTitle, DataTable, EmptyState, ProgressBar, progressColor, progressTextClass, StatCard, type DataTableColumn } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { brl, brlK, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
@@ -160,12 +160,11 @@ function CelulaFaturamento({ l }: { l: LinhaRank }) {
 
 function CelulaPctIndividual({ l }: { l: LinhaRank }) {
   if (l.semMeta) return <span className="text-t2">—</span>;
-  const cor = l.atingimentoPct >= 100 ? "var(--ok)" : "var(--acc)";
   return (
     <div className="w-[88px]">
       <p className="font-mono text-[12.5px] font-bold text-t0">{num(l.atingimentoPct, 0)}%</p>
       <div className="mt-1">
-        <ProgressBar value={Math.min(100, l.atingimentoPct)} height={5} color={cor} />
+        <ProgressBar value={Math.min(100, l.atingimentoPct)} height={5} />
       </div>
     </div>
   );
@@ -399,8 +398,8 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
   const fecha = meta.projetadoPct >= 100;
   const escalaMax = Math.max(...degrausPadrao.map((d) => d.atingimentoMinPct), 100);
   const fillPct = Math.min(100, (meta.pct / escalaMax) * 100);
-  const corBarra = meta.pct >= 100 ? "var(--ok)" : meta.projetadoPct >= 100 ? "var(--acc)" : "var(--acc)";
-  const corPct = meta.pct >= 100 ? "text-ok" : meta.projetadoPct >= 100 ? "text-acc" : "text-acc";
+  const corBarra = progressColor(meta.pct);
+  const corPct = progressTextClass(meta.pct);
 
   const body = (
     <>
@@ -570,11 +569,7 @@ export function BlocoDesafios({
             <span className="font-bold text-t0">{d.atingiram}</span>/{d.minimoVendedorasAtingindo} atingiram
           </p>
         </div>
-        <ProgressBar
-          value={Math.min(100, d.progressoPct)}
-          height={7}
-          color={d.progressoPct >= 100 || d.atingiram >= d.minimoVendedorasAtingindo ? "var(--ok)" : "var(--acc)"}
-        />
+        <ProgressBar value={Math.min(100, d.progressoPct)} height={7} />
       </div>
 
       <div className={cn("border-t border-line pt-3", !embedded && "overflow-x-auto")}>
@@ -598,11 +593,7 @@ export function BlocoDesafios({
                 {p.progressoRotulo}
               </span>
               <div className="w-[72px] shrink-0">
-                <ProgressBar
-                  value={Math.min(100, p.progressoPct)}
-                  height={5}
-                  color={p.status === "atingiu" ? "var(--ok)" : "var(--acc)"}
-                />
+                <ProgressBar value={Math.min(100, p.progressoPct)} height={5} />
               </div>
               <span className="w-8 shrink-0 text-right text-[11px] font-semibold text-t2">{num(p.progressoPct, 0)}%</span>
             </div>
