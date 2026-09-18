@@ -90,12 +90,14 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7
 **Reuses**: EquipePage / FinanceiroPage patterns  
 **Requirement**: AOVIVO-01, AOVIVO-02, AOVIVO-08  
 
+**Status**: done
+
 **Done when**:
 
-- [ ] Compartilhar → `/ao-vivo/compartilhar`; Modo TV → `/ao-vivo/tv`
-- [ ] KPIs show month primary + today sub
-- [ ] Atualizar updates freshness label
-- [ ] Build passes
+- [x] Compartilhar → `/ao-vivo/compartilhar`; Modo TV → `/ao-vivo/tv`
+- [x] KPIs show month primary + today sub
+- [x] Atualizar updates freshness label
+- [x] Build passes
 
 **Tests**: none  
 **Gate**: build  
@@ -110,11 +112,13 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7
 **Reuses**: Avatar, Badge, Card, EmptyState  
 **Requirement**: AOVIVO-03  
 
+**Status**: done
+
 **Done when**:
 
-- [ ] Podium + list render from view
-- [ ] Empty state when no month sales
-- [ ] Build passes
+- [x] Podium + list render from view
+- [x] Empty state when no month sales
+- [x] Build passes
 
 **Tests**: none  
 **Gate**: build  
@@ -129,11 +133,13 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7
 **Reuses**: ProgressBar, Card, desafios fixtures via view  
 **Requirement**: AOVIVO-04  
 
+**Status**: done
+
 **Done when**:
 
-- [ ] Cards list active challenges
-- [ ] Empty state when none
-- [ ] Build passes
+- [x] Cards list active challenges
+- [x] Empty state when none
+- [x] Build passes
 
 **Tests**: none  
 **Gate**: build  
@@ -148,11 +154,13 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7
 **Reuses**: Segmented or button toggle, ProgressBar  
 **Requirement**: AOVIVO-05  
 
+**Status**: done
+
 **Done when**:
 
-- [ ] Por Vendedor / Por Grupo switch works
-- [ ] Progress + legend render
-- [ ] Build passes
+- [x] Por Vendedor / Por Grupo switch works
+- [x] Progress + legend render
+- [x] Build passes
 
 **Tests**: none  
 **Gate**: build  
@@ -167,11 +175,13 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7
 **Reuses**: AreaLineChart, Card  
 **Requirement**: AOVIVO-06, AOVIVO-07  
 
+**Status**: done
+
 **Done when**:
 
-- [ ] Evolução renders table + chart
-- [ ] Gerar Insights shows fixture text
-- [ ] Full gate passes
+- [x] Evolução renders table + chart
+- [x] Gerar Insights shows fixture text
+- [x] Full gate passes
 
 **Tests**: none  
 **Gate**: full  

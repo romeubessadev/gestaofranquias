@@ -12,9 +12,11 @@
 | AD-006 | Share/TV/external page deferred | Implement in-app Ao vivo first | 2026-09-18 |
 | AD-007 | IA Insights only in gestor app (mock MVP) | Not on TV; no real LLM yet | 2026-09-18 |
 
+| AD-008 | Ao vivo header: Compartilhar + Modo TV (functional → shell routes) | Next feature builds full external/TV UI | 2026-09-18 |
+
 ## Handoff
 
-- **Feature:** Ao vivo (`.specs/features/ao-vivo/`)
-- **Phase:** Specify — awaiting user confirm on `spec.md` + `context.md`, then Design → Tasks → Execute
-- **Branch:** master
-- **Next:** On confirm → design.md (layout + data fixtures) → tasks.md → implement P1 first
+- **Feature:** Ao vivo — P1+P2 implemented in app; share/TV shells only
+- **Phase:** Execute complete (pending formal Verifier if desired)
+- **Next:** Feature Compartilhar / Modo TV layout; optional Verifier pass
+- **URLs:** `/ao-vivo`, `/ao-vivo/compartilhar`, `/ao-vivo/tv`
