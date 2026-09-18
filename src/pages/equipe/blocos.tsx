@@ -559,17 +559,21 @@ export function BlocoDesafios({
           Prêmio: <span className="font-bold text-t0">{brl(d.premio)}</span>
         </span>
         <span>
-          Gerente: <span className="font-bold text-t0">{brl(d.premioGerente)}</span>
+          Gerente:{" "}
+          <span className="font-bold text-t0">
+            {brl(d.premioGerente)}
+            {d.minimoVendedorasAtingindo > 0 ? ` · ${d.minimoVendedorasAtingindo} vendedoras` : ""}
+          </span>
         </span>
       </div>
 
+      {/* Só o que a barra mede (média no P.A./ticket; soma capped nas un). */}
       <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <p className="font-mono text-[12.5px] font-bold tabular-nums text-t0">{d.progressoAgregadoRotulo}</p>
-        <p className="text-[11.5px] font-semibold text-t2">
-          <span className="font-bold text-t0">{d.atingiram}</span>/{d.participantes} atingiram
-          {d.minimoVendedorasAtingindo > 0 && d.minimoVendedorasAtingindo !== d.participantes && (
-            <span className="text-t2"> · gerente {d.minimoVendedorasAtingindo}</span>
+        <p className="font-mono text-[12.5px] font-bold tabular-nums text-t0">
+          {(d.tipo === "pa" || d.tipo === "ticket") && (
+            <span className="mr-1.5 font-sans text-[11.5px] font-semibold text-t2">Média</span>
           )}
+          {d.progressoAgregadoRotulo}
         </p>
       </div>
       <div className="mb-3.5 flex items-center gap-2.5">
