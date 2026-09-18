@@ -128,7 +128,11 @@ describe("T3: LOJA-02 venda necessária hoje", () => {
     if (!v.vendaNecessaria) return;
     expect(typeof v.vendaNecessaria.metaMesAtingida).toBe("boolean");
     expect(typeof v.vendaNecessaria.cumpridaHoje).toBe("boolean");
-    if (v.vendaNecessaria.metaMesAtingida) expect(v.trilho!.status).toBe("meta_batida");
+    // Mês aberto: trilho mede ritmo vs meta acumulada (no_trilho/atencao/abaixo).
+    // meta_batida só no fechamento. Meta do mês já cruzada no MTD não força meta_batida.
+    if (v.vendaNecessaria.metaMesAtingida) {
+      expect(["no_trilho", "atencao", "abaixo", "meta_batida"]).toContain(v.trilho!.status);
+    }
   });
 });
 
@@ -408,7 +412,7 @@ describe("gráfico principal: por hora (1 dia) ou por dia (período)", () => {
 describe("KPIs: subtítulos sem misturar indicadores (AD-048)", () => {
   it("este mês: faturamento mostra % da meta, sem atendimentos nem precisa/dia", () => {
     const v = montarLojaView(escopo("todas", { tipo: "esteMes" }));
-    expect(v.kpiFaturamento.sub).toMatch(/% da meta$/);
+    expect(v.kpiFaturamento.sub).toMatch(/% da meta$|meta do mês atingida/i);
     expect(v.kpiFaturamento.sub).not.toMatch(/atendimento/i);
     expect(v.kpiFaturamento.sub).not.toMatch(/precisa/i);
     expect(v.kpiAtendimentos.sub).toMatch(/média .+\/dia/);

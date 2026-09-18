@@ -638,6 +638,12 @@ describe("T5: premiação projetada (EQUIP-04/05)", () => {
     expect(somaMeta).toBeCloseTo(metaLoja, 0);
     const mediaPonderada = (somaFat / somaMeta) * 100;
     expect(mediaPonderada).toBeCloseTo(v.metaGlobal!.pct, 6);
+
+    // Demo: Shopping CG (f1) já no Hiper (N3 ≥150%); vendedoras espalhadas N1–N4.
+    expect(v.metaGlobal!.pct).toBeGreaterThanOrEqual(150);
+    const niveis = new Set(v.vendedoras!.map((l) => l.nivelAtual).filter((n): n is number => n != null));
+    expect(Math.max(...niveis)).toBeGreaterThanOrEqual(3);
+    expect(niveis.size).toBeGreaterThanOrEqual(3);
   });
 });
 

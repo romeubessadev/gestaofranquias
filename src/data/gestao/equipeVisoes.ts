@@ -420,23 +420,22 @@ function tendenciaVendedora(c: Colaborador, filialId: string, fimIso: string): V
   return "estavel";
 }
 
-/** Lista de vendedoras da loja com desempenho do período + meta quando ativa. */
 /**
  * Fatores relativos de ritmo entre vendedoras (demo do ranking).
  * Só redistribuem o faturamento **já gerado** — a soma das linhas permanece
  * igual à soma bruta, então Progresso da Meta (Σ linhas) fecha com o ranking.
- * Sem inventar R$ acima do realizado da loja.
+ * f1 (Shopping CG) no mock de set/26 está no Hiper (N3); fatores espalham N1–N4.
  */
 const DEMO_FATOR_RITMO: Record<string, number> = {
-  // f1 — Campo Grande
-  c01: 1.7,
-  c02: 1.45,
-  c03: 1.25,
+  // f1 — Campo Grande (loja no Hiper / N3)
+  c01: 1.55,
+  c02: 1.35,
+  c03: 1.2,
   c04: 1.05,
-  c05: 0.85,
-  c07: 0.95,
+  c05: 0.9,
+  c07: 0.85,
   c08: 0.55,
-  // f2 — Três Lagoas
+  // f2 — Três Lagoas (ritmo normal)
   c11: 1.65,
   c12: 1.4,
   c13: 1.2,
@@ -505,13 +504,12 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
     }
     const atingProjPct = metaInd && metaInd.valor > 0 ? (projecaoFinal / metaInd.valor) * 100 : 0;
 
-    // Escada: MTD = o que já garantiu; ritmo = onde fecha se mantiver o pace.
-    // No mês aberto a UI mostra o nível pelo ritmo (decisão); premiação
-    // acumulada/bônus só entram quando o degrau já foi cruzado no MTD.
+    // Escada no MTD = o que já garantiu (mesma base do Progresso da Meta).
+    // Projeção alimenta só premiação projetada / atingimentoProjetadoPct.
     const escadaMtd = metaInd ? escadaVendedora(faturamento, metaInd, degraus) : null;
     const escadaRitmo =
       metaInd && !fechado && projecaoFinal > 0 ? escadaVendedora(projecaoFinal, metaInd, degraus) : null;
-    const escadaUi = fechado ? escadaMtd : (escadaRitmo ?? escadaMtd);
+    const escadaUi = escadaMtd;
 
     const degrauProjetado = escadaRitmo?.degrau ?? null;
 
