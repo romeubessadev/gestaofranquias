@@ -545,8 +545,13 @@ export function BlocoDesafios({
         </span>
       </div>
 
-      <div className="overflow-x-auto border-t border-line pt-3">
-        <div className="max-h-[260px] min-w-[420px] space-y-2.5 overflow-y-auto">
+      <div className={cn("border-t border-line pt-3", !embedded && "overflow-x-auto")}>
+        <div
+          className={cn(
+            "min-w-[420px] space-y-2.5",
+            embedded ? undefined : "max-h-[260px] overflow-y-auto",
+          )}
+        >
           {d.ranking.map((p, idx) => (
             <div key={p.colaboradorId} className="flex items-center gap-2">
               <span className="w-6 shrink-0 text-[12px] font-extrabold text-t2">{idx + 1}º</span>
