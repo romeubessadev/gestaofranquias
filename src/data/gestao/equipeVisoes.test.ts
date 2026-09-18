@@ -432,9 +432,16 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
 });
 
 describe("T5: desafios na visão (EQUIP-05)", () => {
+  it("lista só desafios Ativo (sem encerrados nem a começar)", () => {
+    const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    expect(v.desafios!.length).toBe(2);
+    expect(v.desafios!.every((d) => d.statusLabel === "Ativo")).toBe(true);
+    expect(v.desafios!.map((d) => d.id).sort()).toEqual(["d-bodycream", "d-pa"]);
+  });
+
   it("progresso agregado: un/R$ = soma capped; pa/ticket = média vs piso", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
-    expect(v.desafios!.length).toBe(4);
+    expect(v.desafios!.length).toBe(2);
     for (const d of v.desafios!) {
       const piso = d.minimo ?? d.alvoIndividual;
       const progressos = d.ranking.map((p) => p.progresso);
@@ -463,7 +470,7 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
       expect(d.diasRestantes).toBeGreaterThanOrEqual(0);
       expect(d.prazoRotulo).toBeTruthy();
       expect(d.janelaRotulo).toMatch(/^\d{2}\/\d{2} – \d{2}\/\d{2}$/);
-      expect(["Ativo", "Encerrado", "A começar"]).toContain(d.statusLabel);
+      expect(d.statusLabel).toBe("Ativo");
       for (const p of d.ranking) {
         expect(p.loja).toBeTruthy();
         expect(p.grupo).toBeTruthy();
@@ -472,14 +479,12 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
     }
   });
 
-  it("demo cobre as 3 cores de barra agregada (vermelho / amarelo / verde)", () => {
+  it("demo cobre amarelo e verde nas barras dos ativos", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
     const byId = Object.fromEntries(v.desafios!.map((d) => [d.id, d]));
-    expect(byId["d-perfumaria"].progressoPct).toBeLessThan(50);
     expect(byId["d-bodycream"].progressoPct).toBeGreaterThanOrEqual(50);
     expect(byId["d-bodycream"].progressoPct).toBeLessThan(80);
     expect(byId["d-pa"].progressoPct).toBeGreaterThanOrEqual(80);
-    expect(byId["d-ticket"].progressoPct).toBe(0);
   });
 
   it("ranking lista todos os participantes ordenados por status e progresso", () => {
@@ -494,17 +499,12 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
     }
   });
 
-  it("engajadas nunca excede participantes; desafios já iniciados têm engajamento no mock", () => {
+  it("engajadas nunca excede participantes; ativos no mock têm engajamento", () => {
     const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
     for (const d of v.desafios!) {
       expect(d.engajadas).toBeLessThanOrEqual(d.participantes);
-      if (d.statusLabel === "A começar") {
-        expect(d.engajadas).toBe(0);
-        expect(d.semEngajamento).toBe(true);
-      } else {
-        expect(d.engajadas).toBeGreaterThan(0);
-        expect(d.semEngajamento).toBe(false);
-      }
+      expect(d.engajadas).toBeGreaterThan(0);
+      expect(d.semEngajamento).toBe(false);
     }
   });
 
@@ -535,17 +535,10 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
     expect(soma).toBe(0);
   });
 
-  it("status temporal cobre ativo, encerrado e a começar; ritmo só em ativos", () => {
+  it("ritmo (fechaNoRitmo) só faz sentido em ativos listados", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
-    const labels = new Set(v.desafios!.map((d) => d.statusLabel));
-    expect(labels.has("Ativo")).toBe(true);
-    expect(labels.has("Encerrado")).toBe(true);
-    expect(labels.has("A começar")).toBe(true);
     for (const d of v.desafios!) {
-      if (d.statusLabel !== "Ativo") {
-        expect(d.fechaNoRitmo).toBe(false);
-        continue;
-      }
+      expect(d.statusLabel).toBe("Ativo");
       const pct = d.progressoPct;
       const diasDecorridos = 15;
       const diasTotais = 30;
@@ -554,23 +547,20 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
     }
   });
 
-  it("desafios ordenados: ativos → a começar → encerrados", () => {
+  it("desafios ativos ordenados por dias restantes, depois loja/nome", () => {
     const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
-    const ordem = { Ativo: 0, "A começar": 1, Encerrado: 2 } as const;
-    const ranks = v.desafios!.map((d) => ordem[d.statusLabel]);
-    expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
-    expect(v.desafios![0].statusLabel).toBe("Ativo");
-    expect(v.desafios![v.desafios!.length - 1].statusLabel).toBe("Encerrado");
+    const dias = v.desafios!.map((d) => d.diasRestantes);
+    expect(dias).toEqual([...dias].sort((a, b) => a - b));
   });
 
   it("visão rede exibe loja no card; loja isolada não", () => {
     const rede = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
     const loja = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
-    expect(rede.desafios!.length).toBe(4);
+    expect(rede.desafios!.length).toBe(2);
     expect(rede.desafios!.every((d) => d.exibirLoja)).toBe(true);
     expect(rede.desafios!.some((d) => d.lojaRotulo === "Campo Grande")).toBe(true);
     expect(rede.desafios!.some((d) => d.lojaRotulo === "Três Lagoas")).toBe(true);
-    expect(loja.desafios!.length).toBe(2);
+    expect(loja.desafios!.length).toBe(1);
     expect(loja.desafios!.every((d) => !d.exibirLoja)).toBe(true);
     expect(loja.desafios!.every((d) => d.filialId === "f1")).toBe(true);
   });

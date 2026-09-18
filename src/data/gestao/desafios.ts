@@ -68,9 +68,12 @@ const ATIVAS_F1 = ativasDaFilial("f1");
 const ATIVAS_F2 = ativasDaFilial("f2");
 
 /**
- * Desafios de setembro/2026 — 2 por loja, status mistos (HOJE = 2026-09-15):
- * - Campo Grande: Perfumaria (encerrado, vermelho) + P.A. (ativo, verde)
+ * Desafios de setembro/2026 — 2 por loja (HOJE = 2026-09-15).
+ * Equipe/Ao vivo listam só Ativo; encerrado e “a começar” ficam no fixture
+ * para premiação/KPI e para testes de status temporal.
+ * - Campo Grande: Perfumaria (encerrado) + P.A. (ativo, verde)
  * - Três Lagoas: Body Cream (ativo, amarelo) + Ticket (a começar)
+ * Cores na lista vigente: amarelo (body) + verde (pa). Vermelho some ao filtrar.
  */
 export const desafios: Desafio[] = [
   {

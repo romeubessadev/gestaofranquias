@@ -182,7 +182,7 @@ Vocabulário do negócio:
 
 | Elemento | Texto atual | Proposto | Motivo |
 |---|---|---|---|
-| **Título** | `Desafios` | | **Muito genérico** — mock sugeria “Desafios Ativos” |
+| **Título** | `Desempenho nos Desafios` | | Lista só desafios **Ativo** (igual Ao vivo) |
 | Tooltip (?) | `Campanhas com prêmio para quem bate a meta no período. Acompanhe progresso por vendedora, status e prazo.` | | |
 | Empty título | `Sem desafios` | | |
 | Empty descrição | `Nenhum desafio cadastrado para {mês/ano}.` | | |

@@ -14,7 +14,6 @@ import { metaDaFilial, type Degrau } from "./metas";
 import {
   alvoGerenteDoDesafio,
   desafioEhIndice,
-  desafiosAtivos,
   desafiosNoEscopo,
   mediaProgressos,
   pisoDoDesafio,
@@ -771,20 +770,15 @@ function diasAbertosDaCompetencia(competencia: string, filiaisIds: string[]): { 
   return { decorridos, totais: abertos.length };
 }
 
-const ORDEM_STATUS_DESAFIO: Record<DesafioView["statusLabel"], number> = {
-  Ativo: 0,
-  "A começar": 1,
-  Encerrado: 2,
-};
-
+/** Lista da Equipe/Ao vivo: só desafios vigentes (status Ativo). Encerrados e “a começar” ficam de fora. */
 function desafiosViewDaCompetencia(competencia: string, filiaisIds: string[]): DesafioView[] {
   const { decorridos, totais } = diasAbertosDaCompetencia(competencia, filiaisIds);
   const exibirLoja = filiaisIds.length > 1;
   return desafiosNoEscopo(competencia, filiaisIds)
     .map((d) => desafioView(d, decorridos, totais, filiaisIds, exibirLoja))
+    .filter((d) => d.statusLabel === "Ativo")
     .sort(
       (a, b) =>
-        ORDEM_STATUS_DESAFIO[a.statusLabel] - ORDEM_STATUS_DESAFIO[b.statusLabel] ||
         a.diasRestantes - b.diasRestantes ||
         a.lojaRotulo.localeCompare(b.lojaRotulo, "pt-BR") ||
         a.nome.localeCompare(b.nome, "pt-BR"),
@@ -1123,6 +1117,7 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
 
   const nDias = diasPeriodo.length;
   const evolucao = montarEvolucaoFatVsMeta([filialId], periodo, metaLojaValor);
+  const desafios = metaAtiva ? desafiosViewDaCompetencia(competencia, [filial.id]) : null;
 
   return {
     escopo,
@@ -1163,12 +1158,12 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
     gruposDisponiveis: gruposDaFilial(filialId),
     vendedoras,
     lojas: null,
-    desafios: metaAtiva ? desafiosViewDaCompetencia(competencia, [filial.id]) : null,
+    desafios,
     estados: {
       kpis: "disponivel",
       leitura: "sem_dados",
       vendedoras: vendedoras.length > 0 ? "disponivel" : "sem_dados",
-      desafios: metaAtiva ? (desafiosAtivos(competencia).length > 0 ? "disponivel" : "sem_dados") : "indisponivel",
+      desafios: metaAtiva ? (desafios !== null && desafios.length > 0 ? "disponivel" : "sem_dados") : "indisponivel",
     },
   };
 }
@@ -1249,7 +1244,7 @@ function visaoRede(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
   }
 
   const desafios = metaAtiva ? desafiosViewDaCompetencia(competencia, filiais.map((f) => f.id)) : null;
-  const semDesafios = metaAtiva && desafiosAtivos(competencia).length === 0;
+  const semDesafios = metaAtiva && (desafios === null || desafios.length === 0);
 
 // Premiação da rede = escada de metas de cada loja + desafios uma única
 // vez (desafio é da competência inteira, não por loja).
