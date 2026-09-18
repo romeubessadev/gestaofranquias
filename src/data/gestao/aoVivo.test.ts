@@ -40,16 +40,17 @@ describe("montarAoVivoView", () => {
     expect(v.desafios.length).toBeGreaterThan(0);
   });
 
-  it("metas da competência com porVendedor e porGrupo (1 card por loja)", () => {
+  it("meta da competência: 1 loja = meta da loja; Todas = meta somada", () => {
     const uma = montarAoVivoView(escopo(["f1"]));
-    expect(uma.metas).toHaveLength(1);
-    expect(uma.metas[0].alvo).toBeGreaterThan(0);
-    expect(uma.metas[0].porVendedor.length).toBeGreaterThan(0);
-    expect(uma.metas[0].porGrupo.length).toBeGreaterThan(0);
-    expect(uma.metas[0].niveis.length).toBe(4);
+    expect(uma.meta).not.toBeNull();
+    expect(uma.meta!.alvo).toBeGreaterThan(0);
+    expect(uma.meta!.porVendedor.length).toBeGreaterThan(0);
+    expect(uma.meta!.porGrupo.length).toBeGreaterThan(0);
+    expect(uma.meta!.niveis.length).toBe(4);
 
     const todas = montarAoVivoView(escopo([]));
-    expect(todas.metas.length).toBeGreaterThanOrEqual(2);
+    expect(todas.meta).not.toBeNull();
+    expect(todas.meta!.alvo).toBeGreaterThan(uma.meta!.alvo);
   });
 
   it("evolução e insight mock preenchidos", () => {

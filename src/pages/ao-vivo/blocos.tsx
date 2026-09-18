@@ -3,7 +3,6 @@ import { AreaLineChart } from "@/components/charts";
 import { brl, brlK, num, pct } from "@/lib/formato";
 import { cn } from "@/lib/cn";
 import type { AoVivoView, MetaAoVivo, RankingLinha } from "@/data/gestao/aoVivo";
-import { TargetIcon } from "@/pages/dashboards/icons";
 import { useState } from "react";
 
 const PODIO_ALTURA = ["h-28", "h-36", "h-24"];
@@ -100,55 +99,32 @@ export function BlocoRankingGeral({ ranking }: { ranking: RankingLinha[] }) {
   );
 }
 
-export function BlocoMetas({ metas }: { metas: MetaAoVivo[] }) {
-  if (metas.length === 0) {
+export function BlocoMetas({ meta }: { meta: MetaAoVivo | null }) {
+  const [modo, setModo] = useState<"vendedor" | "grupo">("vendedor");
+  if (!meta) {
     return <EmptyState title="Sem meta na competência" description="Cadastre a meta da loja em Metas para acompanhar o atingimento ao vivo." />;
   }
 
   return (
-    <div className="max-h-[min(520px,70vh)] space-y-4 overflow-y-auto pr-1">
-      {metas.map((m) => (
-        <CardMeta key={m.id} meta={m} />
-      ))}
-    </div>
-  );
-}
-
-function CardMeta({ meta }: { meta: MetaAoVivo }) {
-  const [modo, setModo] = useState<"vendedor" | "grupo">("vendedor");
-  const cor = "var(--acc)";
-
-  return (
-    <div className="flex flex-col rounded-[var(--radius-vela-lg)] border border-line bg-bg-inset p-4 sm:p-5">
-      <div className="mb-3 flex items-start gap-3">
-        <span
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px]"
-          style={{ color: cor, backgroundColor: `color-mix(in srgb, ${cor} 18%, transparent)` }}
-          aria-hidden
-        >
-          <TargetIcon size={22} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[14.5px] font-bold leading-snug text-t0">{meta.nome}</p>
-          <p className="mt-1 text-[12px] leading-snug text-t2">{meta.lojaNome}</p>
-          <p className="mt-2 font-mono text-[15px] font-extrabold tabular-nums text-t0">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[12px] font-semibold capitalize text-t2">{meta.competenciaRotulo}</p>
+          <p className="mt-1 font-mono text-xl font-extrabold text-t0">
             {pct(meta.pct, 1)} · {brlK(meta.realizado)} / {brlK(meta.alvo)}
           </p>
         </div>
         <Segmented
           options={[
-            { value: "vendedor", label: "Vendedor" },
-            { value: "grupo", label: "Grupo" },
+            { value: "vendedor", label: "Por Vendedor" },
+            { value: "grupo", label: "Por Grupo" },
           ]}
           value={modo}
           onChange={(v) => setModo((v as "vendedor" | "grupo") ?? "vendedor")}
         />
       </div>
-
-      <div className="mb-3">
-        <ProgressBar value={Math.min(100, meta.pct)} />
-      </div>
-      <div className="mb-3.5 flex flex-wrap gap-1.5">
+      <ProgressBar value={Math.min(100, meta.pct)} />
+      <div className="flex flex-wrap gap-2">
         {meta.niveis.map((n) => (
           <Badge key={n.nome} variant="neutral">
             {n.nome} ({n.atingimentoMinPct}%)
@@ -157,8 +133,8 @@ function CardMeta({ meta }: { meta: MetaAoVivo }) {
       </div>
 
       {modo === "vendedor" ? (
-        <div className="overflow-x-auto border-t border-line pt-3">
-          <table className="w-full min-w-[420px] border-collapse text-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[480px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
                 <th className="px-1 pb-2 text-left font-bold">#</th>
@@ -188,9 +164,9 @@ function CardMeta({ meta }: { meta: MetaAoVivo }) {
           </table>
         </div>
       ) : (
-        <div className="flex flex-col gap-3 border-t border-line pt-3">
+        <div className="flex flex-col gap-3">
           {meta.porGrupo.map((g) => (
-            <div key={g.id} className="rounded-[10px] border border-line bg-bg-1 p-3">
+            <div key={g.id} className="rounded-[10px] border border-line bg-bg-inset p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-[13px] font-bold text-t0">{g.nome}</p>
                 <span className="font-mono text-[12.5px] font-bold text-t0">
@@ -215,14 +191,12 @@ function CardMeta({ meta }: { meta: MetaAoVivo }) {
               </div>
             </div>
           ))}
-          {meta.porGrupo.length === 0 && (
-            <p className="py-2 text-center text-[12.5px] text-t2">Nenhum grupo nesta loja.</p>
-          )}
         </div>
       )}
     </div>
   );
 }
+
 
 export function BlocoEvolucao({ view }: { view: AoVivoView }) {
   if (view.evolucao.length === 0) return null;

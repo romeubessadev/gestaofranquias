@@ -171,7 +171,7 @@ export default function AoVivoPage() {
               key: "metas",
               label: "Metas",
               icon: <TargetIcon size={14} />,
-              content: <BlocoMetas metas={view.metas} />,
+              content: <BlocoMetas meta={view.meta} />,
             },
           ]}
         />
