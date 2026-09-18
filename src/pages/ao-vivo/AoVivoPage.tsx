@@ -201,7 +201,12 @@ export default function AoVivoPage() {
               key: "desafios",
               label: "Desafios",
               icon: <FlameIcon size={14} />,
-              content: <BlocoDesafiosEquipe desafios={equipeView.desafios ?? []} embedded />,
+              content: (
+                <BlocoDesafiosEquipe
+                  desafios={(equipeView.desafios ?? []).filter((d) => d.statusLabel === "Ativo")}
+                  embedded
+                />
+              ),
             },
             {
               key: "metas",
