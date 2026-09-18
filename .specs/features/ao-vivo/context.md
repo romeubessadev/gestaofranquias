@@ -41,7 +41,8 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 - Evolução por Vendedor: **removida** da tela.
 - IA Insights: **fora por enquanto** (P2).
 - Formas de Pagamento: **fora do Ao vivo** (fica na Visão Geral / Financeiro).
-- Cards abaixo do andamento: Ranking de Lojas → Ranking Vendedoras.
+- Cards abaixo do andamento: Ranking de Lojas → Ranking Vendedoras (par `lg:grid-cols-2`, ambos `max-h-[min(520px,70vh)]` com scroll — mesmo teto dos Desafios embedded).
+- Escada de Premiação (aba Metas e tela Equipe): lista com o mesmo `max-h` + scroll quando há muitas vendedoras.
 
 ### Cabeçalho (ações)
 - **Atualizar** = primary; **Compartilhar** = secondary.

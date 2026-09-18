@@ -374,13 +374,15 @@ export function CardVendedoras({
 }) {
   const body = (
     <>
-      <div className={cn("flex items-center gap-1.5", embedded ? "pb-3" : "px-5 py-4")}>
+      <div className={cn("flex shrink-0 items-center gap-1.5", embedded ? "pb-3" : "px-5 py-4")}>
         <CardTitle>Escada de Premiação</CardTitle>
         <TipHelp label="Veja quem já atingiu cada nível, quanto falta para o próximo e a premiação correspondente." />
       </div>
       <EstadoBloco estado={estado}>
         {lista && lista.length > 0 ? (
-          <BlocoVendedoras lista={lista} metaAtiva={metaAtiva} />
+          <div className="max-h-[min(520px,70vh)] overflow-x-auto overflow-y-auto pr-1">
+            <BlocoVendedoras lista={lista} metaAtiva={metaAtiva} />
+          </div>
         ) : (
           <div className={embedded ? "py-2" : "p-5"}>
             <EmptyState icon="👤" title="Sem vendedoras elegíveis" description="Nenhuma vendedora elegível para esta competência." />

@@ -105,15 +105,15 @@ export function BlocoRankingLojas({ lojas }: { lojas: RankingLojaLinha[] }) {
   const total = lojas.reduce((s, l) => s + l.valor, 0) || 1;
   return (
     <>
-      <div className="mb-1 flex items-center justify-between">
+      <div className="mb-1 flex shrink-0 items-center justify-between">
         <CardTitle>Ranking de Lojas</CardTitle>
         {lojas.length > 0 && <Badge variant="accent">Total {brlK(total)}</Badge>}
       </div>
       {lojas.length === 0 ? (
         <span className="py-6 text-center text-[12px] text-t2">Sem dados na competência.</span>
       ) : (
-        <>
-          <div className="flex flex-1 flex-col items-center justify-center">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-1">
+          <div className="flex flex-col items-center justify-center">
             <DonutChart
               segments={lojas.map((l, i) => ({
                 label: l.nome,
@@ -147,7 +147,7 @@ export function BlocoRankingLojas({ lojas }: { lojas: RankingLojaLinha[] }) {
               );
             })}
           </div>
-        </>
+        </div>
       )}
     </>
   );

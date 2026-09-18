@@ -266,15 +266,17 @@ export default function AoVivoPage() {
       </Card>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card className="flex flex-col" padding="lg">
+        <Card className="flex max-h-[min(520px,70vh)] flex-col overflow-hidden" padding="lg">
           <BlocoRankingLojas lojas={view.rankingLojas} />
         </Card>
-        <Card className="flex flex-col" padding="lg">
-          <div className="mb-4 flex items-center gap-2">
+        <Card className="flex max-h-[min(520px,70vh)] flex-col overflow-hidden" padding="lg">
+          <div className="mb-4 flex shrink-0 items-center gap-2">
             <TrophyIcon size={16} className="text-acc" />
             <CardTitle>Ranking Vendedoras</CardTitle>
           </div>
-          <BlocoRankingGeral ranking={view.ranking} vendedoras={equipeView.vendedoras} />
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <BlocoRankingGeral ranking={view.ranking} vendedoras={equipeView.vendedoras} />
+          </div>
         </Card>
       </div>
     </div>
