@@ -40,6 +40,12 @@ export const paths = {
   equipeLegado: "/equipe",
   /** CRUD de metas (fora do Dashboard). */
   metas: "/metas",
+  /** Ao vivo — painel operacional do mês + pulso do dia. */
+  aoVivo: {
+    root: "/ao-vivo",
+    compartilhar: "/ao-vivo/compartilhar",
+    tv: "/ao-vivo/tv",
+  },
   analise: "/analise",
   configuracoes: {
     root: "/configuracoes",
