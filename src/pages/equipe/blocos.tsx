@@ -5,7 +5,7 @@
  */
 import { Avatar, Badge, Card, CardTitle, DataTable, EmptyState, ProgressBar, StatCard, type DataTableColumn } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { brl, brlK, dataCurta, num } from "@/lib/formato";
+import { brl, brlK, num } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/blocos";
 import type { DesafioView, EquipeView, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
@@ -404,14 +404,9 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
 
   const body = (
     <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
-          <CardTitle>Progresso da Meta</CardTitle>
-          <TipHelp label="Acompanhe o avanço da equipe pelos níveis de premiação e a projeção para o fechamento da competência." />
-        </div>
-        <span className="shrink-0 text-[11.5px] font-semibold tabular-nums text-t2">
-          {dataCurta(meta.inicio)} – {dataCurta(meta.fim)}
-        </span>
+      <div className="mb-4 flex items-center gap-1.5">
+        <CardTitle>Progresso da Meta</CardTitle>
+        <TipHelp label="Acompanhe o avanço da equipe pelos níveis de premiação e a projeção para o fechamento da competência." />
       </div>
 
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
