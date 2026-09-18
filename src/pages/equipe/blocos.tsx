@@ -399,9 +399,20 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
 
   const body = (
     <>
-      <div className="mb-4 flex items-center gap-1.5">
-        <CardTitle>Progresso da Meta</CardTitle>
-        <TipHelp label="Acompanhe o avanço da equipe pelos níveis de premiação e a projeção para o fechamento da competência." />
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <CardTitle>Progresso da Meta</CardTitle>
+          <TipHelp label="Acompanhe o avanço da equipe pelos níveis de premiação e a projeção para o fechamento da competência." />
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <Badge variant={fecha ? "success" : "warning"}>{fecha ? "Projeção: meta atingida" : "Projeção abaixo da meta"}</Badge>
+          <Badge variant="neutral">
+            <span className="inline-flex items-center gap-1">
+              <ICONS.calendar size={12} />
+              {meta.diasRestantes}d restantes
+            </span>
+          </Badge>
+        </div>
       </div>
 
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -458,16 +469,6 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
             })}
           </div>
         </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        <Badge variant={fecha ? "success" : "warning"}>{fecha ? "Projeção: meta atingida" : "Projeção abaixo da meta"}</Badge>
-        <Badge variant="neutral">
-          <span className="inline-flex items-center gap-1">
-            <ICONS.calendar size={12} />
-            {meta.diasRestantes}d restantes
-          </span>
-        </Badge>
       </div>
     </>
   );
