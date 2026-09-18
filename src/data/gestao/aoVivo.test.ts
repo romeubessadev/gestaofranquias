@@ -53,10 +53,8 @@ describe("montarAoVivoView", () => {
     expect(todas.meta!.alvo).toBeGreaterThan(uma.meta!.alvo);
   });
 
-  it("evolução e insight mock preenchidos", () => {
+  it("insight mock preenchido", () => {
     const v = montarAoVivoView(escopo(["f1"]));
-    expect(v.evolucaoMeses.length).toBe(6);
-    expect(v.evolucao.length).toBeGreaterThan(0);
     expect(v.insightMock.length).toBeGreaterThan(20);
   });
 });

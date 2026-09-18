@@ -88,12 +88,6 @@ export interface MetaAoVivo {
   porGrupo: MetaGrupoLinha[];
 }
 
-export interface EvolucaoLinha {
-  colaboradorId: string;
-  nome: string;
-  valores: (number | null)[];
-}
-
 export interface AoVivoView {
   competencia: string;
   kpis: AoVivoKpi[];
@@ -104,8 +98,6 @@ export interface AoVivoView {
   meta: MetaAoVivo | null;
   /** Mix de formas na competência (mesmo contrato da Visão Geral / Financeiro). */
   formasPagamento: FormaPagamentoFat[];
-  evolucaoMeses: string[];
-  evolucao: EvolucaoLinha[];
   insightMock: string;
 }
 
@@ -179,28 +171,6 @@ function nivelPorPct(pctVal: number): string | null {
     if (pctVal >= d.atingimentoMinPct) atual = d.nome;
   }
   return atual;
-}
-
-function mesRotulo(ym: string): string {
-  const [y, m] = ym.split("-").map(Number);
-  const nomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-  return `${nomes[m - 1]}/${String(y).slice(2)}`;
-}
-
-function ultimosMeses(n: number, ateYm: string): string[] {
-  const [y0, m0] = ateYm.split("-").map(Number);
-  const out: string[] = [];
-  let y = y0;
-  let m = m0;
-  for (let i = 0; i < n; i++) {
-    out.unshift(`${y}-${String(m).padStart(2, "0")}`);
-    m -= 1;
-    if (m < 1) {
-      m = 12;
-      y -= 1;
-    }
-  }
-  return out;
 }
 
 /** Re-export helper used by tests when Escopo type needs filiais list. */
@@ -394,20 +364,6 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
       cor: CORES_FORMAS[forma] ?? "var(--t2)",
     }));
 
-  const evolucaoMeses = ultimosMeses(6, competencia);
-  const topEvolucao = rankingRaw.slice(0, 4).map((x) => x.c);
-  const evolucao: EvolucaoLinha[] = topEvolucao.map((c) => ({
-    colaboradorId: c.id,
-    nome: c.nome,
-    valores: evolucaoMeses.map((ym) => {
-      const ini = `${ym}-01`;
-      const fim = ym === competencia ? mesFim : fimDoMes(ini);
-      if (fim < c.dataAdmissao) return null;
-      const fat = fatVendedorNoPeriodo(c, ini, fim).faturamento;
-      return fat > 0 ? fat : null;
-    }),
-  }));
-
   const insightMock =
     ranking.length === 0
       ? "Ainda não há vendas na competência. Acompanhe o lançamento no caixa para ver o ranking ao vivo."
@@ -421,8 +377,6 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     desafios,
     meta,
     formasPagamento,
-    evolucaoMeses: evolucaoMeses.map(mesRotulo),
-    evolucao,
     insightMock,
   };
 }

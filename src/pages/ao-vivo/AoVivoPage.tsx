@@ -11,7 +11,7 @@ import {
   CardVendedoras,
   FaixaMetaGlobal,
 } from "@/pages/equipe/blocos";
-import { BlocoEvolucao, BlocoFormasPagamento, BlocoIaInsights, BlocoRanking, BlocoRankingGeral, BlocoRankingLojas } from "./blocos";
+import { BlocoFormasPagamento, BlocoIaInsights, BlocoRanking, BlocoRankingGeral, BlocoRankingLojas } from "./blocos";
 
 const IconVendas = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -241,10 +241,6 @@ export default function AoVivoPage() {
         </div>
         <BlocoRankingGeral ranking={view.ranking} vendedoras={equipeView.vendedoras} />
       </Card>
-
-      <div className="mt-4">
-        <BlocoEvolucao view={view} />
-      </div>
 
       <div className="mt-4">
         <BlocoIaInsights texto={insight} onGerar={() => setInsight(view.insightMock)} />

@@ -1,9 +1,9 @@
 import { Avatar, Badge, Card, CardTitle, EmptyState, ProgressBar } from "@/components/ui";
-import { AreaLineChart, DonutChart } from "@/components/charts";
+import { DonutChart } from "@/components/charts";
 import { brlK, num } from "@/lib/formato";
 import { cn } from "@/lib/cn";
 import { TrophyIcon } from "@/pages/dashboards/icons";
-import type { AoVivoView, RankingLinha, RankingLojaLinha } from "@/data/gestao/aoVivo";
+import type { RankingLinha, RankingLojaLinha } from "@/data/gestao/aoVivo";
 import type { FormaPagamentoFat } from "@/data/gestao/dashboard";
 import type { VendedoraLinha } from "@/data/gestao/equipeVisoes";
 
@@ -259,62 +259,6 @@ export function BlocoFormasPagamento({ formas }: { formas: FormaPagamentoFat[] }
         })}
       </div>
     </div>
-  );
-}
-
-export function BlocoEvolucao({ view }: { view: AoVivoView }) {
-  if (view.evolucao.length === 0) return null;
-  const cores = ["var(--acc)", "var(--ok)", "var(--warn)", "var(--info)"];
-  return (
-    <Card padding="lg">
-      <CardTitle>Evolução por Vendedor</CardTitle>
-      <p className="mt-1 text-[12px] text-t2">Últimos meses da competência (histórico).</p>
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[560px] border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
-              <th className="px-1 pb-2 text-left font-bold">Vendedor</th>
-              {view.evolucaoMeses.map((m) => (
-                <th key={m} className="px-1 pb-2 text-right font-bold">
-                  {m}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {view.evolucao.map((l) => (
-              <tr key={l.colaboradorId} className="border-b border-line/60 last:border-0">
-                <td className="py-2 pl-1 font-semibold text-t0">{l.nome}</td>
-                {l.valores.map((v, i) => (
-                  <td key={i} className="py-2 text-right font-mono text-[12px] font-bold text-t1">
-                    {v == null ? "—" : brlK(v)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="mt-4">
-        <AreaLineChart
-          data={view.evolucao[0]?.valores.map((v) => v ?? 0) ?? []}
-          compareData={view.evolucao[1]?.valores.map((v) => v ?? 0)}
-          labels={view.evolucaoMeses}
-          color={cores[0]}
-          compareColor={cores[1]}
-          formatValue={brlK}
-          showAxisLabels
-        />
-        <div className="mt-2 flex flex-wrap gap-3 text-[11px] font-semibold text-t2">
-          {view.evolucao.slice(0, 2).map((l, i) => (
-            <span key={l.colaboradorId} className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-[3px]" style={{ background: cores[i] }} />
-              {l.nome}
-            </span>
-          ))}
-        </div>
-      </div>
-    </Card>
   );
 }
 
