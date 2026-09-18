@@ -1,9 +1,10 @@
-import { Avatar, Card, CardTitle, EmptyState } from "@/components/ui";
+import { Avatar, Card, CardTitle, EmptyState, ProgressBar } from "@/components/ui";
 import { AreaLineChart } from "@/components/charts";
-import { brl, brlK, num } from "@/lib/formato";
+import { brlK, num } from "@/lib/formato";
 import { cn } from "@/lib/cn";
 import { TrophyIcon } from "@/pages/dashboards/icons";
 import type { AoVivoView, RankingLinha } from "@/data/gestao/aoVivo";
+import type { VendedoraLinha } from "@/data/gestao/equipeVisoes";
 
 /** Medalhas do leaderboard Vela (SalesDashboard / CRM) — anel, troféu e rótulos. */
 const MEDALHA = {
@@ -97,8 +98,14 @@ export function BlocoRanking({ ranking }: { ranking: RankingLinha[] }) {
   );
 }
 
-/** Lista completa — card separado abaixo do principal. */
-export function BlocoRankingGeral({ ranking }: { ranking: RankingLinha[] }) {
+/** Lista completa — mesmo padrão do Top Vendedoras (Visão Geral). */
+export function BlocoRankingGeral({
+  ranking,
+  vendedoras,
+}: {
+  ranking: RankingLinha[];
+  vendedoras?: VendedoraLinha[] | null;
+}) {
   if (ranking.length === 0) {
     return (
       <EmptyState
@@ -108,41 +115,52 @@ export function BlocoRankingGeral({ ranking }: { ranking: RankingLinha[] }) {
     );
   }
 
+  const metaPorId = new Map((vendedoras ?? []).map((v) => [v.colaboradorId, v]));
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[420px] border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
-            <th className="px-1 pb-2 text-left font-bold">#</th>
-            <th className="px-1 pb-2 text-left font-bold">Vendedor</th>
-            <th className="px-1 pb-2 text-right font-bold">Vendas</th>
-            <th className="px-1 pb-2 text-right font-bold">Faturamento</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ranking.map((l) => {
-            const medal = l.posicao <= 3 ? MEDALHA[l.posicao as 1 | 2 | 3] : null;
-            return (
-              <tr key={l.colaboradorId} className="border-b border-line/60 last:border-0">
-                <td
-                  className="py-2.5 pl-1 pr-2 font-mono text-[12.5px] font-extrabold"
-                  style={{ color: medal?.cor ?? "var(--t2)" }}
-                >
-                  {l.posicao}º
-                </td>
-                <td className="py-2.5">
-                  <div className="flex items-center gap-2">
-                    <Avatar size="sm" name={l.nome} />
-                    <span className="font-semibold text-t0">{l.nome}</span>
-                  </div>
-                </td>
-                <td className="py-2.5 text-right font-mono text-[12.5px] font-bold text-t0">{num(l.vendas)}</td>
-                <td className="py-2.5 text-right font-mono text-[12.5px] font-bold text-ok">{brl(l.faturamento)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div className="flex flex-col gap-4">
+      {ranking.map((l) => {
+        const medal = l.posicao <= 3 ? MEDALHA[l.posicao as 1 | 2 | 3] : null;
+        const eq = metaPorId.get(l.colaboradorId);
+        const pct = eq?.atingimentoPct ?? 0;
+        const ticket = eq?.ticketValor ?? (l.vendas > 0 ? l.faturamento / l.vendas : 0);
+        const barra = Math.min(100, pct);
+        return (
+          <div key={l.colaboradorId} className="flex items-center gap-3">
+            <span
+              className="w-5 text-center text-sm font-extrabold"
+              style={{ color: medal?.cor ?? "var(--t1)" }}
+            >
+              {l.posicao}
+            </span>
+            <Avatar name={l.nome} size="sm" />
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex items-baseline justify-between gap-2">
+                <span className="truncate text-[13px] font-bold text-t0">{l.nome}</span>
+                <span className="shrink-0 font-mono text-[13px] font-extrabold text-ok">{brlK(l.faturamento)}</span>
+              </div>
+              <ProgressBar value={barra} height={5} />
+              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-t2">
+                <span>{num(l.vendas)} vendas</span>
+                {ticket > 0 && (
+                  <>
+                    <span>·</span>
+                    <span>Ticket {brlK(ticket)}</span>
+                  </>
+                )}
+                {eq && eq.metaIndividualValor > 0 && (
+                  <>
+                    <span>·</span>
+                    <span className={pct >= 100 ? "font-semibold text-ok" : ""}>
+                      {Math.round(pct)}% da meta
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

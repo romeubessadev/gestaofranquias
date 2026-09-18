@@ -229,7 +229,7 @@ export default function AoVivoPage() {
           <TrophyIcon size={16} className="text-acc" />
           <CardTitle>Ranking geral</CardTitle>
         </div>
-        <BlocoRankingGeral ranking={view.ranking} />
+        <BlocoRankingGeral ranking={view.ranking} vendedoras={equipeView.vendedoras} />
       </Card>
 
       <div className="mt-4">
