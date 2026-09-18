@@ -27,6 +27,8 @@ const sizeClasses = {
   md: "h-10 w-10 text-[13px]",
   lg: "h-12 w-12 text-[15px]",
   xl: "h-16 w-16 text-xl",
+  "2xl": "h-20 w-20 text-[18px]",
+  "3xl": "h-24 w-24 text-[20px]",
 };
 
 export interface AvatarProps {

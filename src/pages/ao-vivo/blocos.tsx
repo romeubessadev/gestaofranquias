@@ -5,23 +5,24 @@ import { cn } from "@/lib/cn";
 import { TrophyIcon } from "@/pages/dashboards/icons";
 import type { AoVivoView, RankingLinha } from "@/data/gestao/aoVivo";
 
-/** Medalhas do leaderboard Vela (SalesDashboard / CRM). */
+/** Medalhas do leaderboard Vela (SalesDashboard / CRM) — anel, troféu e rótulos. */
 const MEDALHA = {
-  1: { cor: "#f7b84e", soft: "rgba(247,184,78,0.22)", glow: "0 0 28px rgba(247,184,78,0.35)" },
-  2: { cor: "#c7cdd6", soft: "rgba(199,205,214,0.18)", glow: "none" },
-  3: { cor: "#d99a5c", soft: "rgba(217,154,92,0.20)", glow: "none" },
+  1: { cor: "#f7b84e", glow: "0 0 32px rgba(247,184,78,0.4)" },
+  2: { cor: "#c7cdd6", glow: "none" },
+  3: { cor: "#d99a5c", glow: "none" },
 } as const;
 
+/** Alturas no porte do SaaS de referência. */
 const PODIO_ALTURA: Record<1 | 2 | 3, string> = {
-  1: "h-36 sm:h-40",
-  2: "h-28 sm:h-32",
-  3: "h-24 sm:h-28",
+  1: "h-52 sm:h-60",
+  2: "h-40 sm:h-48",
+  3: "h-32 sm:h-40",
 };
 
 /** Ordem visual do pódio: 2º | 1º | 3º */
 const PODIO_ORDEM = [1, 0, 2] as const;
 
-/** Pódio top 3 — aba Ranking (ouro / prata / bronze, padrão Vela). */
+/** Pódio top 3 — aba Ranking (ouro / prata / bronze; degrau na cor primária). */
 export function BlocoRanking({ ranking }: { ranking: RankingLinha[] }) {
   if (ranking.length === 0) {
     return (
@@ -36,7 +37,7 @@ export function BlocoRanking({ ranking }: { ranking: RankingLinha[] }) {
   const slots = PODIO_ORDEM.map((i) => top3[i]).filter((l): l is RankingLinha => Boolean(l));
 
   return (
-    <div className="flex items-end justify-center gap-2 pt-2 sm:gap-5">
+    <div className="flex items-end justify-center gap-3 px-1 pt-4 sm:gap-8 sm:px-4">
       {slots.map((l) => {
         const pos = Math.min(3, Math.max(1, l.posicao)) as 1 | 2 | 3;
         const medal = MEDALHA[pos];
@@ -44,43 +45,49 @@ export function BlocoRanking({ ranking }: { ranking: RankingLinha[] }) {
         return (
           <div
             key={l.colaboradorId}
-            className={cn("flex flex-col items-center text-center", isOuro ? "w-[34%] max-w-[160px]" : "w-[30%] max-w-[140px]")}
+            className={cn(
+              "flex flex-col items-center text-center",
+              isOuro ? "w-[36%] max-w-[200px]" : "w-[32%] max-w-[180px]",
+            )}
           >
-            <div className="relative mb-2.5">
+            <div className="relative mb-3">
               <span
                 className="relative inline-flex rounded-full"
                 style={{
-                  boxShadow: `0 0 0 3px ${medal.cor}${isOuro ? `, ${medal.glow}` : ""}`,
+                  boxShadow: `0 0 0 4px ${medal.cor}${isOuro ? `, ${medal.glow}` : ""}`,
                 }}
               >
-                <Avatar size={isOuro ? "xl" : "lg"} name={l.nome} />
+                <Avatar size={isOuro ? "3xl" : "2xl"} name={l.nome} />
               </span>
               <span
-                className="absolute -right-1 -top-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg-2"
+                className="absolute -right-1.5 -top-1.5 flex h-9 w-9 items-center justify-center rounded-full border-[3px] border-bg-2"
                 style={{ background: medal.cor, color: "#1a1228" }}
                 aria-hidden
               >
-                <TrophyIcon size={14} />
+                <TrophyIcon size={16} />
               </span>
             </div>
 
-            <p className="truncate text-[13px] font-bold text-t0 sm:text-[14px]">{l.nome.split(" ")[0]}</p>
-            <p className="mt-0.5 text-[11px] font-semibold text-t2">{num(l.vendas)} vendas</p>
-            <p className="mt-0.5 font-mono text-[12.5px] font-extrabold sm:text-[13px]" style={{ color: medal.cor }}>
+            <p className="truncate text-[14px] font-bold text-t0 sm:text-[15px]">{l.nome.split(" ")[0]}</p>
+            <p className="mt-0.5 text-[12px] font-semibold text-t2">{num(l.vendas)} vendas</p>
+            <p className="mt-1 font-mono text-[14px] font-extrabold sm:text-[15px]" style={{ color: medal.cor }}>
               {brlK(l.faturamento)}
             </p>
 
             <div
               className={cn(
-                "mt-3 flex w-full items-end justify-center rounded-t-2xl border border-line/80 bg-bg-inset",
+                "mt-4 flex w-full items-end justify-center rounded-t-[18px]",
                 PODIO_ALTURA[pos],
               )}
               style={{
-                background: `linear-gradient(180deg, ${medal.soft} 0%, var(--bg-inset) 55%)`,
-                boxShadow: isOuro ? "0 8px 24px rgba(124,92,255,0.18)" : undefined,
+                background: "color-mix(in srgb, var(--acc) 48%, transparent)",
+                boxShadow: isOuro ? "0 10px 36px color-mix(in srgb, var(--acc) 40%, transparent)" : undefined,
               }}
             >
-              <span className="pb-3 text-[22px] font-extrabold leading-none sm:text-[26px]" style={{ color: medal.cor }}>
+              <span
+                className="pb-4 text-[28px] font-extrabold leading-none sm:text-[34px]"
+                style={{ color: medal.cor }}
+              >
                 {pos}º
               </span>
             </div>
