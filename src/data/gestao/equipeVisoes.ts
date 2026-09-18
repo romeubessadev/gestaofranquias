@@ -689,19 +689,19 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     statusVariant = "info";
     prazoTom = "muted";
     diasRestantes = intervaloDias(HOJE_ISO, d.inicio).length - 1;
-    prazoRotulo = diasRestantes <= 0 ? "Começa hoje" : `Começa em ${diasRestantes}d`;
+    prazoRotulo = diasRestantes <= 0 ? "Hoje" : `Em ${diasRestantes}d`;
   } else if (HOJE_ISO > d.fim) {
     statusLabel = "Encerrado";
     statusVariant = "neutral";
     prazoTom = "bad";
     diasRestantes = 0;
-    prazoRotulo = "Encerrado";
+    prazoRotulo = "Fim";
   } else {
     statusLabel = "Ativo";
     statusVariant = "success";
     prazoTom = "ok";
     diasRestantes = intervaloDias(HOJE_ISO, d.fim).length;
-    prazoRotulo = diasRestantes === 1 ? "Termina em 1d" : `Termina em ${diasRestantes}d`;
+    prazoRotulo = `${diasRestantes}d`;
   }
 
   const fechaNoRitmo =
