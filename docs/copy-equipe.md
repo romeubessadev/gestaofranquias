@@ -119,7 +119,9 @@ Vocabulário do negócio:
 | Título | `Desempenho da meta` | | |
 | Tooltip (?) | `Progresso da meta da competência frente à escada de premiação (Meta, Super Meta, Hiper Meta e Meta Desafio).` | | |
 | Marcos da barra | `N1 · Meta (1,5%)` · `N2 · Super (2,0%)` · `N3 · Hiper (2,5%)` · `N4 · Desafio (3,0%)` | | |
-| Badge ok / alerta / dias | canto superior direito (ao lado do título) | | |
+| Badge ok / alerta | canto superior direito |
+| Badge dias | relógio + `{N}d` (mesmo padrão do Desafio) |
+
 
 ---
 

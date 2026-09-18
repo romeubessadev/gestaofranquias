@@ -21,6 +21,15 @@ const TipHelp = ({ label }: { label: string }) => (
   </Tooltip>
 );
 
+function IconRelogio() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
 function lojaCurta(fantasia: string): string {
   return fantasia.replace(/^Shopping\s+/i, "");
 }
@@ -406,11 +415,9 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           <Badge variant={fecha ? "success" : "warning"}>{fecha ? "Projeção: meta atingida" : "Projeção abaixo da meta"}</Badge>
-          <Badge variant="neutral">
-            <span className="inline-flex items-center gap-1">
-              <ICONS.calendar size={12} />
-              {meta.diasRestantes}d restantes
-            </span>
+          <Badge variant="neutral" className="gap-1">
+            <IconRelogio />
+            {meta.diasRestantes}d
           </Badge>
         </div>
       </div>
@@ -483,15 +490,6 @@ function fmtMinimo(v: number, unidade: DesafioView["unidade"], tipo: DesafioView
   if (tipo === "ticket" || tipo === "faturamento" || unidade === "R$") return brlK(v);
   if (tipo === "pa" || unidade === "x") return num(v, v % 1 !== 0 ? 2 : 0);
   return `${num(Math.round(v), 0)} un`;
-}
-
-function IconRelogio() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </svg>
-  );
 }
 
 export function BlocoDesafios({
