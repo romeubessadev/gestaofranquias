@@ -2,12 +2,26 @@ import { Avatar, Card, CardTitle, EmptyState } from "@/components/ui";
 import { AreaLineChart } from "@/components/charts";
 import { brl, brlK, num } from "@/lib/formato";
 import { cn } from "@/lib/cn";
+import { TrophyIcon } from "@/pages/dashboards/icons";
 import type { AoVivoView, RankingLinha } from "@/data/gestao/aoVivo";
 
-const PODIO_ALTURA = ["h-28", "h-36", "h-24"];
-const PODIO_ORDEM = [1, 0, 2]; // visual: 2º | 1º | 3º
+/** Medalhas do leaderboard Vela (SalesDashboard / CRM). */
+const MEDALHA = {
+  1: { cor: "#f7b84e", soft: "rgba(247,184,78,0.22)", glow: "0 0 28px rgba(247,184,78,0.35)" },
+  2: { cor: "#c7cdd6", soft: "rgba(199,205,214,0.18)", glow: "none" },
+  3: { cor: "#d99a5c", soft: "rgba(217,154,92,0.20)", glow: "none" },
+} as const;
 
-/** Pódio top 3 — aba Ranking do card principal. */
+const PODIO_ALTURA: Record<1 | 2 | 3, string> = {
+  1: "h-36 sm:h-40",
+  2: "h-28 sm:h-32",
+  3: "h-24 sm:h-28",
+};
+
+/** Ordem visual do pódio: 2º | 1º | 3º */
+const PODIO_ORDEM = [1, 0, 2] as const;
+
+/** Pódio top 3 — aba Ranking (ouro / prata / bronze, padrão Vela). */
 export function BlocoRanking({ ranking }: { ranking: RankingLinha[] }) {
   if (ranking.length === 0) {
     return (
@@ -19,35 +33,56 @@ export function BlocoRanking({ ranking }: { ranking: RankingLinha[] }) {
   }
 
   const top3 = ranking.slice(0, 3);
-  if (top3.length < 3) {
-    return (
-      <EmptyState
-        title="Pódio incompleto"
-        description="É preciso pelo menos 3 vendedores com venda no mês para montar o pódio."
-      />
-    );
-  }
-
-  const podiumSlots = PODIO_ORDEM.map((i) => top3[i]).filter(Boolean);
+  const slots = PODIO_ORDEM.map((i) => top3[i]).filter((l): l is RankingLinha => Boolean(l));
 
   return (
-    <div className="flex items-end justify-center gap-3 sm:gap-6">
-      {podiumSlots.map((l) => {
-        const idx = top3.indexOf(l);
+    <div className="flex items-end justify-center gap-2 pt-2 sm:gap-5">
+      {slots.map((l) => {
+        const pos = Math.min(3, Math.max(1, l.posicao)) as 1 | 2 | 3;
+        const medal = MEDALHA[pos];
+        const isOuro = pos === 1;
         return (
-          <div key={l.colaboradorId} className="flex w-[28%] max-w-[140px] flex-col items-center text-center">
-            <Avatar size="lg" name={l.nome} />
-            <p className="mt-2 truncate text-[13px] font-bold text-t0">{l.nome.split(" ")[0]}</p>
-            <p className="text-[11px] font-semibold text-t2">
-              {num(l.vendas)} vendas · {brlK(l.faturamento)}
+          <div
+            key={l.colaboradorId}
+            className={cn("flex flex-col items-center text-center", isOuro ? "w-[34%] max-w-[160px]" : "w-[30%] max-w-[140px]")}
+          >
+            <div className="relative mb-2.5">
+              <span
+                className="relative inline-flex rounded-full"
+                style={{
+                  boxShadow: `0 0 0 3px ${medal.cor}${isOuro ? `, ${medal.glow}` : ""}`,
+                }}
+              >
+                <Avatar size={isOuro ? "xl" : "lg"} name={l.nome} />
+              </span>
+              <span
+                className="absolute -right-1 -top-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg-2"
+                style={{ background: medal.cor, color: "#1a1228" }}
+                aria-hidden
+              >
+                <TrophyIcon size={14} />
+              </span>
+            </div>
+
+            <p className="truncate text-[13px] font-bold text-t0 sm:text-[14px]">{l.nome.split(" ")[0]}</p>
+            <p className="mt-0.5 text-[11px] font-semibold text-t2">{num(l.vendas)} vendas</p>
+            <p className="mt-0.5 font-mono text-[12.5px] font-extrabold sm:text-[13px]" style={{ color: medal.cor }}>
+              {brlK(l.faturamento)}
             </p>
+
             <div
               className={cn(
-                "mt-3 flex w-full items-end justify-center rounded-t-xl border border-line bg-bg-inset font-extrabold text-acc",
-                PODIO_ALTURA[idx] ?? "h-20",
+                "mt-3 flex w-full items-end justify-center rounded-t-2xl border border-line/80 bg-bg-inset",
+                PODIO_ALTURA[pos],
               )}
+              style={{
+                background: `linear-gradient(180deg, ${medal.soft} 0%, var(--bg-inset) 55%)`,
+                boxShadow: isOuro ? "0 8px 24px rgba(124,92,255,0.18)" : undefined,
+              }}
             >
-              <span className="pb-3 text-lg">{l.posicao}º</span>
+              <span className="pb-3 text-[22px] font-extrabold leading-none sm:text-[26px]" style={{ color: medal.cor }}>
+                {pos}º
+              </span>
             </div>
           </div>
         );
@@ -79,19 +114,27 @@ export function BlocoRankingGeral({ ranking }: { ranking: RankingLinha[] }) {
           </tr>
         </thead>
         <tbody>
-          {ranking.map((l) => (
-            <tr key={l.colaboradorId} className="border-b border-line/60 last:border-0">
-              <td className="py-2.5 pl-1 pr-2 font-mono text-[12.5px] font-bold text-t2">{l.posicao}º</td>
-              <td className="py-2.5">
-                <div className="flex items-center gap-2">
-                  <Avatar size="sm" name={l.nome} />
-                  <span className="font-semibold text-t0">{l.nome}</span>
-                </div>
-              </td>
-              <td className="py-2.5 text-right font-mono text-[12.5px] font-bold text-t0">{num(l.vendas)}</td>
-              <td className="py-2.5 text-right font-mono text-[12.5px] font-bold text-ok">{brl(l.faturamento)}</td>
-            </tr>
-          ))}
+          {ranking.map((l) => {
+            const medal = l.posicao <= 3 ? MEDALHA[l.posicao as 1 | 2 | 3] : null;
+            return (
+              <tr key={l.colaboradorId} className="border-b border-line/60 last:border-0">
+                <td
+                  className="py-2.5 pl-1 pr-2 font-mono text-[12.5px] font-extrabold"
+                  style={{ color: medal?.cor ?? "var(--t2)" }}
+                >
+                  {l.posicao}º
+                </td>
+                <td className="py-2.5">
+                  <div className="flex items-center gap-2">
+                    <Avatar size="sm" name={l.nome} />
+                    <span className="font-semibold text-t0">{l.nome}</span>
+                  </div>
+                </td>
+                <td className="py-2.5 text-right font-mono text-[12.5px] font-bold text-t0">{num(l.vendas)}</td>
+                <td className="py-2.5 text-right font-mono text-[12.5px] font-bold text-ok">{brl(l.faturamento)}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
