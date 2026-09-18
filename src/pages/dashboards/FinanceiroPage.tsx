@@ -441,7 +441,7 @@ export default function FinanceiroPage() {
 
       {/* Evolução Mensal — DataTable (desktop) + cards (mobile) */}
       <Card className="mt-4" padding="none">
-        <div className="flex items-center gap-1.5 border-b border-line px-5 py-4">
+        <div className="flex items-center gap-1.5 px-5 py-4">
           <div>
             <div className="flex items-center gap-1.5">
               <CardTitle>Evolução Mensal</CardTitle>
