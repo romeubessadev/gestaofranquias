@@ -173,8 +173,7 @@ Vocabulário do negócio:
 
 | Elemento | Texto / UI |
 |---|---|
-| Grupo | Badge neutro (`Grupo 1`) |
-| Loja | Badge neutro (`Campo Grande`) — só na visão Todas as lojas |
+| Sub da vendedora | `{Grupo} · {loja}` |
 | Prêmio / Gerente | Mesmo tom dos outros valores (`text-t0`), sem verde |
 
 ---
