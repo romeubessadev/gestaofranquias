@@ -1,9 +1,9 @@
-import { Avatar, Card, CardTitle, EmptyState, ProgressBar } from "@/components/ui";
+import { Avatar, Badge, Card, CardTitle, EmptyState, ProgressBar } from "@/components/ui";
 import { AreaLineChart, DonutChart } from "@/components/charts";
 import { brlK, num } from "@/lib/formato";
 import { cn } from "@/lib/cn";
 import { TrophyIcon } from "@/pages/dashboards/icons";
-import type { AoVivoView, RankingLinha } from "@/data/gestao/aoVivo";
+import type { AoVivoView, RankingLinha, RankingLojaLinha } from "@/data/gestao/aoVivo";
 import type { FormaPagamentoFat } from "@/data/gestao/dashboard";
 import type { VendedoraLinha } from "@/data/gestao/equipeVisoes";
 
@@ -96,6 +96,61 @@ export function BlocoRanking({ ranking }: { ranking: RankingLinha[] }) {
         );
       })}
     </div>
+  );
+}
+
+const CORES_LOJAS = ["var(--acc)", "var(--info)", "var(--ok)", "var(--warn)", "var(--bad)"];
+
+/** Donut + lista por loja — mesmo card da Visão Geral. */
+export function BlocoRankingLojas({ lojas }: { lojas: RankingLojaLinha[] }) {
+  const total = lojas.reduce((s, l) => s + l.valor, 0) || 1;
+  return (
+    <>
+      <div className="mb-1 flex items-center justify-between">
+        <CardTitle>Ranking de Lojas</CardTitle>
+        {lojas.length > 0 && <Badge variant="accent">Total {brlK(total)}</Badge>}
+      </div>
+      {lojas.length === 0 ? (
+        <span className="py-6 text-center text-[12px] text-t2">Sem dados na competência.</span>
+      ) : (
+        <>
+          <div className="flex flex-1 flex-col items-center justify-center">
+            <DonutChart
+              segments={lojas.map((l, i) => ({
+                label: l.nome,
+                value: l.valor,
+                color: CORES_LOJAS[i % CORES_LOJAS.length],
+              }))}
+              size={148}
+              thickness={20}
+              centerLabel="Total"
+              centerValue={brlK(total)}
+            />
+          </div>
+          <div className="mt-4 flex flex-col gap-3">
+            {lojas.map((loja, idx) => {
+              const pctMeta = loja.pctMeta != null ? Math.round(loja.pctMeta) : 0;
+              const cor = CORES_LOJAS[idx % CORES_LOJAS.length];
+              return (
+                <div key={loja.id} className="rounded-xl bg-bg-inset p-3">
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-[13px] font-bold text-t0">
+                      <span className="h-2.5 w-2.5 rounded-[4px]" style={{ background: cor }} />
+                      {loja.nome}
+                    </span>
+                    <span className="font-mono text-[13px] font-extrabold text-t0">{brlK(loja.valor)}</span>
+                  </div>
+                  <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-bg-2">
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, pctMeta)}%`, background: cor }} />
+                  </div>
+                  <span className="text-[11px] font-semibold text-t2">{pctMeta}% da meta</span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </>
   );
 }
 

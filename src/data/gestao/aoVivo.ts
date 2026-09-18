@@ -28,6 +28,13 @@ export interface RankingLinha {
   faturamento: number;
 }
 
+export interface RankingLojaLinha {
+  id: string;
+  nome: string;
+  valor: number;
+  pctMeta?: number;
+}
+
 export interface DesafioTop {
   colaboradorId: string;
   nome: string;
@@ -91,6 +98,7 @@ export interface AoVivoView {
   competencia: string;
   kpis: AoVivoKpi[];
   ranking: RankingLinha[];
+  rankingLojas: RankingLojaLinha[];
   desafios: DesafioAoVivo[];
   /** Meta do escopo: somada na rede, ou da loja filtrada. */
   meta: MetaAoVivo | null;
@@ -255,6 +263,15 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     faturamento: x.ag.faturamento,
   }));
 
+  const rankingLojas: RankingLojaLinha[] = fs
+    .map((f) => {
+      const fat = agregadoFiliais([f], mesInicio, mesFim).faturamento;
+      const metaFilial = metaDaFilial(f.id, competencia);
+      const pctMeta = metaFilial && metaFilial.valorLoja > 0 ? (fat / metaFilial.valorLoja) * 100 : undefined;
+      return { id: f.id, nome: f.nome, valor: fat, pctMeta };
+    })
+    .sort((a, b) => b.valor - a.valor);
+
   const escopoFiliais = filialIds.length ? filialIds : filiais.map((f) => f.id);
   const desafiosSrc = desafiosNoEscopo(competencia, escopoFiliais).filter(desafioAtivoAgora);
   const desafios: DesafioAoVivo[] = desafiosSrc.map((d) => {
@@ -400,6 +417,7 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     competencia,
     kpis,
     ranking,
+    rankingLojas,
     desafios,
     meta,
     formasPagamento,

@@ -11,7 +11,7 @@ import {
   CardVendedoras,
   FaixaMetaGlobal,
 } from "@/pages/equipe/blocos";
-import { BlocoEvolucao, BlocoFormasPagamento, BlocoIaInsights, BlocoRanking, BlocoRankingGeral } from "./blocos";
+import { BlocoEvolucao, BlocoFormasPagamento, BlocoIaInsights, BlocoRanking, BlocoRankingGeral, BlocoRankingLojas } from "./blocos";
 
 const IconVendas = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -226,17 +226,21 @@ export default function AoVivoPage() {
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="flex flex-col" padding="lg">
-          <div className="mb-4 flex items-center gap-2">
-            <TrophyIcon size={16} className="text-acc" />
-            <CardTitle>Ranking geral</CardTitle>
-          </div>
-          <BlocoRankingGeral ranking={view.ranking} vendedoras={equipeView.vendedoras} />
+          <BlocoRankingLojas lojas={view.rankingLojas} />
         </Card>
         <Card className="flex flex-col" padding="lg">
           <CardTitle className="mb-2">Formas de Pagamento</CardTitle>
           <BlocoFormasPagamento formas={view.formasPagamento} />
         </Card>
       </div>
+
+      <Card className="mt-4" padding="lg">
+        <div className="mb-4 flex items-center gap-2">
+          <TrophyIcon size={16} className="text-acc" />
+          <CardTitle>Ranking Vendedoras</CardTitle>
+        </div>
+        <BlocoRankingGeral ranking={view.ranking} vendedoras={equipeView.vendedoras} />
+      </Card>
 
       <div className="mt-4">
         <BlocoEvolucao view={view} />
