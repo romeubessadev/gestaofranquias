@@ -11,7 +11,7 @@ import { EstadoBloco } from "@/pages/dashboard/blocos";
 import type { DesafioView, EquipeView, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
 import { degrausPadrao } from "@/data/gestao/metas";
 import { cn } from "@/lib/cn";
-import { ICONS } from "@/pages/dashboards/icons";
+import { ICONS, FlameIcon } from "@/pages/dashboards/icons";
 
 const TipHelp = ({ label }: { label: string }) => (
   <Tooltip label={label}>
@@ -486,14 +486,6 @@ function IconRelogio() {
   );
 }
 
-function IconFogo() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 2c.4 2.4-1.2 4.2-2.8 5.8C7.4 9.6 6 11.4 6 14a6 6 0 0 0 12 0c0-2.2-1-4-2.2-5.5-.5-.6-1-1.2-1.3-1.9-.4 1.2.1 2.4.8 3.4.4.6.7 1.2.7 2 0 2.2-1.8 4-4 4s-4-1.8-4-4c0-1.6.8-2.9 2-4.1C11.2 6.6 12.4 4.8 12 2z" />
-    </svg>
-  );
-}
-
 export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
   return (
     <Card padding="lg">
@@ -514,7 +506,7 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
                 }}
                 aria-hidden
               >
-                <IconFogo />
+                <FlameIcon size={22} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[14.5px] font-bold leading-snug text-t0">{d.nome}</p>
