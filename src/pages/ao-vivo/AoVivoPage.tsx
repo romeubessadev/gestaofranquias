@@ -56,8 +56,8 @@ const IconTicket = () => (
   </svg>
 );
 
-const KPI_ICONS = [IconVendas, IconFat, IconMeta, IconPct];
-const KPI_HOJE_ICONS = [IconVendas, IconFat, IconTicket, IconItens];
+const KPI_ICONS = [IconFat, IconVendas, IconMeta, IconPct];
+const KPI_HOJE_ICONS = [IconFat, IconVendas, IconTicket, IconItens];
 /** Mesma sequência de tint dos heroes da Visão Geral / Financeiro. */
 const KPI_COLORS = [
   { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },

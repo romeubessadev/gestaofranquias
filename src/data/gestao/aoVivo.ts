@@ -202,13 +202,13 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
 
   const kpis: AoVivoKpi[] = [
     {
-      label: "Total de Vendas",
-      valor: num(mes.atendimentos),
+      label: "Faturamento",
+      valor: brlK(mes.faturamento),
       sub: "Competência do mês",
     },
     {
-      label: "Faturamento",
-      valor: brlK(mes.faturamento),
+      label: "Nº de vendas",
+      valor: num(mes.atendimentos),
       sub: "Competência do mês",
     },
     {
@@ -225,15 +225,15 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
 
   const kpisHoje: AoVivoKpiHoje[] = [
     {
-      label: "Vendas hoje",
-      valor: num(hoje.atendimentos),
-      sub: "Atendimentos",
-      tint: "info",
-    },
-    {
       label: "Faturamento hoje",
       valor: brlK(hoje.faturamento),
       sub: "Caixa do dia",
+      tint: "acc",
+    },
+    {
+      label: "Nº de vendas hoje",
+      valor: num(hoje.atendimentos),
+      sub: "Atendimentos",
       tint: "warn",
     },
     {
@@ -246,7 +246,7 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
       label: "Itens hoje",
       valor: num(hoje.itens),
       sub: "Unidades",
-      tint: "acc",
+      tint: "info",
     },
   ];
 
