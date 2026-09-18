@@ -4,7 +4,7 @@
 import { brl, brlK, fimDoMes, intervaloDias, num, pct } from "@/lib/formato";
 import { type Escopo } from "./dashboard";
 import { colaboradores, vendedorElegivel, type Colaborador } from "./equipe";
-import { desafiosAtivos, desafiosNoEscopo, desafioEhIndice, progressoIndividual, type Desafio } from "./desafios";
+import { desafiosNoEscopo, desafioEhIndice, progressoIndividual, type Desafio } from "./desafios";
 import { filiais, grupos, type Filial } from "./filiais";
 import { metaDaFilial, degrausPadrao } from "./metas";
 import { HOJE_ISO, HORA_ATUAL } from "./relogio";
