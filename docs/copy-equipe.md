@@ -211,7 +211,7 @@ Janela completa (`{dd/mm} – {dd/mm}`) só no `title` do badge (hover), não na
 | Barra + % ao lado (cor da barra) | progresso agregado |
 | Rótulo da barra | alinhado à esquerda: `1,67/1,90` ou `4/9 un` (o que a barra mede) |
 | Meta | só o valor (`1,90` · `15 un` · `R$ 185`) — sem “Atingir/Vender” |
-| Gerente | `Gerente: R$ 50 · 5 vendedoras` (regra do prêmio, fora da barra) |
+| Gerente | `Gerente: R$ 50` (só o prêmio) |
 
 ### Texto gerado do objetivo (template)
 

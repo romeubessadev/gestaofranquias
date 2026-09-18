@@ -559,11 +559,7 @@ export function BlocoDesafios({
           Prêmio: <span className="font-bold text-t0">{brl(d.premio)}</span>
         </span>
         <span>
-          Gerente:{" "}
-          <span className="font-bold text-t0">
-            {brl(d.premioGerente)}
-            {d.minimoVendedorasAtingindo > 0 ? ` · ${d.minimoVendedorasAtingindo} vendedoras` : ""}
-          </span>
+          Gerente: <span className="font-bold text-t0">{brl(d.premioGerente)}</span>
         </span>
       </div>
 
