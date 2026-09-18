@@ -436,59 +436,71 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
       </div>
 
       {/*
-        Marcos na barra + rótulos. N3/N4 ficam perto (100% vs 110%): no mobile
-        encurtamos o texto e alternamos a linha pra não sobrepor.
+        Marcos na barra (posição real) + rótulos na mesma linha.
+        Quando os % ficam perto (ex.: Hiper 100% / Desafio 110%), empacota os
+        centros com largura mínima pra nunca sobrepor — scroll horizontal se precisar.
       */}
-      <div className="mt-4 min-w-0">
-        <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
-          <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${fillPct}%`, background: corBarra }} />
-          {degrausPadrao.map((d) => {
-            const left = (d.atingimentoMinPct / escalaMax) * 100;
-            const atingido = meta.pct >= d.atingimentoMinPct;
-            return (
-              <span
-                key={`tick-${d.nome}`}
-                className="absolute top-0 bottom-0 w-0.5 -translate-x-1/2"
-                style={{ left: `${left}%`, background: atingido ? "var(--t0)" : "var(--t2)", opacity: atingido ? 0.55 : 0.35 }}
-              />
-            );
-          })}
-        </div>
+      {(() => {
+        const LABEL_MIN_PX = 120;
+        const GAP_PX = 14;
+        const n = degrausPadrao.length;
+        const baseW = Math.max(560, n * (LABEL_MIN_PX + GAP_PX));
+        const centers = degrausPadrao.map((d) => (d.atingimentoMinPct / escalaMax) * baseW);
+        for (let i = 1; i < n; i++) {
+          const minCenter = centers[i - 1] + LABEL_MIN_PX + GAP_PX;
+          if (centers[i] < minCenter) centers[i] = minCenter;
+        }
+        const trackW = Math.max(baseW, centers[n - 1] + LABEL_MIN_PX / 2 + 8);
+        // Mantém o último rótulo dentro da faixa.
+        centers[n - 1] = Math.min(centers[n - 1], trackW - LABEL_MIN_PX / 2);
+        for (let i = n - 2; i >= 0; i--) {
+          const maxCenter = centers[i + 1] - LABEL_MIN_PX - GAP_PX;
+          if (centers[i] > maxCenter) centers[i] = maxCenter;
+        }
+        centers[0] = Math.max(centers[0], LABEL_MIN_PX / 2);
 
-        <div className="relative mt-2 h-11 sm:h-7">
-          {degrausPadrao.map((d, i) => {
-            const left = (d.atingimentoMinPct / escalaMax) * 100;
-            const atingido = meta.pct >= d.atingimentoMinPct;
-            const isLast = i === degrausPadrao.length - 1;
-            const proximo = degrausPadrao[i + 1];
-            const gapPct = proximo ? proximo.atingimentoMinPct - d.atingimentoMinPct : Infinity;
-            // Escala 110: Hiper→Desafio = 10 pts — sobe o rótulo pra não colidir com o último.
-            const sobeLinha = !isLast && gapPct <= 15;
-            const rotuloCurto = d.nome.replace(/^Meta\s+/i, "");
-            return (
-              <p
-                key={d.nome}
-                className={cn(
-                  "absolute whitespace-nowrap text-[10px] font-bold leading-tight",
-                  isLast ? "right-0 text-right" : "-translate-x-1/2 text-center",
-                  sobeLinha ? "top-5" : "top-0",
-                  atingido ? "text-acc" : "text-t2",
-                )}
-                style={isLast ? undefined : { left: `${left}%` }}
-                title={`Nível ${i + 1} · ${d.nome} · ${num(d.comissaoPct, 1)}%`}
-              >
-                <span className="sm:hidden">
-                  N{i + 1} · {rotuloCurto}
-                </span>
-                <span className="hidden sm:inline">
-                  N{i + 1} · {rotuloCurto}
-                  <span className="font-semibold opacity-75"> ({num(d.comissaoPct, 1)}%)</span>
-                </span>
-              </p>
-            );
-          })}
-        </div>
-      </div>
+        return (
+          <div className="mt-4 min-w-0 overflow-x-auto overscroll-x-contain touch-pan-x">
+            <div style={{ minWidth: trackW }}>
+              <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
+                <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${fillPct}%`, background: corBarra }} />
+                {degrausPadrao.map((d) => {
+                  const left = (d.atingimentoMinPct / escalaMax) * 100;
+                  const atingido = meta.pct >= d.atingimentoMinPct;
+                  return (
+                    <span
+                      key={`tick-${d.nome}`}
+                      className="absolute top-0 bottom-0 w-0.5 -translate-x-1/2"
+                      style={{ left: `${left}%`, background: atingido ? "var(--t0)" : "var(--t2)", opacity: atingido ? 0.55 : 0.35 }}
+                    />
+                  );
+                })}
+              </div>
+
+              <div className="relative mt-2 h-7">
+                {degrausPadrao.map((d, i) => {
+                  const atingido = meta.pct >= d.atingimentoMinPct;
+                  const rotuloCurto = d.nome.replace(/^Meta\s+/i, "");
+                  return (
+                    <p
+                      key={d.nome}
+                      className={cn(
+                        "absolute top-0 -translate-x-1/2 whitespace-nowrap text-center text-[10px] font-bold leading-tight",
+                        atingido ? "text-acc" : "text-t2",
+                      )}
+                      style={{ left: `${centers[i]}px` }}
+                      title={`Nível ${i + 1} · ${d.nome} · ${num(d.comissaoPct, 1)}%`}
+                    >
+                      N{i + 1} · {rotuloCurto}
+                      <span className="font-semibold opacity-75"> ({num(d.comissaoPct, 1)}%)</span>
+                    </p>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 
