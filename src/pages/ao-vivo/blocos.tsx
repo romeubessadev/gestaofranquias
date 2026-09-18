@@ -23,7 +23,7 @@ export function BlocoRanking({ ranking }: { ranking: RankingLinha[] }) {
 
   return (
     <div className="flex flex-col gap-6">
-      {top3.length >= 1 && (
+      {top3.length >= 3 && (
         <div className="flex items-end justify-center gap-3 sm:gap-6">
           {podiumSlots.map((l) => {
             const idx = top3.indexOf(l);

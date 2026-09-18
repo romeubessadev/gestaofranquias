@@ -71,11 +71,13 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7
 **Reuses**: `dashboard.ts` aggregates, `desafios.ts`, `metas.ts`, `equipe.ts`  
 **Requirement**: AOVIVO-02, AOVIVO-03, AOVIVO-04, AOVIVO-05  
 
+**Status**: done
+
 **Done when**:
 
-- [ ] View exports typed `AoVivoView`
-- [ ] Unit tests cover dual KPI, ranking order, empty month, zero-today-with-month-sales
-- [ ] Gate quick passes
+- [x] View exports typed `AoVivoView`
+- [x] Unit tests cover dual KPI, ranking order, empty month, zero-today-with-month-sales
+- [x] Gate quick passes
 
 **Tests**: unit  
 **Gate**: quick  
