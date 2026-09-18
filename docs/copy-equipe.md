@@ -183,12 +183,13 @@ Vocabulário do negócio:
 
 ### Status / badges do desafio
 
-| Texto atual | Proposto | Motivo |
+Um único badge (ícone de relógio + prazo). A cor carrega o status; o texto não repete “Ativo / A começar / Encerrado”.
+
+| Situação | Badge | Variant |
 |---|---|---|
-| `Ativo` | | |
-| `A começar` | | |
-| `Encerrado` | | |
-| Prazo tipo `{N}d` / `Em {N}d` / `Encerrado` | | |
+| Em andamento | `Termina em {N}d` / `Termina em 1d` | success |
+| Ainda não começou | `Começa em {N}d` / `Começa hoje` | info |
+| Já acabou | `Encerrado` | neutral |
 
 ### Texto gerado do objetivo (template)
 

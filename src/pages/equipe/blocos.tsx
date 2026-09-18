@@ -491,7 +491,7 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
     <Card padding="lg">
       <div className="mb-4 flex items-center gap-1.5">
         <CardTitle>Desempenho nos Desafios</CardTitle>
-        <TipHelp label="Acompanhe o progresso da equipe nos desafios, com status, prazo e premiação." />
+        <TipHelp label="Acompanhe o progresso da equipe nos desafios, com prazo e premiação." />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -512,7 +512,6 @@ export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
                 <p className="text-[14.5px] font-bold leading-snug text-t0">{d.nome}</p>
                 <p className="mt-1 text-[12px] leading-snug text-t2">{d.objetivo}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <Badge variant={d.statusVariant}>{d.statusLabel}</Badge>
                   <Badge variant={d.statusVariant} className="gap-1">
                     <IconRelogio />
                     {d.prazoRotulo}
