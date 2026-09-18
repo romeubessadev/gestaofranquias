@@ -415,9 +415,9 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           <Badge variant={fecha ? "success" : "warning"}>{fecha ? "Projeção: meta atingida" : "Projeção abaixo da meta"}</Badge>
-          <Badge variant="neutral" className="gap-1">
+          <Badge variant={meta.diasRestantes > 0 ? "success" : "neutral"} className="gap-1">
             <IconRelogio />
-            {meta.diasRestantes}d
+            {meta.diasRestantes > 0 ? `${meta.diasRestantes}d` : "Encerrado"}
           </Badge>
         </div>
       </div>
