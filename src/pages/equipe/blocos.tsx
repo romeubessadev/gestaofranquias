@@ -407,6 +407,8 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
   const fillPct = Math.min(100, (meta.pct / escalaMax) * 100);
   const corBarra = progressColor(meta.pct);
   const corPct = progressTextClass(meta.pct);
+  // Projeção = onde fecha se mantiver o ritmo (igual Visão Geral), não só bateu/não bateu.
+  const rotuloProjecao = `Projeção: ${num(meta.projetadoPct, 0)}% da meta`;
 
   const body = (
     <>
@@ -416,7 +418,7 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
           <TipHelp label="Acompanhe o avanço da equipe pelos níveis de premiação e a projeção para o fechamento da competência." />
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
-          <Badge variant={fecha ? "success" : "warning"}>{fecha ? "Projeção: meta atingida" : "Projeção abaixo da meta"}</Badge>
+          <Badge variant={fecha ? "success" : "warning"}>{rotuloProjecao}</Badge>
           <Badge variant="neutral" className="gap-1">
             <IconRelogio />
             {meta.diasRestantes > 0 ? `${meta.diasRestantes}d` : "Encerrado"}
