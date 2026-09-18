@@ -175,22 +175,23 @@ const PROGRESSO_FIXO: Record<string, Record<string, number>> = {
     c15: 4, // 27%
     c17: 3, // 20%
   },
-  // Ativo: média da equipe ~1,67 (barra agregada = média/1,90 → verde).
+  // Ativo: média da equipe ~1,85 (barra = média/1,90 → ~97% verde).
+  // Poucas no 100% no topo; o resto espalha amarelo/vermelho (não parece "todas batendo").
   "d-pa": {
-    c01: 2.1, // atingiu
-    c02: 2.05,
-    c03: 1.98,
-    c04: 1.95,
-    c05: 1.92,
-    c07: 1.88, // quase
-    c08: 1.85,
-    c11: 1.82,
-    c12: 1.78,
-    c13: 1.55, // amarelo
-    c14: 1.48,
-    c15: 1.4,
-    c16: 0.88, // vermelho
-    c17: 0.72,
+    c01: 2.05, // atingiu
+    c02: 1.98, // atingiu
+    c03: 1.92, // atingiu
+    c04: 1.88, // quase
+    c05: 1.85,
+    c07: 1.82,
+    c08: 1.78,
+    c11: 1.72,
+    c12: 1.65, // amarelo
+    c13: 1.55,
+    c14: 1.42,
+    c15: 1.15, // vermelho-ish 61%
+    c16: 0.95, // vermelho
+    c17: 0.78,
   },
   // A começar (20/09): sem progresso até a janela abrir.
   "d-ticket": {},

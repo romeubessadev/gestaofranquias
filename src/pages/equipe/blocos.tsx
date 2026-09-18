@@ -566,7 +566,10 @@ export function BlocoDesafios({
             <span className="ml-1.5 text-t2">· {num(d.progressoPct, 0)}%</span>
           </p>
           <p className="text-[11.5px] font-semibold text-t2">
-            <span className="font-bold text-t0">{d.atingiram}</span>/{d.minimoVendedorasAtingindo} atingiram
+            <span className="font-bold text-t0">{d.atingiram}</span>/{d.participantes} atingiram
+            {d.minimoVendedorasAtingindo > 0 && d.minimoVendedorasAtingindo !== d.participantes && (
+              <span className="text-t2"> · gerente {d.minimoVendedorasAtingindo}</span>
+            )}
           </p>
         </div>
         <ProgressBar value={Math.min(100, d.progressoPct)} height={7} />
