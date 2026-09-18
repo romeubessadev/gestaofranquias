@@ -167,7 +167,7 @@ Vocabulário do negócio:
 | Texto atual | Proposto | Motivo |
 |---|---|---|
 | `{Grupo 1\|Grupo 2\|Sem grupo}` | | |
-| `{Grupo} · {loja}` _(visão rede)_ | | |
+| Sub da vendedora | `{Grupo} · {loja}` _(sempre — mesmo com 1 loja filtrada)_ |
 
 ### Ranking dentro do card de Desafio
 

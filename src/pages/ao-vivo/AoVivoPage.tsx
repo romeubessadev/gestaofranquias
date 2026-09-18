@@ -51,12 +51,10 @@ function AbaMetas({
   metaGlobal,
   vendedoras,
   metaAtiva,
-  visaoRede,
 }: {
   metaGlobal: ReturnType<typeof montarEquipeView>["metaGlobal"];
   vendedoras: ReturnType<typeof montarEquipeView>["vendedoras"];
   metaAtiva: boolean;
-  visaoRede: boolean;
 }) {
   if (!metaGlobal) {
     return (
@@ -75,7 +73,6 @@ function AbaMetas({
         estado={vendedoras && vendedoras.length > 0 ? "disponivel" : "sem_dados"}
         lista={vendedoras}
         metaAtiva={metaAtiva}
-        mostrarShopping={visaoRede}
       />
     </div>
   );
@@ -215,7 +212,6 @@ export default function AoVivoPage() {
                   metaGlobal={equipeView.metaGlobal}
                   vendedoras={equipeView.vendedoras}
                   metaAtiva={equipeView.metaAtiva}
-                  visaoRede={equipeView.visao === "rede"}
                 />
               ),
             },

@@ -132,15 +132,14 @@ export function BlocoKpisEquipe({
 
 type LinhaRank = VendedoraLinha & { posicao: number };
 
-function CelulaVendedora({ l, mostrarShopping }: { l: LinhaRank; mostrarShopping: boolean }) {
+function CelulaVendedora({ l }: { l: LinhaRank }) {
   return (
     <div className="flex min-w-0 items-center gap-2.5">
       <Avatar name={l.nome} size="sm" />
       <div className="min-w-0">
         <p className="truncate text-[13px] font-bold text-t0">{l.nome}</p>
         <p className="truncate text-[11px] text-t2">
-          {l.grupo}
-          {mostrarShopping ? ` · ${lojaCurta(l.filialNome)}` : ""}
+          {l.grupo} · {lojaCurta(l.filialNome)}
         </p>
       </div>
     </div>
@@ -209,7 +208,7 @@ function CelulaPremiacao({ l }: { l: LinhaRank }) {
   );
 }
 
-function CardMobileVendedora({ l, metaAtiva, mostrarShopping }: { l: LinhaRank; metaAtiva: boolean; mostrarShopping: boolean }) {
+function CardMobileVendedora({ l, metaAtiva }: { l: LinhaRank; metaAtiva: boolean }) {
   return (
     <div className="rounded-xl border border-line bg-bg-inset p-3.5">
       <div className="mb-3 flex items-center gap-2.5">
@@ -218,8 +217,7 @@ function CardMobileVendedora({ l, metaAtiva, mostrarShopping }: { l: LinhaRank; 
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13.5px] font-bold text-t0">{l.nome}</p>
           <p className="truncate text-[11.5px] text-t2">
-            {l.grupo}
-            {mostrarShopping ? ` · ${lojaCurta(l.filialNome)}` : ""}
+            {l.grupo} · {lojaCurta(l.filialNome)}
           </p>
         </div>
       </div>
@@ -258,7 +256,7 @@ function CardMobileVendedora({ l, metaAtiva, mostrarShopping }: { l: LinhaRank; 
   );
 }
 
-export function BlocoVendedoras({ lista, metaAtiva, mostrarShopping = false }: { lista: VendedoraLinha[]; metaAtiva: boolean; mostrarShopping?: boolean }) {
+export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[]; metaAtiva: boolean }) {
   const ranked: LinhaRank[] = lista.map((l, i) => ({ ...l, posicao: i + 1 }));
 
   const colunas: DataTableColumn<LinhaRank>[] = [
@@ -271,7 +269,7 @@ export function BlocoVendedoras({ lista, metaAtiva, mostrarShopping = false }: {
     {
       key: "vendedora",
       header: "Vendedora",
-      render: (l) => <CelulaVendedora l={l} mostrarShopping={mostrarShopping} />,
+      render: (l) => <CelulaVendedora l={l} />,
     },
     {
       key: "faturamento",
@@ -343,7 +341,7 @@ export function BlocoVendedoras({ lista, metaAtiva, mostrarShopping = false }: {
       </div>
       <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
         {ranked.map((l) => (
-          <CardMobileVendedora key={`${l.filialId}-${l.colaboradorId}`} l={l} metaAtiva={metaAtiva} mostrarShopping={mostrarShopping} />
+          <CardMobileVendedora key={`${l.filialId}-${l.colaboradorId}`} l={l} metaAtiva={metaAtiva} />
         ))}
       </div>
     </>
@@ -355,13 +353,11 @@ export function CardVendedoras({
   estado,
   lista,
   metaAtiva,
-  mostrarShopping = false,
   embedded = false,
 }: {
   estado: EstadoBlocoTipo;
   lista: VendedoraLinha[] | null;
   metaAtiva: boolean;
-  mostrarShopping?: boolean;
   /** Sem Card externo (ex.: aba Metas do Ao vivo). */
   embedded?: boolean;
 }) {
@@ -373,7 +369,7 @@ export function CardVendedoras({
       </div>
       <EstadoBloco estado={estado}>
         {lista && lista.length > 0 ? (
-          <BlocoVendedoras lista={lista} metaAtiva={metaAtiva} mostrarShopping={mostrarShopping} />
+          <BlocoVendedoras lista={lista} metaAtiva={metaAtiva} />
         ) : (
           <div className={embedded ? "py-2" : "p-5"}>
             <EmptyState icon="👤" title="Sem vendedoras elegíveis" description="Nenhuma vendedora elegível para esta competência." />

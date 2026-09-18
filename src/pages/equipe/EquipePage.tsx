@@ -225,7 +225,6 @@ export function EquipePage() {
           estado={vendedorasFiltradas && vendedorasFiltradas.length > 0 ? "disponivel" : "sem_dados"}
           lista={vendedorasFiltradas}
           metaAtiva={v.metaAtiva}
-          mostrarShopping={v.visao === "rede"}
         />
 
         {v.metaAtiva && v.desafios && v.desafios.length > 0 && <BlocoDesafios desafios={v.desafios} />}
