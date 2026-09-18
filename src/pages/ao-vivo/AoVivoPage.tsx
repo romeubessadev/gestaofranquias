@@ -5,7 +5,7 @@ import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarAoVivoView } from "@/data/gestao/aoVivo";
 import { montarEquipeView } from "@/data/gestao/equipeVisoes";
 import { paths } from "@/router/paths";
-import { FlameIcon, TargetIcon, TrophyIcon } from "@/pages/dashboards/icons";
+import { FlameIcon, TargetIcon, TrophyIcon, TINT, type TintKey } from "@/pages/dashboards/icons";
 import {
   BlocoDesafios as BlocoDesafiosEquipe,
   CardVendedoras,
@@ -39,7 +39,23 @@ const IconPct = () => (
   </svg>
 );
 
+const IconItens = () => (
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+    <line x1="12" y1="22.08" x2="12" y2="12" />
+  </svg>
+);
+const IconTicket = () => (
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="7" width="20" height="10" rx="2" />
+    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+    <path d="M12 12h.01" />
+  </svg>
+);
+
 const KPI_ICONS = [IconVendas, IconFat, IconMeta, IconPct];
+const KPI_HOJE_ICONS = [IconVendas, IconFat, IconTicket, IconItens];
 const KPI_COLORS = [
   { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
   { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
@@ -181,6 +197,28 @@ export default function AoVivoPage() {
               iconColor={c.iconColor}
               iconBg={c.iconBg}
             />
+          );
+        })}
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {view.kpisHoje.map((kpi, i) => {
+          const Icon = KPI_HOJE_ICONS[i] ?? IconVendas;
+          const tint = TINT[kpi.tint as TintKey];
+          return (
+            <Card key={kpi.label} padding="sm" className="flex items-center gap-3.5">
+              <span
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]"
+                style={{ background: tint.bg, color: tint.fg }}
+              >
+                <Icon />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11.5px] font-semibold text-t2">{kpi.label}</p>
+                <p className="mt-1 truncate font-mono text-lg font-extrabold text-t0">{kpi.valor}</p>
+                <p className="text-[11px] text-t2">{kpi.sub}</p>
+              </div>
+            </Card>
           );
         })}
       </div>

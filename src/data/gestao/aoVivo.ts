@@ -20,6 +20,13 @@ export interface AoVivoKpi {
   sub?: string;
 }
 
+export interface AoVivoKpiHoje {
+  label: string;
+  valor: string;
+  sub: string;
+  tint: "acc" | "ok" | "warn" | "info";
+}
+
 export interface RankingLinha {
   posicao: number;
   colaboradorId: string;
@@ -91,6 +98,8 @@ export interface MetaAoVivo {
 export interface AoVivoView {
   competencia: string;
   kpis: AoVivoKpi[];
+  /** Pulso do dia — strip compacto abaixo dos KPIs mensais. */
+  kpisHoje: AoVivoKpiHoje[];
   ranking: RankingLinha[];
   rankingLojas: RankingLojaLinha[];
   desafios: DesafioAoVivo[];
@@ -192,17 +201,18 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
       : filialIds.reduce((s, id) => s + (metaDaFilial(id, competencia)?.valorLoja ?? 0), 0);
 
   const atingimentoPct = metaAlvo > 0 ? (mes.faturamento / metaAlvo) * 100 : 0;
+  const ticketHoje = hoje.atendimentos > 0 ? hoje.faturamento / hoje.atendimentos : 0;
 
   const kpis: AoVivoKpi[] = [
     {
       label: "Total de Vendas",
       valor: num(mes.atendimentos),
-      sub: `Hoje ${num(hoje.atendimentos)}`,
+      sub: "Competência do mês",
     },
     {
       label: "Faturamento",
       valor: brlK(mes.faturamento),
-      sub: `Hoje ${brlK(hoje.faturamento)}`,
+      sub: "Competência do mês",
     },
     {
       label: "Meta Mensal",
@@ -213,6 +223,33 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
       label: "Atingimento",
       valor: metaAlvo > 0 ? pct(atingimentoPct, 1) : "—",
       sub: metaAlvo > 0 ? `${brlK(mes.faturamento)} / ${brlK(metaAlvo)}` : "Sem meta na competência",
+    },
+  ];
+
+  const kpisHoje: AoVivoKpiHoje[] = [
+    {
+      label: "Vendas hoje",
+      valor: num(hoje.atendimentos),
+      sub: "Atendimentos",
+      tint: "info",
+    },
+    {
+      label: "Faturamento hoje",
+      valor: brlK(hoje.faturamento),
+      sub: "Caixa do dia",
+      tint: "warn",
+    },
+    {
+      label: "Ticket médio",
+      valor: ticketHoje > 0 ? brl(ticketHoje) : "—",
+      sub: "Por venda",
+      tint: "ok",
+    },
+    {
+      label: "Itens hoje",
+      valor: num(hoje.itens),
+      sub: "Unidades",
+      tint: "acc",
     },
   ];
 
@@ -372,6 +409,7 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
   return {
     competencia,
     kpis,
+    kpisHoje,
     ranking,
     rankingLojas,
     desafios,

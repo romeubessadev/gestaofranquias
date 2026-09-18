@@ -7,15 +7,20 @@ function escopo(filialIds: string[] = []): Escopo {
 }
 
 describe("montarAoVivoView", () => {
-  it("mostra KPIs do mês com subtítulo do dia", () => {
+  it("mostra KPIs do mês e strip do dia", () => {
     const v = montarAoVivoView(escopo(["f1"]));
     expect(v.kpis).toHaveLength(4);
     expect(v.kpis[0].label).toBe("Total de Vendas");
     expect(v.kpis[1].label).toBe("Faturamento");
-    expect(v.kpis[0].sub).toMatch(/^Hoje /);
-    expect(v.kpis[1].sub).toMatch(/^Hoje /);
+    expect(v.kpis[0].sub).not.toMatch(/^Hoje /);
+    expect(v.kpis[1].sub).not.toMatch(/^Hoje /);
     expect(v.kpis[2].label).toBe("Meta Mensal");
     expect(v.kpis[3].label).toBe("Atingimento");
+    expect(v.kpisHoje).toHaveLength(4);
+    expect(v.kpisHoje[0].label).toBe("Vendas hoje");
+    expect(v.kpisHoje[1].label).toBe("Faturamento hoje");
+    expect(v.kpisHoje[2].label).toBe("Ticket médio");
+    expect(v.kpisHoje[3].label).toBe("Itens hoje");
   });
 
   it("ranking do mês ordenado por faturamento decrescente", () => {

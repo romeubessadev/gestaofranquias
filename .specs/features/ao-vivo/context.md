@@ -21,15 +21,15 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 ### Periodicidade (travado — opção 1)
 - **Sem** toggle global Hoje|Mês.
 - **Sem** períodos Semestre/Ano no Ranking (histórico fora do Ao vivo).
-- **Indicadores:** sempre as duas leituras — valor principal = **mês**; subtítulo = **hoje** (ex.: Faturamento do mês + `Hoje R$ X · N vendas`).
+- **Indicadores principais:** competência do **mês**.
+- **Strip do dia:** pulso de hoje (vendas, fat., ticket, itens) abaixo dos KPIs.
 - **Ranking / Desafios / Metas:** sempre competência do **mês** (desafios = janela do próprio desafio).
-- **Evolução do vendedor:** histórico multi-mês (P2), separado do “ao vivo”.
+- **Evolução do vendedor:** removida da tela (histórico fora do Ao vivo).
 
 ### KPIs (Indicadores)
-- Total de Vendas (mês + hoje no sub)
-- Faturamento (mês + hoje no sub)
-- Meta Mensal (meta da competência)
-- Atingimento (% do mês até agora)
+- **Principais (mês):** Total de Vendas · Faturamento · Meta Mensal · Atingimento — competência.
+- **Strip do dia** (padrão Sales quick stats, abaixo dos principais): Vendas hoje · Faturamento hoje · Ticket médio · Itens hoje.
+- Sem “Hoje …” no subtítulo dos KPIs principais (pulso do dia vive no strip).
 
 ### Abas principais
 - Card principal (**Andamento da competência**): tabs accent **Ranking** (pódio) | **Desafios** | **Metas**.
