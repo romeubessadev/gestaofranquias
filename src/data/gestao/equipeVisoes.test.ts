@@ -514,6 +514,7 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
       nome: "Teste",
       objetivo: "Quem vender 10 unidades ganha o prêmio.",
       tipo: "produto",
+      filialId: "f1",
       alvoIndividual: 10,
       unidade: "un",
       premio: 40,
@@ -560,6 +561,18 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
     expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
     expect(v.desafios![0].statusLabel).toBe("Ativo");
     expect(v.desafios![v.desafios!.length - 1].statusLabel).toBe("Encerrado");
+  });
+
+  it("visão rede exibe loja no card; loja isolada não", () => {
+    const rede = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    const loja = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    expect(rede.desafios!.length).toBe(4);
+    expect(rede.desafios!.every((d) => d.exibirLoja)).toBe(true);
+    expect(rede.desafios!.some((d) => d.lojaRotulo === "Campo Grande")).toBe(true);
+    expect(rede.desafios!.some((d) => d.lojaRotulo === "Três Lagoas")).toBe(true);
+    expect(loja.desafios!.length).toBe(2);
+    expect(loja.desafios!.every((d) => !d.exibirLoja)).toBe(true);
+    expect(loja.desafios!.every((d) => d.filialId === "f1")).toBe(true);
   });
 
   it("sem meta ativa não há desafios na view (já coberto), e desafios da competência vazia não quebram", () => {

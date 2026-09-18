@@ -531,7 +531,12 @@ export function BlocoDesafios({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="min-w-0 text-[14.5px] font-bold leading-snug text-t0">{d.nome}</p>
+            <div className="min-w-0">
+              <p className="text-[14.5px] font-bold leading-snug text-t0">{d.nome}</p>
+              {d.exibirLoja && (
+                <p className="mt-0.5 text-[11.5px] font-semibold text-t2">{d.lojaRotulo}</p>
+              )}
+            </div>
             <span className="shrink-0" title={d.janelaRotulo}>
               <Badge variant={d.statusVariant} className="gap-1">
                 <IconRelogio />

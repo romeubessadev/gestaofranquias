@@ -4,7 +4,7 @@
 import { brl, brlK, fimDoMes, intervaloDias, num, pct } from "@/lib/formato";
 import { type Escopo } from "./dashboard";
 import { colaboradores, vendedorElegivel, type Colaborador } from "./equipe";
-import { desafiosAtivos, desafioEhIndice, progressoIndividual, type Desafio } from "./desafios";
+import { desafiosAtivos, desafiosNoEscopo, desafioEhIndice, progressoIndividual, type Desafio } from "./desafios";
 import { filiais, grupos, type Filial } from "./filiais";
 import { metaDaFilial, degrausPadrao } from "./metas";
 import { HOJE_ISO, HORA_ATUAL } from "./relogio";
@@ -253,7 +253,8 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     faturamento: x.ag.faturamento,
   }));
 
-  const desafiosSrc = desafiosAtivos(competencia).filter(desafioAtivoAgora);
+  const escopoFiliais = filialIds.length ? filialIds : filiais.map((f) => f.id);
+  const desafiosSrc = desafiosNoEscopo(competencia, escopoFiliais).filter(desafioAtivoAgora);
   const desafios: DesafioAoVivo[] = desafiosSrc.map((d) => {
     const parts = d.participantes
       .map((id) => {

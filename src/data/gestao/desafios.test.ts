@@ -47,15 +47,24 @@ describe("T1: desafios ativos (EQUIP-05)", () => {
     }
   });
 
-  it("desafios de produto têm subconjunto; P.A. e ticket usam o pool ativo", () => {
+  it("cada desafio pertence a uma loja; participantes são da mesma loja", () => {
     const ativos = desafiosAtivos("2026-09");
     const perf = ativos.find((d) => d.id === "d-perfumaria")!;
     const body = ativos.find((d) => d.id === "d-bodycream")!;
     const pa = ativos.find((d) => d.id === "d-pa")!;
     const ticket = ativos.find((d) => d.id === "d-ticket")!;
-    expect(perf.participantes.length).toBeLessThan(pa.participantes.length);
-    expect(body.participantes.length).toBeLessThan(pa.participantes.length);
-    expect(pa.participantes).toEqual(ticket.participantes);
+    expect(perf.filialId).toBe("f1");
+    expect(pa.filialId).toBe("f1");
+    expect(body.filialId).toBe("f2");
+    expect(ticket.filialId).toBe("f2");
+    for (const d of ativos) {
+      expect(d.filialId).toBeTruthy();
+      for (const id of d.participantes) {
+        expect(colaboradorPorId(id)!.filialId).toBe(d.filialId);
+      }
+    }
+    expect(perf.participantes.length).toBeLessThanOrEqual(pa.participantes.length);
+    expect(body.participantes.length).toBeLessThanOrEqual(ticket.participantes.length);
   });
 
   it("progresso individual é determinístico (mesma chave, mesmo valor)", () => {

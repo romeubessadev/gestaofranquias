@@ -1,18 +1,11 @@
 /**
  * Desafios da competência (mock determinístico).
  *
- * Tipos:
- * - quantidade — meta fixa em unidades (ex.: vender 3)
- * - produto — quem vende mais unidades (com mínimo opcional)
- * - faturamento — quem vende mais em R$ (com mínimo opcional)
- * - pa — índice P.A. (peças/atendimento)
- * - ticket — ticket médio em R$
+ * Cada desafio pertence a uma loja (`filialId`) ou à rede (`null`).
+ * Na visão "Todas as lojas" o card mostra de qual loja é.
  *
- * Nunca em reais como tipo de premiação (prêmio é o único campo monetário
- * de recompensa). Cada desafio tem janela própria (inicio/fim).
- *
- * Progresso individual é fixture explícita (não PRNG) para a demo cobrir
- * barras vermelha / amarela / verde com valores realistas por tipo.
+ * Tipos: quantidade | produto | faturamento | pa | ticket.
+ * Progresso individual é fixture explícita (régua vermelho/amarelo/verde).
  */
 import { colaboradores, vendedorElegivel } from "./equipe";
 import { HOJE_ISO } from "./relogio";
@@ -26,6 +19,8 @@ export interface Desafio {
   /** Frase curta do objetivo (o que precisa fazer). */
   objetivo: string;
   tipo: TipoDesafio;
+  /** Loja dona do desafio. `null` = desafio de rede (todas as lojas). */
+  filialId: string | null;
   /** Alvo / piso por participante (un, índice ou R$). */
   alvoIndividual: number;
   /**
@@ -57,28 +52,25 @@ export interface Desafio {
   participantes: string[];
 }
 
-/**
- * Vendedoras ativas na competência (sem caixa, sem férias, admitidas até o
- * dia 1). Usado como pool; cada desafio escolhe o subconjunto engajado.
- */
-const ATIVAS_SETEMBRO = colaboradores
-  .filter(
-    (c) =>
-      vendedorElegivel(c) &&
-      c.dataAdmissao <= "2026-09-01" &&
-      (!c.dataInatividade || c.dataInatividade > "2026-09-15"),
-  )
-  .map((c) => c.id);
+function ativasDaFilial(filialId: string): string[] {
+  return colaboradores
+    .filter(
+      (c) =>
+        c.filialId === filialId &&
+        vendedorElegivel(c) &&
+        c.dataAdmissao <= "2026-09-01" &&
+        (!c.dataInatividade || c.dataInatividade > "2026-09-15"),
+    )
+    .map((c) => c.id);
+}
+
+const ATIVAS_F1 = ativasDaFilial("f1");
+const ATIVAS_F2 = ativasDaFilial("f2");
 
 /**
- * Desafios de setembro/2026 — tipicamente 4, com status mistos no relógio
- * do mock (HOJE = 2026-09-15): encerrado, ativo, ativo, a começar.
- *
- * Barras agregadas (régua ProgressBar):
- * - Perfumaria (encerrado) → vermelha (~44%)
- * - Body Cream (ativo) → amarela (~70%)
- * - P.A. (ativo) → verde (~média 1,80 / 1,90)
- * - Ticket (a começar) → 0% (ainda não começou)
+ * Desafios de setembro/2026 — 2 por loja, status mistos (HOJE = 2026-09-15):
+ * - Campo Grande: Perfumaria (encerrado, vermelho) + P.A. (ativo, verde)
+ * - Três Lagoas: Body Cream (ativo, amarelo) + Ticket (a começar)
  */
 export const desafios: Desafio[] = [
   {
@@ -86,6 +78,7 @@ export const desafios: Desafio[] = [
     nome: "Perfumaria — 3 acima de R$ 150",
     objetivo: "Vender 3 perfumes acima de R$ 150 e ganhar R$ 50,00.",
     tipo: "quantidade",
+    filialId: "f1",
     alvoIndividual: 3,
     minimo: 3,
     unidade: "un",
@@ -96,13 +89,14 @@ export const desafios: Desafio[] = [
     inicio: "2026-09-01",
     fim: "2026-09-10",
     produtoId: 1,
-    participantes: ["c01", "c02", "c07", "c11", "c12", "c14"],
+    participantes: ["c01", "c02", "c03", "c04", "c05", "c07"],
   },
   {
     id: "d-bodycream",
     nome: "Body Cream — quem vender mais",
     objetivo: "Quem vender mais Body Cream (mínimo 15 un) ganha R$ 50,00.",
     tipo: "produto",
+    filialId: "f2",
     alvoIndividual: 15,
     minimo: 15,
     unidade: "un",
@@ -113,13 +107,14 @@ export const desafios: Desafio[] = [
     inicio: "2026-09-01",
     fim: "2026-09-30",
     produtoId: 3,
-    participantes: ["c01", "c03", "c04", "c08", "c13", "c15", "c17"],
+    participantes: ["c11", "c12", "c13", "c14", "c15", "c17"],
   },
   {
     id: "d-pa",
     nome: "P.A. acima de 1,90",
     objetivo: "Manter P.A. acima de 1,90 no mês e ganhar R$ 50,00.",
     tipo: "pa",
+    filialId: "f1",
     alvoIndividual: 1.9,
     minimo: 1.9,
     unidade: "x",
@@ -130,13 +125,14 @@ export const desafios: Desafio[] = [
     inicio: "2026-09-01",
     fim: "2026-09-30",
     produtoId: null,
-    participantes: ATIVAS_SETEMBRO,
+    participantes: ATIVAS_F1,
   },
   {
     id: "d-ticket",
     nome: "Ticket médio acima de R$ 185",
     objetivo: "Manter ticket médio acima de R$ 185 e ganhar R$ 50,00.",
     tipo: "ticket",
+    filialId: "f2",
     alvoIndividual: 185,
     minimo: 185,
     unidade: "R$",
@@ -147,7 +143,7 @@ export const desafios: Desafio[] = [
     inicio: "2026-09-20",
     fim: "2026-09-30",
     produtoId: null,
-    participantes: ATIVAS_SETEMBRO,
+    participantes: ATIVAS_F2,
   },
 ];
 
@@ -156,50 +152,46 @@ export const desafios: Desafio[] = [
  * Cobrem <50% (vermelho), 50–79% (amarelo) e ≥80% (verde) nas barras.
  */
 const PROGRESSO_FIXO: Record<string, Record<string, number>> = {
-  // Encerrado: poucos fecharam → agregado gerente vermelho (~44%).
+  // Campo Grande · encerrado → agregado vermelho (~44%).
   "d-perfumaria": {
-    c01: 2, // 67% amarelo
-    c02: 1, // 33% vermelho
+    c01: 2,
+    c02: 1,
+    c03: 1,
+    c04: 0,
+    c05: 0,
     c07: 0,
-    c11: 1, // 33%
-    c12: 0,
-    c14: 0,
   },
-  // Ativo: ritmo médio → agregado gerente amarelo (~70%).
+  // Três Lagoas · ativo → agregado amarelo (~63%).
   "d-bodycream": {
-    c01: 9, // 60% amarelo
-    c03: 8, // 53%
-    c04: 7, // 47% vermelho
-    c08: 6, // 40%
-    c13: 5, // 33%
-    c15: 4, // 27%
-    c17: 3, // 20%
+    c11: 9,
+    c12: 8,
+    c13: 7,
+    c14: 6,
+    c15: 5,
+    c17: 3,
   },
-  // Ativo: média da equipe ~1,85 (barra = média/1,90 → ~97% verde).
-  // Poucas no 100% no topo; o resto espalha amarelo/vermelho (não parece "todas batendo").
+  // Campo Grande · ativo → média ~1,90 (verde).
   "d-pa": {
-    c01: 2.05, // atingiu
-    c02: 1.98, // atingiu
-    c03: 1.92, // atingiu
-    c04: 1.88, // quase
+    c01: 2.05,
+    c02: 1.98,
+    c03: 1.92,
+    c04: 1.88,
     c05: 1.85,
     c07: 1.82,
     c08: 1.78,
-    c11: 1.72,
-    c12: 1.65, // amarelo
-    c13: 1.55,
-    c14: 1.42,
-    c15: 1.15, // vermelho-ish 61%
-    c16: 0.95, // vermelho
-    c17: 0.78,
   },
-  // A começar (20/09): sem progresso até a janela abrir.
+  // Três Lagoas · a começar.
   "d-ticket": {},
 };
 
 /** Desafios da competência. Sem desafios: lista vazia (a tela segue). */
 export function desafiosAtivos(competencia: string): Desafio[] {
   return desafios.filter((d) => d.competencia === competencia);
+}
+
+/** Desafios da competência visíveis no escopo de lojas (loja própria + rede). */
+export function desafiosNoEscopo(competencia: string, filiaisIds: string[]): Desafio[] {
+  return desafiosAtivos(competencia).filter((d) => d.filialId == null || filiaisIds.includes(d.filialId));
 }
 
 /** Piso efetivo: minimo configurado ou o próprio alvo. */

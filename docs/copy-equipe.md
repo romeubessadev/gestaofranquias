@@ -193,6 +193,10 @@ Um único badge no canto superior direito (ícone de relógio + prazo curto). A 
 
 Janela completa (`{dd/mm} – {dd/mm}`) só no `title` do badge (hover), não na face do card.
 
+### Loja (visão rede)
+
+Na visão **Todas as lojas**, o card mostra o nome curto da loja abaixo do título (`Campo Grande` · `Três Lagoas`). Com 1 loja selecionada, o rótulo some (redundante).
+
 ### Texto gerado do objetivo (template)
 
 ```

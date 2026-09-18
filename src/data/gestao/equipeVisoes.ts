@@ -15,6 +15,7 @@ import {
   alvoGerenteDoDesafio,
   desafioEhIndice,
   desafiosAtivos,
+  desafiosNoEscopo,
   mediaProgressos,
   pisoDoDesafio,
   progressoGerenteCapped,
@@ -306,6 +307,12 @@ export interface DesafioView {
   /** Status temporal do desafio. */
   statusLabel: "Ativo" | "Encerrado" | "A começar";
   statusVariant: "success" | "danger" | "neutral" | "warning" | "info";
+  /** Loja dona (`null` = rede). */
+  filialId: string | null;
+  /** Rótulo curto da loja (ex.: "Campo Grande") ou "Rede". */
+  lojaRotulo: string;
+  /** Exibir loja no card (visão Todas as lojas). */
+  exibirLoja: boolean;
   /** Todos os participantes, ordenados: atingiu → quase → abaixo → não começou. */
   ranking: DesafioParticipanteView[];
 }
@@ -623,7 +630,13 @@ const ORDEM_STATUS: Record<DesafioParticipanteView["status"], number> = {
 };
 
 /** Veredito de ritmo + status temporal pela janela inicio/fim do desafio. */
-function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, filiaisIds: string[]): DesafioView {
+function desafioView(
+  d: Desafio,
+  diasDecorridos: number,
+  diasTotais: number,
+  filiaisIds: string[],
+  exibirLoja: boolean,
+): DesafioView {
   const ids = d.participantes.filter((id) => {
     const c = colaboradorPorId(id);
     return c && filiaisIds.includes(c.filialId);
@@ -712,6 +725,9 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     minimoRotulo != null
       ? `Meta: ${metaRotulo} · Mínimo: ${minimoRotulo} · Prêmio: ${brl(d.premio)}`
       : `Meta: ${metaRotulo} · Prêmio: ${brl(d.premio)}`;
+  const lojaRotulo = d.filialId
+    ? filialPorId(d.filialId).fantasia.replace(/^Shopping\s+/i, "")
+    : "Rede";
   return {
     id: d.id,
     nome: d.nome,
@@ -744,6 +760,9 @@ function desafioView(d: Desafio, diasDecorridos: number, diasTotais: number, fil
     prazoTom,
     statusLabel,
     statusVariant,
+    filialId: d.filialId,
+    lojaRotulo,
+    exibirLoja,
     ranking,
   };
 }
@@ -764,12 +783,14 @@ const ORDEM_STATUS_DESAFIO: Record<DesafioView["statusLabel"], number> = {
 
 function desafiosViewDaCompetencia(competencia: string, filiaisIds: string[]): DesafioView[] {
   const { decorridos, totais } = diasAbertosDaCompetencia(competencia, filiaisIds);
-  return desafiosAtivos(competencia)
-    .map((d) => desafioView(d, decorridos, totais, filiaisIds))
+  const exibirLoja = filiaisIds.length > 1;
+  return desafiosNoEscopo(competencia, filiaisIds)
+    .map((d) => desafioView(d, decorridos, totais, filiaisIds, exibirLoja))
     .sort(
       (a, b) =>
         ORDEM_STATUS_DESAFIO[a.statusLabel] - ORDEM_STATUS_DESAFIO[b.statusLabel] ||
         a.diasRestantes - b.diasRestantes ||
+        a.lojaRotulo.localeCompare(b.lojaRotulo, "pt-BR") ||
         a.nome.localeCompare(b.nome, "pt-BR"),
     );
 }
@@ -819,14 +840,14 @@ function premiacaoEscada(filialId: string, competencia: string, vendedoras: Vend
 /**
  * Fonte 2 — desafios (EQUIP-05): prêmio de cada participante cuja projeção
  * linear do progresso fecha o alvo individual (mesma projeção do
- * `desafioView`). Desafio é da COMPETÊNCIA, não da loja: na visão rede entra
- * uma única vez. Competência encerrada: prêmio dos que de fato fecharam.
+ * `desafioView`). Cada desafio é da loja (ou rede); na visão rede entra
+ * uma vez por desafio. Competência encerrada: prêmio dos que de fato fecharam.
  */
 function premiacaoDesafios(competencia: string, filiaisIds: string[]): number {
   const { decorridos, totais } = diasAbertosDaCompetencia(competencia, filiaisIds);
   let total = 0;
   const fechado = fimDoMes(`${competencia}-01`) < HOJE_ISO;
-  for (const d of desafiosAtivos(competencia)) {
+  for (const d of desafiosNoEscopo(competencia, filiaisIds)) {
     for (const id of d.participantes) {
       const p = progressoIndividual(d, id);
       if (p <= 0) continue;
