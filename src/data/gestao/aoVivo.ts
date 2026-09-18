@@ -5,7 +5,7 @@ import { brl, brlK, fimDoMes, intervaloDias, num, pct } from "@/lib/formato";
 import { type Escopo } from "./dashboard";
 import { colaboradores, vendedorElegivel, type Colaborador } from "./equipe";
 import { desafiosAtivos, progressoIndividual, type Desafio } from "./desafios";
-import { filiais, grupos, type Filial, type Grupo } from "./filiais";
+import { filiais, grupos, type Filial } from "./filiais";
 import { metaDaFilial, degrausPadrao } from "./metas";
 import { HOJE_ISO, HORA_ATUAL } from "./relogio";
 import { diaVendas, type Agregado, agregadoDoDia, somarAgregados } from "./vendas";
@@ -71,6 +71,10 @@ export interface MetaGrupoLinha {
 }
 
 export interface MetaAoVivo {
+  id: string;
+  nome: string;
+  filialId: string;
+  lojaNome: string;
   competencia: string;
   competenciaRotulo: string;
   realizado: number;
@@ -92,7 +96,8 @@ export interface AoVivoView {
   kpis: AoVivoKpi[];
   ranking: RankingLinha[];
   desafios: DesafioAoVivo[];
-  meta: MetaAoVivo | null;
+  /** Metas da competência no escopo (1+ lojas → 1+ cards). */
+  metas: MetaAoVivo[];
   evolucaoMeses: string[];
   evolucao: EvolucaoLinha[];
   insightMock: string;
@@ -284,61 +289,71 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     };
   });
 
-  let meta: MetaAoVivo | null = null;
-  if (metaAlvo > 0) {
-    const porVendedor: MetaPessoaLinha[] = rankingRaw.map((x, i) => {
-      const metaInd =
-        filialIds.length === 1
-          ? (metaDaFilial(x.c.filialId, competencia)?.valorLoja ?? metaAlvo) / Math.max(1, rankingRaw.length)
-          : metaAlvo / Math.max(1, rankingRaw.length);
-      const p = metaInd > 0 ? (x.ag.faturamento / metaInd) * 100 : 0;
-      return {
-        posicao: i + 1,
-        id: x.c.id,
-        nome: x.c.nome,
-        faturamento: x.ag.faturamento,
-        pct: p,
-        nivelNome: nivelPorPct(p),
-      };
-    });
+  const metas: MetaAoVivo[] = fs
+    .map((f) => {
+      const cadastro = metaDaFilial(f.id, competencia);
+      if (!cadastro) return null;
+      const vendedoresFilial = vendedores.filter((c) => c.filialId === f.id);
+      const rankingFilial = rankingRaw.filter((x) => x.c.filialId === f.id);
+      const realizado = agregadoFiliais([f], mesInicio, mesFim).faturamento;
+      const alvo = cadastro.valorLoja;
+      const pctVal = alvo > 0 ? (realizado / alvo) * 100 : 0;
 
-    const gruposEscopo: Grupo[] = grupos.filter((g) => !filialIds.length || filialIds.includes(g.filialId));
-    const porGrupo: MetaGrupoLinha[] = gruposEscopo.map((g) => {
-      const membros = vendedores.filter((c) => c.grupoId === g.id);
-      const fat = membros.reduce((s, c) => s + fatVendedorNoPeriodo(c, mesInicio, mesFim).faturamento, 0);
-      const peso = membros.length / Math.max(1, vendedores.length);
-      const metaG = Math.round(metaAlvo * peso);
-      const p = metaG > 0 ? (fat / metaG) * 100 : 0;
-      const top3 = membros
-        .map((c) => {
-          const f = fatVendedorNoPeriodo(c, mesInicio, mesFim).faturamento;
-          const mi = metaG / Math.max(1, membros.length);
-          return { nome: c.nome, faturamento: f, pct: mi > 0 ? (f / mi) * 100 : 0 };
-        })
-        .sort((a, b) => b.faturamento - a.faturamento)
-        .slice(0, 3);
-      return {
-        id: g.id,
-        nome: g.nome,
-        faturamento: fat,
-        meta: metaG,
-        pct: p,
-        vendedores: membros.length,
-        top3,
-      };
-    });
+      const porVendedor: MetaPessoaLinha[] = rankingFilial.map((x, i) => {
+        const metaInd = alvo / Math.max(1, rankingFilial.length);
+        const p = metaInd > 0 ? (x.ag.faturamento / metaInd) * 100 : 0;
+        return {
+          posicao: i + 1,
+          id: x.c.id,
+          nome: x.c.nome,
+          faturamento: x.ag.faturamento,
+          pct: p,
+          nivelNome: nivelPorPct(p),
+        };
+      });
 
-    meta = {
-      competencia,
-      competenciaRotulo: competenciaRotulo(competencia),
-      realizado: mes.faturamento,
-      alvo: metaAlvo,
-      pct: atingimentoPct,
-      niveis: degrausPadrao.map((d) => ({ nome: d.nome, atingimentoMinPct: d.atingimentoMinPct })),
-      porVendedor,
-      porGrupo,
-    };
-  }
+      const gruposFilial = grupos.filter((g) => g.filialId === f.id);
+      const porGrupo: MetaGrupoLinha[] = gruposFilial.map((g) => {
+        const membros = vendedoresFilial.filter((c) => c.grupoId === g.id);
+        const fat = membros.reduce((s, c) => s + fatVendedorNoPeriodo(c, mesInicio, mesFim).faturamento, 0);
+        const peso = membros.length / Math.max(1, vendedoresFilial.length);
+        const metaG = Math.round(alvo * peso);
+        const p = metaG > 0 ? (fat / metaG) * 100 : 0;
+        const top3 = membros
+          .map((c) => {
+            const ff = fatVendedorNoPeriodo(c, mesInicio, mesFim).faturamento;
+            const mi = metaG / Math.max(1, membros.length);
+            return { nome: c.nome, faturamento: ff, pct: mi > 0 ? (ff / mi) * 100 : 0 };
+          })
+          .sort((a, b) => b.faturamento - a.faturamento)
+          .slice(0, 3);
+        return {
+          id: g.id,
+          nome: g.nome,
+          faturamento: fat,
+          meta: metaG,
+          pct: p,
+          vendedores: membros.length,
+          top3,
+        };
+      });
+
+      return {
+        id: cadastro.id,
+        nome: cadastro.nome,
+        filialId: f.id,
+        lojaNome: f.fantasia,
+        competencia,
+        competenciaRotulo: competenciaRotulo(competencia),
+        realizado,
+        alvo,
+        pct: pctVal,
+        niveis: cadastro.degraus.map((d) => ({ nome: d.nome, atingimentoMinPct: d.atingimentoMinPct })),
+        porVendedor,
+        porGrupo,
+      } satisfies MetaAoVivo;
+    })
+    .filter((m): m is MetaAoVivo => m != null);
 
   const evolucaoMeses = ultimosMeses(6, competencia);
   const topEvolucao = rankingRaw.slice(0, 4).map((x) => x.c);
@@ -364,7 +379,7 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     kpis,
     ranking,
     desafios,
-    meta,
+    metas,
     evolucaoMeses: evolucaoMeses.map(mesRotulo),
     evolucao,
     insightMock,

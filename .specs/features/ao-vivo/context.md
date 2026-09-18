@@ -33,8 +33,8 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 
 ### Abas principais
 - Card principal (**Andamento da competência**): tabs accent **Ranking** (pódio) | **Desafios** | **Metas**.
-- Desafios reusam o mesmo bloco da Equipe (`BlocoDesafios` embedded).
-- Card separado: **Ranking geral** (lista completa da competência).
+- Desafios reusam o mesmo bloco da Equipe (`BlocoDesafios` embedded), 1 por linha + scroll.
+- Metas: cards no estilo desafio (hero com **Target**/alvo), **1 card por meta/loja** da competência; scroll da lista.
 
 ### Evolução + IA
 - Evolução: tabela + AreaLineChart (P2).
