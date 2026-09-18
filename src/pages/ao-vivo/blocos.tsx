@@ -1,9 +1,10 @@
 import { Avatar, Card, CardTitle, EmptyState, ProgressBar } from "@/components/ui";
-import { AreaLineChart } from "@/components/charts";
+import { AreaLineChart, DonutChart } from "@/components/charts";
 import { brlK, num } from "@/lib/formato";
 import { cn } from "@/lib/cn";
 import { TrophyIcon } from "@/pages/dashboards/icons";
 import type { AoVivoView, RankingLinha } from "@/data/gestao/aoVivo";
+import type { FormaPagamentoFat } from "@/data/gestao/dashboard";
 import type { VendedoraLinha } from "@/data/gestao/equipeVisoes";
 
 /** Medalhas do leaderboard Vela (SalesDashboard / CRM) — anel, troféu e rótulos. */
@@ -161,6 +162,47 @@ export function BlocoRankingGeral({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Donut + lista — mesmo padrão da Visão Geral / Financeiro. */
+export function BlocoFormasPagamento({ formas }: { formas: FormaPagamentoFat[] }) {
+  if (formas.length === 0) {
+    return (
+      <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">
+        Sem dados na competência.
+      </span>
+    );
+  }
+
+  const total = formas.reduce((s, f) => s + f.valor, 0) || 1;
+  return (
+    <div className="flex flex-1 flex-col justify-center">
+      <div className="mx-auto my-2">
+        <DonutChart
+          segments={formas.map((f) => ({
+            label: f.forma,
+            value: f.valor,
+            color: f.cor,
+          }))}
+          centerLabel="Total"
+          centerValue={brlK(total)}
+        />
+      </div>
+      <div className="mt-2 flex flex-col gap-2">
+        {formas.map((f) => {
+          const pctForma = Math.round((f.valor / total) * 100);
+          return (
+            <div key={f.forma} className="flex items-center gap-2.5">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: f.cor }} />
+              <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{f.forma}</span>
+              <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlK(f.valor)}</span>
+              <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pctForma}%</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
