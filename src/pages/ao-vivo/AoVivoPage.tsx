@@ -4,6 +4,7 @@ import { Button, Card, PageHeader, StatCard, Tabs } from "@/components/ui";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarAoVivoView } from "@/data/gestao/aoVivo";
 import { paths } from "@/router/paths";
+import { FlameIcon, TargetIcon, TrophyIcon } from "@/pages/dashboards/icons";
 import { BlocoDesafios, BlocoEvolucao, BlocoIaInsights, BlocoMetas, BlocoRanking } from "./blocos";
 
 const IconVendas = () => (
@@ -154,11 +155,27 @@ export default function AoVivoPage() {
 
       <Card className="mt-4" padding="lg">
         <Tabs
+          variant="accent"
           defaultKey="ranking"
           items={[
-            { key: "ranking", label: "Ranking", content: <BlocoRanking ranking={view.ranking} /> },
-            { key: "desafios", label: "Desafios", content: <BlocoDesafios desafios={view.desafios} /> },
-            { key: "metas", label: "Metas", content: <BlocoMetas meta={view.meta} /> },
+            {
+              key: "ranking",
+              label: "Ranking",
+              icon: <TrophyIcon size={14} />,
+              content: <BlocoRanking ranking={view.ranking} />,
+            },
+            {
+              key: "desafios",
+              label: "Desafios",
+              icon: <FlameIcon size={14} />,
+              content: <BlocoDesafios desafios={view.desafios} />,
+            },
+            {
+              key: "metas",
+              label: "Metas",
+              icon: <TargetIcon size={14} />,
+              content: <BlocoMetas meta={view.meta} />,
+            },
           ]}
         />
       </Card>
