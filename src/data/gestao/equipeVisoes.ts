@@ -422,28 +422,29 @@ function tendenciaVendedora(c: Colaborador, filialId: string, fimIso: string): V
 
 /** Lista de vendedoras da loja com desempenho do período + meta quando ativa. */
 /**
- * Alvos de % da meta individual (demo do ranking).
- * Espalha os 4 níveis + abaixo/quase pra validar Premiação e Nível atual.
- * Mid-mês o gerador real deixa todo mundo ~50% — sem isso o ranking fica vazio de níveis.
+ * Fatores relativos de ritmo entre vendedoras (demo do ranking).
+ * Só redistribuem o faturamento **já gerado** — a soma das linhas permanece
+ * igual à soma bruta, então Progresso da Meta (Σ linhas) fecha com o ranking.
+ * Sem inventar R$ acima do realizado da loja.
  */
-const DEMO_ATINGIMENTO_PCT: Record<string, number> = {
+const DEMO_FATOR_RITMO: Record<string, number> = {
   // f1 — Campo Grande
-  c01: 190, // Nível 4 · Meta Desafio (3% + R$ 200)
-  c02: 158, // Nível 3 · Hiper Meta (2,5% + R$ 150)
-  c03: 128, // Nível 2 · Super Meta (2% + R$ 100)
-  c04: 108, // Nível 1 · Meta (1,5% + R$ 50)
-  c05: 78, // abaixo
-  c07: 94, // quase Meta
-  c08: 52, // abaixo
+  c01: 1.7,
+  c02: 1.45,
+  c03: 1.25,
+  c04: 1.05,
+  c05: 0.85,
+  c07: 0.95,
+  c08: 0.55,
   // f2 — Três Lagoas
-  c11: 185, // Nível 4
-  c12: 152, // Nível 3
-  c13: 122, // Nível 2
-  c14: 105, // Nível 1
-  c15: 72, // abaixo
-  c16: 88, // quase
-  c17: 58, // abaixo
-  c18: 42, // abaixo (admissão recente)
+  c11: 1.65,
+  c12: 1.4,
+  c13: 1.2,
+  c14: 1.0,
+  c15: 0.8,
+  c16: 0.9,
+  c17: 0.65,
+  c18: 0.45,
 };
 
 function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva: boolean, competencia: string): VendedoraLinha[] {
@@ -451,25 +452,37 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
   const agLoja = agregadoLoja(filialId, periodo.inicio, periodo.fim);
   const paMedioLoja = divSeguro(agLoja.itens, agLoja.atendimentos);
   const degraus = degrausDaFilial(filialId, competencia);
+  const elegiveis = vendedorasDaLoja(filialId, competencia);
 
-  return vendedorasDaLoja(filialId, competencia)
-    .map((c) => {
-    const agRaw = agregadoVendedoraPeriodo(c, filialId, periodo.inicio, periodo.fim);
+  // 1ª passagem: agregado real por vendedora (fonte única de R$).
+  const brutos = elegiveis.map((c) => {
+    const ag = agregadoVendedoraPeriodo(c, filialId, periodo.inicio, periodo.fim);
+    return { c, ag };
+  });
+  const somaBruta = brutos.reduce((s, x) => s + x.ag.faturamento, 0);
+  const somaPeso = brutos.reduce((s, x) => {
+    const fat = Math.max(0, x.ag.faturamento);
+    const fator = DEMO_FATOR_RITMO[x.c.id] ?? 1;
+    return s + fat * fator;
+  }, 0);
+
+  return brutos
+    .map(({ c, ag: agRaw }) => {
     const metaInd = metaAtiva ? metaIndividual(c, filialId, competencia) : null;
 
-    // Demo: ancora o faturamento no % alvo pra espalhar os níveis da escada.
+    // Redistribui o mesmo bolo: fat_i = soma × (fat_bruta × fator) / Σ(…).
     let faturamento = agRaw.faturamento;
     let atendimentos = agRaw.atendimentos;
     let itens = agRaw.itens;
-    const alvoPct = DEMO_ATINGIMENTO_PCT[c.id];
-    if (metaInd && metaInd.valor > 0 && alvoPct != null) {
-      const fatAlvo = Math.round((metaInd.valor * alvoPct) / 100);
-      if (agRaw.faturamento > 0) {
+    if (somaBruta > 0 && somaPeso > 0) {
+      const fator = DEMO_FATOR_RITMO[c.id] ?? 1;
+      const fatAlvo = Math.round((somaBruta * Math.max(0, agRaw.faturamento) * fator) / somaPeso);
+      if (agRaw.faturamento > 0 && fatAlvo !== agRaw.faturamento) {
         const escala = fatAlvo / agRaw.faturamento;
         faturamento = fatAlvo;
-        atendimentos = Math.max(1, Math.round(agRaw.atendimentos * escala));
+        atendimentos = Math.max(fatAlvo > 0 ? 1 : 0, Math.round(agRaw.atendimentos * escala));
         itens = Math.max(atendimentos, Math.round(agRaw.itens * escala));
-      } else {
+      } else if (agRaw.faturamento === 0 && fatAlvo > 0) {
         faturamento = fatAlvo;
         atendimentos = Math.max(1, Math.round(fatAlvo / 120));
         itens = Math.round(atendimentos * 1.5);
@@ -478,7 +491,6 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
 
     const ticket = divSeguro(faturamento, atendimentos);
     const pa = divSeguro(itens, atendimentos);
-    const escada = metaInd ? escadaVendedora(faturamento, metaInd, degraus) : null;
     const tendencia = tendenciaVendedora(c, filialId, periodo.fim);
 
     // Projeção do fechamento individual: realizado escalado pela fração da
@@ -492,23 +504,25 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
       if (fracaoAcum > 0) projecaoFinal = faturamento / fracaoAcum;
     }
     const atingProjPct = metaInd && metaInd.valor > 0 ? (projecaoFinal / metaInd.valor) * 100 : 0;
-    const degrauProjetado = (() => {
-      let d: Degrau | null = null;
-      for (const g of degraus) {
-        if (atingProjPct >= g.atingimentoMinPct) d = g;
-        else break;
-      }
-      return d;
-    })();
+
+    // Escada: MTD = o que já garantiu; ritmo = onde fecha se mantiver o pace.
+    // No mês aberto a UI mostra o nível pelo ritmo (decisão); premiação
+    // acumulada/bônus só entram quando o degrau já foi cruzado no MTD.
+    const escadaMtd = metaInd ? escadaVendedora(faturamento, metaInd, degraus) : null;
+    const escadaRitmo =
+      metaInd && !fechado && projecaoFinal > 0 ? escadaVendedora(projecaoFinal, metaInd, degraus) : null;
+    const escadaUi = fechado ? escadaMtd : (escadaRitmo ?? escadaMtd);
+
+    const degrauProjetado = escadaRitmo?.degrau ?? null;
 
     // Premiação projetada individual (EQUIP-04): projeção × pct do degrau
     // projetado + bônus já garantido. Mês fechado: o que de fato veio.
     const premiacaoProjetadaIndividual =
       metaInd && metaInd.valor > 0
         ? fechado
-          ? (escada?.premiacao ?? 0) + (escada?.bonus ?? 0)
+          ? (escadaMtd?.premiacao ?? 0) + (escadaMtd?.bonus ?? 0)
           : projecaoFinal > 0
-            ? (projecaoFinal * (degrauProjetado?.comissaoPct ?? 0)) / 100 + (escada?.bonus ?? 0)
+            ? (projecaoFinal * (degrauProjetado?.comissaoPct ?? 0)) / 100 + (escadaMtd?.bonus ?? 0)
             : null
         : null;
 
@@ -528,7 +542,7 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
     }
 
     const metaLoja = metaAtiva ? metaDaFilial(filialId, competencia)?.valorLoja ?? 0 : 0;
-    const nivelIdx = escada?.degrau ? degraus.indexOf(escada.degrau) : -1;
+    const nivelIdx = escadaUi?.degrau ? degraus.indexOf(escadaUi.degrau) : -1;
 
     return {
       colaboradorId: c.id,
@@ -554,15 +568,15 @@ function visaoVendedoras(filialId: string, periodo: PeriodoResolvido, metaAtiva:
       // Marcos da escada para a barra segmentada do mockup (posição % de cada
       // degrau + % de premiação que ele paga acima dele).
       marcosEscada: degraus.map((d) => ({ nome: d.nome, pct: d.atingimentoMinPct, pctPremiacao: d.comissaoPct, bonus: d.bonus })),
-      degrauAtual: escada?.degrau?.nome ?? null,
+      degrauAtual: escadaUi?.degrau?.nome ?? null,
       nivelAtual: nivelIdx >= 0 ? nivelIdx + 1 : null,
-      proximoDegrau: escada?.proximo ?? null,
-      premiacaoAcumulada: escada?.premiacao ?? 0,
-      comissaoPct: escada?.degrau?.comissaoPct ?? 0,
+      proximoDegrau: escadaUi?.proximo ?? null,
+      premiacaoAcumulada: escadaMtd?.premiacao ?? 0,
+      comissaoPct: escadaUi?.degrau?.comissaoPct ?? 0,
       premiacaoProjetadaIndividual,
       /** Atingimento projetado pelo ritmo da competência (100 = fecha). */
       atingimentoProjetadoPct: metaInd && metaInd.valor > 0 && !fechado && projecaoFinal > 0 ? atingProjPct : null,
-      bonusAlcancado: escada?.bonus ?? 0,
+      bonusAlcancado: escadaMtd?.bonus ?? 0,
       atencao,
       semMeta: !metaInd || metaInd.valor <= 0,
     };
@@ -1105,13 +1119,13 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
     avisos.push("O filtro de marca altera os resultados exibidos, mas as metas individuais continuam considerando a loja inteira.");
   }
 
-  // Faixa de progresso da meta da loja (mesmo card da rede).
+  // Faixa de progresso da meta da loja = Σ faturamento das vendedoras
+  // elegíveis (mesma base do ranking). Não usa agregadoLoja (que inclui
+  // caixa/CENTRAL) — senão Progresso e % individuais ficam desalinhados.
   let metaGlobal: RedeMetaGlobal | null = null;
   const metaLojaValor = metaAtiva ? (metaDaFilial(filialId, competencia)?.valorLoja ?? 0) : 0;
   if (metaAtiva && metaLojaValor > 0) {
-    const primeiro = `${competencia}-01`;
-    const ultimo = fimDoMes(primeiro);
-    const realizado = agregadoLoja(filialId, primeiro, ultimo <= HOJE_ISO ? ultimo : HOJE_ISO).faturamento;
+    const realizado = vendedoras.reduce((s, l) => s + l.faturamentoValor, 0);
     metaGlobal = montarMetaFaixa(realizado, metaLojaValor, competencia, [filial]);
   }
 
@@ -1260,12 +1274,11 @@ if (metaAtiva) {
   premiacaoRede = parteEscada > 0 || parteDesafios > 0 ? parteEscada + parteDesafios : null;
 }
 
-  // Faixa de progresso da meta (loja ou rede) — só com meta ativa.
+  // Faixa de progresso da meta (rede) = Σ faturamento das linhas do ranking
+  // (mesma base das lojas). Consistente com Progresso da Meta por loja.
   let metaGlobal: RedeMetaGlobal | null = null;
   if (metaAtiva && metaGlobalTotal > 0) {
-    const primeiro = `${competencia}-01`;
-    const ultimo = fimDoMes(primeiro);
-    const realizado = somarAgregados(filiais.map((f) => agregadoLoja(f.id, primeiro, ultimo <= HOJE_ISO ? ultimo : HOJE_ISO))).faturamento;
+    const realizado = vendedorasFlat.reduce((s, l) => s + l.faturamentoValor, 0);
     metaGlobal = montarMetaFaixa(realizado, metaGlobalTotal, competencia, filiais);
   }
 

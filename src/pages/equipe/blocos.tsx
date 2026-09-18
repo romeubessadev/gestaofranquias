@@ -180,8 +180,9 @@ function CelulaPctIndividual({ l }: { l: LinhaRank }) {
 
 function CelulaNivel({ l }: { l: LinhaRank }) {
   if (l.semMeta || !l.degrauAtual || l.nivelAtual == null) return <span className="text-t2">—</span>;
+  const pctRef = l.atingimentoProjetadoPct ?? l.atingimentoPct;
   return (
-    <Badge variant={l.atingimentoPct >= 100 ? "success" : "warning"}>
+    <Badge variant={pctRef >= 100 ? "success" : "warning"}>
       Nível {l.nivelAtual} · {l.degrauAtual}
     </Badge>
   );

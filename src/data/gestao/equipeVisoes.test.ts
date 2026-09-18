@@ -376,7 +376,7 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
 
     const loja = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
     expect(loja.metaGlobal).not.toBeNull();
-    expect(loja.metaGlobal!.total).toBe(280000);
+    expect(loja.metaGlobal!.total).toBe(170000);
     expect(loja.metaGlobal!.inicio).toBe("2026-09-01");
     expect(loja.metaGlobal!.fim).toBe("2026-09-30");
   });
@@ -592,42 +592,52 @@ describe("T5: premiação projetada (EQUIP-04/05)", () => {
     expect(parseBrl(v.kpiPremiacao!.valor)).toBeCloseTo(escada, -1);
   });
 
-  it("premiacaoAcumulada só existe com degrau alcançado: realizado × pct do degrau", () => {
+  it("premiacaoAcumulada só com degrau já cruzado no MTD: realizado × pct", () => {
     const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const degraus = degrausDaFilial("f1", "2026-09");
     for (const l of v.vendedoras!) {
-      const degrau = degrausDaFilial("f1", "2026-09").find((d) => d.nome === l.degrauAtual);
-      if (!degrau) {
-        expect(l.premiacaoAcumulada).toBe(0); // sem degrau: sem premiação (EQUIP-04)
+      // Nível na UI pode ser pelo ritmo; premiação acumulada só conta degrau MTD.
+      let degrauMtd: (typeof degraus)[number] | null = null;
+      for (const d of degraus) {
+        if (l.atingimentoPct >= d.atingimentoMinPct) degrauMtd = d;
+        else break;
+      }
+      if (!degrauMtd) {
+        expect(l.premiacaoAcumulada).toBe(0);
+        expect(l.bonusAlcancado).toBe(0);
       } else {
-        expect(l.premiacaoAcumulada).toBeCloseTo((l.faturamentoValor * degrau.comissaoPct) / 100, 6);
-        expect(l.bonusAlcancado).toBe(degrau.bonus);
+        expect(l.premiacaoAcumulada).toBeCloseTo((l.faturamentoValor * degrauMtd.comissaoPct) / 100, 6);
+        expect(l.bonusAlcancado).toBe(degrauMtd.bonus);
       }
     }
   });
 
-  it("ranking inteligente: grupo, % meta geral, nível e comissão alinhados à escada", () => {
+  it("ranking: % meta geral e Progresso da Meta coerentes com Σ faturamento", () => {
     const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
-    const metaLoja = 280000;
+    const metaLoja = metaDaFilial("f1", "2026-09")!.valorLoja;
     expect(v.vendedoras!.length).toBeGreaterThan(0);
+    const somaFat = v.vendedoras!.reduce((s, l) => s + l.faturamentoValor, 0);
+    expect(v.metaGlobal).not.toBeNull();
+    expect(v.metaGlobal!.realizado).toBe(somaFat);
+    expect(v.metaGlobal!.total).toBe(metaLoja);
+    expect(v.metaGlobal!.pct).toBeCloseTo((somaFat / metaLoja) * 100, 6);
+
     for (const l of v.vendedoras!) {
       expect(l.grupo === "Grupo 1" || l.grupo === "Grupo 2" || l.grupo === "Sem grupo").toBe(true);
       expect(l.pctMetaGeral).toBeCloseTo((l.faturamentoValor / metaLoja) * 100, 6);
       if (l.degrauAtual) {
         expect(l.nivelAtual).toBeGreaterThan(0);
         expect(l.comissaoPct).toBeGreaterThan(0);
-        expect(l.bonusAlcancado).toBe(l.nivelAtual! * 50);
       } else {
         expect(l.nivelAtual).toBeNull();
         expect(l.comissaoPct).toBe(0);
-        expect(l.bonusAlcancado).toBe(0);
       }
     }
-    // Demo espalha os 4 níveis da escada.
-    const niveis = new Set(v.vendedoras!.map((l) => l.nivelAtual).filter((n): n is number => n != null));
-    expect(niveis.has(1)).toBe(true);
-    expect(niveis.has(2)).toBe(true);
-    expect(niveis.has(3)).toBe(true);
-    expect(niveis.has(4)).toBe(true);
+    // Média ponderada de atingimento = Progresso da Meta.
+    const somaMeta = v.vendedoras!.reduce((s, l) => s + l.metaIndividualValor, 0);
+    expect(somaMeta).toBeCloseTo(metaLoja, 0);
+    const mediaPonderada = (somaFat / somaMeta) * 100;
+    expect(mediaPonderada).toBeCloseTo(v.metaGlobal!.pct, 6);
   });
 });
 
