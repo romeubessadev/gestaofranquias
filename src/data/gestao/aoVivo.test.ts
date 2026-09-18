@@ -57,9 +57,4 @@ describe("montarAoVivoView", () => {
     expect(todas.meta).not.toBeNull();
     expect(todas.meta!.alvo).toBeGreaterThan(uma.meta!.alvo);
   });
-
-  it("insight mock preenchido", () => {
-    const v = montarAoVivoView(escopo(["f1"]));
-    expect(v.insightMock.length).toBeGreaterThan(20);
-  });
 });

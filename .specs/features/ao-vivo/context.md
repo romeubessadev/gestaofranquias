@@ -37,9 +37,11 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 - Metas: mesmo Progresso da Meta + Escada de Premiação da Equipe (escopo 1 loja ou Todas somada).
 - **Desafios no Ao vivo e na Equipe:** só `statusLabel === "Ativo"` (sem encerrados nem a começar).
 
-### Evolução + IA
-- Evolução: tabela + AreaLineChart (P2).
-- IA Insights: banner só no app gestor; mock ao clicar (P2). Sem IA na futura TV.
+### Evolução + IA + Formas
+- Evolução por Vendedor: **removida** da tela.
+- IA Insights: **fora por enquanto** (P2).
+- Formas de Pagamento: **fora do Ao vivo** (fica na Visão Geral / Financeiro).
+- Cards abaixo do andamento: Ranking de Lojas → Ranking Vendedoras.
 
 ### Cabeçalho (ações)
 - **Atualizar** = primary; **Compartilhar** = secondary.

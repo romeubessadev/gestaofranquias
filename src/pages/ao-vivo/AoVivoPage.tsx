@@ -11,7 +11,7 @@ import {
   CardVendedoras,
   FaixaMetaGlobal,
 } from "@/pages/equipe/blocos";
-import { BlocoFormasPagamento, BlocoIaInsights, BlocoRanking, BlocoRankingGeral, BlocoRankingLojas } from "./blocos";
+import { BlocoRanking, BlocoRankingGeral, BlocoRankingLojas } from "./blocos";
 
 const IconVendas = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -100,7 +100,6 @@ export default function AoVivoPage() {
   const [tick, setTick] = useState(0);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
-  const [insight, setInsight] = useState<string | null>(null);
 
   const view = useMemo(() => {
     void tick;
@@ -262,15 +261,9 @@ export default function AoVivoPage() {
         />
       </Card>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card className="flex flex-col" padding="lg">
-          <BlocoRankingLojas lojas={view.rankingLojas} />
-        </Card>
-        <Card className="flex flex-col" padding="lg">
-          <CardTitle className="mb-2">Formas de Pagamento</CardTitle>
-          <BlocoFormasPagamento formas={view.formasPagamento} />
-        </Card>
-      </div>
+      <Card className="mt-4 flex flex-col" padding="lg">
+        <BlocoRankingLojas lojas={view.rankingLojas} />
+      </Card>
 
       <Card className="mt-4" padding="lg">
         <div className="mb-4 flex items-center gap-2">
@@ -279,10 +272,6 @@ export default function AoVivoPage() {
         </div>
         <BlocoRankingGeral ranking={view.ranking} vendedoras={equipeView.vendedoras} />
       </Card>
-
-      <div className="mt-4">
-        <BlocoIaInsights texto={insight} onGerar={() => setInsight(view.insightMock)} />
-      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@
  * Camada de visão — Ao vivo (competência do mês + pulso do dia).
  */
 import { brl, brlK, fimDoMes, intervaloDias, num, pct } from "@/lib/formato";
-import { type Escopo, type FormaPagamentoFat } from "./dashboard";
+import { type Escopo } from "./dashboard";
 import { colaboradores, vendedorElegivel, type Colaborador } from "./equipe";
 import { desafiosNoEscopo, desafioEhIndice, progressoIndividual, type Desafio } from "./desafios";
 import { filiais, grupos, type Filial } from "./filiais";
@@ -105,9 +105,6 @@ export interface AoVivoView {
   desafios: DesafioAoVivo[];
   /** Meta do escopo: somada na rede, ou da loja filtrada. */
   meta: MetaAoVivo | null;
-  /** Mix de formas na competência (mesmo contrato da Visão Geral / Financeiro). */
-  formasPagamento: FormaPagamentoFat[];
-  insightMock: string;
 }
 
 function competenciaAtual(): string {
@@ -374,38 +371,6 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     };
   }
 
-  const diasCompetencia = intervaloDias(mesInicio, mesFim);
-  const totaisForma: Record<string, number> = {};
-  for (const f of fs) {
-    for (const iso of diasCompetencia) {
-      const dv = diaVendas(f.id, iso);
-      if (!dv) continue;
-      for (const [meio, val] of Object.entries(dv.porMeio)) {
-        totaisForma[meio] = (totaisForma[meio] ?? 0) + val;
-      }
-    }
-  }
-  const totalFormas = Object.values(totaisForma).reduce((s, v) => s + v, 0) || 1;
-  const CORES_FORMAS: Record<string, string> = {
-    Pix: "var(--ok)",
-    "Cartão de crédito": "var(--acc)",
-    "Cartão de débito": "var(--info)",
-    Dinheiro: "var(--warn)",
-  };
-  const formasPagamento: FormaPagamentoFat[] = Object.entries(totaisForma)
-    .sort((a, b) => b[1] - a[1])
-    .map(([forma, valor]) => ({
-      forma,
-      valor,
-      pct: (valor / totalFormas) * 100,
-      cor: CORES_FORMAS[forma] ?? "var(--t2)",
-    }));
-
-  const insightMock =
-    ranking.length === 0
-      ? "Ainda não há vendas na competência. Acompanhe o lançamento no caixa para ver o ranking ao vivo."
-      : `${ranking[0].nome} lidera o mês com ${brlK(ranking[0].faturamento)}. Atingimento da meta em ${pct(atingimentoPct, 1)}. Hoje: ${num(hoje.atendimentos)} vendas · ${brlK(hoje.faturamento)}.`;
-
   return {
     competencia,
     kpis,
@@ -414,8 +379,6 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     rankingLojas,
     desafios,
     meta,
-    formasPagamento,
-    insightMock,
   };
 }
 
