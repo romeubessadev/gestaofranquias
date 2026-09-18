@@ -1,9 +1,8 @@
-import { Avatar, Badge, Card, CardTitle, EmptyState, ProgressBar, Segmented } from "@/components/ui";
+import { Avatar, Card, CardTitle, EmptyState } from "@/components/ui";
 import { AreaLineChart } from "@/components/charts";
-import { brl, brlK, num, pct } from "@/lib/formato";
+import { brl, brlK, num } from "@/lib/formato";
 import { cn } from "@/lib/cn";
-import type { AoVivoView, MetaAoVivo, RankingLinha } from "@/data/gestao/aoVivo";
-import { useState } from "react";
+import type { AoVivoView, RankingLinha } from "@/data/gestao/aoVivo";
 
 const PODIO_ALTURA = ["h-28", "h-36", "h-24"];
 const PODIO_ORDEM = [1, 0, 2]; // visual: 2º | 1º | 3º
@@ -98,105 +97,6 @@ export function BlocoRankingGeral({ ranking }: { ranking: RankingLinha[] }) {
     </div>
   );
 }
-
-export function BlocoMetas({ meta }: { meta: MetaAoVivo | null }) {
-  const [modo, setModo] = useState<"vendedor" | "grupo">("vendedor");
-  if (!meta) {
-    return <EmptyState title="Sem meta na competência" description="Cadastre a meta da loja em Metas para acompanhar o atingimento ao vivo." />;
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-[12px] font-semibold capitalize text-t2">{meta.competenciaRotulo}</p>
-          <p className="mt-1 font-mono text-xl font-extrabold text-t0">
-            {pct(meta.pct, 1)} · {brlK(meta.realizado)} / {brlK(meta.alvo)}
-          </p>
-        </div>
-        <Segmented
-          options={[
-            { value: "vendedor", label: "Por Vendedor" },
-            { value: "grupo", label: "Por Grupo" },
-          ]}
-          value={modo}
-          onChange={(v) => setModo((v as "vendedor" | "grupo") ?? "vendedor")}
-        />
-      </div>
-      <ProgressBar value={Math.min(100, meta.pct)} />
-      <div className="flex flex-wrap gap-2">
-        {meta.niveis.map((n) => (
-          <Badge key={n.nome} variant="neutral">
-            {n.nome} ({n.atingimentoMinPct}%)
-          </Badge>
-        ))}
-      </div>
-
-      {modo === "vendedor" ? (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[480px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
-                <th className="px-1 pb-2 text-left font-bold">#</th>
-                <th className="px-1 pb-2 text-left font-bold">Vendedor</th>
-                <th className="px-1 pb-2 text-right font-bold">%</th>
-                <th className="px-1 pb-2 text-right font-bold">Faturamento</th>
-              </tr>
-            </thead>
-            <tbody>
-              {meta.porVendedor.map((l) => (
-                <tr key={l.id} className="border-b border-line/60 last:border-0">
-                  <td className="py-2.5 pl-1 font-mono text-[12px] font-bold text-t2">{l.posicao}º</td>
-                  <td className="py-2.5">
-                    <div className="flex items-center gap-2">
-                      <Avatar size="sm" name={l.nome} />
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-t0">{l.nome}</p>
-                        {l.nivelNome && <p className="text-[11px] font-semibold text-acc">{l.nivelNome}</p>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-2.5 text-right font-mono text-[12.5px] font-bold text-t0">{pct(l.pct, 0)}</td>
-                  <td className="py-2.5 text-right font-mono text-[12.5px] font-bold text-ok">{brl(l.faturamento)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {meta.porGrupo.map((g) => (
-            <div key={g.id} className="rounded-[10px] border border-line bg-bg-inset p-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-[13px] font-bold text-t0">{g.nome}</p>
-                <span className="font-mono text-[12.5px] font-bold text-t0">
-                  {pct(g.pct, 1)} · {brlK(g.faturamento)} / {brlK(g.meta)}
-                </span>
-              </div>
-              <p className="mt-1 text-[11px] font-semibold text-t2">{g.vendedores} vendedor(es)</p>
-              <div className="mt-2">
-                <ProgressBar value={Math.min(100, g.pct)} />
-              </div>
-              <div className="mt-3 flex flex-col gap-1.5">
-                {g.top3.map((t, i) => (
-                  <div key={t.nome} className="flex justify-between text-[12px]">
-                    <span className="font-semibold text-t1">
-                      {i + 1}º {t.nome}
-                    </span>
-                    <span className="font-mono font-bold text-t0">
-                      {brlK(t.faturamento)} · {pct(t.pct, 0)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 
 export function BlocoEvolucao({ view }: { view: AoVivoView }) {
   if (view.evolucao.length === 0) return null;

@@ -1,13 +1,17 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Card, CardTitle, PageHeader, StatCard, Tabs } from "@/components/ui";
+import { Button, Card, CardTitle, EmptyState, PageHeader, StatCard, Tabs } from "@/components/ui";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarAoVivoView } from "@/data/gestao/aoVivo";
 import { montarEquipeView } from "@/data/gestao/equipeVisoes";
 import { paths } from "@/router/paths";
 import { FlameIcon, TargetIcon, TrophyIcon } from "@/pages/dashboards/icons";
-import { BlocoDesafios as BlocoDesafiosEquipe } from "@/pages/equipe/blocos";
-import { BlocoEvolucao, BlocoIaInsights, BlocoMetas, BlocoRanking, BlocoRankingGeral } from "./blocos";
+import {
+  BlocoDesafios as BlocoDesafiosEquipe,
+  CardVendedoras,
+  FaixaMetaGlobal,
+} from "@/pages/equipe/blocos";
+import { BlocoEvolucao, BlocoIaInsights, BlocoRanking, BlocoRankingGeral } from "./blocos";
 
 const IconVendas = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -43,6 +47,40 @@ const KPI_COLORS = [
   { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
 ];
 
+function AbaMetas({
+  metaGlobal,
+  vendedoras,
+  metaAtiva,
+  visaoRede,
+}: {
+  metaGlobal: ReturnType<typeof montarEquipeView>["metaGlobal"];
+  vendedoras: ReturnType<typeof montarEquipeView>["vendedoras"];
+  metaAtiva: boolean;
+  visaoRede: boolean;
+}) {
+  if (!metaGlobal) {
+    return (
+      <EmptyState
+        title="Sem meta na competência"
+        description="Cadastre a meta da loja em Metas para acompanhar o atingimento ao vivo."
+      />
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <FaixaMetaGlobal meta={metaGlobal} embedded />
+      <CardVendedoras
+        embedded
+        estado={vendedoras && vendedoras.length > 0 ? "disponivel" : "sem_dados"}
+        lista={vendedoras}
+        metaAtiva={metaAtiva}
+        mostrarShopping={visaoRede}
+      />
+    </div>
+  );
+}
+
 export default function AoVivoPage() {
   const { escopo } = useEscopo();
   const navigate = useNavigate();
@@ -56,10 +94,10 @@ export default function AoVivoPage() {
     return montarAoVivoView(escopo);
   }, [escopo, tick]);
 
-  /** Mesma visão de desafios da Equipe (cards ricos + ranking). */
-  const desafiosEquipe = useMemo(() => {
+  /** Mesma visão de Equipe (desafios + meta + escada) — componentes compartilhados. */
+  const equipeView = useMemo(() => {
     void tick;
-    return montarEquipeView({ ...escopo, divisao: null }).desafios ?? [];
+    return montarEquipeView({ ...escopo, divisao: null });
   }, [escopo, tick]);
 
   const forcarAtualizacao = useCallback(() => {
@@ -134,8 +172,8 @@ export default function AoVivoPage() {
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {view.kpis.map((kpi, i) => {
-          const Icon = KPI_ICONS[i];
-          const c = KPI_COLORS[i];
+          const Icon = KPI_ICONS[i] ?? IconVendas;
+          const c = KPI_COLORS[i] ?? KPI_COLORS[0];
           return (
             <StatCard
               key={kpi.label}
@@ -166,13 +204,20 @@ export default function AoVivoPage() {
               key: "desafios",
               label: "Desafios",
               icon: <FlameIcon size={14} />,
-              content: <BlocoDesafiosEquipe desafios={desafiosEquipe} embedded />,
+              content: <BlocoDesafiosEquipe desafios={equipeView.desafios ?? []} embedded />,
             },
             {
               key: "metas",
               label: "Metas",
               icon: <TargetIcon size={14} />,
-              content: <BlocoMetas meta={view.meta} />,
+              content: (
+                <AbaMetas
+                  metaGlobal={equipeView.metaGlobal}
+                  vendedoras={equipeView.vendedoras}
+                  metaAtiva={equipeView.metaAtiva}
+                  visaoRede={equipeView.visao === "rede"}
+                />
+              ),
             },
           ]}
         />

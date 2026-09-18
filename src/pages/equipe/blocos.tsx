@@ -357,15 +357,18 @@ export function CardVendedoras({
   lista,
   metaAtiva,
   mostrarShopping = false,
+  embedded = false,
 }: {
   estado: EstadoBlocoTipo;
   lista: VendedoraLinha[] | null;
   metaAtiva: boolean;
   mostrarShopping?: boolean;
+  /** Sem Card externo (ex.: aba Metas do Ao vivo). */
+  embedded?: boolean;
 }) {
-  return (
-    <Card padding="none">
-      <div className="flex items-center gap-1.5 px-5 py-4">
+  const body = (
+    <>
+      <div className={cn("flex items-center gap-1.5", embedded ? "pb-3" : "px-5 py-4")}>
         <CardTitle>Escada de Premiação</CardTitle>
         <TipHelp label="Veja quem já atingiu cada nível, quanto falta para o próximo e a premiação correspondente." />
       </div>
@@ -373,35 +376,41 @@ export function CardVendedoras({
         {lista && lista.length > 0 ? (
           <BlocoVendedoras lista={lista} metaAtiva={metaAtiva} mostrarShopping={mostrarShopping} />
         ) : (
-          <div className="p-5">
+          <div className={embedded ? "py-2" : "p-5"}>
             <EmptyState icon="👤" title="Sem vendedoras elegíveis" description="Nenhuma vendedora elegível para esta competência." />
           </div>
         )}
       </EstadoBloco>
-    </Card>
+    </>
   );
+
+  if (embedded) {
+    return <div className="border-t border-line pt-4">{body}</div>;
+  }
+
+  return <Card padding="none">{body}</Card>;
 }
 
 /**
  * Faixa de progresso da meta (loja ou rede) — estilo Progresso Global:
  * R$ realizado/meta · % · barra com marcos da escada (Meta→Desafio).
  */
-export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
+export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlobal; embedded?: boolean }) {
   const fecha = meta.projetadoPct >= 100;
   const escalaMax = Math.max(...degrausPadrao.map((d) => d.atingimentoMinPct), 100);
   const fillPct = Math.min(100, (meta.pct / escalaMax) * 100);
   const corBarra = meta.pct >= 100 ? "var(--ok)" : meta.projetadoPct >= 100 ? "var(--acc)" : "var(--acc)";
   const corPct = meta.pct >= 100 ? "text-ok" : meta.projetadoPct >= 100 ? "text-acc" : "text-acc";
 
-  return (
-    <Card>
+  const body = (
+    <>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <CardTitle>Progresso da Meta</CardTitle>
             <TipHelp label="Acompanhe o avanço da equipe pelos níveis de premiação e a projeção para o fechamento da competência." />
           </div>
-          <p className="mt-1 text-[13px] font-bold text-t0">{meta.competTexto}</p>
+          <p className="mt-1.5 text-[16px] font-extrabold tracking-tight text-t0 sm:text-[17px]">{meta.competTexto}</p>
         </div>
         <span className="shrink-0 text-[11.5px] font-semibold tabular-nums text-t2">
           {dataCurta(meta.inicio)} – {dataCurta(meta.fim)}
@@ -473,8 +482,11 @@ export function FaixaMetaGlobal({ meta }: { meta: RedeMetaGlobal }) {
           </span>
         </Badge>
       </div>
-    </Card>
+    </>
   );
+
+  if (embedded) return <div>{body}</div>;
+  return <Card>{body}</Card>;
 }
 
 /* ------------------------- Desafios ------------------------- */

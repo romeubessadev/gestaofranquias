@@ -33,8 +33,8 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 
 ### Abas principais
 - Card principal (**Andamento da competência**): tabs accent **Ranking** (pódio) | **Desafios** | **Metas**.
-- Desafios reusam o mesmo bloco da Equipe (`BlocoDesafios` embedded), 1 por linha + scroll.
-- Metas: **sem cards por loja** — uma visão só. Escopo **Todas as lojas** = meta **somada** (alvo/realizado); **1 loja** = meta só daquela loja. Toggle Por Vendedor | Por Grupo.
+- Desafios e Metas reusam os blocos da Equipe (`BlocoDesafios`, `FaixaMetaGlobal`, `CardVendedoras` embedded).
+- Metas: mesmo Progresso da Meta + Escada de Premiação da Equipe (escopo 1 loja ou Todas somada).
 
 ### Evolução + IA
 - Evolução: tabela + AreaLineChart (P2).
