@@ -42,7 +42,8 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 
 ### Cabeçalho (ações)
 - **Atualizar** = primary; **Compartilhar** = secondary.
-- Sem breadcrumb; sem botão Modo TV no header (rota TV permanece para o feature de visão externa).
+- Breadcrumb `Ao vivo` no PageHeader (igual às filhas Compartilhar / Modo TV).
+- Sem botão Modo TV no header (rota TV permanece para o feature de visão externa).
 - Navegação Compartilhar → `/ao-vivo/compartilhar` (shell).
 
 ### Filtro de loja / tema

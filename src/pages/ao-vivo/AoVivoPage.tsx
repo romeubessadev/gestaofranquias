@@ -77,6 +77,7 @@ export default function AoVivoPage() {
   return (
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
+        crumbs={[{ label: "Ao vivo" }]}
         title="Ao vivo"
         subtitle={`Andamento de ${view.competencia.slice(5)}/${view.competencia.slice(0, 4)} · pulso do dia nos indicadores`}
         actions={
