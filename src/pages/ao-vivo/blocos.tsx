@@ -2,7 +2,7 @@ import { Avatar, Badge, Card, CardTitle, EmptyState, ProgressBar, Segmented } fr
 import { AreaLineChart } from "@/components/charts";
 import { brl, brlK, num, pct } from "@/lib/formato";
 import { cn } from "@/lib/cn";
-import type { AoVivoView, DesafioAoVivo, MetaAoVivo, RankingLinha } from "@/data/gestao/aoVivo";
+import type { AoVivoView, MetaAoVivo, RankingLinha } from "@/data/gestao/aoVivo";
 import { useState } from "react";
 
 const PODIO_ALTURA = ["h-28", "h-36", "h-24"];
@@ -95,49 +95,6 @@ export function BlocoRankingGeral({ ranking }: { ranking: RankingLinha[] }) {
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function CardDesafio({ d }: { d: DesafioAoVivo }) {
-  return (
-    <Card padding="lg" className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <CardTitle className="text-[14px]">{d.nome}</CardTitle>
-          <p className="mt-1 text-[12px] leading-snug text-t2">{d.objetivo}</p>
-        </div>
-        <Badge variant="warning">{d.prazoRotulo}</Badge>
-      </div>
-      <div className="flex flex-wrap items-center gap-2 text-[12px] font-semibold text-t1">
-        <span>Acumulado: {d.acumuladoRotulo}</span>
-        <span className="text-t2">·</span>
-        <span className="text-acc">Prêmio {brl(d.premio)}</span>
-      </div>
-      <ProgressBar value={d.progressoPct} />
-      <div className="flex flex-col gap-2">
-        {d.top3.map((t, i) => (
-          <div key={t.colaboradorId} className="flex items-center gap-2">
-            <span className="w-6 shrink-0 text-[11px] font-bold text-t2">{i + 1}º</span>
-            <Avatar size="sm" name={t.nome} />
-            <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t0">{t.nome}</span>
-            <span className="shrink-0 font-mono text-[12px] font-bold text-t1">{Math.round(t.pct)}%</span>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-export function BlocoDesafios({ desafios }: { desafios: DesafioAoVivo[] }) {
-  if (desafios.length === 0) {
-    return <EmptyState title="Nenhum desafio ativo" description="Quando houver desafios na competência, eles aparecem aqui." />;
-  }
-  return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      {desafios.map((d) => (
-        <CardDesafio key={d.id} d={d} />
-      ))}
     </div>
   );
 }

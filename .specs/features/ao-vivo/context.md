@@ -8,7 +8,7 @@
 
 ## Feature Boundary
 
-Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configurações — ao lado de Metas): acompanhar o andamento da **competência do mês** (ranking, desafios, metas) com **pulso do dia** nos indicadores de volume. Visual 100% Vela. Cabeçalho com **Compartilhar** e **Modo TV** navegando para shells; a visão externa completa é o feature seguinte.
+Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configurações — ao lado de Metas): acompanhar o andamento da **competência do mês** (ranking, desafios, metas) com **pulso do dia** nos indicadores de volume. Visual 100% Vela. Cabeçalho com **Atualizar** e **Compartilhar**; a visão externa (TV) completa é o feature seguinte.
 
 ---
 
@@ -32,7 +32,8 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 - Atingimento (% do mês até agora)
 
 ### Abas principais
-- Card principal (tabs accent): **Ranking** (pódio top 3) | **Desafios** | **Metas**.
+- Card principal (**Andamento da competência**): tabs accent **Ranking** (pódio) | **Desafios** | **Metas**.
+- Desafios reusam o mesmo bloco da Equipe (`BlocoDesafios` embedded).
 - Card separado: **Ranking geral** (lista completa da competência).
 
 ### Evolução + IA
@@ -40,9 +41,9 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 - IA Insights: banner só no app gestor; mock ao clicar (P2). Sem IA na futura TV.
 
 ### Cabeçalho (ações)
-- **Atualizar** = botão primary; **Compartilhar** e **Modo TV** = secondary.
-- Navegação para rotas de compartilhamento (`/ao-vivo/compartilhar` e modo TV correspondente); a UI completa da visão externa entra no feature seguinte — neste corte bastam shells/placeholders navegáveis.
-- Sem bloqueio / sem “Em breve” nos botões.
+- **Atualizar** = primary; **Compartilhar** = secondary.
+- Sem breadcrumb; sem botão Modo TV no header (rota TV permanece para o feature de visão externa).
+- Navegação Compartilhar → `/ao-vivo/compartilhar` (shell).
 
 ### Filtro de loja / tema
 - SeletorLoja no Topbar.

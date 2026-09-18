@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Button, Card, CardTitle, PageHeader, StatCard, Tabs } from "@/components/ui";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarAoVivoView } from "@/data/gestao/aoVivo";
+import { montarEquipeView } from "@/data/gestao/equipeVisoes";
 import { paths } from "@/router/paths";
 import { FlameIcon, TargetIcon, TrophyIcon } from "@/pages/dashboards/icons";
-import { BlocoDesafios, BlocoEvolucao, BlocoIaInsights, BlocoMetas, BlocoRanking, BlocoRankingGeral } from "./blocos";
+import { BlocoDesafios as BlocoDesafiosEquipe } from "@/pages/equipe/blocos";
+import { BlocoEvolucao, BlocoIaInsights, BlocoMetas, BlocoRanking, BlocoRankingGeral } from "./blocos";
 
 const IconVendas = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -54,6 +56,12 @@ export default function AoVivoPage() {
     return montarAoVivoView(escopo);
   }, [escopo, tick]);
 
+  /** Mesma visão de desafios da Equipe (cards ricos + ranking). */
+  const desafiosEquipe = useMemo(() => {
+    void tick;
+    return montarEquipeView({ ...escopo, divisao: null }).desafios ?? [];
+  }, [escopo, tick]);
+
   const forcarAtualizacao = useCallback(() => {
     setRefreshing(true);
     setTimeout(() => {
@@ -69,7 +77,6 @@ export default function AoVivoPage() {
   return (
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
-        crumbs={[{ label: "Ao vivo" }]}
         title="Ao vivo"
         subtitle={`Andamento de ${view.competencia.slice(5)}/${view.competencia.slice(0, 4)} · pulso do dia nos indicadores`}
         actions={
@@ -120,19 +127,6 @@ export default function AoVivoPage() {
             >
               Compartilhar
             </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => navigate(paths.aoVivo.tv)}
-              icon={
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
-                  <polyline points="17 2 12 7 7 2" />
-                </svg>
-              }
-            >
-              Modo TV
-            </Button>
           </>
         }
       />
@@ -156,6 +150,7 @@ export default function AoVivoPage() {
       </div>
 
       <Card className="mt-4" padding="lg">
+        <CardTitle className="mb-4">Andamento da competência</CardTitle>
         <Tabs
           variant="accent"
           defaultKey="ranking"
@@ -170,7 +165,7 @@ export default function AoVivoPage() {
               key: "desafios",
               label: "Desafios",
               icon: <FlameIcon size={14} />,
-              content: <BlocoDesafios desafios={view.desafios} />,
+              content: <BlocoDesafiosEquipe desafios={desafiosEquipe} embedded />,
             },
             {
               key: "metas",

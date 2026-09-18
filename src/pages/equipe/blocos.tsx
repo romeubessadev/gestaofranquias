@@ -486,88 +486,111 @@ function IconRelogio() {
   );
 }
 
-export function BlocoDesafios({ desafios }: { desafios: DesafioView[] }) {
+export function BlocoDesafios({
+  desafios,
+  embedded = false,
+}: {
+  desafios: DesafioView[];
+  /** Sem Card externo (ex.: aba dentro do Ao vivo). */
+  embedded?: boolean;
+}) {
+  if (desafios.length === 0) {
+    const empty = (
+      <EmptyState
+        icon="🎯"
+        title="Nenhum desafio nesta competência"
+        description="Não há desafios cadastrados para o período atual."
+      />
+    );
+    return embedded ? empty : <Card>{empty}</Card>;
+  }
+
+  const grade = (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {desafios.map((d) => (
+        <div key={d.id} className="flex flex-col rounded-[var(--radius-vela-lg)] border border-line bg-bg-inset p-4 sm:p-5">
+          <div className="mb-3 flex items-start gap-3">
+            <span
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px]"
+              style={{
+                color: d.corIcone,
+                backgroundColor: `color-mix(in srgb, ${d.corIcone} 18%, transparent)`,
+              }}
+              aria-hidden
+            >
+              <FlameIcon size={22} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14.5px] font-bold leading-snug text-t0">{d.nome}</p>
+              <p className="mt-1 text-[12px] leading-snug text-t2">{d.objetivo}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Badge variant={d.statusVariant} className="gap-1">
+                  <IconRelogio />
+                  {d.prazoRotulo}
+                </Badge>
+                <span className="text-[11.5px] font-semibold tabular-nums text-t2">{d.janelaRotulo}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-3.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-t2">
+            <span>
+              Meta: <span className="font-bold text-t0">{d.metaRotulo}</span>
+            </span>
+            {d.temMinimo && d.minimo != null && (
+              <span>
+                Mínimo: <span className="font-bold text-t0">{fmtMinimo(d.minimo, d.unidade, d.tipo)}</span>
+              </span>
+            )}
+            <span>
+              Prêmio: <span className="font-bold text-ok">{brl(d.premio)}</span>
+            </span>
+          </div>
+
+          <div className="overflow-x-auto border-t border-line pt-3">
+            <div className="max-h-[260px] min-w-[420px] space-y-2.5 overflow-y-auto">
+              {d.ranking.map((p, idx) => (
+                <div key={p.colaboradorId} className="flex items-center gap-2">
+                  <span className="w-6 shrink-0 text-[12px] font-extrabold text-t2">{idx + 1}º</span>
+                  <Avatar name={p.nome} size="xs" />
+                  <div className="min-w-[110px] flex-1">
+                    <p className="truncate text-[12.5px] font-semibold text-t0">{p.nome.split(" ")[0]}</p>
+                    <p className="truncate text-[10.5px] text-t2">
+                      {p.grupo} · {lojaCurta(p.loja)}
+                    </p>
+                  </div>
+                  <span className="w-[88px] shrink-0 text-right font-mono text-[11px] font-semibold tabular-nums text-t1">
+                    {p.progressoRotulo}
+                  </span>
+                  <div className="w-[72px] shrink-0">
+                    <ProgressBar
+                      value={Math.min(100, p.progressoPct)}
+                      height={5}
+                      color={p.status === "atingiu" ? "var(--ok)" : "var(--acc)"}
+                    />
+                  </div>
+                  <span className="w-8 shrink-0 text-right text-[11px] font-semibold text-t2">{num(p.progressoPct, 0)}%</span>
+                </div>
+              ))}
+              {d.ranking.length === 0 && (
+                <p className="py-3 text-center text-[12.5px] text-t2">Nenhuma participante no escopo atual.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (embedded) return grade;
+
   return (
     <Card padding="lg">
       <div className="mb-4 flex items-center gap-1.5">
         <CardTitle>Desempenho nos Desafios</CardTitle>
         <TipHelp label="Acompanhe o progresso da equipe nos desafios, com prazo e premiação." />
       </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {desafios.map((d) => (
-          <div key={d.id} className="flex flex-col rounded-[var(--radius-vela-lg)] border border-line bg-bg-inset p-4 sm:p-5">
-            <div className="mb-3 flex items-start gap-3">
-              <span
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px]"
-                style={{
-                  color: d.corIcone,
-                  backgroundColor: `color-mix(in srgb, ${d.corIcone} 18%, transparent)`,
-                }}
-                aria-hidden
-              >
-                <FlameIcon size={22} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[14.5px] font-bold leading-snug text-t0">{d.nome}</p>
-                <p className="mt-1 text-[12px] leading-snug text-t2">{d.objetivo}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Badge variant={d.statusVariant} className="gap-1">
-                    <IconRelogio />
-                    {d.prazoRotulo}
-                  </Badge>
-                  <span className="text-[11.5px] font-semibold tabular-nums text-t2">{d.janelaRotulo}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-3.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-t2">
-              <span>
-                Meta: <span className="font-bold text-t0">{d.metaRotulo}</span>
-              </span>
-              {d.temMinimo && d.minimo != null && (
-                <span>
-                  Mínimo: <span className="font-bold text-t0">{fmtMinimo(d.minimo, d.unidade, d.tipo)}</span>
-                </span>
-              )}
-              <span>
-                Prêmio: <span className="font-bold text-ok">{brl(d.premio)}</span>
-              </span>
-            </div>
-
-            <div className="overflow-x-auto border-t border-line pt-3">
-              <div className="max-h-[260px] min-w-[420px] space-y-2.5 overflow-y-auto">
-                {d.ranking.map((p, idx) => (
-                  <div key={p.colaboradorId} className="flex items-center gap-2">
-                    <span className="w-6 shrink-0 text-[12px] font-extrabold text-t2">{idx + 1}º</span>
-                    <Avatar name={p.nome} size="xs" />
-                    <div className="min-w-[110px] flex-1">
-                      <p className="truncate text-[12.5px] font-semibold text-t0">{p.nome.split(" ")[0]}</p>
-                      <p className="truncate text-[10.5px] text-t2">
-                        {p.grupo} · {lojaCurta(p.loja)}
-                      </p>
-                    </div>
-                    <span className="w-[88px] shrink-0 text-right font-mono text-[11px] font-semibold tabular-nums text-t1">
-                      {p.progressoRotulo}
-                    </span>
-                    <div className="w-[72px] shrink-0">
-                      <ProgressBar
-                        value={Math.min(100, p.progressoPct)}
-                        height={5}
-                        color={p.status === "atingiu" ? "var(--ok)" : "var(--acc)"}
-                      />
-                    </div>
-                    <span className="w-8 shrink-0 text-right text-[11px] font-semibold text-t2">{num(p.progressoPct, 0)}%</span>
-                  </div>
-                ))}
-                {d.ranking.length === 0 && (
-                  <p className="py-3 text-center text-[12.5px] text-t2">Nenhuma participante no escopo atual.</p>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      {grade}
     </Card>
   );
 }
