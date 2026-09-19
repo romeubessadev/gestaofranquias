@@ -8,7 +8,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { brl, brlK, num, rotuloDias } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/EstadoBloco";
-import type { DesafioView, EquipeView, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
+import type { DesafioView, EquipeView, MetaCardView, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
 import { degrausPadrao } from "@/data/gestao/metas";
 import { cn } from "@/lib/cn";
 import { ICONS, FlameIcon } from "@/pages/dashboards/icons";
@@ -430,9 +430,21 @@ export function CardVendedoras({
  * Faixa de progresso da meta (loja ou rede) — estilo Progresso Global:
  * R$ realizado/meta · % · barra com marcos da escada (Meta→Desafio).
  */
-export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlobal; embedded?: boolean }) {
+export function FaixaMetaGlobal({
+  meta,
+  embedded = false,
+  hideTitle = false,
+  degraus = degrausPadrao,
+}: {
+  meta: RedeMetaGlobal;
+  embedded?: boolean;
+  /** Quando o título da meta já está no CardMeta. */
+  hideTitle?: boolean;
+  /** Degraus desta meta (default = escada padrão). */
+  degraus?: { nome: string; atingimentoMinPct: number; comissaoPct: number }[];
+}) {
   const fecha = meta.projetadoPct >= 100;
-  const escalaMax = Math.max(...degrausPadrao.map((d) => d.atingimentoMinPct), 100);
+  const escalaMax = Math.max(...degraus.map((d) => d.atingimentoMinPct), 100);
   const fillPct = Math.min(100, (meta.pct / escalaMax) * 100);
   const corBarra = progressColor(meta.pct);
   const corPct = progressTextClass(meta.pct);
@@ -441,12 +453,14 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
 
   const body = (
     <>
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <CardTitle>Projeção da meta</CardTitle>
-          <TipHelp label="Projeta o nível de premiação esperado para o fechamento da competência." />
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
+      <div className={cn("mb-4 flex flex-wrap items-start justify-between gap-2", hideTitle && "mb-3")}>
+        {!hideTitle && (
+          <div className="flex min-w-0 items-center gap-1.5">
+            <CardTitle>Projeção da meta</CardTitle>
+            <TipHelp label="Projeta o nível de premiação esperado para o fechamento da competência." />
+          </div>
+        )}
+        <div className={cn("flex flex-wrap items-center gap-1.5", hideTitle ? "w-full justify-between sm:justify-end" : "justify-end")}>
           <Badge variant={fecha ? "success" : "warning"}>{rotuloProjecao}</Badge>
           <Badge variant="neutral" className="gap-1">
             <IconRelogio />
@@ -474,19 +488,19 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
         const LABEL_MIN_PX = 140;
         const GAP_PX = 10;
         let menorFrac = 1;
-        for (let i = 1; i < degrausPadrao.length; i++) {
-          const frac = (degrausPadrao[i].atingimentoMinPct - degrausPadrao[i - 1].atingimentoMinPct) / escalaMax;
+        for (let i = 1; i < degraus.length; i++) {
+          const frac = (degraus[i].atingimentoMinPct - degraus[i - 1].atingimentoMinPct) / escalaMax;
           if (frac > 0 && frac < menorFrac) menorFrac = frac;
         }
         // Com N3 à esquerda do tick e N4 à direita da faixa, o vão = frac * W.
-        const trackMinW = Math.ceil((LABEL_MIN_PX + GAP_PX) / menorFrac);
+        const trackMinW = degraus.length > 1 ? Math.ceil((LABEL_MIN_PX + GAP_PX) / menorFrac) : 280;
 
         return (
           <div className="mt-4 min-w-0 overflow-x-auto overscroll-x-contain touch-pan-x">
             <div className="w-full" style={{ minWidth: trackMinW }}>
               <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
                 <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${fillPct}%`, background: corBarra }} />
-                {degrausPadrao.map((d) => {
+                {degraus.map((d) => {
                   const left = (d.atingimentoMinPct / escalaMax) * 100;
                   const atingido = meta.pct >= d.atingimentoMinPct;
                   return (
@@ -500,11 +514,11 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
               </div>
 
               <div className="relative mt-2 h-7 w-full">
-                {degrausPadrao.map((d, i) => {
+                {degraus.map((d, i) => {
                   const left = (d.atingimentoMinPct / escalaMax) * 100;
                   const atingido = meta.pct >= d.atingimentoMinPct;
-                  const isLast = i === degrausPadrao.length - 1;
-                  const proximo = degrausPadrao[i + 1];
+                  const isLast = i === degraus.length - 1;
+                  const proximo = degraus[i + 1];
                   const gapPts = proximo ? proximo.atingimentoMinPct - d.atingimentoMinPct : Infinity;
                   // Intervalo apertado: texto termina no tick (não centra), liberando o vão até o N4.
                   const ancoraDireitaNoTick = !isLast && gapPts <= 15;
@@ -537,6 +551,49 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
 
   if (embedded) return <div className="min-w-0">{body}</div>;
   return <Card className="min-w-0 overflow-hidden">{body}</Card>;
+}
+
+/**
+ * Card de uma meta ativa: título + badges de contexto + progresso + escada.
+ * Usado no Ao vivo (aba Metas); N metas = N cards.
+ */
+export function CardMeta({ card, metaAtiva }: { card: MetaCardView; metaAtiva: boolean }) {
+  const tipoLabel = card.tipo === "individual" ? "Individual" : "Coletiva";
+  return (
+    <Card className="min-w-0 overflow-hidden" padding="lg">
+      <CardTitle>{card.nome}</CardTitle>
+
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
+        <Badge variant={card.tipo === "individual" ? "info" : "accent"}>{tipoLabel}</Badge>
+        <Badge variant="neutral">{card.lojaNome}</Badge>
+        {card.marcas.map((m) => (
+          <Badge key={m} variant="neutral">
+            {m}
+          </Badge>
+        ))}
+        <Badge variant="neutral">
+          {card.qtdGrupos} {card.qtdGrupos === 1 ? "grupo" : "grupos"}
+        </Badge>
+        <Badge variant="neutral">
+          {card.qtdVendedoras} {card.qtdVendedoras === 1 ? "vendedora" : "vendedoras"}
+        </Badge>
+        <Badge variant="neutral">
+          {card.qtdNiveis} {card.qtdNiveis === 1 ? "nível" : "níveis"}
+        </Badge>
+      </div>
+
+      <div className="mt-4">
+        <FaixaMetaGlobal meta={card.faixa} embedded hideTitle degraus={card.degraus} />
+      </div>
+
+      <CardVendedoras
+        embedded
+        estado={card.vendedoras.length > 0 ? "disponivel" : "sem_dados"}
+        lista={card.vendedoras}
+        metaAtiva={metaAtiva}
+      />
+    </Card>
+  );
 }
 
 /* ------------------------- Desafios ------------------------- */

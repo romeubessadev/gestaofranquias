@@ -10,7 +10,7 @@
  * Quando o período ≠ competência, um aviso deixa o recorte explícito.
  */
 import { vendedorElegivel, colaboradoresDaFilial, colaboradorPorId, type Colaborador } from "./equipe";
-import { metaDaFilial, type Degrau } from "./metas";
+import { metaDaFilial, metasDaFilial, type Degrau, type MetaMarca, type MetaTipo } from "./metas";
 import {
   alvoGerenteDoDesafio,
   desafioEhIndice,
@@ -342,7 +342,7 @@ export interface EstadosEquipeView {
 }
 
 export interface RedeMetaGlobal {
-  /** "Setembro 2026" */
+  /** Nome da meta ou "Setembro 2026". */
   competTexto: string;
   /** Faturamento na competência (loja ou rede). */
   realizado: number;
@@ -358,6 +358,21 @@ export interface RedeMetaGlobal {
   inicio: string;
   /** Fim da competência (ISO). */
   fim: string;
+}
+
+/** Card de uma meta ativa (Ao vivo / Equipe) — progresso + badges + escada. */
+export interface MetaCardView {
+  id: string;
+  nome: string;
+  tipo: MetaTipo;
+  lojaNome: string;
+  marcas: MetaMarca[];
+  qtdGrupos: number;
+  qtdVendedoras: number;
+  qtdNiveis: number;
+  degraus: Degrau[];
+  faixa: RedeMetaGlobal;
+  vendedoras: VendedoraLinha[];
 }
 
 export interface EquipeView {
@@ -379,8 +394,9 @@ export interface EquipeView {
    * que fecham. null sem meta ativa (vira 4 KPIs).
    */
   kpiPremiacao: KpiEquipeValor | null;
-  /** Faixa de progresso da meta (loja ou rede) — com meta ativa. */
   metaGlobal: RedeMetaGlobal | null;
+  /** Uma entrada por meta ativa no escopo (loja principal + metas de marca, etc.). */
+  metasCards: MetaCardView[];
   leitura: string | null;
   /** Série acumulada Realizado × Meta (mesmo padrão da Visão Geral). */
   evolucaoFaturamento?: { label: string; realizado: number; meta: number }[];
@@ -946,6 +962,61 @@ function montarMetaFaixa(realizado: number, total: number, competencia: string, 
   };
 }
 
+/** Faturamento da competência filtrado por marca (1 marca) ou total (null). */
+function realizadoCompetencia(filialId: string, competencia: string, marca: MetaMarca | null): number {
+  const primeiro = `${competencia}-01`;
+  const ultimo = fimDoMes(primeiro);
+  const fimReal = ultimo < HOJE_ISO ? ultimo : HOJE_ISO;
+  return somarAgregados(
+    intervaloDias(primeiro, fimReal).map((iso) => {
+      const dia = diaVendas(filialId, iso);
+      if (!dia) return { faturamento: 0, atendimentos: 0, itens: 0 };
+      return agregadoDoDia(dia, marca, iso === HOJE_ISO ? HORA_ATUAL : undefined);
+    }),
+  ).faturamento;
+}
+
+/**
+ * Cards de meta do escopo: uma entrada por meta cadastrada (loja + marca).
+ * Escada reusa as vendedoras da loja; realizado da faixa respeita marcas da meta.
+ */
+function montarMetasCards(
+  filialIds: string[],
+  competencia: string,
+  vendedorasPorFilial: Map<string, VendedoraLinha[]>,
+): MetaCardView[] {
+  const cards: MetaCardView[] = [];
+  for (const filialId of filialIds) {
+    const filial = filialPorId(filialId);
+    if (!filial) continue;
+    const lista = vendedorasPorFilial.get(filialId) ?? [];
+    const nGrupos = gruposDaFilial(filialId).length;
+    for (const m of metasDaFilial(filialId, competencia)) {
+      const marcaUnica = m.marcas.length === 1 ? m.marcas[0] : null;
+      const realizado = marcaUnica
+        ? realizadoCompetencia(filialId, competencia, marcaUnica)
+        : lista.reduce((s, l) => s + l.faturamentoValor, 0);
+      const faixa = montarMetaFaixa(realizado, m.valorLoja, competencia, [filial]);
+      if (!faixa) continue;
+      faixa.competTexto = m.nome;
+      cards.push({
+        id: m.id,
+        nome: m.nome,
+        tipo: m.tipo,
+        lojaNome: filial.fantasia,
+        marcas: m.marcas,
+        qtdGrupos: nGrupos,
+        qtdVendedoras: lista.length,
+        qtdNiveis: m.degraus.length,
+        degraus: m.degraus,
+        faixa,
+        vendedoras: lista,
+      });
+    }
+  }
+  return cards;
+}
+
 /* ------------------------- Evolução Fat vs Meta (padrão Visão Geral) ------------------------- */
 
 const MESES_CURTOS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -1131,6 +1202,10 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
     metaGlobal = montarMetaFaixa(realizado, metaLojaValor, competencia, [filial]);
   }
 
+  const metasCards = metaAtiva
+    ? montarMetasCards([filialId], competencia, new Map([[filialId, vendedoras]]))
+    : [];
+
   const nDias = diasPeriodo.length;
   const evolucao = montarEvolucaoFatVsMeta([filialId], periodo, metaLojaValor);
   const desafios = metaAtiva ? desafiosViewDaCompetencia(competencia, [filial.id]) : null;
@@ -1167,6 +1242,7 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
     },
     kpiPremiacao: premiacao === null ? null : { valor: brl(premiacao), delta: undefined },
     metaGlobal,
+    metasCards,
     leitura: null,
     evolucaoFaturamento: evolucao?.pontos,
     rotuloSerie: evolucao?.rotuloSerie,
@@ -1190,11 +1266,13 @@ function visaoRede(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
   const metaGlobalTotal = filiais.reduce((s, f) => s + (metaDaFilial(f.id, competencia)?.valorLoja ?? 0), 0);
 
   const vendedorasFlat: VendedoraLinha[] = [];
+  const vendedorasPorFilial = new Map<string, VendedoraLinha[]>();
   const lojas: LojaEquipeResumo[] = filiais.map((f, i) => {
     const escopoLoja: Escopo = { ...escopo, filialIds: [f.id] };
     const vLoja = visaoLoja(escopoLoja, periodo, periodoMeta, competencia, metaAtiva);
     const linhas = vLoja.vendedoras ?? [];
     vendedorasFlat.push(...linhas);
+    vendedorasPorFilial.set(f.id, linhas);
     const comMeta = metaAtiva ? linhas.filter((l) => !l.semMeta) : [];
     const ordenadas = [...comMeta].sort((a, b) => b.atingimentoPct - a.atingimentoPct);
     const melhor = ordenadas.length > 0 ? { nome: primeiroNome(ordenadas[0].nome), atingimentoPct: ordenadas[0].atingimentoPct } : null;
@@ -1283,6 +1361,14 @@ if (metaAtiva) {
     metaGlobal = montarMetaFaixa(realizado, metaGlobalTotal, competencia, filiais);
   }
 
+  const metasCards = metaAtiva
+    ? montarMetasCards(
+        filiais.map((f) => f.id),
+        competencia,
+        vendedorasPorFilial,
+      )
+    : [];
+
   const evolucaoRede = montarEvolucaoFatVsMeta(
     filiais.map((f) => f.id),
     periodo,
@@ -1327,6 +1413,7 @@ if (metaAtiva) {
     },
     kpiPremiacao: premiacaoRede === null ? null : { valor: brl(premiacaoRede), delta: undefined },
     metaGlobal,
+    metasCards,
     leitura: null,
     evolucaoFaturamento: evolucaoRede?.pontos,
     rotuloSerie: evolucaoRede?.rotuloSerie,

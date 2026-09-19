@@ -37,6 +37,17 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 - Metas: mesmo Progresso da Meta + Escada de Premiação da Equipe (escopo 1 loja ou Todas somada).
 - **Desafios no Ao vivo e na Equipe:** só `statusLabel === "Ativo"` (sem encerrados nem a começar).
 
+### Aba Metas — card por meta (DECIDIDO 2026-09-19 — mock)
+- Cada meta ativa vira **um card** com **título = só o nome da meta** (sem sufixo "Loja"/"Mix" — isso vai nos badges).
+- Badges abaixo do título (contexto, não KPI), ordem: tipo → loja → marcas → contagens:
+  - Tipo: **Individual** | **Coletiva**
+  - Loja (fantasia)
+  - Marcas: WEPINK · WPINK | só WEPINK | só WPINK
+  - Qtd de grupos · Qtd de vendedoras · Qtd de níveis
+- Corpo do card: barra de progresso (realizado/alvo + % + projeção) + escada/lista daquela meta.
+- N metas = N cards empilhados; 1 meta = 1 card (mesmo padrão, sem caso especial).
+- Escada/vendedoras ficam **dentro** do card da meta (não misturar atingimentos de metas diferentes).
+
 ### Evolução + IA + Formas
 - Evolução por Vendedor: **removida** da tela.
 - IA Insights: **fora por enquanto** (P2).

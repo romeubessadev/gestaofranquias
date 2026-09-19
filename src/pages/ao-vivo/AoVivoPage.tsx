@@ -8,8 +8,7 @@ import { paths } from "@/router/paths";
 import { FlameIcon, TargetIcon, TrophyIcon, TINT, type TintKey } from "@/pages/dashboards/icons";
 import {
   BlocoDesafios as BlocoDesafiosEquipe,
-  CardVendedoras,
-  FaixaMetaGlobal,
+  CardMeta,
 } from "@/pages/equipe/blocos";
 import { BlocoRanking, BlocoRankingGeral, BlocoRankingLojas } from "./blocos";
 
@@ -68,15 +67,13 @@ const KPI_COLORS = [
 const KPI_HOJE_TINTS: TintKey[] = ["acc", "warn", "ok", "info"];
 
 function AbaMetas({
-  metaGlobal,
-  vendedoras,
+  metasCards,
   metaAtiva,
 }: {
-  metaGlobal: ReturnType<typeof montarEquipeView>["metaGlobal"];
-  vendedoras: ReturnType<typeof montarEquipeView>["vendedoras"];
+  metasCards: ReturnType<typeof montarEquipeView>["metasCards"];
   metaAtiva: boolean;
 }) {
-  if (!metaGlobal) {
+  if (!metasCards.length) {
     return (
       <EmptyState
         title="Nenhuma meta cadastrada para este mês."
@@ -87,13 +84,9 @@ function AbaMetas({
 
   return (
     <div className="flex flex-col gap-4">
-      <FaixaMetaGlobal meta={metaGlobal} embedded />
-      <CardVendedoras
-        embedded
-        estado={vendedoras && vendedoras.length > 0 ? "disponivel" : "sem_dados"}
-        lista={vendedoras}
-        metaAtiva={metaAtiva}
-      />
+      {metasCards.map((card) => (
+        <CardMeta key={card.id} card={card} metaAtiva={metaAtiva} />
+      ))}
     </div>
   );
 }
@@ -255,8 +248,7 @@ export default function AoVivoPage() {
               icon: <TargetIcon size={14} />,
               content: (
                 <AbaMetas
-                  metaGlobal={equipeView.metaGlobal}
-                  vendedoras={equipeView.vendedoras}
+                  metasCards={equipeView.metasCards}
                   metaAtiva={equipeView.metaAtiva}
                 />
               ),
