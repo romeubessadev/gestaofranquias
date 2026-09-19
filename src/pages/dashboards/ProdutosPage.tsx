@@ -1,8 +1,9 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
-import { Badge, Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Pagination } from "@/components/ui";
+import { Badge, Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Pagination, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { BarChart, DonutChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
+import { SeletorMarca } from "@/pages/dashboard/SeletorMarca";
 import { montarProdutosView, type ProdutosKpi, type ProdutoLinha, type ClasseAbc } from "@/data/gestao/dashboard";
 import { brl, brlK, deIso, num, tipRelacao } from "@/lib/formato";
 import { cn } from "@/lib/cn";
@@ -36,9 +37,9 @@ const IconItens = () => (
 );
 const KPI_ICONS = [IconFat, IconLucro, IconMargem, IconItens];
 
-type RankingOrd = "faturamento" | "itens" | "margem";
 type SortKey = "nome" | "categoria" | "faturamento" | "cmv" | "lucro" | "margemPct" | "cmvPct" | "qtdVendas" | "ticketMedio" | "itens";
-type SortDir = "asc" | "desc";
+type TopProdSort = "nome" | "itens" | "faturamento" | "margem";
+type TopLinhaSort = "nome" | "faturamento" | "participacao";
 
 const PAGE_SIZE = 10;
 
@@ -97,11 +98,14 @@ function AvatarIniciais({ nome, idx }: { nome: string; idx: number }) {
 
 export default function ProdutosPage() {
   const { escopo, mudar } = useEscopo();
-  const [rankingOrd, setRankingOrd] = useState<RankingOrd>("faturamento");
   const [catTabela, setCatTabela] = useState<number | null>(null);
   const [buscaTabela, setBuscaTabela] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("faturamento");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [topProdSort, setTopProdSort] = useState<TopProdSort>("faturamento");
+  const [topProdDir, setTopProdDir] = useState<SortDir>("desc");
+  const [topLinhaSort, setTopLinhaSort] = useState<TopLinhaSort>("faturamento");
+  const [topLinhaDir, setTopLinhaDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -140,12 +144,28 @@ export default function ProdutosPage() {
   const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} min`;
 
   const topProdutos = useMemo(() => {
-    return [...view.produtos].sort((a, b) => {
-      if (rankingOrd === "faturamento") return b.receita - a.receita;
-      if (rankingOrd === "itens") return b.itens - a.itens;
-      return b.margemPct - a.margemPct;
+    const dir = topProdDir === "asc" ? 1 : -1;
+    return [...view.produtos]
+      .sort((a, b) => {
+        if (topProdSort === "nome") return a.nome.localeCompare(b.nome) * dir;
+        if (topProdSort === "itens") return (a.itens - b.itens) * dir;
+        if (topProdSort === "margem") return (a.margemPct - b.margemPct) * dir;
+        return (a.receita - b.receita) * dir;
+      })
+      .slice(0, 6);
+  }, [view.produtos, topProdSort, topProdDir]);
+
+  const topLinhas = useMemo(() => {
+    const base = view.topLinhas.slice(0, 6);
+    const totalFat = base.reduce((s, l) => s + l.faturamento, 0) || 1;
+    const comPct = base.map((l) => ({ ...l, participacao: Math.round((l.faturamento / totalFat) * 100) }));
+    const dir = topLinhaDir === "asc" ? 1 : -1;
+    return [...comPct].sort((a, b) => {
+      if (topLinhaSort === "nome") return a.nome.localeCompare(b.nome) * dir;
+      if (topLinhaSort === "participacao") return (a.participacao - b.participacao) * dir;
+      return (a.faturamento - b.faturamento) * dir;
     });
-  }, [view.produtos, rankingOrd]);
+  }, [view.topLinhas, topLinhaSort, topLinhaDir]);
 
   const linhasTabela = useMemo(() => {
     let lista = view.produtos;
@@ -195,6 +215,24 @@ export default function ProdutosPage() {
     } else {
       setSortKey(key);
       setSortDir(key === "nome" || key === "categoria" ? "asc" : "desc");
+    }
+  }
+
+  function toggleTopProdSort(key: TopProdSort) {
+    if (topProdSort === key) {
+      setTopProdDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTopProdSort(key);
+      setTopProdDir(key === "nome" ? "asc" : "desc");
+    }
+  }
+
+  function toggleTopLinhaSort(key: TopLinhaSort) {
+    if (topLinhaSort === key) {
+      setTopLinhaDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTopLinhaSort(key);
+      setTopLinhaDir(key === "nome" ? "asc" : "desc");
     }
   }
 
@@ -258,15 +296,7 @@ export default function ProdutosPage() {
               Exportar
             </Button>
             <DateRangePicker value={dateRange} onChange={onDateChange} size="sm" />
-            <select
-              value={escopo.divisao ?? ""}
-              onChange={(e) => onMarcaChange(e.target.value ? e.target.value as "WEPINK" | "WPINK" : null)}
-              className={filtroSelectClass}
-            >
-              <option value="">Todas as marcas</option>
-              <option value="WEPINK">WEPINK</option>
-              <option value="WPINK">WPINK</option>
-            </select>
+            <SeletorMarca value={escopo.divisao} onChange={onMarcaChange} />
           </>
         }
       />
@@ -363,71 +393,96 @@ export default function ProdutosPage() {
               <thead>
                 <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
                   <th className="px-1 pb-3 text-left font-bold">#</th>
-                  <th className="px-1 pb-3 text-left font-bold">Linha</th>
-                  <th className="px-1 pb-3 text-right font-bold">Faturamento</th>
-                  <th className="px-1 pb-3 text-right font-bold">Participação</th>
+                  <ThSort
+                    label="Linha"
+                    active={topLinhaSort === "nome"}
+                    dir={topLinhaDir}
+                    onClick={() => toggleTopLinhaSort("nome")}
+                    align="left"
+                    className="px-1 pb-3"
+                  />
+                  <ThSort
+                    label="Faturamento"
+                    active={topLinhaSort === "faturamento"}
+                    dir={topLinhaDir}
+                    onClick={() => toggleTopLinhaSort("faturamento")}
+                    className="px-1 pb-3"
+                  />
+                  <ThSort
+                    label="Participação"
+                    active={topLinhaSort === "participacao"}
+                    dir={topLinhaDir}
+                    onClick={() => toggleTopLinhaSort("participacao")}
+                    className="px-1 pb-3"
+                  />
                 </tr>
               </thead>
               <tbody>
-                {(() => {
-                  const linhas = view.topLinhas.slice(0, 6);
-                  const totalFat = linhas.reduce((s, l) => s + l.faturamento, 0) || 1;
-                  if (linhas.length === 0) {
-                    return (
-                      <tr>
-                        <td colSpan={4} className="px-1 py-6 text-center text-[13px] text-t2">Sem dados no período selecionado.</td>
-                      </tr>
-                    );
-                  }
-                  return linhas.map((l, idx) => {
-                    const pct = Math.round((l.faturamento / totalFat) * 100);
-                    return (
-                      <tr key={l.nome} className="border-b border-line last:border-b-0">
-                        <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
-                        <td className="px-1 py-3">
-                          <div className="flex min-w-0 items-center gap-2.5">
-                            <AvatarIniciais nome={l.nome} idx={idx} />
-                            <p className="truncate text-[13px] font-bold text-t0">{l.nome}</p>
-                          </div>
-                        </td>
-                        <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlK(l.faturamento)}</td>
-                        <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t1">{pct}%</td>
-                      </tr>
-                    );
-                  });
-                })()}
+                {topLinhas.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-1 py-6 text-center text-[13px] text-t2">Sem dados no período selecionado.</td>
+                  </tr>
+                ) : (
+                  topLinhas.map((l, idx) => (
+                    <tr key={l.nome} className="border-b border-line last:border-b-0">
+                      <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
+                      <td className="px-1 py-3">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <AvatarIniciais nome={l.nome} idx={idx} />
+                          <p className="truncate text-[13px] font-bold text-t0">{l.nome}</p>
+                        </div>
+                      </td>
+                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlK(l.faturamento)}</td>
+                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t1">{l.participacao}%</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </Card>
         <Card>
           <CardHeader>
-            <div className="flex w-full items-center justify-between gap-1.5">
-              <CardTitle>Top produtos</CardTitle>
-              <select
-                value={rankingOrd}
-                onChange={(e) => setRankingOrd(e.target.value as RankingOrd)}
-                className={filtroSelectClass}
-              >
-                <option value="faturamento">Faturamento</option>
-                <option value="itens">Itens vendidos</option>
-                <option value="margem">Margem</option>
-              </select>
-            </div>
+            <CardTitle>Top produtos</CardTitle>
           </CardHeader>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
                   <th className="px-1 pb-3 text-left font-bold">#</th>
-                  <th className="px-1 pb-3 text-left font-bold">Produto</th>
-                  <th className="px-1 pb-3 text-right font-bold">Itens vendidos</th>
-                  <th className="px-1 pb-3 text-right font-bold">Faturamento</th>
-                  <th className="px-1 pb-3 text-right font-bold">Margem</th>
+                  <ThSort
+                    label="Produto"
+                    active={topProdSort === "nome"}
+                    dir={topProdDir}
+                    onClick={() => toggleTopProdSort("nome")}
+                    align="left"
+                    className="px-1 pb-3"
+                  />
+                  <ThSort
+                    label="Itens vendidos"
+                    active={topProdSort === "itens"}
+                    dir={topProdDir}
+                    onClick={() => toggleTopProdSort("itens")}
+                    className="px-1 pb-3"
+                  />
+                  <ThSort
+                    label="Faturamento"
+                    active={topProdSort === "faturamento"}
+                    dir={topProdDir}
+                    onClick={() => toggleTopProdSort("faturamento")}
+                    className="px-1 pb-3"
+                  />
+                  <ThSort
+                    label="Margem"
+                    active={topProdSort === "margem"}
+                    dir={topProdDir}
+                    onClick={() => toggleTopProdSort("margem")}
+                    className="px-1 pb-3"
+                  />
                 </tr>
               </thead>
               <tbody>
-                {topProdutos.slice(0, 6).map((p, idx) => (
+                {topProdutos.map((p, idx) => (
                   <tr key={p.codProduto} className="border-b border-line last:border-b-0">
                     <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
                     <td className="px-1 py-3">
@@ -646,37 +701,6 @@ function metricasDeProdutos(prods: Array<Pick<MetricasLinha, "faturamento" | "cm
 function csvCell(v: string): string {
   if (/[";\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
   return v;
-}
-
-function ThSort({
-  label,
-  active,
-  dir,
-  onClick,
-  align = "right",
-}: {
-  label: string;
-  active: boolean;
-  dir: SortDir;
-  onClick: () => void;
-  align?: "left" | "right";
-}) {
-  return (
-    <th className={cn("px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide", align === "left" ? "text-left" : "text-right")}>
-      <button
-        type="button"
-        onClick={onClick}
-        className={cn(
-          "inline-flex items-center gap-1 hover:text-t0",
-          active ? "text-t0" : "text-t2",
-          align === "right" && "flex-row-reverse",
-        )}
-      >
-        {label}
-        <span className="text-[10px]">{active ? (dir === "asc" ? "↑" : "↓") : ""}</span>
-      </button>
-    </th>
-  );
 }
 
 function GradeMetricas({

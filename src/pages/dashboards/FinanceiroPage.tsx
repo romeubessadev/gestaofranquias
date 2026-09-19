@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, But
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, DonutChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
+import { SeletorMarca } from "@/pages/dashboard/SeletorMarca";
 import { montarFinanceiroView, type FinanceiroKpi, type EvolucaoMensalLinha, type LinhaCustoFixo } from "@/data/gestao/dashboard";
 import { brl, brlK, deIso, tipRelacao } from "@/lib/formato";
 import { cn } from "@/lib/cn";
@@ -71,12 +72,16 @@ const evolucaoColumns: DataTableColumn<EvolucaoMensalLinha>[] = [
   {
     key: "mes",
     header: "Mês",
+    sortable: true,
+    sortValue: (r) => r.mes,
     render: (r) => <span className="font-bold text-t0">{r.mes}</span>,
   },
   {
     key: "faturamento",
     header: "Faturamento",
     align: "right",
+    sortable: true,
+    sortValue: (r) => r.faturamento,
     render: (r) => <span className="font-semibold tabular-nums">{brl(r.faturamento)}</span>,
   },
   {
@@ -84,12 +89,16 @@ const evolucaoColumns: DataTableColumn<EvolucaoMensalLinha>[] = [
     header: "CMV",
     align: "right",
     hideBelow: "sm",
+    sortable: true,
+    sortValue: (r) => r.custo,
     render: (r) => <span className="tabular-nums text-t1">{brl(r.custo)}</span>,
   },
   {
     key: "lucro",
     header: "Lucro bruto",
     align: "right",
+    sortable: true,
+    sortValue: (r) => r.lucro,
     render: (r) => <span className="font-extrabold tabular-nums text-ok">{brl(r.lucro)}</span>,
   },
   {
@@ -97,6 +106,8 @@ const evolucaoColumns: DataTableColumn<EvolucaoMensalLinha>[] = [
     header: "Margem",
     align: "right",
     hideBelow: "md",
+    sortable: true,
+    sortValue: (r) => r.margemPct,
     render: (r) => <span className="tabular-nums text-t1">{r.margemPct.toFixed(1)}%</span>,
   },
   {
@@ -104,6 +115,8 @@ const evolucaoColumns: DataTableColumn<EvolucaoMensalLinha>[] = [
     header: "Ticket médio",
     align: "right",
     hideBelow: "md",
+    sortable: true,
+    sortValue: (r) => r.ticketMedio,
     render: (r) => <span className="tabular-nums text-t1">{brl(r.ticketMedio)}</span>,
   },
 ];
@@ -188,15 +201,7 @@ export default function FinanceiroPage() {
               Exportar
             </Button>
             <DateRangePicker value={dateRange} onChange={onDateChange} size="sm" />
-            <select
-              value={escopo.divisao ?? ""}
-              onChange={(e) => onMarcaChange(e.target.value ? e.target.value as "WEPINK" | "WPINK" : null)}
-              className="h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none"
-            >
-              <option value="">Todas as marcas</option>
-              <option value="WEPINK">WEPINK</option>
-              <option value="WPINK">WPINK</option>
-            </select>
+            <SeletorMarca value={escopo.divisao} onChange={onMarcaChange} />
           </>
         }
       />
@@ -454,6 +459,8 @@ export default function FinanceiroPage() {
             data={view.evolucaoMensal}
             rowKey={(r) => r.mes}
             emptyMessage="Sem dados nos últimos 6 meses."
+            defaultSortKey="mes"
+            defaultSortDir="asc"
           />
         </div>
 

@@ -1,11 +1,14 @@
 import { useMemo, useState, useCallback } from "react";
-import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button } from "@/components/ui";
+import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, DonutChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
+import { SeletorMarca } from "@/pages/dashboard/SeletorMarca";
 import { montarVisaoGeralView, type VisaoKpi } from "@/data/gestao/dashboard";
 import { brlK, deIso, tipRelacao } from "@/lib/formato";
 import type { DateRange } from "@/components/ui/DateRangePicker";
+
+type TopProdSort = "nome" | "itens" | "faturamento" | "variacao";
 
 const IconFat = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -66,6 +69,32 @@ export default function VisaoGeralPage() {
   const view = useMemo(() => montarVisaoGeralView(escopo), [escopo]);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
+  const [topProdSort, setTopProdSort] = useState<TopProdSort>("faturamento");
+  const [topProdDir, setTopProdDir] = useState<SortDir>("desc");
+
+  const topProdutosOrdenados = useMemo(() => {
+    const dir = topProdDir === "asc" ? 1 : -1;
+    const itensDe = (sub?: string) => {
+      if (!sub) return 0;
+      const n = Number(sub.replace(/[^\d]/g, ""));
+      return Number.isFinite(n) ? n : 0;
+    };
+    return [...view.topProdutos].sort((a, b) => {
+      if (topProdSort === "nome") return a.nome.localeCompare(b.nome) * dir;
+      if (topProdSort === "itens") return (itensDe(a.sub) - itensDe(b.sub)) * dir;
+      if (topProdSort === "variacao") return ((a.trend ?? -Infinity) - (b.trend ?? -Infinity)) * dir;
+      return (a.valor - b.valor) * dir;
+    });
+  }, [view.topProdutos, topProdSort, topProdDir]);
+
+  function toggleTopProdSort(key: TopProdSort) {
+    if (topProdSort === key) {
+      setTopProdDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setTopProdSort(key);
+      setTopProdDir(key === "nome" ? "asc" : "desc");
+    }
+  }
 
   // Resolve o DateRange a partir do escopo — sempre mostra algo selecionado.
   const dateRange: DateRange | null = useMemo(() => {
@@ -122,15 +151,7 @@ export default function VisaoGeralPage() {
               Exportar
             </Button>
             <DateRangePicker value={dateRange} onChange={onDateChange} size="sm" />
-            <select
-              value={escopo.divisao ?? ""}
-              onChange={(e) => onMarcaChange(e.target.value ? e.target.value as "WEPINK" | "WPINK" : null)}
-              className="h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none"
-            >
-              <option value="">Todas as marcas</option>
-              <option value="WEPINK">WEPINK</option>
-              <option value="WPINK">WPINK</option>
-            </select>
+            <SeletorMarca value={escopo.divisao} onChange={onMarcaChange} />
           </>
         }
       />
@@ -476,14 +497,39 @@ export default function VisaoGeralPage() {
               <thead>
                 <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
                   <th className="px-1 pb-3 text-left font-bold">#</th>
-                  <th className="px-1 pb-3 text-left font-bold">Produto</th>
-                  <th className="px-1 pb-3 text-right font-bold">Itens vendidos</th>
-                  <th className="px-1 pb-3 text-right font-bold">Faturamento</th>
-                  <th className="px-1 pb-3 text-right font-bold">Variação</th>
+                  <ThSort
+                    label="Produto"
+                    active={topProdSort === "nome"}
+                    dir={topProdDir}
+                    onClick={() => toggleTopProdSort("nome")}
+                    align="left"
+                    className="px-1 pb-3"
+                  />
+                  <ThSort
+                    label="Itens vendidos"
+                    active={topProdSort === "itens"}
+                    dir={topProdDir}
+                    onClick={() => toggleTopProdSort("itens")}
+                    className="px-1 pb-3"
+                  />
+                  <ThSort
+                    label="Faturamento"
+                    active={topProdSort === "faturamento"}
+                    dir={topProdDir}
+                    onClick={() => toggleTopProdSort("faturamento")}
+                    className="px-1 pb-3"
+                  />
+                  <ThSort
+                    label="Variação"
+                    active={topProdSort === "variacao"}
+                    dir={topProdDir}
+                    onClick={() => toggleTopProdSort("variacao")}
+                    className="px-1 pb-3"
+                  />
                 </tr>
               </thead>
               <tbody>
-                {view.topProdutos.map((p, idx) => {
+                {topProdutosOrdenados.map((p, idx) => {
                   const iniciais = p.nome.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
                   const cores = ["var(--ok)", "var(--info)", "var(--warn)", "var(--acc)", "var(--bad)"];
                   const corAvatar = cores[idx % cores.length];
@@ -507,7 +553,7 @@ export default function VisaoGeralPage() {
                     </tr>
                   );
                 })}
-                {view.topProdutos.length === 0 && (
+                {topProdutosOrdenados.length === 0 && (
                   <tr><td colSpan={5} className="px-1 py-3 text-center text-[13px] text-t2">Sem dados no período selecionado.</td></tr>
                 )}
               </tbody>

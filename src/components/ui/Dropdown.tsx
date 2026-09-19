@@ -7,6 +7,8 @@ export interface DropdownItem {
   onClick?: () => void;
   danger?: boolean;
   divider?: boolean;
+  /** Destaca a opção selecionada (bg-acc-soft + texto acc). */
+  active?: boolean;
 }
 
 export interface DropdownProps {
@@ -43,17 +45,23 @@ export function Dropdown({ trigger, items, align = "right" }: DropdownProps) {
             ) : (
               <button
                 key={i}
+                type="button"
                 onClick={() => {
                   item.onClick?.();
                   setOpen(false);
                 }}
                 className={cn(
-                  "flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-[13px] font-medium hover:bg-bg-3",
-                  item.danger ? "text-bad" : "text-t0",
+                  "flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-[13px] font-medium",
+                  item.active ? "bg-acc-soft text-acc" : item.danger ? "text-bad hover:bg-bg-3" : "text-t0 hover:bg-bg-3",
                 )}
               >
                 {item.icon}
-                {item.label}
+                <span className="min-w-0 flex-1">{item.label}</span>
+                {item.active && (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
               </button>
             ),
           )}

@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, But
 import { Tooltip } from "@/components/ui/Tooltip";
 import { Heatmap, BarChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
+import { SeletorMarca } from "@/pages/dashboard/SeletorMarca";
 import { montarGruposView } from "@/data/gestao/dashboard";
 import { brl, brlK, num } from "@/lib/formato";
 import { deIso } from "@/lib/formato";
@@ -225,15 +226,7 @@ export default function GruposPage() {
               Exportar
             </Button>
             <DateRangePicker value={dateRange} onChange={onDateChange} size="sm" />
-            <select
-              value={escopo.divisao ?? ""}
-              onChange={(e) => onMarcaChange(e.target.value ? (e.target.value as "WEPINK" | "WPINK") : null)}
-              className={filtroSelectClass}
-            >
-              <option value="">Todas as marcas</option>
-              <option value="WEPINK">WEPINK</option>
-              <option value="WPINK">WPINK</option>
-            </select>
+            <SeletorMarca value={escopo.divisao} onChange={onMarcaChange} />
             <select
               value={grupoAtivo ?? ""}
               onChange={(e) => setGrupoFiltro(e.target.value || null)}
