@@ -6,11 +6,12 @@
 import type { ReactNode } from "react";
 import { Avatar, Badge, Card, CardTitle, DataTable, EmptyState, ProgressBar, progressColor, progressTextClass, StatCard, type DataTableColumn } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { brl, brlK, num, rotuloDias } from "@/lib/formato";
+import { brl, brlK, intervaloDias, num, rotuloDias } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/EstadoBloco";
 import type { DesafioView, EquipeView, MetaCardView, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
 import { degrausPadrao } from "@/data/gestao/metas";
+import { HOJE_ISO } from "@/data/gestao/relogio";
 import { cn } from "@/lib/cn";
 import { ICONS, FlameIcon } from "@/pages/dashboards/icons";
 
@@ -428,6 +429,19 @@ export function CardVendedoras({
 }
 
 /**
+ * Projeção só depois de 50% do período da meta (inicio→fim).
+ * Antes disso o ritmo ainda oscila demais para cravar fechamento.
+ */
+function metaLiberouProjecao(inicio: string, fim: string, hojeIso: string = HOJE_ISO): boolean {
+  if (hojeIso < inicio) return false;
+  if (hojeIso >= fim) return true;
+  const total = intervaloDias(inicio, fim).length;
+  if (total <= 0) return false;
+  const decorridos = intervaloDias(inicio, hojeIso).length;
+  return decorridos / total >= 0.5;
+}
+
+/**
  * Faixa de progresso da meta (loja ou rede) — estilo Progresso Global:
  * R$ realizado/meta · % · barra com marcos da escada (Meta→Desafio).
  */
@@ -444,12 +458,12 @@ export function FaixaMetaGlobal({
   /** Degraus desta meta (default = escada padrão). */
   degraus?: { nome: string; atingimentoMinPct: number; comissaoPct: number }[];
 }) {
+  const mostraProjecao = metaLiberouProjecao(meta.inicio, meta.fim);
   const fecha = meta.projetadoPct >= 100;
   const escalaMax = Math.max(...degraus.map((d) => d.atingimentoMinPct), 100);
   const fillPct = Math.min(100, (meta.pct / escalaMax) * 100);
   const corBarra = progressColor(meta.pct);
   const corPct = progressTextClass(meta.pct);
-  // Projeção = onde fecha se mantiver o ritmo (igual Visão Geral), não só bateu/não bateu.
   const rotuloProjecao = `Projeção: ${num(meta.projetadoPct, 0)}%`;
 
   const body = (
@@ -457,12 +471,20 @@ export function FaixaMetaGlobal({
       <div className={cn("mb-4 flex flex-wrap items-start justify-between gap-2", hideTitle && "mb-3")}>
         {!hideTitle && (
           <div className="flex min-w-0 items-center gap-1.5">
-            <CardTitle>Projeção da meta</CardTitle>
-            <TipHelp label="Projeta o nível de premiação esperado para o fechamento da competência." />
+            <CardTitle>{mostraProjecao ? "Projeção da meta" : "Progresso da meta"}</CardTitle>
+            <TipHelp
+              label={
+                mostraProjecao
+                  ? "Projeta o nível de premiação esperado para o fechamento da competência."
+                  : "A projeção de fechamento aparece depois que 50% do período da meta já passou — assim o ritmo fica mais confiável."
+              }
+            />
           </div>
         )}
         <div className={cn("flex flex-wrap items-center gap-1.5", hideTitle ? "w-full justify-between sm:justify-end" : "justify-end")}>
-          <Badge variant={fecha ? "success" : "warning"}>{rotuloProjecao}</Badge>
+          {mostraProjecao && (
+            <Badge variant={fecha ? "success" : "warning"}>{rotuloProjecao}</Badge>
+          )}
           <Badge variant="neutral" className="gap-1">
             <IconRelogio />
             {meta.diasRestantes > 0 ? rotuloDias(meta.diasRestantes) : "Encerrado"}

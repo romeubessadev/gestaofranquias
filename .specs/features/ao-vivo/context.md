@@ -45,6 +45,7 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
   - Marcas: WEPINK · WPINK | só WEPINK | só WPINK
   - Qtd de grupos · Qtd de vendedoras · Qtd de níveis
 - Corpo do card: barra de progresso (realizado/alvo + % + projeção) + escada/lista daquela meta.
+- **Badge de projeção** só aparece após **≥ 50% do período** da meta (inicio→fim); antes disso o ritmo ainda não é confiável.
 - N metas = N cards empilhados; 1 meta = 1 card (mesmo padrão, sem caso especial).
 - Escada/vendedoras ficam **dentro** do card da meta (não misturar atingimentos de metas diferentes).
 
