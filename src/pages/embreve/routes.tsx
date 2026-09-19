@@ -10,7 +10,7 @@ const FASE3 = "Fase 3 · em construção";
 
 export const emBreveRoutes: RouteObject[] = [
   // Análise sai de cena por enquanto: quem tiver o link antigo cai na Loja.
-  { path: paths.analise, element: <Navigate to={paths.dashboard} replace /> },
+  { path: paths.analise, element: <Navigate to={paths.visaoGeral} replace /> },
   // Equipe virou aba do Dashboard, com filtro compartilhado: ver src/pages/equipe/routes.tsx.
   // Metas saiu de Configurações: ver src/pages/metas/routes.tsx (redirect legado).
   { path: paths.configuracoes.desafios, element: <EmBreve titulo="Desafios" fase={FASE2} descricao="Objetivos pontuais em quantidade, produto, faturamento, P.A. ou ticket médio. Prêmio em reais; meta nunca em reais (exceto ticket/faturamento)." itens={["Nome, tipo, critério, meta por pessoa, prêmio, período e participantes", "Produtos por categoria, não SKU a SKU", "Aviso de quantos já estão ativos ao criar", "Candidatos: compra bloqueada com estoque, cobertura alta com ticket acima da média"]} /> },

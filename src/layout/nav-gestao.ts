@@ -46,7 +46,7 @@ const navGestor: NavEntry[] = [
 ];
 
 const navGerente: NavEntry[] = [
-  { label: "Dashboard", icon: ICONE.dashboard, to: paths.dashboard, activePaths: [paths.equipe] },
+  { label: "Dashboard", icon: ICONE.dashboard, to: paths.visaoGeral, activePaths: [paths.dashboard, paths.equipe] },
   { label: "Ao vivo", icon: ICONE.aoVivo, to: paths.aoVivo.root },
   { label: "Metas", icon: ICONE.meta, to: paths.metas },
   {

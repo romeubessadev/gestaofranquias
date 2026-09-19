@@ -29,7 +29,7 @@ export function Onboarding() {
   function irPara(etapa: number | null) {
     atualizar({ onboardingEtapa: etapa });
     if (etapa === null) {
-      navigate(paths.dashboard, { replace: true });
+      navigate(paths.visaoGeral, { replace: true });
       return;
     }
     if (params.has("etapa")) setParams(new URLSearchParams({ etapa: String(etapa) }), { replace: true });

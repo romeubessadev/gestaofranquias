@@ -25,7 +25,7 @@ export const paths = {
     instalar: "/instalar",
   },
   onboarding: "/onboarding",
-  /** Página principal do produto: o Dashboard (visão geral). Subpáginas: /equipe etc. */
+  /** Entrada canônica do Dashboard = Visão geral. `/dashboard` redireciona. */
   dashboard: "/dashboard",
   financeiro: "/dashboard/financeiro",
   produtos: "/dashboard/produtos",
@@ -33,7 +33,7 @@ export const paths = {
   /** Redirect legado — URL antiga de Turnos. */
   turnosLegado: "/dashboard/turnos",
   visaoGeral: "/dashboard/visao-geral",
-  /** Legado: a página principal já foi /loja; quem tiver link antigo cai no Dashboard. */
+  /** Legado: a página principal já foi /loja; quem tiver link antigo cai na Visão geral. */
   lojaLegado: "/loja",
   equipe: "/dashboard/equipe",
   /** Redirect legado — URL antiga da Equipe. */

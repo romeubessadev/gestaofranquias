@@ -15,7 +15,7 @@ export function RequireSession({ modo = "app" }: { modo?: "app" | "onboarding" }
 
   const pendente = sessao.onboardingEtapa !== null;
   if (modo === "app" && pendente) return <Navigate to={paths.onboarding} replace />;
-  if (modo === "onboarding" && !pendente) return <Navigate to={paths.dashboard} replace />;
+  if (modo === "onboarding" && !pendente) return <Navigate to={paths.visaoGeral} replace />;
 
   return <Outlet />;
 }
