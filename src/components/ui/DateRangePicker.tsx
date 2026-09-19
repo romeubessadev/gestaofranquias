@@ -14,6 +14,10 @@ import { cn } from "@/lib/cn";
  * - value: [inicio, fim] | null  →  null = sem seleção
  * - onChange: dispara ao fechar um intervalo válido (inicio <= fim)
  * - quickRanges: atalhos pré-definidos (Hoje, Últimos 7 dias, etc.)
+ *
+ * Painel em `position: fixed`, alinhado à direita do trigger e limitado à
+ * viewport — o layout do app usa overflow-x-hidden e o trigger fica no canto
+ * direito do header (desktop e mobile).
  */
 
 export type DateRange = [Date, Date];
@@ -77,10 +81,9 @@ export function DateRangePicker({
 }) {
   const hoje = useMemo(() => zeraHora(new Date()), []);
   const [open, setOpen] = useState(false);
-  // Mês sendo visualizado no calendário (primeiro dia do mês).
   const [viewMonth, setViewMonth] = useState<Date>(() => (value ? new Date(value[0].getFullYear(), value[0].getMonth(), 1) : new Date(hoje.getFullYear(), hoje.getMonth(), 1)));
-  // Seleção em progresso: primeiro clique = inicio, segundo = fim.
   const [draftStart, setDraftStart] = useState<Date | null>(null);
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -91,7 +94,33 @@ export function DateRangePicker({
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  // Células do grid: dias vazios do offset + dias do mês.
+  useEffect(() => {
+    if (!open || !ref.current) {
+      setPanelPos(null);
+      return;
+    }
+
+    function colocar() {
+      if (!ref.current) return;
+      const rect = ref.current.getBoundingClientRect();
+      const margem = 12;
+      const width = Math.min(window.innerWidth - margem * 2, 640);
+      // Alinha à direita do trigger; se passar da tela, empurra para dentro.
+      let left = rect.right - width;
+      if (left < margem) left = margem;
+      if (left + width > window.innerWidth - margem) left = Math.max(margem, window.innerWidth - margem - width);
+      setPanelPos({ top: rect.bottom + 8, left, width });
+    }
+
+    colocar();
+    window.addEventListener("resize", colocar);
+    window.addEventListener("scroll", colocar, true);
+    return () => {
+      window.removeEventListener("resize", colocar);
+      window.removeEventListener("scroll", colocar, true);
+    };
+  }, [open]);
+
   const cells = useMemo(() => {
     const offset = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1).getDay();
     const daysInMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate();
@@ -104,11 +133,9 @@ export function DateRangePicker({
 
   function escolherDia(dia: Date) {
     if (!draftStart || draftStart > dia) {
-      // Primeiro clique (ou reinício): marca o início.
       setDraftStart(dia);
       return;
     }
-    // Segundo clique: fecha o intervalo e notifica.
     const range: DateRange = [draftStart, dia];
     onChange(range);
     setDraftStart(null);
@@ -160,9 +187,11 @@ export function DateRangePicker({
         </svg>
       </button>
 
-      {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 flex w-[min(92vw,640px)] flex-col gap-4 rounded-[14px] border border-line bg-bg-2 p-4 shadow-[var(--shadow-vela)] sm:flex-row">
-          {/* Quick ranges */}
+      {open && panelPos && (
+        <div
+          style={{ top: panelPos.top, left: panelPos.left, width: panelPos.width }}
+          className="fixed z-50 flex flex-col gap-4 rounded-[14px] border border-line bg-bg-2 p-4 shadow-[var(--shadow-vela)] sm:flex-row"
+        >
           <div className="flex shrink-0 flex-row flex-wrap gap-2 sm:w-[150px] sm:flex-col sm:flex-nowrap">
             <span className="mb-0.5 hidden text-[11px] font-bold uppercase tracking-wide text-t2 sm:block">Períodos</span>
             {quickRanges.map((qr) => (
@@ -177,7 +206,6 @@ export function DateRangePicker({
             ))}
           </div>
 
-          {/* Calendário */}
           <div className="min-w-0 flex-1">
             <div className="mb-3 flex items-center justify-between">
               <button
@@ -190,7 +218,9 @@ export function DateRangePicker({
                   <path d="m15 18-6-6 6-6" />
                 </svg>
               </button>
-              <span className="text-sm font-bold text-t0">{MESES_PT[viewMonth.getMonth()]} {viewMonth.getFullYear()}</span>
+              <span className="text-sm font-bold text-t0">
+                {MESES_PT[viewMonth.getMonth()]} {viewMonth.getFullYear()}
+              </span>
               <button
                 type="button"
                 onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))}
@@ -205,7 +235,9 @@ export function DateRangePicker({
 
             <div className="mb-1.5 grid grid-cols-7 gap-1">
               {DOW_PT.map((d) => (
-                <span key={d} className="py-1 text-center text-[10.5px] font-bold text-t2">{d}</span>
+                <span key={d} className="py-1 text-center text-[10.5px] font-bold text-t2">
+                  {d}
+                </span>
               ))}
             </div>
 
@@ -229,9 +261,7 @@ export function DateRangePicker({
               )}
             </div>
 
-            <p className="mt-3 text-[11px] text-t2">
-              {draftStart ? "Agora selecione o último dia." : "Selecione o primeiro e o último dia."}
-            </p>
+            <p className="mt-3 text-[11px] text-t2">{draftStart ? "Agora selecione o último dia." : "Selecione o primeiro e o último dia."}</p>
           </div>
         </div>
       )}
