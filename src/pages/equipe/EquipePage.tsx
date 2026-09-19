@@ -5,7 +5,7 @@ import { Avisos } from "@/components/gestao/Avisos";
 import { Badge, Button, Card, CardTitle, DateRangePicker, EmptyState, PageHeader } from "@/components/ui";
 import { AreaLineChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
-import { AvisoCompetencia, BlocoDesafios, BlocoKpisEquipe, CardMeta, CardVendedoras } from "./blocos";
+import { AvisoCompetencia, BlocoDesafios, BlocoKpisEquipe, CardMetasEquipe, CardVendedoras } from "./blocos";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 
@@ -227,9 +227,7 @@ export function EquipePage() {
         )}
 
         {metasCardsFiltrados.length > 0 ? (
-          metasCardsFiltrados.map((card) => (
-            <CardMeta key={card.id} card={card} metaAtiva={v.metaAtiva} />
-          ))
+          <CardMetasEquipe cards={metasCardsFiltrados} metaAtiva={v.metaAtiva} />
         ) : (
           <CardVendedoras
             estado={vendedorasFiltradas && vendedorasFiltradas.length > 0 ? "disponivel" : "sem_dados"}

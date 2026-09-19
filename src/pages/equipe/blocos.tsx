@@ -656,10 +656,19 @@ function IconNiveis() {
   );
 }
 
-export function CardMeta({ card, metaAtiva }: { card: MetaCardView; metaAtiva: boolean }) {
+export function CardMeta({
+  card,
+  metaAtiva,
+  embedded = false,
+}: {
+  card: MetaCardView;
+  metaAtiva: boolean;
+  /** Sem Card externo — bloco interno de “Metas da equipe”. */
+  embedded?: boolean;
+}) {
   const tipoLabel = card.tipo === "individual" ? "Individual" : "Coletiva";
-  return (
-    <Card className="min-w-0 overflow-hidden" padding="lg">
+  const body = (
+    <>
       <CardTitle>{card.nome}</CardTitle>
 
       <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -701,6 +710,39 @@ export function CardMeta({ card, metaAtiva }: { card: MetaCardView; metaAtiva: b
         lista={card.vendedoras}
         metaAtiva={metaAtiva}
       />
+    </>
+  );
+
+  if (embedded) {
+    return <div className="min-w-0 border-t border-line pt-5 first:border-t-0 first:pt-0">{body}</div>;
+  }
+  return (
+    <Card className="min-w-0 overflow-hidden" padding="lg">
+      {body}
+    </Card>
+  );
+}
+
+/** Card único da Equipe: agrupa todas as metas ativas (projeção + escada). */
+export function CardMetasEquipe({
+  cards,
+  metaAtiva,
+}: {
+  cards: MetaCardView[];
+  metaAtiva: boolean;
+}) {
+  if (cards.length === 0) return null;
+  return (
+    <Card className="min-w-0 overflow-hidden" padding="lg">
+      <div className="mb-4 flex items-center gap-1.5">
+        <CardTitle>Metas da equipe</CardTitle>
+        <TipHelp label="Metas ativas da competência: progresso, projeção (após 50% do período) e escada de premiação." />
+      </div>
+      <div className="flex flex-col gap-5">
+        {cards.map((card) => (
+          <CardMeta key={card.id} card={card} metaAtiva={metaAtiva} embedded />
+        ))}
+      </div>
     </Card>
   );
 }
