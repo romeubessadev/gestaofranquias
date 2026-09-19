@@ -40,7 +40,7 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 ### Aba Metas — card por meta (DECIDIDO 2026-09-19 — mock)
 - Cada meta ativa vira **um card** com **título = só o nome da meta** (sem sufixo "Loja"/"Mix" — isso vai nos badges).
 - Badges abaixo do título (contexto, não KPI), ordem: tipo → loja → marcas → contagens:
-  - Tipo: **Individual** | **Coletiva**
+  - Tipo: **Individual** | **Grupo**
   - Loja (fantasia)
   - Marcas: WEPINK · WPINK | só WEPINK | só WPINK
   - Qtd de grupos · Qtd de vendedoras · Qtd de níveis

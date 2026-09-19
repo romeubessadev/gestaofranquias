@@ -600,7 +600,7 @@ function IconTipoIndividual() {
   );
 }
 
-function IconTipoColetiva() {
+function IconTipoGrupo() {
   return (
     <IconBadge>
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -667,14 +667,14 @@ export function CardMeta({
   card: MetaCardView;
   metaAtiva: boolean;
 }) {
-  const tipoLabel = card.tipo === "individual" ? "Individual" : "Coletiva";
+  const tipoLabel = card.tipo === "individual" ? "Individual" : "Grupo";
   return (
     <Card className="min-w-0 overflow-hidden" padding="lg">
       <CardTitle>{card.nome}</CardTitle>
 
       <div className="mt-2.5 flex flex-wrap gap-1.5">
         <Badge variant="neutral" className="gap-1">
-          {card.tipo === "individual" ? <IconTipoIndividual /> : <IconTipoColetiva />}
+          {card.tipo === "individual" ? <IconTipoIndividual /> : <IconTipoGrupo />}
           {tipoLabel}
         </Badge>
         <Badge variant="neutral" className="gap-1">
