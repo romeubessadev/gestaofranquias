@@ -1,13 +1,13 @@
 /**
  * Blocos visuais da aba Equipe. A página só monta; nada calcula aqui.
  * Reusa os componentes do tema: StatCard, DataTable, Card, ProgressBar,
- * Badge, Avatar, EmptyState e o padrão EstadoBloco da Visão geral.
+ * Badge, Avatar, EmptyState e o padrão EstadoBloco compartilhado.
  */
 import { Avatar, Badge, Card, CardTitle, DataTable, EmptyState, ProgressBar, progressColor, progressTextClass, StatCard, type DataTableColumn } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { brl, brlK, num, rotuloDias } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
-import { EstadoBloco } from "@/pages/dashboard/blocos";
+import { EstadoBloco } from "@/pages/dashboard/EstadoBloco";
 import type { DesafioView, EquipeView, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
 import { degrausPadrao } from "@/data/gestao/metas";
 import { cn } from "@/lib/cn";
