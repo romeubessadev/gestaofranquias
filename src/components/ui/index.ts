@@ -5,6 +5,7 @@ export * from "./StatCard";
 export * from "./AnimatedNumber";
 export * from "./Avatar";
 export * from "./DataTable";
+export * from "./ThSort";
 export * from "./Modal";
 export * from "./Drawer";
 export * from "./Dropdown";

@@ -1,4 +1,5 @@
-import { Button, Card, CardTitle, PageHeader } from "@/components/ui";
+import { useMemo, useState } from "react";
+import { Button, Card, CardTitle, PageHeader, ThSort, type SortDir } from "@/components/ui";
 import { metas } from "@/data/gestao/metas";
 import { filiais } from "@/data/gestao/filiais";
 import { brl } from "@/lib/formato";
@@ -7,15 +8,36 @@ function nomeFilial(filialId: string) {
   return filiais.find((f) => f.id === filialId)?.fantasia ?? filialId;
 }
 
+type SortKey = "competencia" | "loja" | "nome" | "valor" | "niveis";
+
 /**
  * CRUD de Metas (fora do Dashboard).
  * Esqueleto para evolução — listagem a partir do fixture; formulário/plano do mês amanhã.
  */
 export default function MetasPage() {
-  const ordenadas = [...metas].sort((a, b) => {
-    if (a.competencia !== b.competencia) return b.competencia.localeCompare(a.competencia);
-    return nomeFilial(a.filialId).localeCompare(nomeFilial(b.filialId));
-  });
+  const [sortKey, setSortKey] = useState<SortKey>("competencia");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const ordenadas = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...metas].sort((a, b) => {
+      if (sortKey === "loja") return nomeFilial(a.filialId).localeCompare(nomeFilial(b.filialId)) * dir;
+      if (sortKey === "nome") return a.nome.localeCompare(b.nome) * dir;
+      if (sortKey === "valor") return (a.valorLoja - b.valorLoja) * dir;
+      if (sortKey === "niveis") return (a.degraus.length - b.degraus.length) * dir;
+      // competencia: padrão desc (mais recente primeiro)
+      return a.competencia.localeCompare(b.competencia) * dir || nomeFilial(a.filialId).localeCompare(nomeFilial(b.filialId));
+    });
+  }, [sortKey, sortDir]);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "loja" || key === "nome" ? "asc" : "desc");
+    }
+  }
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
@@ -43,11 +65,11 @@ export default function MetasPage() {
           <table className="w-full min-w-[640px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
-                <th className="px-1 pb-3 text-left font-bold">Competência</th>
-                <th className="px-1 pb-3 text-left font-bold">Loja</th>
-                <th className="px-1 pb-3 text-left font-bold">Nome</th>
-                <th className="px-1 pb-3 text-right font-bold">Meta da loja</th>
-                <th className="px-1 pb-3 text-right font-bold">Níveis de premiação</th>
+                <ThSort label="Competência" active={sortKey === "competencia"} dir={sortDir} onClick={() => toggleSort("competencia")} align="left" className="px-1 pb-3" />
+                <ThSort label="Loja" active={sortKey === "loja"} dir={sortDir} onClick={() => toggleSort("loja")} align="left" className="px-1 pb-3" />
+                <ThSort label="Nome" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" className="px-1 pb-3" />
+                <ThSort label="Meta da loja" active={sortKey === "valor"} dir={sortDir} onClick={() => toggleSort("valor")} className="px-1 pb-3" />
+                <ThSort label="Níveis de premiação" active={sortKey === "niveis"} dir={sortDir} onClick={() => toggleSort("niveis")} className="px-1 pb-3" />
               </tr>
             </thead>
             <tbody>

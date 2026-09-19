@@ -459,8 +459,6 @@ export default function FinanceiroPage() {
             data={view.evolucaoMensal}
             rowKey={(r) => r.mes}
             emptyMessage="Sem dados nos últimos 6 meses."
-            defaultSortKey="mes"
-            defaultSortDir="asc"
           />
         </div>
 

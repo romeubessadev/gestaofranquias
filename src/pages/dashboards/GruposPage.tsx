@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from "react";
-import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Badge } from "@/components/ui";
+import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Badge, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { Heatmap, BarChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
@@ -8,6 +8,8 @@ import { montarGruposView } from "@/data/gestao/dashboard";
 import { brl, brlK, num } from "@/lib/formato";
 import { deIso } from "@/lib/formato";
 import type { DateRange } from "@/components/ui/DateRangePicker";
+
+type HoraSort = "hora" | "faturamento" | "atendimentos" | "ticket" | "pctFat" | "acumulado" | "delta";
 
 const IconFat = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -63,11 +65,47 @@ export default function GruposPage() {
   const [grupoFiltro, setGrupoFiltro] = useState<string | null>(null);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
+  const [horaSort, setHoraSort] = useState<HoraSort | null>(null);
+  const [horaDir, setHoraDir] = useState<SortDir>("asc");
 
   const gruposDisponiveis = useMemo(() => montarGruposView(escopo, null).gruposDisponiveis, [escopo]);
   // Se a loja mudar e o grupo sumir da lista, volta para "Todos".
   const grupoAtivo = grupoFiltro && gruposDisponiveis.some((g) => g.nome === grupoFiltro) ? grupoFiltro : null;
   const view = useMemo(() => montarGruposView(escopo, grupoAtivo), [escopo, grupoAtivo]);
+
+  const indicadoresOrdenados = useMemo(() => {
+    const rows = view.indicadoresPorHora ?? [];
+    if (!horaSort) return rows;
+    const dir = horaDir === "asc" ? 1 : -1;
+    const deltaNum = (v?: { value: string; positive: boolean } | null) => {
+      if (!v) return null;
+      const n = Number(v.value.replace(/[^\d.,-]/g, "").replace(",", "."));
+      return Number.isFinite(n) ? (v.positive ? n : -n) : null;
+    };
+    return [...rows].sort((a, b) => {
+      if (horaSort === "hora") return (a.hora - b.hora) * dir;
+      if (horaSort === "faturamento") return (a.faturamento - b.faturamento) * dir;
+      if (horaSort === "atendimentos") return (a.atendimentos - b.atendimentos) * dir;
+      if (horaSort === "ticket") return (a.ticketMedio - b.ticketMedio) * dir;
+      if (horaSort === "pctFat") return (a.pctFatDia - b.pctFatDia) * dir;
+      if (horaSort === "acumulado") return (a.fatAcumulado - b.fatAcumulado) * dir;
+      const da = deltaNum(a.deltaVsAnterior);
+      const db = deltaNum(b.deltaVsAnterior);
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return (da - db) * dir;
+    });
+  }, [view.indicadoresPorHora, horaSort, horaDir]);
+
+  function toggleHoraSort(key: HoraSort) {
+    if (horaSort === key) {
+      setHoraDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setHoraSort(key);
+      setHoraDir(key === "hora" ? "asc" : "desc");
+    }
+  }
 
   const dateRange: DateRange | null = useMemo(() => {
     if (escopo.periodo.tipo === "personalizado" && escopo.periodo.inicio && escopo.periodo.fim) {
@@ -376,17 +414,17 @@ export default function GruposPage() {
             <table className="w-full min-w-[700px] text-left text-[12px]">
               <thead>
                 <tr className="border-b border-line text-[11px] font-bold uppercase tracking-wide text-t2">
-                  <th className="py-2 pr-3">Hora</th>
-                  <th className="py-2 pr-3 text-right">Faturamento</th>
-                  <th className="py-2 pr-3 text-right">Atendimentos</th>
-                  <th className="py-2 pr-3 text-right">Ticket médio</th>
-                  <th className="py-2 pr-3 text-right">% Fat. Dia</th>
-                  <th className="py-2 pr-3 text-right">Acumulado</th>
-                  <th className="py-2 text-right">Vs. Anterior</th>
+                  <ThSort label="Hora" active={horaSort === "hora"} dir={horaDir} onClick={() => toggleHoraSort("hora")} align="left" className="py-2 pr-3" />
+                  <ThSort label="Faturamento" active={horaSort === "faturamento"} dir={horaDir} onClick={() => toggleHoraSort("faturamento")} className="py-2 pr-3" />
+                  <ThSort label="Atendimentos" active={horaSort === "atendimentos"} dir={horaDir} onClick={() => toggleHoraSort("atendimentos")} className="py-2 pr-3" />
+                  <ThSort label="Ticket médio" active={horaSort === "ticket"} dir={horaDir} onClick={() => toggleHoraSort("ticket")} className="py-2 pr-3" />
+                  <ThSort label="% Fat. Dia" active={horaSort === "pctFat"} dir={horaDir} onClick={() => toggleHoraSort("pctFat")} className="py-2 pr-3" />
+                  <ThSort label="Acumulado" active={horaSort === "acumulado"} dir={horaDir} onClick={() => toggleHoraSort("acumulado")} className="py-2 pr-3" />
+                  <ThSort label="Vs. Anterior" active={horaSort === "delta"} dir={horaDir} onClick={() => toggleHoraSort("delta")} className="py-2" />
                 </tr>
               </thead>
               <tbody>
-                {view.indicadoresPorHora.map((h) => (
+                {indicadoresOrdenados.map((h) => (
                   <tr key={h.hora} className="border-b border-line/50 text-t1 last:border-0 hover:bg-bg-inset/50">
                     <td className="py-2 pr-3 font-semibold text-t0">{String(h.hora).padStart(2, "0")}:00</td>
                     <td className="py-2 pr-3 text-right">{brl(h.faturamento)}</td>

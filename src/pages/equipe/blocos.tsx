@@ -275,16 +275,22 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[];
       key: "pos",
       header: "#",
       width: "48px",
+      sortable: true,
+      sortValue: (l) => l.posicao,
       render: (l) => <span className="text-[12.5px] font-extrabold text-t2">{l.posicao}º</span>,
     },
     {
       key: "vendedora",
       header: "Vendedora",
+      sortable: true,
+      sortValue: (l) => l.nome,
       render: (l) => <CelulaVendedora l={l} />,
     },
     {
       key: "faturamento",
       header: "Faturamento",
+      sortable: true,
+      sortValue: (l) => l.faturamentoValor,
       render: (l) => <CelulaFaturamento l={l} />,
     },
     ...(metaAtiva
@@ -293,18 +299,24 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[];
             key: "meta",
             header: "Meta",
             hideBelow: "md",
+            sortable: true,
+            sortValue: (l: LinhaRank) => (l.semMeta ? null : l.metaIndividualValor),
             render: (l: LinhaRank) =>
               l.semMeta ? <span className="text-t2">—</span> : <span className="font-mono text-[12.5px] font-bold text-t0">{brl(l.metaIndividualValor)}</span>,
           },
           {
             key: "pctIndiv",
             header: "% da meta individual",
+            sortable: true,
+            sortValue: (l: LinhaRank) => (l.semMeta ? null : l.atingimentoPct),
             render: (l: LinhaRank) => <CelulaPctIndividual l={l} />,
           },
           {
             key: "pctGeral",
             header: "% da meta da loja",
             hideBelow: "lg",
+            sortable: true,
+            sortValue: (l: LinhaRank) => (l.semMeta ? null : l.pctMetaGeral),
             render: (l: LinhaRank) =>
               l.semMeta ? <span className="text-t2">—</span> : <span className="font-mono text-[12.5px] font-bold text-t0">{num(l.pctMetaGeral, 1)}%</span>,
           },
@@ -312,18 +324,24 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[];
             key: "nivel",
             header: "Nível",
             hideBelow: "md",
+            sortable: true,
+            sortValue: (l: LinhaRank) => l.nivelAtual ?? 0,
             render: (l: LinhaRank) => <CelulaNivel l={l} />,
           },
           {
             key: "proximo",
             header: "Faltam para o próximo nível",
             hideBelow: "lg",
+            sortable: true,
+            sortValue: (l: LinhaRank) => l.proximoDegrau?.faltaValor ?? null,
             render: (l: LinhaRank) => <CelulaProximo l={l} />,
           },
           {
             key: "premiacao",
             header: "Premiação",
             align: "right",
+            sortable: true,
+            sortValue: (l: LinhaRank) => l.premiacaoAcumulada,
             render: (l: LinhaRank) => <CelulaPremiacao l={l} />,
           },
         ] as DataTableColumn<LinhaRank>[])
@@ -333,6 +351,8 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[];
             header: "Ticket médio",
             hideBelow: "sm",
             align: "right",
+            sortable: true,
+            sortValue: (l: LinhaRank) => l.ticketValor,
             render: (l: LinhaRank) => <span className="font-mono text-[12.5px] text-t1">{l.ticket}</span>,
           },
           {
@@ -340,6 +360,8 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[];
             header: "P.A.",
             hideBelow: "sm",
             align: "right",
+            sortable: true,
+            sortValue: (l: LinhaRank) => l.paValor,
             render: (l: LinhaRank) => <span className="font-mono text-[12.5px] text-t1">{l.pa}</span>,
           },
         ] as DataTableColumn<LinhaRank>[])),
@@ -348,7 +370,12 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[];
   return (
     <>
       <div className="hidden p-4 md:block">
-        <DataTable columns={colunas} data={ranked} rowKey={(l) => `${l.filialId}-${l.colaboradorId}`} emptyMessage="Nenhuma vendedora elegível para esta competência." />
+        <DataTable
+          columns={colunas}
+          data={ranked}
+          rowKey={(l) => `${l.filialId}-${l.colaboradorId}`}
+          emptyMessage="Nenhuma vendedora elegível para esta competência."
+        />
       </div>
       <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
         {ranked.map((l) => (
