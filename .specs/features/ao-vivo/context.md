@@ -48,7 +48,8 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 - **Badge de projeção** só aparece após **≥ 50% do período** da meta (inicio→fim); antes disso o ritmo ainda não é confiável.
 - N metas = N cards empilhados; 1 meta = 1 card (mesmo padrão, sem caso especial).
 - Escada/vendedoras ficam **dentro** do card da meta (não misturar atingimentos de metas diferentes).
-- **Equipe** agrupa tudo num único card **Metas da equipe** (`CardMetasEquipe`), com cada meta como bloco interno; sem meta cadastrada, cai no `CardVendedoras` avulso.
+- Dentro do `CardMeta`: nome + badges + projeção + lista contínua — **sem** título “Escada de premiação” e **sem** divider entre progresso e tabela (Equipe e Ao vivo).
+- **Equipe** agrupa num card **Metas da equipe** com N `CardMeta` internos (mesmo card do Ao vivo); sem meta cadastrada, cai no `CardVendedoras` avulso (aí sim com o título Escada).
 
 ### Evolução + IA + Formas
 - Evolução por Vendedor: **removida** da tela.

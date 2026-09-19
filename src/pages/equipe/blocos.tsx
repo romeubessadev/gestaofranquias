@@ -662,16 +662,13 @@ function IconNiveis() {
 export function CardMeta({
   card,
   metaAtiva,
-  embedded = false,
 }: {
   card: MetaCardView;
   metaAtiva: boolean;
-  /** Sem Card externo — bloco interno de “Metas da equipe”. */
-  embedded?: boolean;
 }) {
   const tipoLabel = card.tipo === "individual" ? "Individual" : "Coletiva";
-  const body = (
-    <>
+  return (
+    <Card className="min-w-0 overflow-hidden" padding="lg">
       <CardTitle>{card.nome}</CardTitle>
 
       <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -713,15 +710,6 @@ export function CardMeta({
         lista={card.vendedoras}
         metaAtiva={metaAtiva}
       />
-    </>
-  );
-
-  if (embedded) {
-    return <div className="min-w-0 border-t border-line pt-5 first:border-t-0 first:pt-0">{body}</div>;
-  }
-  return (
-    <Card className="min-w-0 overflow-hidden" padding="lg">
-      {body}
     </Card>
   );
 }
@@ -741,9 +729,9 @@ export function CardMetasEquipe({
         <CardTitle>Metas da equipe</CardTitle>
         <TipHelp label="Metas ativas da competência: progresso, projeção (após 50% do período) e escada de premiação." />
       </div>
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4">
         {cards.map((card) => (
-          <CardMeta key={card.id} card={card} metaAtiva={metaAtiva} embedded />
+          <CardMeta key={card.id} card={card} metaAtiva={metaAtiva} />
         ))}
       </div>
     </Card>
