@@ -20,13 +20,13 @@ const navGestor: NavEntry[] = [
     label: "Dashboard",
     icon: ICONE.dashboard,
     items: [
-      { label: "Visão Geral", to: paths.visaoGeral, dot: "var(--acc)" },
+      { label: "Visão geral", to: paths.visaoGeral, dot: "var(--acc)" },
       { label: "Financeiro", to: paths.financeiro, dot: "var(--ok)" },
       { label: "Produtos", to: paths.produtos, dot: "var(--warn)" },
       { label: "Equipe", to: paths.equipe, dot: "var(--info)" },
     ],
   },
-  { label: "Ao Vivo", icon: ICONE.aoVivo, to: paths.aoVivo.root },
+  { label: "Ao vivo", icon: ICONE.aoVivo, to: paths.aoVivo.root },
   { label: "Metas", icon: ICONE.meta, to: paths.metas },
   {
     label: "Configurações",
@@ -47,7 +47,7 @@ const navGestor: NavEntry[] = [
 
 const navGerente: NavEntry[] = [
   { label: "Dashboard", icon: ICONE.dashboard, to: paths.dashboard, activePaths: [paths.equipe] },
-  { label: "Ao Vivo", icon: ICONE.aoVivo, to: paths.aoVivo.root },
+  { label: "Ao vivo", icon: ICONE.aoVivo, to: paths.aoVivo.root },
   { label: "Metas", icon: ICONE.meta, to: paths.metas },
   {
     label: "Configurações",

@@ -45,7 +45,7 @@ export function DashboardShell({
 
       <TabNav
         items={[
-          { label: "Visão Geral", to: `${paths.visaoGeral}${suffix}` },
+          { label: "Visão geral", to: `${paths.visaoGeral}${suffix}` },
           { label: "Financeiro", to: `${paths.financeiro}${suffix}` },
           { label: "Produtos", to: `${paths.produtos}${suffix}` },
           { label: "Equipe", to: `${paths.equipe}${suffix}` },

@@ -25,7 +25,7 @@ import { HOJE_ISO, HORA_ATUAL } from "./relogio";
 import { agregadoDoDia, diaVendas, lojaAberta, somarAgregados, type Agregado } from "./vendas";
 import { filialPorId, filiais, grupos, type Filial } from "./filiais";
 import { brlK, curvaReceita, eixoSerieDoPeriodo, kpiDelta, periodoAnterior, resolverPeriodo, rotuloEixoSerie, type Escopo, type PeriodoResolvido, type EstadoBloco } from "./dashboard";
-import { brl, dataCurta, deIso, fimDoMes, horaCurta, intervaloDias, mesAno, num, somarDias } from "@/lib/formato";
+import { brl, dataCurta, deIso, fimDoMes, horaCurta, intervaloDias, mesAno, num, rotuloDias, somarDias } from "@/lib/formato";
 import type { TintKey } from "@/pages/dashboards/icons";
 
 const PALETA_LOJAS: TintKey[] = ["acc", "ok", "info", "warn", "bad"];
@@ -713,7 +713,7 @@ function desafioView(
     statusVariant = "info";
     prazoTom = "muted";
     diasRestantes = intervaloDias(HOJE_ISO, d.inicio).length - 1;
-    prazoRotulo = diasRestantes <= 0 ? "Hoje" : `Em ${diasRestantes}d`;
+    prazoRotulo = diasRestantes <= 0 ? "Hoje" : `Em ${rotuloDias(diasRestantes)}`;
   } else if (HOJE_ISO > d.fim) {
     statusLabel = "Encerrado";
     statusVariant = "neutral";
@@ -725,7 +725,7 @@ function desafioView(
     statusVariant = "success";
     prazoTom = "ok";
     diasRestantes = intervaloDias(HOJE_ISO, d.fim).length;
-    prazoRotulo = `${diasRestantes}d`;
+    prazoRotulo = rotuloDias(diasRestantes);
   }
 
   const fechaNoRitmo =
@@ -1118,7 +1118,7 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
 
   const avisos: string[] = [];
   if (escopo.divisao && metaAtiva) {
-    avisos.push("O filtro de marca altera os resultados exibidos, mas as metas individuais continuam considerando a loja inteira.");
+    avisos.push("O filtro de marca altera os resultados, mas as metas individuais continuam considerando toda a loja.");
   }
 
   // Faixa de progresso da meta da loja = Σ faturamento das vendedoras
@@ -1152,13 +1152,12 @@ function visaoLoja(escopo: Escopo, periodo: PeriodoResolvido, periodoMeta: Perio
     kpiAtendimentos: {
       valor: num(atual.atendimentos),
       delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined,
-      sub: nDias > 1 ? `média ${num(atual.atendimentos / nDias, 0)}/dia` : undefined,
+      sub: nDias > 1 ? `Média de ${num(atual.atendimentos / nDias, 0)}/dia` : undefined,
       serie: serieAtend.length > 1 ? serieAtend : undefined,
     },
     kpiTicket: {
       valor: brl(ticket),
       delta: temComparacao ? kpiDelta(ticket, ticketAnt, vsRotulo) : undefined,
-      sub: `P.A. ${num(pa, 2)}`,
       serie: serieTicket.length > 1 ? serieTicket : undefined,
     },
     kpiPA: {
@@ -1313,13 +1312,12 @@ if (metaAtiva) {
     kpiAtendimentos: {
       valor: num(atual.atendimentos),
       delta: temComparacao ? kpiDelta(atual.atendimentos, anterior.atendimentos, vsRotulo) : undefined,
-      sub: nDiasRede > 1 ? `média ${num(atual.atendimentos / nDiasRede, 0)}/dia` : undefined,
+      sub: nDiasRede > 1 ? `Média de ${num(atual.atendimentos / nDiasRede, 0)}/dia` : undefined,
       serie: serieAtendRede.length > 1 ? serieAtendRede : undefined,
     },
     kpiTicket: {
       valor: brl(ticketRede),
       delta: temComparacao ? kpiDelta(ticketRede, ticketRedeAnt, vsRotulo) : undefined,
-      sub: `P.A. ${num(paRede, 2)}`,
       serie: serieTicketRede.length > 1 ? serieTicketRede : undefined,
     },
     kpiPA: {
@@ -1381,9 +1379,9 @@ export function montarEquipeView(escopo: Escopo): EquipeView {
   const v = ehRede ? visaoRede(escopo, periodo, periodoMeta, competencia, metaAtiva) : visaoLoja(escopo, periodo, periodoMeta, competencia, metaAtiva);
 
   if (metaAtiva && !periodoBateComCompetencia(periodo, competencia)) {
-    v.avisoCompetencia = `Os KPIs seguem o período selecionado. Metas, premiação e desafios consideram a competência ${mesAno(`${competencia}-01`)}.`;
+    v.avisoCompetencia = `Os indicadores seguem o período selecionado. Metas, premiações e desafios consideram a competência ${mesAno(`${competencia}-01`)}.`;
   } else if (metaAtiva && periodo.tipo === "mesPassado") {
-    v.avisoCompetencia = `Metas e premiações exibidas são da competência ${mesAno(`${competencia}-01`)}.`;
+    v.avisoCompetencia = `Metas e premiações referentes à competência ${mesAno(`${competencia}-01`)}.`;
   }
 
   v.leitura = null;

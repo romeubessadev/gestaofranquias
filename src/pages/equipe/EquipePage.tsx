@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { montarEquipeView } from "@/data/gestao/equipeVisoes";
-import { mesAno, brlK, deIso } from "@/lib/formato";
+import { mesAno, brlK, deIso, tipRelacao } from "@/lib/formato";
 import { Avisos } from "@/components/gestao/Avisos";
 import { Badge, Button, Card, CardTitle, DateRangePicker, EmptyState, PageHeader } from "@/components/ui";
 import { AreaLineChart } from "@/components/charts";
@@ -19,8 +19,7 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
     </Badge>
   );
   if (!delta.vs) return badge;
-  const tip = `Comparação com ${delta.vs}`;
-  return <Tooltip label={tip}>{badge}</Tooltip>;
+  return <Tooltip label={tipRelacao(delta.vs)}>{badge}</Tooltip>;
 }
 
 const filtroSelectClass =
@@ -179,7 +178,7 @@ export function EquipePage() {
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-1.5">
-                  <CardTitle>Faturamento vs Meta</CardTitle>
+                  <CardTitle>Faturamento x meta</CardTitle>
                 </div>
                 {v.rotuloSerie && <p className="mt-0.5 text-[11px] font-semibold text-t2">{v.rotuloSerie}</p>}
                 <div className="mt-2.5 flex flex-wrap gap-5">
@@ -230,7 +229,7 @@ export function EquipePage() {
         {v.metaAtiva && v.desafios && v.desafios.length > 0 && <BlocoDesafios desafios={v.desafios} />}
         {v.metaAtiva && (!v.desafios || v.desafios.length === 0) && (
           <Card>
-            <EmptyState icon="🎯" title="Nenhum desafio nesta competência" description={`Não há desafios cadastrados para ${mesAno(`${v.competencia}-01`)}.`} />
+            <EmptyState icon="🎯" title="Nenhum desafio nesta competência." description={`Não há desafios cadastrados para ${mesAno(`${v.competencia}-01`)}.`} />
           </Card>
         )}
       </div>

@@ -134,3 +134,15 @@ export function intervaloDias(inicio: string, fim: string): string[] {
   }
   return out;
 }
+
+/** Tooltip de delta: "Em relação ao mês passado." / "Em relação aos 7 dias anteriores." */
+export function tipRelacao(vs: string): string {
+  if (vs.startsWith("os ")) return `Em relação aos ${vs.slice(3)}.`;
+  if (vs.startsWith("o ")) return `Em relação ao ${vs.slice(2)}.`;
+  return `Em relação a ${vs}.`;
+}
+
+/** `1 dia` / `N dias` — prazos e badges. */
+export function rotuloDias(n: number): string {
+  return n === 1 ? "1 dia" : `${n} dias`;
+}

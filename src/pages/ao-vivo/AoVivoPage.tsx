@@ -40,7 +40,7 @@ const IconPct = () => (
     <circle cx="17.5" cy="17.5" r="2.5" />
   </svg>
 );
-/** Mesmo cart da Visão Geral / Financeiro (CMV) — usado em Itens hoje. */
+/** Mesmo cart da Visão Geral / Financeiro (CMV) — usado em Itens vendidos hoje. */
 const IconItens = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="8" cy="21" r="1" />
@@ -79,8 +79,8 @@ function AbaMetas({
   if (!metaGlobal) {
     return (
       <EmptyState
-        title="Sem meta na competência"
-        description="Cadastre a meta da loja em Metas para acompanhar o atingimento ao vivo."
+        title="Nenhuma meta cadastrada para este mês."
+        description="Cadastre a meta da loja em Metas."
       />
     );
   }
@@ -131,9 +131,9 @@ export default function AoVivoPage() {
   return (
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
-        crumbs={[{ label: "Ao Vivo" }]}
-        title="Ao Vivo"
-        subtitle={`Andamento de ${view.competencia.slice(5)}/${view.competencia.slice(0, 4)} · pulso do dia nos indicadores`}
+        crumbs={[{ label: "Ao vivo" }]}
+        title="Ao vivo"
+        subtitle="Resultado do mês e desempenho de hoje."
         actions={
           <>
             <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
@@ -219,7 +219,7 @@ export default function AoVivoPage() {
               <div className="min-w-0">
                 <p className="text-[11.5px] font-semibold text-t2">{kpi.label}</p>
                 <p className="mt-1 truncate font-mono text-lg font-extrabold text-t0">{kpi.valor}</p>
-                <p className="text-[11px] text-t2">{kpi.sub}</p>
+                {kpi.sub ? <p className="text-[11px] text-t2">{kpi.sub}</p> : null}
               </div>
             </Card>
           );
@@ -227,7 +227,7 @@ export default function AoVivoPage() {
       </div>
 
       <Card className="mt-4 min-w-0 overflow-hidden" padding="lg">
-        <CardTitle className="mb-4">Andamento da competência</CardTitle>
+        <CardTitle className="mb-4">Desempenho do mês</CardTitle>
         <Tabs
           variant="accent"
           defaultKey="ranking"
@@ -272,7 +272,7 @@ export default function AoVivoPage() {
         <Card className="flex max-h-[min(520px,70vh)] flex-col overflow-hidden" padding="lg">
           <div className="mb-4 flex shrink-0 items-center gap-2">
             <TrophyIcon size={16} className="text-acc" />
-            <CardTitle>Ranking Vendedoras</CardTitle>
+            <CardTitle>Ranking de vendedoras</CardTitle>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             <BlocoRankingGeral ranking={view.ranking} vendedoras={equipeView.vendedoras} />

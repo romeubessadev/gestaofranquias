@@ -5,7 +5,7 @@
  */
 import { Avatar, Badge, Card, CardTitle, DataTable, EmptyState, ProgressBar, progressColor, progressTextClass, StatCard, type DataTableColumn } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { brl, brlK, num } from "@/lib/formato";
+import { brl, brlK, num, rotuloDias } from "@/lib/formato";
 import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
 import { EstadoBloco } from "@/pages/dashboard/blocos";
 import type { DesafioView, EquipeView, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
@@ -101,7 +101,7 @@ export function BlocoKpisEquipe({
       label: "Ticket médio",
       valor: ticket.valor,
       delta: ticket.delta,
-      sub: ticket.sub,
+      sub: undefined,
       Icon: IconTicket,
     },
     {
@@ -197,7 +197,7 @@ function CelulaProximo({ l }: { l: LinhaRank }) {
   return (
     <div>
       <p className="font-mono text-[12.5px] font-bold text-t0">{brl(l.proximoDegrau.faltaValor)}</p>
-      <p className="text-[11px] text-t2">p/ {l.proximoDegrau.nome}</p>
+      <p className="text-[11px] text-t2">para {l.proximoDegrau.nome}</p>
     </div>
   );
 }
@@ -298,12 +298,12 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[];
           },
           {
             key: "pctIndiv",
-            header: "% Meta individual",
+            header: "% da meta individual",
             render: (l: LinhaRank) => <CelulaPctIndividual l={l} />,
           },
           {
             key: "pctGeral",
-            header: "% Meta geral",
+            header: "% da meta da loja",
             hideBelow: "lg",
             render: (l: LinhaRank) =>
               l.semMeta ? <span className="text-t2">—</span> : <span className="font-mono text-[12.5px] font-bold text-t0">{num(l.pctMetaGeral, 1)}%</span>,
@@ -316,7 +316,7 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[];
           },
           {
             key: "proximo",
-            header: "Faltam p/ próximo nível",
+            header: "Faltam para o próximo nível",
             hideBelow: "lg",
             render: (l: LinhaRank) => <CelulaProximo l={l} />,
           },
@@ -375,8 +375,8 @@ export function CardVendedoras({
   const body = (
     <>
       <div className={cn("flex shrink-0 items-center gap-1.5", embedded ? "pb-3" : "px-5 py-4")}>
-        <CardTitle>Escada de Premiação</CardTitle>
-        <TipHelp label="Veja quem já atingiu cada nível, quanto falta para o próximo e a premiação correspondente." />
+        <CardTitle>Escada de premiação</CardTitle>
+        <TipHelp label="Mostra o nível atual, quanto falta para o próximo e a premiação estimada de cada vendedora." />
       </div>
       <EstadoBloco estado={estado}>
         {lista && lista.length > 0 ? (
@@ -410,20 +410,20 @@ export function FaixaMetaGlobal({ meta, embedded = false }: { meta: RedeMetaGlob
   const corBarra = progressColor(meta.pct);
   const corPct = progressTextClass(meta.pct);
   // Projeção = onde fecha se mantiver o ritmo (igual Visão Geral), não só bateu/não bateu.
-  const rotuloProjecao = `Projeção: ${num(meta.projetadoPct, 0)}% da meta`;
+  const rotuloProjecao = `Projeção: ${num(meta.projetadoPct, 0)}%`;
 
   const body = (
     <>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
-          <CardTitle>Progresso da Meta</CardTitle>
-          <TipHelp label="Acompanhe o avanço da equipe pelos níveis de premiação e a projeção para o fechamento da competência." />
+          <CardTitle>Projeção da meta</CardTitle>
+          <TipHelp label="Projeta o nível de premiação esperado para o fechamento da competência." />
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           <Badge variant={fecha ? "success" : "warning"}>{rotuloProjecao}</Badge>
           <Badge variant="neutral" className="gap-1">
             <IconRelogio />
-            {meta.diasRestantes > 0 ? `${meta.diasRestantes}d` : "Encerrado"}
+            {meta.diasRestantes > 0 ? rotuloDias(meta.diasRestantes) : "Encerrado"}
           </Badge>
         </div>
       </div>
@@ -532,7 +532,7 @@ export function BlocoDesafios({
     const empty = (
       <EmptyState
         icon="🎯"
-        title="Nenhum desafio nesta competência"
+        title="Nenhum desafio nesta competência."
         description="Não há desafios cadastrados para o período atual."
       />
     );
@@ -634,7 +634,7 @@ export function BlocoDesafios({
             );
           })}
           {d.ranking.length === 0 && (
-            <p className="py-3 text-center text-[12.5px] text-t2">Nenhuma participante no escopo atual.</p>
+            <p className="py-3 text-center text-[12.5px] text-t2">Nenhuma participante nos filtros atuais.</p>
           )}
         </div>
       </div>
@@ -654,8 +654,8 @@ export function BlocoDesafios({
   return (
     <Card padding="lg">
       <div className="mb-4 flex items-center gap-1.5">
-        <CardTitle>Desempenho nos Desafios</CardTitle>
-        <TipHelp label="Acompanhe o progresso da equipe nos desafios, com prazo e premiação." />
+        <CardTitle>Desafios da equipe</CardTitle>
+        <TipHelp label="Mostra o progresso, o prazo e a premiação de cada desafio." />
       </div>
       {grade}
     </Card>

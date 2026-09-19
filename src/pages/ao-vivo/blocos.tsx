@@ -106,11 +106,11 @@ export function BlocoRankingLojas({ lojas }: { lojas: RankingLojaLinha[] }) {
   return (
     <>
       <div className="mb-1 flex shrink-0 items-center justify-between">
-        <CardTitle>Ranking de Lojas</CardTitle>
-        {lojas.length > 0 && <Badge variant="accent">Total {brlK(total)}</Badge>}
+        <CardTitle>Ranking de lojas</CardTitle>
+        {lojas.length > 0 && <Badge variant="accent">Rede {brlK(total)}</Badge>}
       </div>
       {lojas.length === 0 ? (
-        <span className="py-6 text-center text-[12px] text-t2">Sem dados na competência.</span>
+        <span className="py-6 text-center text-[12px] text-t2">Sem dados para este mês.</span>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-1">
           <div className="flex flex-col items-center justify-center">
@@ -164,8 +164,8 @@ export function BlocoRankingGeral({
   if (ranking.length === 0) {
     return (
       <EmptyState
-        title="Nenhuma venda no mês"
-        description="Lance vendas para ver o ranking geral da competência."
+        title="Nenhuma venda registrada neste mês."
+        description="O ranking aparecerá após o registro das primeiras vendas."
       />
     );
   }
@@ -200,7 +200,7 @@ export function BlocoRankingGeral({
                 {ticket > 0 && (
                   <>
                     <span>·</span>
-                    <span>Ticket {brlK(ticket)}</span>
+                    <span>Ticket médio {brlK(ticket)}</span>
                   </>
                 )}
                 {eq && eq.metaIndividualValor > 0 && (

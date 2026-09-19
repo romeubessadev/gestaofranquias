@@ -14,13 +14,13 @@ describe("montarAoVivoView", () => {
     expect(v.kpis[1].label).toBe("Nº de vendas");
     expect(v.kpis[0].sub).not.toMatch(/^Hoje /);
     expect(v.kpis[1].sub).not.toMatch(/^Hoje /);
-    expect(v.kpis[2].label).toBe("Meta Mensal");
+    expect(v.kpis[2].label).toBe("Meta mensal");
     expect(v.kpis[3].label).toBe("Atingimento");
     expect(v.kpisHoje).toHaveLength(4);
     expect(v.kpisHoje[0].label).toBe("Faturamento hoje");
     expect(v.kpisHoje[1].label).toBe("Nº de vendas hoje");
     expect(v.kpisHoje[2].label).toBe("Ticket médio hoje");
-    expect(v.kpisHoje[3].label).toBe("Itens hoje");
+    expect(v.kpisHoje[3].label).toBe("Itens vendidos hoje");
   });
 
   it("ranking do mês ordenado por faturamento decrescente", () => {

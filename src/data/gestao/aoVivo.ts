@@ -1,7 +1,7 @@
 /**
  * Camada de visão — Ao vivo (competência do mês + pulso do dia).
  */
-import { brl, brlK, fimDoMes, intervaloDias, num, pct } from "@/lib/formato";
+import { brl, brlK, fimDoMes, intervaloDias, num, pct, rotuloDias } from "@/lib/formato";
 import { type Escopo } from "./dashboard";
 import { colaboradores, vendedorElegivel, type Colaborador } from "./equipe";
 import { desafiosNoEscopo, desafioEhIndice, progressoIndividual, type Desafio } from "./desafios";
@@ -23,7 +23,7 @@ export interface AoVivoKpi {
 export interface AoVivoKpiHoje {
   label: string;
   valor: string;
-  sub: string;
+  sub?: string;
   tint: "acc" | "ok" | "warn" | "info";
 }
 
@@ -165,10 +165,10 @@ function diasRestantesRotulo(d: Desafio): string {
   if (HOJE_ISO > d.fim) return "Encerrado";
   if (HOJE_ISO < d.inicio) {
     const n = intervaloDias(HOJE_ISO, d.inicio).length - 1;
-    return n <= 0 ? "Hoje" : `Em ${n}d`;
+    return n <= 0 ? "Hoje" : `Em ${rotuloDias(n)}`;
   }
   const n = intervaloDias(HOJE_ISO, d.fim).length;
-  return `${n}d`;
+  return rotuloDias(n);
 }
 
 function nivelPorPct(pctVal: number): string | null {
@@ -204,22 +204,22 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     {
       label: "Faturamento",
       valor: brlK(mes.faturamento),
-      sub: "Competência do mês",
+      sub: competenciaRotulo(competencia),
     },
     {
       label: "Nº de vendas",
       valor: num(mes.atendimentos),
-      sub: "Competência do mês",
+      sub: competenciaRotulo(competencia),
     },
     {
-      label: "Meta Mensal",
+      label: "Meta mensal",
       valor: metaAlvo > 0 ? brlK(metaAlvo) : "—",
       sub: competenciaRotulo(competencia),
     },
     {
       label: "Atingimento",
       valor: metaAlvo > 0 ? pct(atingimentoPct, 1) : "—",
-      sub: metaAlvo > 0 ? `${brlK(mes.faturamento)} / ${brlK(metaAlvo)}` : "Sem meta na competência",
+      sub: metaAlvo > 0 ? `${brlK(mes.faturamento)} de ${brlK(metaAlvo)}` : "Sem meta para este mês",
     },
   ];
 
@@ -227,25 +227,21 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     {
       label: "Faturamento hoje",
       valor: brlK(hoje.faturamento),
-      sub: "Caixa do dia",
       tint: "acc",
     },
     {
       label: "Nº de vendas hoje",
       valor: num(hoje.atendimentos),
-      sub: "Atendimentos",
       tint: "warn",
     },
     {
       label: "Ticket médio hoje",
       valor: ticketHoje > 0 ? brl(ticketHoje) : "—",
-      sub: "Por venda",
       tint: "ok",
     },
     {
-      label: "Itens hoje",
+      label: "Itens vendidos hoje",
       valor: num(hoje.itens),
-      sub: "Unidades",
       tint: "info",
     },
   ];

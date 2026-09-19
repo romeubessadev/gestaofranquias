@@ -4,8 +4,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, DonutChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarVisaoGeralView, type VisaoKpi } from "@/data/gestao/dashboard";
-import { brlK } from "@/lib/formato";
-import { deIso } from "@/lib/formato";
+import { brlK, deIso, tipRelacao } from "@/lib/formato";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 
 const IconFat = () => (
@@ -58,7 +57,7 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
     </Badge>
   );
   if (!delta.vs) return badge;
-  const tip = `Comparação com ${delta.vs}`;
+  const tip = tipRelacao(delta.vs);
   return <Tooltip label={tip}>{badge}</Tooltip>;
 }
 
@@ -103,9 +102,9 @@ export default function VisaoGeralPage() {
   return (
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
-        crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Visão Geral" }]}
-        title="Visão Geral"
-        subtitle="Principais indicadores, metas e desempenho da operação."
+        crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Visão geral" }]}
+        title="Visão geral"
+        subtitle="Indicadores, metas e desempenho da operação."
         actions={
           <>
             <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
@@ -150,15 +149,10 @@ export default function VisaoGeralPage() {
           if (!meta) {
             return (
               <Card>
-                <div className="mb-4 flex items-center gap-1.5">
-                  <CardTitle>Atingimento da Meta</CardTitle>
-                  <Tooltip label="Quanto da meta do mês já foi atingido e quanto ainda falta.">
-                    <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
-                      ?
-                    </span>
-                  </Tooltip>
+                <div className="mb-4">
+                  <CardTitle>Atingimento da meta</CardTitle>
                 </div>
-                <span className="py-8 text-center text-[13px] text-t2">Nenhuma meta cadastrada para o período.</span>
+                <span className="py-8 text-center text-[13px] text-t2">Nenhuma meta cadastrada para este período.</span>
               </Card>
             );
           }
@@ -167,13 +161,8 @@ export default function VisaoGeralPage() {
           const projecaoValor = view.projecaoFechamento?.replace(/^Projeção:\s*/i, "") ?? "—";
           return (
             <Card>
-              <div className="mb-4 flex items-center gap-1.5">
-                <CardTitle>Atingimento da Meta</CardTitle>
-                <Tooltip label="Quanto da meta do mês já foi atingido e quanto ainda falta.">
-                  <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
-                    ?
-                  </span>
-                </Tooltip>
+              <div className="mb-4">
+                <CardTitle>Atingimento da meta</CardTitle>
               </div>
               <div className="relative mx-auto mb-4 h-[150px] w-[150px]">
                 <RadialProgress value={pct} size={150} stroke={15} trackColor="var(--bg-inset)" label="da meta" />
@@ -206,8 +195,8 @@ export default function VisaoGeralPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-1.5">
-                <CardTitle>Faturamento vs Meta</CardTitle>
-                <Tooltip label="Compare o ritmo do faturamento com a meta acumulada e identifique se a operação está acima ou abaixo do esperado.">
+                <CardTitle>Faturamento x meta</CardTitle>
+                <Tooltip label="Mostra se o faturamento acompanha o ritmo necessário para atingir a meta.">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
@@ -253,8 +242,8 @@ export default function VisaoGeralPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-1.5">
-                <CardTitle>Categorias vs Meta</CardTitle>
-                <Tooltip label="Compare o faturamento de cada categoria com sua meta no período e identifique onde estão os maiores desvios.">
+                <CardTitle>Categorias x meta</CardTitle>
+                <Tooltip label="Evidencia as categorias acima ou abaixo da meta no período.">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
@@ -296,8 +285,8 @@ export default function VisaoGeralPage() {
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-1.5">
-                  <CardTitle>Dia da Semana vs Meta</CardTitle>
-                  <Tooltip label="Compare o faturamento médio de cada dia da semana com a meta diária e identifique os dias de maior e menor desempenho.">
+                  <CardTitle>Dias da semana x meta</CardTitle>
+                  <Tooltip label="Revela em quais dias o faturamento médio supera ou fica abaixo da meta diária.">
                     <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                       ?
                     </span>
@@ -341,8 +330,8 @@ export default function VisaoGeralPage() {
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="flex flex-col">
           <div className="mb-1 flex items-center justify-between">
-            <CardTitle>Ranking de Lojas</CardTitle>
-            <Badge variant="accent">Total {brlK(view.rankingLojas.reduce((s, l) => s + l.valor, 0))}</Badge>
+            <CardTitle>Ranking de lojas</CardTitle>
+            <Badge variant="accent">Rede: {brlK(view.rankingLojas.reduce((s, l) => s + l.valor, 0))}</Badge>
           </div>
           {view.rankingLojas.length === 0 ? (
             <span className="py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
@@ -394,7 +383,7 @@ export default function VisaoGeralPage() {
         </Card>
         <Card className="flex flex-col">
           <CardHeader>
-            <CardTitle>Formas de Pagamento</CardTitle>
+            <CardTitle>Formas de pagamento</CardTitle>
           </CardHeader>
           {view.formasPagamento.length === 0 ? (
             <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
@@ -440,7 +429,7 @@ export default function VisaoGeralPage() {
         <Card>
           <CardHeader>
             <div className="flex w-full items-center justify-between gap-1.5">
-              <CardTitle>Top Vendedoras</CardTitle>
+              <CardTitle>Top vendedoras</CardTitle>
             </div>
           </CardHeader>
           <div className="flex flex-col gap-4 px-4 pb-4">
@@ -461,7 +450,7 @@ export default function VisaoGeralPage() {
                       {v.ticketMedio != null && v.ticketMedio > 0 && (
                         <>
                           <span>·</span>
-                          <span>Ticket {brlK(v.ticketMedio)}</span>
+                          <span>Ticket médio {brlK(v.ticketMedio)}</span>
                         </>
                       )}
                       <span>·</span>
@@ -479,7 +468,7 @@ export default function VisaoGeralPage() {
         <Card>
           <CardHeader>
             <div className="flex w-full items-center justify-between gap-1.5">
-              <CardTitle>Top Produtos</CardTitle>
+              <CardTitle>Top produtos</CardTitle>
             </div>
           </CardHeader>
           <div className="overflow-x-auto">

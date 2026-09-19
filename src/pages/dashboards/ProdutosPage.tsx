@@ -4,8 +4,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { BarChart, DonutChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarProdutosView, type ProdutosKpi, type ProdutoLinha, type ClasseAbc } from "@/data/gestao/dashboard";
-import { brl, brlK, num } from "@/lib/formato";
-import { deIso } from "@/lib/formato";
+import { brl, brlK, deIso, num, tipRelacao } from "@/lib/formato";
 import { cn } from "@/lib/cn";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 
@@ -67,7 +66,7 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
     </Badge>
   );
   if (!delta.vs) return badge;
-  return <Tooltip label={`Comparação com ${delta.vs}`}>{badge}</Tooltip>;
+  return <Tooltip label={tipRelacao(delta.vs)}>{badge}</Tooltip>;
 }
 
 /** Heroes por métrica (não por índice): Fat/Lucro/Margem iguais ao Financeiro; Itens = warn. */
@@ -283,7 +282,7 @@ export default function ProdutosPage() {
           <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-1.5">
-                <CardTitle>Faturamento por Categoria</CardTitle>
+                <CardTitle>Faturamento por categoria</CardTitle>
               </div>
               <p className="mt-1.5 text-2xl font-extrabold text-t0">
                 {view.kpis[0]?.valor ?? brlK(view.categorias.reduce((s, c) => s + c.faturamento, 0))}
@@ -304,8 +303,8 @@ export default function ProdutosPage() {
 
         <Card padding="lg" className="flex flex-col">
           <div className="mb-1 flex items-center gap-1.5">
-            <CardTitle>Curva ABC de Categorias</CardTitle>
-            <TipHelp label="Análise de Pareto: ordena as categorias pelo faturamento e classifica em A (até 80% acumulado), B (até 95%) e C (restante). Mostra se o resultado depende demais de poucas categorias." />
+            <CardTitle>Curva ABC por categoria</CardTitle>
+            <TipHelp label="Classifica as categorias pela participação acumulada no faturamento: A até 80%, B até 95% e C no restante." />
           </div>
           {view.curvaAbcCategorias.itens.length === 0 ? (
             <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
@@ -357,7 +356,7 @@ export default function ProdutosPage() {
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Top Linhas de Produto</CardTitle>
+            <CardTitle>Top linhas de produto</CardTitle>
           </CardHeader>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[420px] border-collapse text-sm">
@@ -404,7 +403,7 @@ export default function ProdutosPage() {
         <Card>
           <CardHeader>
             <div className="flex w-full items-center justify-between gap-1.5">
-              <CardTitle>Top Produtos</CardTitle>
+              <CardTitle>Top produtos</CardTitle>
               <select
                 value={rankingOrd}
                 onChange={(e) => setRankingOrd(e.target.value as RankingOrd)}
@@ -422,7 +421,7 @@ export default function ProdutosPage() {
                 <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
                   <th className="px-1 pb-3 text-left font-bold">#</th>
                   <th className="px-1 pb-3 text-left font-bold">Produto</th>
-                  <th className="px-1 pb-3 text-right font-bold">Itens</th>
+                  <th className="px-1 pb-3 text-right font-bold">Itens vendidos</th>
                   <th className="px-1 pb-3 text-right font-bold">Faturamento</th>
                   <th className="px-1 pb-3 text-right font-bold">Margem</th>
                 </tr>
@@ -460,7 +459,7 @@ export default function ProdutosPage() {
       <Card className="mt-4" padding="none">
         <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex items-center gap-1.5">
-            <CardTitle>Desempenho por Produto</CardTitle>
+            <CardTitle>Desempenho por produto</CardTitle>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <input
@@ -525,7 +524,7 @@ export default function ProdutosPage() {
                   <td colSpan={2} className="px-3 py-3 text-[13.5px] font-extrabold text-t0">
                     <span className="inline-flex items-center gap-1">
                       Total do filtro
-                      <TipHelp label="Soma todos os produtos do filtro atual, não apenas os exibidos nesta página." />
+                      <TipHelp label="Soma todos os produtos do filtro, inclusive os que não aparecem nesta página." />
                     </span>
                     <span className="ml-2 text-[11px] font-semibold text-t2">
                       ({num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"})

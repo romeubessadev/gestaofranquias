@@ -164,7 +164,7 @@ export function DateRangePicker({
         <div className="absolute left-0 top-full z-50 mt-2 flex w-[min(92vw,640px)] flex-col gap-4 rounded-[14px] border border-line bg-bg-2 p-4 shadow-[var(--shadow-vela)] sm:flex-row">
           {/* Quick ranges */}
           <div className="flex shrink-0 flex-row flex-wrap gap-2 sm:w-[150px] sm:flex-col sm:flex-nowrap">
-            <span className="mb-0.5 hidden text-[11px] font-bold uppercase tracking-wide text-t2 sm:block">Períodos rápidos</span>
+            <span className="mb-0.5 hidden text-[11px] font-bold uppercase tracking-wide text-t2 sm:block">Períodos</span>
             {quickRanges.map((qr) => (
               <button
                 key={qr.label}
@@ -230,7 +230,7 @@ export function DateRangePicker({
             </div>
 
             <p className="mt-3 text-[11px] text-t2">
-              {draftStart ? "Selecione o dia final do intervalo." : "Clique no dia inicial, depois no final."}
+              {draftStart ? "Agora selecione o último dia." : "Selecione o primeiro e o último dia."}
             </p>
           </div>
         </div>

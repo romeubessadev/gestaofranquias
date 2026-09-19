@@ -3,6 +3,7 @@ import { Card } from "./Card";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { Tooltip } from "./Tooltip";
 import { cn } from "@/lib/cn";
+import { tipRelacao } from "@/lib/formato";
 
 export interface StatCardProps {
   label: string;
@@ -30,7 +31,7 @@ export function StatCard({ label, value, icon, iconColor = "var(--acc)", iconBg 
           {icon}
         </div>
         {delta && (() => {
-          const badgeLabel = delta.vs ? `Comparação com ${delta.vs}` : "";
+          const badgeLabel = delta.vs ? tipRelacao(delta.vs) : "";
           const badge = (
             <span
               className={cn(

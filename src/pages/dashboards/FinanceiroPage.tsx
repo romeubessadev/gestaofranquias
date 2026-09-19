@@ -4,10 +4,9 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, DonutChart } from "@/components/charts";
 import { useEscopo } from "@/pages/dashboard/useEscopo";
 import { montarFinanceiroView, type FinanceiroKpi, type EvolucaoMensalLinha, type LinhaCustoFixo } from "@/data/gestao/dashboard";
-import { brl, brlK } from "@/lib/formato";
+import { brl, brlK, deIso, tipRelacao } from "@/lib/formato";
 import { cn } from "@/lib/cn";
 import type { DateRange } from "@/components/ui/DateRangePicker";
-import { deIso } from "@/lib/formato";
 
 /** Ícones dos KPIs — Faturamento/CMV iguais à Visão Geral; Lucro/Margem próprios. */
 const IconFat = () => (
@@ -54,7 +53,7 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
     </Badge>
   );
   if (!delta.vs) return badge;
-  const tip = `Comparação com ${delta.vs}`;
+  const tip = tipRelacao(delta.vs);
   return <Tooltip label={tip}>{badge}</Tooltip>;
 }
 
@@ -171,7 +170,7 @@ export default function FinanceiroPage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Financeiro" }]}
         title="Financeiro"
-        subtitle="Receita, custos, lucro e margem da operação."
+        subtitle="Receita, custos e margem da operação."
         actions={
           <>
             <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
@@ -223,8 +222,8 @@ export default function FinanceiroPage() {
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <CardTitle>CMV, Lucro e Margem</CardTitle>
-                    <TipHelp label="Veja se o CMV está pressionando a margem e quanto do faturamento está se convertendo em lucro bruto." />
+                    <CardTitle>CMV, lucro e margem</CardTitle>
+                    <TipHelp label="Mostra quanto do faturamento vira custo, lucro bruto e margem." />
                   </div>
                   <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloSerie}</p>
                   <div className="mt-2.5 flex flex-wrap gap-5">
@@ -268,8 +267,8 @@ export default function FinanceiroPage() {
           const totalFat = serie.reduce((s, m) => s + m.faturamento, 0);
           const margemOpPct = totalFat > 0 ? (totalRes / totalFat) * 100 : 0;
           const tipResultado = view.resultadoRateado
-            ? "Veja quanto sobra após os custos da operação. Em períodos curtos, os custos mensais são rateados por dia ou por hora."
-            : "Veja quanto sobra após os custos da operação e se o resultado operacional está melhorando ou piorando.";
+            ? "Em períodos curtos, os custos mensais são rateados por dia ou por hora."
+            : "Valor que permanece após descontar os custos da operação do lucro bruto.";
           return (
             <Card padding="lg">
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -288,12 +287,12 @@ export default function FinanceiroPage() {
                     </div>
                     <div>
                       <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
-                        <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--acc)]" />Resultado
+                        <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--acc)]" />Resultado operacional
                       </span>
                       <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(totalRes)}</p>
                     </div>
                     <div>
-                      <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">Margem op.</span>
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">Margem operacional</span>
                       <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{margemOpPct.toFixed(1)}%</p>
                     </div>
                   </div>
@@ -325,8 +324,8 @@ export default function FinanceiroPage() {
         <Card className="flex flex-col">
           <CardHeader>
             <div className="flex items-center gap-1.5">
-              <CardTitle>Custos da Operação</CardTitle>
-              <TipHelp label="Desconta do lucro bruto os custos da operação (aluguel, royalties e marketing). O que sobra é o resultado operacional." />
+              <CardTitle>Custos da operação</CardTitle>
+              <TipHelp label="Detalha os custos descontados do lucro bruto para chegar ao resultado operacional." />
             </div>
           </CardHeader>
           <div className="px-4 pb-4">
@@ -356,7 +355,7 @@ export default function FinanceiroPage() {
 
         <Card className="flex flex-col">
           <CardHeader>
-            <CardTitle>Formas de Pagamento</CardTitle>
+            <CardTitle>Formas de pagamento</CardTitle>
           </CardHeader>
           {view.formasPagamento.length === 0 ? (
             <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
@@ -398,7 +397,7 @@ export default function FinanceiroPage() {
         {view.faturamentoPorMarca && (
           <Card className="flex flex-col">
             <CardHeader>
-              <CardTitle>Faturamento por Marca</CardTitle>
+              <CardTitle>Faturamento por marca</CardTitle>
             </CardHeader>
             {view.faturamentoPorMarca.length === 0 ? (
               <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
@@ -443,10 +442,7 @@ export default function FinanceiroPage() {
       <Card className="mt-4" padding="none">
         <div className="flex items-center gap-1.5 px-5 py-4">
           <div>
-            <div className="flex items-center gap-1.5">
-              <CardTitle>Evolução Mensal</CardTitle>
-              <TipHelp label="Compare a evolução mensal dos principais indicadores financeiros. Este quadro sempre considera os últimos 6 meses." />
-            </div>
+            <CardTitle>Evolução mensal</CardTitle>
             <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloEvolucaoMensal}</p>
           </div>
         </div>

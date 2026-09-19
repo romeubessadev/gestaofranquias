@@ -1520,10 +1520,10 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     {
       label: "CMV",
       valor: brlK(custoAtual),
-      sub: `CMV ${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}%`,
+      sub: `${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}% do faturamento`,
       delta: temComp ? kpiDelta(custoAtual, custoAnterior, vsRotulo) : undefined,
       serie: serieCmv,
-      tooltip: "Custo dos produtos vendidos. Quanto maior o CMV %, menor tende a ser a margem.",
+      tooltip: "Percentual do faturamento consumido pelo custo dos produtos vendidos.",
     },
     {
       label: "Lucro bruto",
@@ -2422,9 +2422,9 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     {
       label: "CMV",
       valor: brlK(custoAtual),
-      sub: `CMV ${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}%`,
+      sub: `${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}% do faturamento`,
       delta: temComp ? kpiDelta(custoAtual, custoAnterior, vsRotulo) : undefined,
-      tooltip: "Custo dos produtos vendidos. Quanto maior o CMV %, maior a pressão sobre a margem.",
+      tooltip: "Percentual do faturamento consumido pelo custo dos produtos vendidos.",
     },
     {
       label: "Nº de vendas",
@@ -2455,7 +2455,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
   }
 
   const faltamParaMeta = faltam > 0 ? `Faltam ${brl(faltam)} para atingir a Meta do mês` : metaTotal > 0 ? "Meta atingida" : null;
-  const projecaoFechamento = projetado > 0 ? `Projeção: ~${brlK(projetado)} (${projPct.toFixed(0)}% da meta)` : null;
+  const projecaoFechamento = projetado > 0 ? `Projeção: ${brlK(projetado)} · ${projPct.toFixed(0)}% da meta` : null;
 
   // Faturamento por Categoria vs Meta
   const catMap = new Map<number, { faturamento: number }>();

@@ -8,21 +8,18 @@ export default function CompartilharPage() {
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
         title="Compartilhar"
-        subtitle="Link e layout para notebook/TV da loja."
-        crumbs={[{ label: "Ao Vivo", to: paths.aoVivo.root }, { label: "Compartilhar" }]}
+        subtitle="Link para compartilhar o painel da loja."
+        crumbs={[{ label: "Ao vivo", to: paths.aoVivo.root }, { label: "Compartilhar" }]}
         actions={
           <Link to={paths.aoVivo.root}>
             <Button variant="secondary" size="sm">
-              Voltar ao Ao Vivo
+              Voltar ao Ao vivo
             </Button>
           </Link>
         }
       />
       <Card className="mt-4" padding="lg">
-        <p className="text-[13.5px] font-semibold text-t0">Em construção</p>
-        <p className="mt-1.5 text-[12.5px] leading-relaxed text-t2">
-          Esta rota já responde ao botão Compartilhar. O layout da visão externa (notebook/TV) entra no próximo corte.
-        </p>
+        <p className="text-[13.5px] font-semibold text-t0">Em breve</p>
       </Card>
     </div>
   );

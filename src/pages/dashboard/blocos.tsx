@@ -12,7 +12,7 @@ import { produtosDaCategoria, type ProdutoResumo } from "@/data/gestao/produtos"
 
 const ROTULO_ESTADO: Record<Exclude<EstadoBlocoTipo, "disponivel">, string> = {
   carregando: "Carregando dados…",
-  sem_dados: "Sem dados para o período selecionado",
+  sem_dados: "Sem dados no período selecionado.",
   indisponivel: "Bloco indisponível no momento",
 };
 

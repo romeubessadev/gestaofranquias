@@ -21,7 +21,7 @@ export default function MetasPage() {
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
         title="Metas"
-        subtitle="Meta mensal por loja, escada de degraus e distribuição individual."
+        subtitle="Metas mensais, níveis de premiação e distribuição por vendedora."
         actions={
           <Button size="sm" disabled title="Em breve">
             Nova meta
@@ -33,11 +33,10 @@ export default function MetasPage() {
         <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
           <div>
             <CardTitle>Metas cadastradas</CardTitle>
-            <p className="mt-1 text-[12.5px] text-t2">
-              Listagem a partir dos dados de demonstração. Edição e plano do mês entram na próxima etapa.
-            </p>
           </div>
-          <span className="text-[12px] font-semibold text-t2">{ordenadas.length} meta(s)</span>
+          <span className="text-[12px] font-semibold text-t2">
+            {ordenadas.length} {ordenadas.length === 1 ? "meta" : "metas"}
+          </span>
         </div>
 
         <div className="overflow-x-auto">
@@ -48,7 +47,7 @@ export default function MetasPage() {
                 <th className="px-1 pb-3 text-left font-bold">Loja</th>
                 <th className="px-1 pb-3 text-left font-bold">Nome</th>
                 <th className="px-1 pb-3 text-right font-bold">Meta da loja</th>
-                <th className="px-1 pb-3 text-right font-bold">Degraus</th>
+                <th className="px-1 pb-3 text-right font-bold">Níveis de premiação</th>
               </tr>
             </thead>
             <tbody>
