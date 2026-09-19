@@ -614,8 +614,9 @@ function IconTipoColetiva() {
 function IconLoja() {
   return (
     <IconBadge>
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-      <polyline points="9 22 9 12 15 12 15 22" />
+      <path d="M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2" />
+      <path d="M3 7h18l-1.5 5.5A3 3 0 0 1 16.6 13a3 3 0 0 1-2.9-2 3 3 0 0 1-5.4 0 3 3 0 0 1-2.9 2 3 3 0 0 1-2.9-1.5L3 7Z" />
+      <path d="M4 12v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8" />
     </IconBadge>
   );
 }
@@ -672,7 +673,7 @@ export function CardMeta({
       <CardTitle>{card.nome}</CardTitle>
 
       <div className="mt-2.5 flex flex-wrap gap-1.5">
-        <Badge variant={card.tipo === "individual" ? "info" : "accent"} className="gap-1">
+        <Badge variant="neutral" className="gap-1">
           {card.tipo === "individual" ? <IconTipoIndividual /> : <IconTipoColetiva />}
           {tipoLabel}
         </Badge>
