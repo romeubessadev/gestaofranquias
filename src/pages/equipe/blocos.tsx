@@ -3,6 +3,7 @@
  * Reusa os componentes do tema: StatCard, DataTable, Card, ProgressBar,
  * Badge, Avatar, EmptyState e o padrão EstadoBloco compartilhado.
  */
+import type { ReactNode } from "react";
 import { Avatar, Badge, Card, CardTitle, DataTable, EmptyState, ProgressBar, progressColor, progressTextClass, StatCard, type DataTableColumn } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { brl, brlK, num, rotuloDias } from "@/lib/formato";
@@ -557,6 +558,82 @@ export function FaixaMetaGlobal({
  * Card de uma meta ativa: título + badges de contexto + progresso + escada.
  * Usado no Ao vivo (aba Metas); N metas = N cards.
  */
+function IconBadge({ children }: { children: ReactNode }) {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {children}
+    </svg>
+  );
+}
+
+function IconTipoIndividual() {
+  return (
+    <IconBadge>
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </IconBadge>
+  );
+}
+
+function IconTipoColetiva() {
+  return (
+    <IconBadge>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </IconBadge>
+  );
+}
+
+function IconLoja() {
+  return (
+    <IconBadge>
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </IconBadge>
+  );
+}
+
+function IconMarca() {
+  return (
+    <IconBadge>
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+      <line x1="7" y1="7" x2="7.01" y2="7" />
+    </IconBadge>
+  );
+}
+
+function IconGrupos() {
+  return (
+    <IconBadge>
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </IconBadge>
+  );
+}
+
+function IconVendedoras() {
+  return (
+    <IconBadge>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </IconBadge>
+  );
+}
+
+function IconNiveis() {
+  return (
+    <IconBadge>
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+    </IconBadge>
+  );
+}
+
 export function CardMeta({ card, metaAtiva }: { card: MetaCardView; metaAtiva: boolean }) {
   const tipoLabel = card.tipo === "individual" ? "Individual" : "Coletiva";
   return (
@@ -564,20 +641,30 @@ export function CardMeta({ card, metaAtiva }: { card: MetaCardView; metaAtiva: b
       <CardTitle>{card.nome}</CardTitle>
 
       <div className="mt-2.5 flex flex-wrap gap-1.5">
-        <Badge variant={card.tipo === "individual" ? "info" : "accent"}>{tipoLabel}</Badge>
-        <Badge variant="neutral">{card.lojaNome}</Badge>
+        <Badge variant={card.tipo === "individual" ? "info" : "accent"} className="gap-1">
+          {card.tipo === "individual" ? <IconTipoIndividual /> : <IconTipoColetiva />}
+          {tipoLabel}
+        </Badge>
+        <Badge variant="neutral" className="gap-1">
+          <IconLoja />
+          {card.lojaNome}
+        </Badge>
         {card.marcas.map((m) => (
-          <Badge key={m} variant="neutral">
+          <Badge key={m} variant="neutral" className="gap-1">
+            <IconMarca />
             {m}
           </Badge>
         ))}
-        <Badge variant="neutral">
+        <Badge variant="neutral" className="gap-1">
+          <IconGrupos />
           {card.qtdGrupos} {card.qtdGrupos === 1 ? "grupo" : "grupos"}
         </Badge>
-        <Badge variant="neutral">
+        <Badge variant="neutral" className="gap-1">
+          <IconVendedoras />
           {card.qtdVendedoras} {card.qtdVendedoras === 1 ? "vendedora" : "vendedoras"}
         </Badge>
-        <Badge variant="neutral">
+        <Badge variant="neutral" className="gap-1">
+          <IconNiveis />
           {card.qtdNiveis} {card.qtdNiveis === 1 ? "nível" : "níveis"}
         </Badge>
       </div>
