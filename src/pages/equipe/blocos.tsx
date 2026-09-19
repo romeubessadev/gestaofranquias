@@ -398,34 +398,37 @@ export function CardVendedoras({
   estado: EstadoBlocoTipo;
   lista: VendedoraLinha[] | null;
   metaAtiva: boolean;
-  /** Sem Card externo (ex.: aba Metas do Ao vivo). */
+  /** Sem Card externo — bloco contínuo após a projeção (CardMeta). */
   embedded?: boolean;
 }) {
-  const body = (
-    <>
-      <div className={cn("flex shrink-0 items-center gap-1.5", embedded ? "pb-3" : "px-5 py-4")}>
+  const tabela =
+    lista && lista.length > 0 ? (
+      <div className="max-h-[min(520px,70vh)] overflow-x-auto overflow-y-auto pr-1">
+        <BlocoVendedoras lista={lista} metaAtiva={metaAtiva} />
+      </div>
+    ) : (
+      <div className={embedded ? "py-2" : "p-5"}>
+        <EmptyState icon="👤" title="Sem vendedoras elegíveis" description="Nenhuma vendedora elegível para esta competência." />
+      </div>
+    );
+
+  if (embedded) {
+    return (
+      <div className="mt-4 min-w-0">
+        <EstadoBloco estado={estado}>{tabela}</EstadoBloco>
+      </div>
+    );
+  }
+
+  return (
+    <Card padding="none">
+      <div className="flex shrink-0 items-center gap-1.5 px-5 py-4">
         <CardTitle>Escada de premiação</CardTitle>
         <TipHelp label="Mostra o nível atual, quanto falta para o próximo e a premiação estimada de cada vendedora." />
       </div>
-      <EstadoBloco estado={estado}>
-        {lista && lista.length > 0 ? (
-          <div className="max-h-[min(520px,70vh)] overflow-x-auto overflow-y-auto pr-1">
-            <BlocoVendedoras lista={lista} metaAtiva={metaAtiva} />
-          </div>
-        ) : (
-          <div className={embedded ? "py-2" : "p-5"}>
-            <EmptyState icon="👤" title="Sem vendedoras elegíveis" description="Nenhuma vendedora elegível para esta competência." />
-          </div>
-        )}
-      </EstadoBloco>
-    </>
+      <EstadoBloco estado={estado}>{tabela}</EstadoBloco>
+    </Card>
   );
-
-  if (embedded) {
-    return <div className="border-t border-line pt-4">{body}</div>;
-  }
-
-  return <Card padding="none">{body}</Card>;
 }
 
 /**
@@ -577,8 +580,8 @@ export function FaixaMetaGlobal({
 }
 
 /**
- * Card de uma meta ativa: título + badges de contexto + progresso + escada.
- * Usado no Ao vivo (aba Metas); N metas = N cards.
+ * Card de uma meta ativa: nome + badges + projeção + escada (lista contínua).
+ * Usado no Ao vivo e na Equipe (embedded dentro de Metas da equipe).
  */
 function IconBadge({ children }: { children: ReactNode }) {
   return (
