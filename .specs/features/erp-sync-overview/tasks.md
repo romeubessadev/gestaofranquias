@@ -235,11 +235,13 @@ T11 -> T12 -> T13 -> T14
 
 **Done when**:
 
-- [ ] Env vars listed; BR requirement stated; job kinds documented
+- [x] Env vars listed; BR requirement stated; job kinds documented
 
 **Tests**: none  
 **Gate**: build  
 **Commit**: `docs(sync): document millennium-sync worker`
+
+**Status**: ✅ Complete
 
 ---
 
