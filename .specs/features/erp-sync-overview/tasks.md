@@ -281,11 +281,13 @@ T11 -> T12 -> T13 -> T14
 
 **Done when**:
 
-- [ ] dedicated → interval 2/30; millennium_store_id set; build green
+- [x] dedicated → interval 2/30; millennium_store_id set; build green
 
 **Tests**: none  
 **Gate**: build  
 **Commit**: `feat(sync): persist erp credential and stores after onboarding`
+
+**Status**: ✅ Complete
 
 ---
 
