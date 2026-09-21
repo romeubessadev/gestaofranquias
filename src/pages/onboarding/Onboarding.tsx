@@ -1,92 +1,268 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { padTopoEBase } from "@/lib/areaSegura";
-import { cn } from "@/lib/cn";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { WizardSteps } from "@/components/ui";
+import { BrandMark } from "@/pages/auth/authKit";
 import { paths } from "@/router/paths";
-import { AuthGlow } from "@/pages/auth/authKit";
-import { Marca } from "@/components/gestao/Marca";
-import { useSessao, useSessaoAtiva } from "@/session/SessionProvider";
-import { Etapa1Marca } from "./Etapa1Marca";
-import { Etapa2Credencial } from "./Etapa2Credencial";
-import { Etapa3Filiais } from "./Etapa3Filiais";
-import { Etapa4Equipe } from "./Etapa4Equipe";
+import { tenant } from "@/data/wedash/tenant";
+import { storeIdsFromErp } from "@/data/wedash/stores";
+import type { StoreErp } from "@/data/wedash/erp";
+import { padTopoEBase } from "@/lib/safeArea";
+import { getSupabase } from "@/lib/supabase";
+import { useSession, useActiveSession } from "@/session/SessionProvider";
+import {
+  saveOnboardingStep,
+  saveMembershipStores,
+  saveTenantBrand,
+  persistErpCredentialAndStores,
+} from "@/session/authApi";
+import { Step1Brand, type RascunhoEmpresa } from "./Step1Brand";
+import { Step2Credentials } from "./Step2Credentials";
+import { Step3Stores } from "./Step3Stores";
+import {
+  gravarRascunho,
+  limparRascunho,
+  lerRascunho,
+  lerSenhaErp,
+  rascunhoVazio,
+  type RascunhoOnboarding,
+} from "./draft";
 
 const etapas = [
-  { num: 1, label: "Marca" },
+  { num: 1, label: "Empresa" },
   { num: 2, label: "ERP" },
-  { num: 3, label: "Filiais" },
-  { num: 4, label: "Equipe" },
+  { num: 3, label: "Lojas" },
 ];
 
-export function Onboarding() {
-  const sessao = useSessaoAtiva();
-  const { atualizar, sair } = useSessao();
-  const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
-  // ?etapa=N abre direto naquela etapa, para revisar sem refazer o fluxo.
-  const forcada = Number(params.get("etapa"));
-  const atual = forcada >= 1 && forcada <= 4 ? forcada : (sessao.onboardingEtapa ?? 1);
+const heroPorEtapa: Record<number, { titulo: React.ReactNode; texto: string; bullets: string[] }> = {
+  1: {
+    titulo: (
+      <>
+        Um ambiente com
+        <br />
+        a identidade da sua empresa.
+      </>
+    ),
+    texto: "Essas informações ajudam sua equipe a reconhecer e acessar a WeDash com facilidade.",
+    bullets: ["Nome visível em todo o sistema", "Link gerado automaticamente (wedash.app/…)", "Logo opcional para personalizar o ambiente"],
+  },
+  2: {
+    titulo: (
+      <>
+        Dados do Millennium,
+        <br />
+        direto na WeDash.
+      </>
+    ),
+    texto: "A conexão mantém vendas, custos, estoque e cadastros sincronizados automaticamente.",
+    bullets: ["Sincronização automática dos dados", "Senha protegida no servidor", "Conexão testada antes de continuar"],
+  },
+  3: {
+    titulo: (
+      <>
+        Confirme
+        <br />
+        suas lojas
+      </>
+    ),
+    texto: "São as lojas que o seu usuário enxerga no Millennium.",
+    bullets: ["Lista vinda do Millennium", "Confirme para entrar no painel", "Equipe você sincroniza depois"],
+  },
+};
 
-  function irPara(etapa: number | null) {
-    atualizar({ onboardingEtapa: etapa });
+function etapaInicial(sessaoEtapa: number | null, draft: RascunhoOnboarding | null): number {
+  const daSessao = sessaoEtapa !== null && sessaoEtapa >= 1 ? Math.min(3, sessaoEtapa) : 1;
+  const doDraft = draft?.etapa ?? 1;
+  return Math.min(3, Math.max(daSessao, doDraft));
+}
+
+/** Onboarding — shell RegisterSplit: form à esquerda, hero à direita. */
+export function Onboarding() {
+  const session = useActiveSession();
+  const { update, signOut } = useSession();
+  const navigate = useNavigate();
+  const membershipId = session.membershipId;
+
+  const [draft, setDraft] = useState<RascunhoOnboarding>(() => {
+    const salvo = lerRascunho(membershipId);
+    if (salvo) return salvo;
+    return rascunhoVazio(etapaInicial(session.onboardingStep, null));
+  });
+
+  const [erpSession, setErpSession] = useState<string | undefined>();
+  const [atual, setAtual] = useState(() => etapaInicial(session.onboardingStep, draft));
+  const [concluindo, setConcluindo] = useState(false);
+
+  const hero = heroPorEtapa[atual] ?? heroPorEtapa[1];
+
+  useEffect(() => {
+    gravarRascunho(membershipId, { ...draft, etapa: atual });
+  }, [atual, draft, membershipId]);
+
+  // Espelha progresso local → sessão. Não reabre se já concluiu (null).
+  useEffect(() => {
+    if (concluindo || session.onboardingStep === null) return;
+    if (session.onboardingStep !== atual) {
+      update({ onboardingStep: atual });
+      void saveOnboardingStep(membershipId, atual);
+    }
+  }, [atual, update, concluindo, session.onboardingStep, membershipId]);
+
+  function patchDraft(patch: Partial<RascunhoOnboarding>) {
+    setDraft((d) => ({ ...d, ...patch }));
+  }
+
+  function patchEmpresa(patch: Partial<RascunhoEmpresa>) {
+    setDraft((d) => ({ ...d, empresa: { ...d.empresa, ...patch } }));
+  }
+
+  async function irPara(etapa: number | null, filiaisConfirmadas?: StoreErp[]) {
     if (etapa === null) {
-      navigate(paths.visaoGeral, { replace: true });
+      setConcluindo(true);
+      const confirmed = filiaisConfirmadas ?? draft.stores ?? [];
+      const empresa = draft.empresa;
+      const companyName = empresa.nome.trim() || session.companyName;
+      // Logo blob local não persiste; gravamos só nome/slug por enquanto.
+      await saveTenantBrand(session.tenantId, {
+        name: companyName,
+        slug: empresa.slug.trim() || session.companySlug,
+        logoUrl: null,
+      });
+
+      const password = lerSenhaErp(membershipId);
+      let ids = storeIdsFromErp(confirmed);
+      if (draft.erp.usuario && password && confirmed.length > 0) {
+        const persisted = await persistErpCredentialAndStores({
+          tenantId: session.tenantId,
+          membershipId,
+          username: draft.erp.usuario,
+          password,
+          dedicated: draft.erp.dedicada,
+          stores: confirmed,
+        });
+        if (persisted.ok) {
+          ids = persisted.storeIds;
+          const sb = getSupabase();
+          if (sb) {
+            try {
+              const { error: enqErr } = await sb.functions.invoke("erp-sync-enqueue", {
+                body: { action: "backfill" },
+              });
+              if (enqErr) console.warn("erp-sync-enqueue backfill:", enqErr.message);
+            } catch (e) {
+              console.warn("erp-sync-enqueue backfill:", e);
+            }
+          }
+        } else {
+          console.warn("persistErpCredentialAndStores:", persisted.error);
+          await saveMembershipStores(membershipId, ids);
+        }
+      } else {
+        await saveMembershipStores(membershipId, ids);
+      }
+
+      await saveOnboardingStep(membershipId, null);
+      limparRascunho(membershipId);
+      update({
+        onboardingStep: null,
+        stores: ids,
+        companyName,
+        companySlug: empresa.slug.trim() || session.companySlug,
+        companyLogoUrl: null,
+      });
+      navigate(paths.overview, { replace: true });
       return;
     }
-    if (params.has("etapa")) setParams(new URLSearchParams({ etapa: String(etapa) }), { replace: true });
+    setAtual(etapa);
+    patchDraft({ etapa });
     window.scrollTo({ top: 0 });
   }
 
+  function sairOnboarding() {
+    limparRascunho(membershipId);
+    signOut();
+    navigate(paths.access.login);
+  }
+
   return (
-    <div className="tela-cheia relative w-full overflow-hidden bg-bg-0">
-      <AuthGlow />
-      <div className="pad-topo pad-base relative mx-auto w-full max-w-3xl px-4" style={padTopoEBase("2rem", "2rem")}>
-        <div className="mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Marca size={40} nome={sessao.nome} logoUrl={null} fallback="iniciais" />
-            <div>
-              <p className="text-[15px] font-extrabold text-t0">Configuração inicial</p>
-              <p className="text-[12px] text-t2">Olá, {sessao.nome.split(" ")[0]}. Leva uns dez minutos e pode ser retomado depois.</p>
-            </div>
+    <div className="grid min-h-screen w-full bg-bg-0 lg:grid-cols-2">
+      <div
+        className="pad-topo pad-base flex flex-col px-6 pb-10 sm:px-14 lg:overflow-y-auto"
+        style={padTopoEBase("2.5rem", "2.5rem")}
+      >
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <BrandMark size={34} />
+            <span className="text-[16px] font-extrabold text-t0">{tenant.nomeExibicao}</span>
           </div>
           <button
-            onClick={() => {
-              sair();
-              navigate(paths.acesso.entrar);
-            }}
-            className="text-[12px] font-semibold text-t2 hover:text-t0"
+            type="button"
+            onClick={sairOnboarding}
+            className="min-h-11 min-w-11 px-2 text-xs font-semibold text-t2 hover:text-t0"
           >
             Sair
           </button>
         </div>
 
-        <div className="mb-8 flex items-center justify-center">
-          {etapas.map((s, i) => {
-            const done = s.num < atual;
-            const active = s.num === atual;
-            return (
-              <div key={s.num} className="flex items-center">
-                <div className="flex min-w-[64px] flex-col items-center gap-2 sm:min-w-[80px]">
-                  <div className={cn("flex h-10 w-10 items-center justify-center rounded-full border-2 text-[13px] font-extrabold", done && "border-acc bg-acc text-white", active && "border-acc bg-acc-soft text-acc", !done && !active && "border-line bg-bg-inset text-t2")}>
-                    {done ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M20 6 9 17l-5-5" />
-                      </svg>
-                    ) : (
-                      s.num
-                    )}
-                  </div>
-                  <span className={cn("whitespace-nowrap text-[11.5px] font-semibold", active ? "text-t0" : "text-t2")}>{s.label}</span>
-                </div>
-                {i < etapas.length - 1 && <div className={cn("mb-5 h-0.5 w-8 sm:w-16", s.num < atual ? "bg-acc" : "bg-line")} />}
-              </div>
-            );
-          })}
-        </div>
+        <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-4">
+          <WizardSteps steps={etapas} current={atual} />
 
-        {atual === 1 && <Etapa1Marca onConcluir={() => irPara(2)} />}
-        {atual === 2 && <Etapa2Credencial onConcluir={() => irPara(3)} onVoltar={() => irPara(1)} />}
-        {atual === 3 && <Etapa3Filiais onConcluir={() => irPara(4)} onVoltar={() => irPara(2)} />}
-        {atual === 4 && <Etapa4Equipe onConcluir={() => irPara(null)} />}
+          {atual === 1 && (
+            <Step1Brand valor={draft.empresa} onChange={patchEmpresa} onConcluir={() => void irPara(2)} />
+          )}
+          {atual === 2 && (
+            <Step2Credentials
+              membershipId={membershipId}
+              inicial={draft.erp}
+              onErpChange={(erp) => patchDraft({ erp })}
+              onConcluir={(r) => {
+                setErpSession(r.session);
+                patchDraft({ stores: r.stores });
+                void irPara(3);
+              }}
+              onVoltar={() => void irPara(1)}
+            />
+          )}
+          {atual === 3 && (
+            <Step3Stores
+              session={erpSession}
+              filiaisPre={draft.stores}
+              onConcluir={(confirmadas) => {
+                setErpSession(undefined);
+                void irPara(null, confirmadas);
+              }}
+              onVoltar={() => {
+                setErpSession(undefined);
+                void irPara(2);
+              }}
+            />
+          )}
+        </div>
+      </div>
+
+      <div
+        className="relative hidden flex-col justify-center overflow-hidden p-12 lg:flex"
+        style={{ background: "linear-gradient(150deg,#0f2d54,#1b1650 55%,#14103a)" }}
+      >
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(70% 60% at 25% 80%,rgba(86,168,255,.35),transparent 60%)" }}
+        />
+        <div className="relative">
+          <h2 className="mb-6 text-[26px] font-extrabold leading-[1.3] tracking-tight text-white">{hero.titulo}</h2>
+          <p className="mb-6 max-w-[380px] text-[15px] leading-relaxed text-white/70">{hero.texto}</p>
+          <div className="flex flex-col gap-4">
+            {hero.bullets.map((b) => (
+              <div key={b} className="flex items-center gap-3">
+                <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[9px]" style={{ background: "rgba(255,255,255,.12)" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                </span>
+                <span className="text-sm font-semibold text-white/90">{b}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

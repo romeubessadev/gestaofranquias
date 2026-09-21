@@ -303,11 +303,13 @@ T11 -> T12 -> T13 -> T14
 
 **Done when**:
 
-- [ ] QUEUED BACKFILL created; enqueue failure soft-warns only
+- [x] QUEUED BACKFILL created; enqueue failure soft-warns only
 
 **Tests**: none  
 **Gate**: build  
 **Commit**: `feat(sync): enqueue 90-day backfill after onboarding`
+
+**Status**: ✅ Complete
 
 ---
 
