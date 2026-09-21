@@ -134,12 +134,14 @@ T11 -> T12 -> T13 -> T14
 
 **Done when**:
 
-- [ ] Exports SaleRow, SalesDayAgg, SalesHourAgg
-- [ ] Money as integer cents
+- [x] Exports SaleRow, SalesDayAgg, SalesHourAgg
+- [x] Money as integer cents
 
 **Tests**: none  
 **Gate**: build  
 **Commit**: `feat(sync): add sales aggregate TypeScript types`
+
+**Status**: ✅ Complete
 
 ---
 
