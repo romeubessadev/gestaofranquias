@@ -187,12 +187,14 @@ T11 -> T12 -> T13 -> T14
 
 **Done when**:
 
-- [ ] Maps fixture-shaped payload to SaleRow
-- [ ] Unit test with mocked fetch passes
+- [x] Maps fixture-shaped payload to SaleRow
+- [x] Unit test with mocked fetch passes
 
 **Tests**: unit  
 **Gate**: quick  
 **Commit**: `feat(sync): add Millennium VENDAS.Lista client`
+
+**Status**: ✅ Complete
 
 ---
 
