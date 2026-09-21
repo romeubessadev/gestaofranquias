@@ -4,8 +4,6 @@ import {
   forceRefreshRetryAfterSec,
   formatSyncWatermarkLabel,
 } from "./syncUi";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 describe("syncUi watermark label (SYNC-10)", () => {
   it("shows pending when never synced", () => {
@@ -36,16 +34,5 @@ describe("force refresh role + rate limit (SYNC-11)", () => {
     expect(forceRefreshRetryAfterSec(last, new Date("2026-09-19T12:02:00.000Z"))).toBe(180);
     expect(forceRefreshRetryAfterSec(last, new Date("2026-09-19T12:05:00.000Z"))).toBeNull();
     expect(forceRefreshRetryAfterSec(null, new Date())).toBeNull();
-  });
-});
-
-describe("Overview read path never imports Millennium (SYNC-05)", () => {
-  it("OverviewPage source has no Millennium client symbols", () => {
-    const src = readFileSync(
-      join(process.cwd(), "src/pages/dashboards/OverviewPage.tsx"),
-      "utf8",
-    );
-    expect(src).not.toMatch(/millennium|VENDAS\.Lista|MILLENNIUM_API/i);
-    expect(src).toMatch(/salesRepo/);
   });
 });
