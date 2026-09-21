@@ -128,4 +128,40 @@ describe("runSyncJob", () => {
       expect.objectContaining({ status: "SUCCEEDED" }),
     );
   });
+
+  it("BACKFILL window is today−90d → yesterday in store TZ (SYNC-01)", async () => {
+    const windows: Array<{ from: string; to: string; storeId: string }> = [];
+    const deps = makeDeps({
+      fetchSalesLista: vi.fn().mockImplementation(async (p: { storeId: string; from: string; to: string }) => {
+        windows.push({ storeId: p.storeId, from: p.from, to: p.to });
+        return [];
+      }),
+      now: () => new Date("2026-09-19T15:00:00.000Z"),
+    });
+    const result = await runSyncJob(baseJob({ kind: "BACKFILL" }), deps);
+    expect(result.ok).toBe(true);
+    expect(windows.length).toBe(2);
+    // Campo_Grande UTC−4 → local day 2026-09-19
+    expect(windows[0].from).toBe("2026-06-21");
+    expect(windows[0].to).toBe("2026-09-18");
+    expect(windows.every((w) => w.from === "2026-06-21" && w.to === "2026-09-18")).toBe(true);
+  });
+
+  it("FORCE_LIGHT follows light rules: today window + watermark + logout (SYNC-12)", async () => {
+    const windows: Array<{ from: string; to: string }> = [];
+    const deps = makeDeps({
+      fetchSalesLista: vi.fn().mockImplementation(async (p: { from: string; to: string; storeId: string }) => {
+        windows.push({ from: p.from, to: p.to });
+        return [];
+      }),
+      now: () => new Date("2026-09-19T15:00:00.000Z"),
+    });
+    const result = await runSyncJob(baseJob({ kind: "FORCE_LIGHT" }), deps);
+    expect(result.ok).toBe(true);
+    expect(windows[0]).toEqual({ from: "2026-09-19", to: "2026-09-19" });
+    expect(deps.calls.logout).toBe(1);
+    expect(deps.updateCredential).toHaveBeenCalledWith(
+      expect.objectContaining({ lastLightSyncAt: expect.any(Date) }),
+    );
+  });
 });

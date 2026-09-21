@@ -487,4 +487,24 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
     expect(fat).toMatch(/200|R\$/);
     expect(v.kpis.find((k) => k.label === "Ticket médio")?.valor).toMatch(/50/);
   });
+
+  it("post-sync read reflects updated aggregates without mocks (SYNC-09)", () => {
+    const before = buildOverviewView(escopo("f1"), { dayAggs: [] });
+    const after = buildOverviewView(escopo("f1"), {
+      dayAggs: [
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day: "2026-09-18",
+          brand: "ALL",
+          revenueCents: 999_00,
+          salesCount: 7,
+          itemCount: 10,
+        },
+      ],
+    });
+    expect(before.kpis.find((k) => k.label === "Faturamento")?.valor).toMatch(/R\$\s*0/);
+    expect(after.kpis.find((k) => k.label === "Nº de vendas")?.valor).toMatch(/7/);
+    expect(after.fromAggregates).toBe(true);
+  });
 });

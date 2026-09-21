@@ -15,6 +15,7 @@ import type { SalesDayAgg, SalesHourAgg } from "@/data/wedash/salesTypes";
 import { brlK, deIso, tipRelacao } from "@/lib/format";
 import type { DateRange } from "@/components/ui/DateRangePicker";
 import { useActiveSession } from "@/session/SessionProvider";
+import { canForceSyncRefresh, formatSyncWatermarkLabel } from "@/data/wedash/syncUi";
 
 type TopProdSort = "nome" | "itens" | "faturamento" | "variacao";
 
@@ -127,7 +128,7 @@ export default function OverviewPage() {
     [escopo, dayAggs, hourAggs],
   );
 
-  const canForce = session.role === "OWNER" || session.role === "MANAGER";
+  const canForce = canForceSyncRefresh(session.role);
 
   const topProdutosOrdenados = useMemo(() => {
     const dir = topProdDir === "asc" ? 1 : -1;
@@ -201,14 +202,7 @@ export default function OverviewPage() {
 
   const minutosAtras =
     watermark != null ? Math.floor((Date.now() - watermark.getTime()) / 60000) : null;
-  const rotuloAtualizacao =
-    watermark == null
-      ? loading
-        ? "Sincronizando dados…"
-        : "Aguardando primeiro sync"
-      : minutosAtras != null && minutosAtras < 1
-        ? "Atualizado agora"
-        : `Atualizado há ${minutosAtras} min`;
+  const rotuloAtualizacao = formatSyncWatermarkLabel(watermark, { loading });
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
