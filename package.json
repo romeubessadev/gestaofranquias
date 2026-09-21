@@ -1,5 +1,5 @@
 {
-  "name": "vela-dashboard",
+  "name": "wedash",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -8,9 +8,11 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "worker:sync": "npm start --prefix workers/millennium-sync"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "@tailwindcss/vite": "^4.3.2",
     "clsx": "^2.1.1",
     "react": "^19.2.7",

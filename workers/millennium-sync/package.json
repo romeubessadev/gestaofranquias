@@ -1,0 +1,21 @@
+{
+  "name": "wedash-millennium-sync",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "test": "cd ../.. && npm test -- workers/millennium-sync"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.5",
+    "typescript": "~6.0.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

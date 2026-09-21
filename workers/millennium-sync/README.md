@@ -1,12 +1,17 @@
 # millennium-sync (Brazil worker)
 
-Polls `sync_job` and talks to Millennium from a **Brazilian IP**. Supabase Edge abroad cannot replace this worker (ERP blocks non-BR addresses).
+Polls `sync_job` and talks to Millennium from a **Brazilian IP**.
 
-## Requirements
+👉 **Guia em português (passo a passo):** [COMO-RODAR.md](./COMO-RODAR.md)
 
-- Node 20+ (or Deno equivalent) on a VPS/host in Brazil
-- Outbound HTTPS/HTTP to Millennium API
-- Supabase service-role key (writes aggregates + job status)
+## Quick start
+
+```bash
+cd workers/millennium-sync
+cp .env.example .env   # fill SUPABASE_* + ERP_SECRET_KEY
+npm install
+npm start
+```
 
 ## Environment
 
@@ -18,25 +23,17 @@ Polls `sync_job` and talks to Millennium from a **Brazilian IP**. Supabase Edge 
 | `ERP_SECRET_KEY` | yes | Decrypt `erp_credential.password_ciphertext` |
 | `POLL_INTERVAL_MS` | no | Default `45000` (45s) |
 
+Also reads the repo-root `.env` (maps `VITE_SUPABASE_URL` → `SUPABASE_URL` if needed).
+
 ## Job kinds
 
 | `sync_job.kind` | Window | Notes |
 | --------------- | ------ | ----- |
 | `BACKFILL` | today−90d → yesterday (store TZ) | Enqueued after onboarding |
-| `LIGHT` | calendar today | Scheduled by `light_interval_min` (2 or 30) |
+| `LIGHT` | calendar today | Auto-enqueued when `light_interval_min` elapsed |
 | `FORCE_LIGHT` | calendar today | Enqueued by OWNER/MANAGER force refresh |
 
-Concurrency: **one `RUNNING` job per `credential_id`**. Login → sequential `VENDAS.Lista` per store → upsert `sales_day_agg` / `sales_hour_agg` → always `logout` in `finally`.
-
-## Local loop (sketch)
-
-```bash
-# from repo root after implementing the poll entrypoint
-cd workers/millennium-sync
-npm test   # or: npm test -- workers/millennium-sync from root
-```
-
-Domain units live next to the sources (`millenniumSales.test.ts`, `runSyncJob.test.ts`). Fixture: `fixtures/vendas-lista.sample.json`.
+Concurrency: **one `RUNNING` job per `credential_id`**. Login → sequential `VENDAS.Lista` → upsert → always `logout`.
 
 ## Related
 
