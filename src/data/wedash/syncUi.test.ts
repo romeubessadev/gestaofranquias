@@ -4,6 +4,7 @@ import {
   forceRefreshRetryAfterSec,
   formatSyncWatermarkLabel,
 } from "./syncUi";
+import { fetchSalesDayAggs, type SalesQueryClient } from "./salesRepo";
 
 describe("syncUi watermark label (SYNC-10)", () => {
   it("shows pending when never synced", () => {
@@ -34,5 +35,46 @@ describe("force refresh role + rate limit (SYNC-11)", () => {
     expect(forceRefreshRetryAfterSec(last, new Date("2026-09-19T12:02:00.000Z"))).toBe(180);
     expect(forceRefreshRetryAfterSec(last, new Date("2026-09-19T12:05:00.000Z"))).toBeNull();
     expect(forceRefreshRetryAfterSec(null, new Date())).toBeNull();
+  });
+});
+
+describe("dashboard read path never hits Millennium (SYNC-05)", () => {
+  it("salesRepo reads only Postgres table names, never VENDAS/Millennium URLs", async () => {
+    const tables: string[] = [];
+    const client: SalesQueryClient = {
+      from(table: string) {
+        tables.push(table);
+        const builder = {
+          select() {
+            return builder;
+          },
+          eq() {
+            return builder;
+          },
+          gte() {
+            return builder;
+          },
+          lte() {
+            return builder;
+          },
+          in() {
+            return builder;
+          },
+          order() {
+            return builder;
+          },
+          then(resolve: (v: { data: unknown[]; error: null }) => void) {
+            resolve({ data: [], error: null });
+          },
+        };
+        return builder;
+      },
+    };
+    await fetchSalesDayAggs(
+      { tenantId: "t1", storeIds: [], from: "2026-09-01", to: "2026-09-30" },
+      client,
+    );
+    expect(tables).toEqual(["sales_day_agg"]);
+    expect(tables.join(",")).not.toMatch(/VENDAS|millennium|MILLENNIUM/i);
   });
 });
