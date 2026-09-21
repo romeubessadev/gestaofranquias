@@ -69,8 +69,7 @@ export async function fetchSalesDayAggs(
   if (!client) return [];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q: any = client
-    .from("sales_day_agg")
+  let q: any = (client.from("sales_day_agg") as any)
     .select("tenant_id, store_id, day, brand, revenue_cents, sales_count, item_count")
     .eq("tenant_id", query.tenantId)
     .gte("day", query.from)
@@ -96,8 +95,7 @@ export async function fetchSalesHourAggs(
   if (!client) return [];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q: any = client
-    .from("sales_hour_agg")
+  let q: any = (client.from("sales_hour_agg") as any)
     .select("tenant_id, store_id, day, hour, brand, revenue_cents, sales_count, item_count")
     .eq("tenant_id", query.tenantId)
     .eq("day", query.day);

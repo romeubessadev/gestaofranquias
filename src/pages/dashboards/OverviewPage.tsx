@@ -1,12 +1,20 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, DonutChart } from "@/components/charts";
-import { useEscopo } from "@/pages/dashboard/useEscopo";
-import { SeletorMarca } from "@/pages/dashboard/SeletorMarca";
-import { montarVisaoGeralView, type VisaoKpi } from "@/data/gestao/dashboard";
-import { brlK, deIso, tipRelacao } from "@/lib/formato";
+import { useScope } from "@/pages/dashboard/useScope";
+import { BrandPicker } from "@/pages/dashboard/BrandPicker";
+import { buildOverviewView, resolvePeriod, type OverviewKpi } from "@/data/wedash/dashboard";
+import {
+  fetchSalesDayAggs,
+  fetchSalesHourAggs,
+  fetchSyncWatermark,
+  requestForceRefresh,
+} from "@/data/wedash/salesRepo";
+import type { SalesDayAgg, SalesHourAgg } from "@/data/wedash/salesTypes";
+import { brlK, deIso, tipRelacao } from "@/lib/format";
 import type { DateRange } from "@/components/ui/DateRangePicker";
+import { useActiveSession } from "@/session/SessionProvider";
 
 type TopProdSort = "nome" | "itens" | "faturamento" | "variacao";
 
@@ -64,13 +72,62 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
   return <Tooltip label={tip}>{badge}</Tooltip>;
 }
 
-export default function VisaoGeralPage() {
-  const { escopo, mudar } = useEscopo();
-  const view = useMemo(() => montarVisaoGeralView(escopo), [escopo]);
-  const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
+export default function OverviewPage() {
+  const session = useActiveSession();
+  const { escopo, mudar } = useScope();
+  const [dayAggs, setDayAggs] = useState<SalesDayAgg[]>([]);
+  const [hourAggs, setHourAggs] = useState<SalesHourAgg[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [watermark, setWatermark] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [forceError, setForceError] = useState<string | null>(null);
   const [topProdSort, setTopProdSort] = useState<TopProdSort>("faturamento");
   const [topProdDir, setTopProdDir] = useState<SortDir>("desc");
+
+  const reloadAggs = useCallback(async () => {
+    const periodo = resolvePeriod(escopo.periodo);
+    const singleDay = periodo.inicio === periodo.fim;
+    const [days, hours, wm] = await Promise.all([
+      fetchSalesDayAggs({
+        tenantId: session.tenantId,
+        storeIds: escopo.filialIds,
+        from: periodo.inicio,
+        to: periodo.fim,
+        brand: escopo.divisao,
+      }),
+      singleDay
+        ? fetchSalesHourAggs({
+            tenantId: session.tenantId,
+            storeIds: escopo.filialIds,
+            day: periodo.inicio,
+            brand: escopo.divisao,
+          })
+        : Promise.resolve([] as SalesHourAgg[]),
+      fetchSyncWatermark(session.tenantId),
+    ]);
+    setDayAggs(days);
+    setHourAggs(hours);
+    setWatermark(wm);
+  }, [escopo, session.tenantId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    void (async () => {
+      await reloadAggs();
+      if (!cancelled) setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadAggs]);
+
+  const view = useMemo(
+    () => buildOverviewView(escopo, { dayAggs, hourAggs }),
+    [escopo, dayAggs, hourAggs],
+  );
+
+  const canForce = session.role === "OWNER" || session.role === "MANAGER";
 
   const topProdutosOrdenados = useMemo(() => {
     const dir = topProdDir === "asc" ? 1 : -1;
@@ -120,13 +177,38 @@ export default function VisaoGeralPage() {
     mudar({ ...escopo, divisao: v });
   }
 
-  const forcarAtualizacao = useCallback(() => {
+  const forcarAtualizacao = useCallback(async () => {
+    if (!canForce || refreshing) return;
     setRefreshing(true);
-    setTimeout(() => { setUltimaAtualizacao(new Date()); setRefreshing(false); }, 600);
-  }, []);
+    setForceError(null);
+    const result = await requestForceRefresh();
+    if (!result.ok) {
+      if (result.error === "rate_limited") {
+        setForceError(
+          result.retryAfterSec
+            ? `Aguarde ${result.retryAfterSec}s para atualizar de novo`
+            : "Atualização limitada a 1× a cada 5 min",
+        );
+      } else {
+        setForceError("Não foi possível enfileirar a atualização");
+      }
+      setRefreshing(false);
+      return;
+    }
+    await reloadAggs();
+    setRefreshing(false);
+  }, [canForce, refreshing, reloadAggs]);
 
-  const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
-  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} min`;
+  const minutosAtras =
+    watermark != null ? Math.floor((Date.now() - watermark.getTime()) / 60000) : null;
+  const rotuloAtualizacao =
+    watermark == null
+      ? loading
+        ? "Sincronizando dados…"
+        : "Aguardando primeiro sync"
+      : minutosAtras != null && minutosAtras < 1
+        ? "Atualizado agora"
+        : `Atualizado há ${minutosAtras} min`;
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
@@ -136,22 +218,25 @@ export default function VisaoGeralPage() {
         subtitle="Indicadores, metas e desempenho da operação."
         actions={
           <>
-            <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
-              <span className={`inline-block h-2 w-2 rounded-full ${minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
+            <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras != null && minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
+              <span className={`inline-block h-2 w-2 rounded-full ${minutosAtras != null && minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
               {rotuloAtualizacao}
             </span>
-            <Button size="sm" onClick={forcarAtualizacao} disabled={refreshing}
+            {forceError && <span className="text-[12px] text-bad">{forceError}</span>}
+            {canForce && (
+            <Button size="sm" onClick={() => void forcarAtualizacao()} disabled={refreshing || loading}
               icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
             >
               Atualizar
             </Button>
+            )}
             <Button variant="secondary" size="sm" onClick={() => window.print()}
               icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>}
             >
               Exportar
             </Button>
             <DateRangePicker value={dateRange} onChange={onDateChange} size="sm" />
-            <SeletorMarca value={escopo.divisao} onChange={onMarcaChange} />
+            <BrandPicker value={escopo.divisao} onChange={onMarcaChange} />
           </>
         }
       />
@@ -162,6 +247,14 @@ export default function VisaoGeralPage() {
           <KpiCard key={kpi.label} kpi={kpi} Icon={KPI_ICONS[i]} colorIdx={i} />
         ))}
       </div>
+
+      {!loading && dayAggs.length === 0 && (
+        <Card className="mt-4">
+          <p className="py-6 text-center text-[13px] text-t2">
+            Ainda não há vendas sincronizadas para este filtro. O backfill roda após o onboarding; use Atualizar se for gestor.
+          </p>
+        </Card>
+      )}
 
       {/* Linha: Atingimento da Meta + Faturamento vs Meta */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.6fr]">
@@ -194,7 +287,7 @@ export default function VisaoGeralPage() {
                   <span className="text-[13px] font-bold text-t0">{brlK(meta.realizado)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[12.5px] text-t2">Meta do mês</span>
+                  <span className="text-[12.5px] text-t2">Goal do mês</span>
                   <span className={`text-[13px] font-bold ${pct < 100 ? "text-warn" : "text-ok"}`}>{brlK(meta.alvo)}</span>
                 </div>
                 <div className="flex justify-between">
@@ -235,7 +328,7 @@ export default function VisaoGeralPage() {
                 </div>
                 <div>
                   <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
-                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Meta
+                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Goal
                   </span>
                   <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
                     {brlK(view.evolucao[view.evolucao.length - 1]?.meta ?? 0)}
@@ -281,7 +374,7 @@ export default function VisaoGeralPage() {
                 </div>
                 <div>
                   <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
-                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Meta
+                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Goal
                   </span>
                   <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
                     {brlK(view.categoriaVsMeta.reduce((s, c) => s + c.meta, 0))}
@@ -324,7 +417,7 @@ export default function VisaoGeralPage() {
                   </div>
                   <div>
                     <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
-                      <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Meta
+                      <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Goal
                     </span>
                     <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
                       {brlK(view.diaVsMeta.reduce((s, d) => s + d.meta, 0))}
@@ -565,7 +658,7 @@ export default function VisaoGeralPage() {
   );
 }
 
-function KpiCard({ kpi, Icon, colorIdx = 0 }: { kpi: VisaoKpi; Icon: () => React.JSX.Element; colorIdx?: number }) {
+function KpiCard({ kpi, Icon, colorIdx = 0 }: { kpi: OverviewKpi; Icon: () => React.JSX.Element; colorIdx?: number }) {
   const c = KPI_COLORS[colorIdx % KPI_COLORS.length];
   return (
     <StatCard

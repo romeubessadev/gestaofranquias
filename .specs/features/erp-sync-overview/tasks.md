@@ -372,11 +372,13 @@ T11 -> T12 -> T13 -> T14
 
 **Done when**:
 
-- [ ] Loads from Supabase only; empty CMV/top; build green
+- [x] Loads from Supabase only; empty CMV/top; build green
 
 **Tests**: none  
 **Gate**: build  
 **Commit**: `feat(overview): load real aggregates on Visão Geral`
+
+**Status**: ✅ Complete
 
 ---
 
@@ -392,11 +394,13 @@ T11 -> T12 -> T13 -> T14
 
 **Done when**:
 
-- [ ] Watermark visible; SELLER no force; second force blocked <5 min; build green
+- [x] Watermark visible; SELLER no force; second force blocked <5 min; build green
 
 **Tests**: none  
 **Gate**: build  
 **Commit**: `feat(overview): watermark and rate-limited force refresh`
+
+**Status**: ✅ Complete
 
 ---
 
