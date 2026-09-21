@@ -327,11 +327,13 @@ T11 -> T12 -> T13 -> T14
 
 **Done when**:
 
-- [ ] Filters store/date/brand; empty arrays not mocks; unit tests green
+- [x] Filters store/date/brand; empty arrays not mocks; unit tests green
 
 **Tests**: unit  
 **Gate**: quick  
 **Commit**: `feat(sync): add salesRepo for dashboard reads`
+
+**Status**: ✅ Complete
 
 ---
 
@@ -347,12 +349,14 @@ T11 -> T12 -> T13 -> T14
 
 **Done when**:
 
-- [ ] Empty aggs → empty KPIs (no fabricated R$)
-- [ ] dashboard.test updated; quick gate green
+- [x] Empty aggs → empty KPIs (no fabricated R$)
+- [x] dashboard.test updated; quick gate green
 
 **Tests**: unit  
 **Gate**: quick  
 **Commit**: `feat(overview): build KPIs from sales aggregates`
+
+**Status**: ✅ Complete
 
 ---
 

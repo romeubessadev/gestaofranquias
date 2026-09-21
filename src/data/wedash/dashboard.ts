@@ -8,51 +8,51 @@
  * AD-048 — KPIs com subtítulo só do próprio indicador; gráfico compara
  * períodos no mesmo eixo (padrão Finance / Revenue vs expenses).
  */
-import { categorias, filiais, tarefas, grupos, type Divisao, type Filial, type Grupo } from "./filiais";
-import { metaDaFilial } from "./metas";
-import { produtosDaCategoria } from "./produtos";
-import { AGORA, ATUALIZADO_AS, HOJE_ISO, HORA_ATUAL, INTERVALO_SYNC_MIN, ULTIMO_SYNC } from "./relogio";
-import { agregadoDoDia, diaVendas, diasVendas, lojaAberta, pesoDia, somarAgregados, type Agregado } from "./vendas";
-import { brl, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, horaCurta, inicioDoMes, intervaloDias, mesAno, pct, somarDias } from "@/lib/formato";
+import { categorias, stores, tarefas, grupos, type Division, type Store, type Grupo } from "./stores";
+import { goalOfStore } from "./goals";
+import { productsOfCategory } from "./products";
+import { NOW, UPDATED_AT, TODAY_ISO, CURRENT_HOUR, SYNC_INTERVAL_MIN, LAST_SYNC } from "./clock";
+import { dayAggregate, salesDay, salesDays, storeOpen, dayWeight, sumAggregates, type Aggregate } from "./sales";
+import { brl, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, horaCurta, inicioDoMes, intervaloDias, mesAno, pct, somarDias } from "@/lib/format";
 import type { TintKey } from "@/pages/dashboards/icons";
-import { montarLeituraLoja } from "./leitura";
+import { buildStoreInsight } from "./insight";
 
-export type PeriodoTipo = "hoje" | "ontem" | "7dias" | "esteMes" | "mesPassado" | "personalizado";
+export type PeriodType = "hoje" | "ontem" | "7dias" | "esteMes" | "mesPassado" | "personalizado";
 
 /** Uma cor por loja, fixa pela posição no cadastro: a loja não muda de cor conforme o desempenho, como não muda o "Desktop"/"Mobile" da demo. */
 const PALETA_LOJAS: TintKey[] = ["acc", "ok", "info", "warn", "bad"];
 
-export interface Periodo {
-  tipo: PeriodoTipo;
+export interface Period {
+  tipo: PeriodType;
   inicio?: string;
   fim?: string;
 }
 
-export type Granularidade = "dia" | "periodo" | "mes";
+export type Granularity = "dia" | "periodo" | "mes";
 
-export interface PeriodoResolvido {
-  tipo: PeriodoTipo;
+export interface ResolvedPeriod {
+  tipo: PeriodType;
   inicio: string;
   fim: string;
-  granularidade: Granularidade;
+  granularidade: Granularity;
   atravessaMeses: boolean;
   ehHoje: boolean;
   mesAberto: boolean;
   rotulo: string;
 }
 
-export interface Escopo {
+export interface Scope {
   /**
    * Lojas selecionadas (multi-select). Array vazio = "Todas as lojas"
    * (consolida a rede). Um id = visão detalhada daquela loja. Vários =
    * soma daquelas lojas. Substitui o antigo `filialId: string | "todas"`.
    */
   filialIds: string[];
-  periodo: Periodo;
-  divisao: Divisao | null;
+  periodo: Period;
+  divisao: Division | null;
 }
 
-export const rotulosPeriodo: Record<PeriodoTipo, string> = {
+export const periodLabels: Record<PeriodType, string> = {
   hoje: "Hoje",
   ontem: "Ontem",
   "7dias": "7 dias",
@@ -63,28 +63,28 @@ export const rotulosPeriodo: Record<PeriodoTipo, string> = {
 
 /* ---------- Tipos do motor de trilho ---------- */
 
-export type EstadoBloco = "disponivel" | "carregando" | "sem_dados" | "indisponivel";
+export type BlockState = "disponivel" | "carregando" | "sem_dados" | "indisponivel";
 
-export interface EstadosLojaView {
-  kpis: EstadoBloco;
-  trilho: EstadoBloco;
-  vendaNecessaria: EstadoBloco;
-  projecao: EstadoBloco;
-  diagnostico: EstadoBloco;
-  mix: EstadoBloco;
-  lojas: EstadoBloco;
+export interface StoreBlockStates {
+  kpis: BlockState;
+  trilho: BlockState;
+  vendaNecessaria: BlockState;
+  projecao: BlockState;
+  diagnostico: BlockState;
+  mix: BlockState;
+  lojas: BlockState;
 }
 
-export type StatusTrilho = "no_trilho" | "atencao" | "abaixo" | "meta_batida" | "meta_nao_batida";
+export type TrackStatus = "no_trilho" | "atencao" | "abaixo" | "meta_batida" | "meta_nao_batida";
 
-export interface TrilhoView {
-  status: StatusTrilho;
+export interface TrackView {
+  status: TrackStatus;
   /** Percentual do trilho (realizado ÷ meta × fração acumulada da curva), null em competência encerrada. */
   pctTrilho: number | null;
   competencia: string;
 }
 
-export interface VendaNecessariaView {
+export interface RequiredSalesView {
   /** (faltaRestante × pesoHoje ÷ Σ pesosRestantes) − realizadoHoje */
   valor: number | null;
   realizadoHoje: number;
@@ -96,7 +96,7 @@ export interface VendaNecessariaView {
   semMeta: boolean;
 }
 
-export interface LacunaView {
+export interface GapView {
   exibir: boolean;
   efeitoFluxo: number;
   efeitoTicket: number;
@@ -111,53 +111,53 @@ export interface MixView {
 }
 
 /** Linha da visão de grupo (LOJA-05): status do trilho por loja + se tem meta. */
-export interface LojaResumoView {
+export interface StoreSummaryView {
   filialId: string;
   nome: string;
   pctTrilho: number | null;
-  status: StatusTrilho;
+  status: TrackStatus;
   temMeta: boolean;
 }
 
 const DIAS_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
-export function resolverPeriodo(p: Periodo): PeriodoResolvido {
-  const hojeD = deIso(HOJE_ISO);
+export function resolvePeriod(p: Period): ResolvedPeriod {
+  const hojeD = deIso(TODAY_ISO);
   const mesPassadoRef = new Date(hojeD.getFullYear(), hojeD.getMonth() - 1, 1);
   const mesPassadoIso = `${mesPassadoRef.getFullYear()}-${String(mesPassadoRef.getMonth() + 1).padStart(2, "0")}-01`;
   let inicio: string;
   let fim: string;
   switch (p.tipo) {
     case "hoje":
-      inicio = fim = HOJE_ISO;
+      inicio = fim = TODAY_ISO;
       break;
     case "ontem":
-      inicio = fim = somarDias(HOJE_ISO, -1);
+      inicio = fim = somarDias(TODAY_ISO, -1);
       break;
     case "7dias":
-      inicio = somarDias(HOJE_ISO, -6);
-      fim = HOJE_ISO;
+      inicio = somarDias(TODAY_ISO, -6);
+      fim = TODAY_ISO;
       break;
     case "esteMes":
-      inicio = inicioDoMes(HOJE_ISO);
-      fim = HOJE_ISO;
+      inicio = inicioDoMes(TODAY_ISO);
+      fim = TODAY_ISO;
       break;
     case "mesPassado":
       inicio = mesPassadoIso;
       fim = fimDoMes(mesPassadoIso);
       break;
     case "personalizado":
-      inicio = p.inicio ?? somarDias(HOJE_ISO, -6);
-      fim = p.fim ?? HOJE_ISO;
-      if (fim > HOJE_ISO) fim = HOJE_ISO;
+      inicio = p.inicio ?? somarDias(TODAY_ISO, -6);
+      fim = p.fim ?? TODAY_ISO;
+      if (fim > TODAY_ISO) fim = TODAY_ISO;
       if (inicio > fim) inicio = fim;
       break;
   }
   const dias = intervaloDias(inicio, fim).length;
   const atravessaMeses = inicio.slice(0, 7) !== fim.slice(0, 7);
-  const granularidade: Granularidade = dias === 1 ? "dia" : p.tipo === "esteMes" || p.tipo === "mesPassado" ? "mes" : "periodo";
-  const ehHoje = inicio === HOJE_ISO && fim === HOJE_ISO;
-  const mesAberto = granularidade === "mes" && !atravessaMeses && inicio.slice(0, 7) === HOJE_ISO.slice(0, 7);
+  const granularidade: Granularity = dias === 1 ? "dia" : p.tipo === "esteMes" || p.tipo === "mesPassado" ? "mes" : "periodo";
+  const ehHoje = inicio === TODAY_ISO && fim === TODAY_ISO;
+  const mesAberto = granularidade === "mes" && !atravessaMeses && inicio.slice(0, 7) === TODAY_ISO.slice(0, 7);
 
   let rotulo: string;
   if (granularidade === "dia") rotulo = ehHoje ? "Hoje" : dataCurta(inicio);
@@ -169,7 +169,7 @@ export function resolverPeriodo(p: Periodo): PeriodoResolvido {
 
 /* ---------- Tipos dos blocos ---------- */
 
-export interface AlertaSistema {
+export interface SystemAlert {
   id: string;
   texto: string;
   tom: "warning" | "danger" | "info";
@@ -187,7 +187,7 @@ export interface KpiValor {
 }
 
 /** Segundo tile da fileira: Meta do mês (dia), Projeção (mês) ou Participação da marca (recorte por marca). Mesmo lugar, papel diferente conforme o contexto. */
-export interface TileMetaProjecao {
+export interface GoalProjectionTile {
   tipo: "meta" | "projecao" | "participacao" | "indisponivel";
   rotulo: string;
   valorPrincipal: string;
@@ -204,7 +204,7 @@ export interface RitmoCard {
   barraPct: number;
 }
 
-export interface LinhaRegua {
+export interface RulerRow {
   filialId: string;
   nome: string;
   faturamento: string;
@@ -220,7 +220,7 @@ export interface LinhaRegua {
 }
 
 /** Loja fora do ritmo da própria meta: quem precisa de atenção, não quem vendeu mais. */
-export interface PontoAtencao {
+export interface AttentionPoint {
   filialId: string;
   nome: string;
   atingimentoTexto: string;
@@ -229,7 +229,7 @@ export interface PontoAtencao {
   veredito: "nao_atinge" | "incerto";
 }
 
-export interface GraficoHora {
+export interface HourChart {
   horas: number[];
   valores: number[];
   /** Mesmo dia da semana anterior (semana passada), alinhado por hora — AD-048. */
@@ -239,27 +239,27 @@ export interface GraficoHora {
 }
 
 /** Por hora, empilhado por loja — só na rede, período de um dia. Acima de 5 lojas, colapsa: uma cor só, soma simples. */
-export interface GraficoHoraRede {
+export interface NetworkHourChart {
   horas: number[];
   series: { filialId: string; nome: string; tint: TintKey; valores: number[] }[];
   horaAtual: number | null;
   colapsado: boolean;
 }
 
-export interface GraficoEvolucao {
+export interface EvolutionChart {
   rotulos: string[];
   valores: number[];
   anterior: number[] | null;
   rotuloAnterior: string;
 }
 
-export interface ItemLucro {
+export interface ProfitItem {
   rotulo: string;
   valor: string;
   pct: string;
 }
 
-export interface CategoriaLinha {
+export interface CategoryRow {
   categoriaId: number;
   nome: string;
   receita: string;
@@ -269,7 +269,7 @@ export interface CategoriaLinha {
   barraPct: number;
 }
 
-export interface GrupoLinha {
+export interface GroupRow {
   id: string;
   nome: string;
   horario: string;
@@ -280,12 +280,12 @@ export interface GrupoLinha {
 }
 
 /** Checklist do dia: um grupo por linha, cada um com o próprio estado e lista de tarefas. */
-export interface ChecklistDia {
+export interface DayChecklist {
   dataTexto: string;
-  grupos: GrupoLinha[];
+  grupos: GroupRow[];
 }
 
-export interface ProjecaoView {
+export interface ProjectionView {
   valor: number | null;
   disponivel: boolean;
   encerrada: boolean;
@@ -296,7 +296,7 @@ export interface ProjecaoView {
 }
 
 /** Período com agregados consolidados para a comparação única (LOJA-06 AC 1-3). */
-export interface PeriodoAgregadoComparacao {
+export interface PeriodAggregateComparison {
   inicio: string;
   fim: string;
   faturamento: number;
@@ -304,59 +304,59 @@ export interface PeriodoAgregadoComparacao {
   itens: number;
 }
 
-export interface ComparacaoView {
-  atual: PeriodoAgregadoComparacao;
-  anterior: PeriodoAgregadoComparacao;
+export interface ComparisonView {
+  atual: PeriodAggregateComparison;
+  anterior: PeriodAggregateComparison;
   rotuloAtual: string;
   rotuloAnterior: string;
 }
 
-export interface LojaView {
-  escopo: Escopo;
-  periodo: PeriodoResolvido;
+export interface StoreView {
+  escopo: Scope;
+  periodo: ResolvedPeriod;
   atualizadoAs: string;
   proximoSyncMin: number;
   visao: "rede" | "dia" | "periodo";
-  alertas: AlertaSistema[];
+  alertas: SystemAlert[];
   leitura: string | null;
   avisos: string[];
-  comparacao: ComparacaoView | null;
-  trilho: TrilhoView | null;
-  vendaNecessaria: VendaNecessariaView | null;
-  projecao: ProjecaoView | null;
-  diagnostico: LacunaView | null;
+  comparacao: ComparisonView | null;
+  trilho: TrackView | null;
+  vendaNecessaria: RequiredSalesView | null;
+  projecao: ProjectionView | null;
+  diagnostico: GapView | null;
   mix: MixView | null;
-  lojas: LojaResumoView[];
-  estados: EstadosLojaView;
+  lojas: StoreSummaryView[];
+  estados: StoreBlockStates;
   kpiFaturamento: KpiValor;
   kpiTicket: KpiValor;
   kpiPA: KpiValor;
   kpiAtendimentos: KpiValor;
-  tileMeta: TileMetaProjecao | null;
+  tileMeta: GoalProjectionTile | null;
   ritmo: RitmoCard | null;
   ritmoAviso: string | null;
-  regua: LinhaRegua[] | null;
+  regua: RulerRow[] | null;
   /** Título da régua: "Desempenho das lojas" (rede) ou "Desempenho da loja" (uma loja). */
   reguaTitulo: string;
-  pontosAtencao: PontoAtencao[] | null;
-  graficoHora: GraficoHora | null;
-  graficoHoraRede: GraficoHoraRede | null;
-  evolucao: GraficoEvolucao | null;
-  checklist: ChecklistDia | null;
-  lucroBruto: { itens: ItemLucro[]; aviso: string; divisaoLinha: string | null } | null;
-  categorias: CategoriaLinha[] | null;
+  pontosAtencao: AttentionPoint[] | null;
+  graficoHora: HourChart | null;
+  graficoHoraRede: NetworkHourChart | null;
+  evolucao: EvolutionChart | null;
+  checklist: DayChecklist | null;
+  lucroBruto: { itens: ProfitItem[]; aviso: string; divisaoLinha: string | null } | null;
+  categorias: CategoryRow[] | null;
 }
 
 /* ---------- Helpers ---------- */
 
-function filiaisDoEscopo(escopo: Escopo): Filial[] {
+function storesInScope(escopo: Scope): Store[] {
   // Array vazio = "Todas as lojas" → consolida a rede inteira.
   // Um ou mais ids → só aquelas lojas (multi-select).
-  return escopo.filialIds.length === 0 ? filiais : filiais.filter((f) => escopo.filialIds.includes(f.id));
+  return escopo.filialIds.length === 0 ? stores : stores.filter((f) => escopo.filialIds.includes(f.id));
 }
 
-function agregadoPeriodo(f: Filial, inicio: string, fim: string, divisao: Divisao | null, horaMax?: number): Agregado {
-  return somarAgregados(diasVendas(f.id, inicio, fim).map((d) => agregadoDoDia(d, divisao, horaMax)));
+function agregadoPeriodo(f: Store, inicio: string, fim: string, divisao: Division | null, horaMax?: number): Aggregate {
+  return sumAggregates(salesDays(f.id, inicio, fim).map((d) => dayAggregate(d, divisao, horaMax)));
 }
 
 function divSeguro(a: number, b: number): number {
@@ -395,8 +395,8 @@ export function kpiDeltaPp(atual: number, anterior: number, vs?: string): { valu
 }
 
 /** Dias com loja aberta que ainda restam no mês corrente. */
-function diasRestantesMes(fs: Filial[]): number {
-  return intervaloDias(somarDias(HOJE_ISO, 1), fimDoMes(HOJE_ISO)).filter((iso) => fs.some((f) => lojaAberta(f, iso))).length;
+function diasRestantesMes(fs: Store[]): number {
+  return intervaloDias(somarDias(TODAY_ISO, 1), fimDoMes(TODAY_ISO)).filter((iso) => fs.some((f) => storeOpen(f, iso))).length;
 }
 
 /**
@@ -405,7 +405,7 @@ function diasRestantesMes(fs: Filial[]): number {
  * zeradas que pareceriam queda), por dia nos demais períodos. Serve rede,
  * loja e mês com a mesma função, porque soma sobre `fs`.
  */
-function serieTendenciaAgregada(fs: Filial[], periodo: PeriodoResolvido, divisao: Divisao | null): Agregado[] {
+function serieTendenciaAgregada(fs: Store[], periodo: ResolvedPeriod, divisao: Division | null): Aggregate[] {
   if (periodo.granularidade === "dia") {
     const abertura = Math.min(...fs.map((f) => f.abertura));
     const fechamento = Math.max(...fs.map((f) => f.fechamento));
@@ -414,7 +414,7 @@ function serieTendenciaAgregada(fs: Filial[], periodo: PeriodoResolvido, divisao
     let pontos = horas.map((h) =>
       fs.reduce(
         (soma, f) => {
-          const dia = diaVendas(f.id, periodo.inicio);
+          const dia = salesDay(f.id, periodo.inicio);
           const a = dia?.porHora[h];
           if (!a) return soma;
           if (!divisao) return { faturamento: soma.faturamento + a.faturamento, atendimentos: soma.atendimentos + a.atendimentos, itens: soma.itens + a.itens };
@@ -425,17 +425,17 @@ function serieTendenciaAgregada(fs: Filial[], periodo: PeriodoResolvido, divisao
       ),
     );
     if (periodo.ehHoje) {
-      const idx = horas.indexOf(HORA_ATUAL);
+      const idx = horas.indexOf(CURRENT_HOUR);
       if (idx >= 0) pontos = pontos.slice(0, idx + 1);
     }
     return pontos;
   }
   const dias = intervaloDias(periodo.inicio, periodo.fim);
-  return dias.map((iso) => somarAgregados(fs.map((f) => agregadoDoDia(diaVendas(f.id, iso)!, divisao))));
+  return dias.map((iso) => sumAggregates(fs.map((f) => dayAggregate(salesDay(f.id, iso)!, divisao))));
 }
 
 /** Uma série por métrica, derivada dos mesmos pontos (por hora no dia, por dia nos demais períodos). */
-function seriesTendencia(fs: Filial[], periodo: PeriodoResolvido, divisao: Divisao | null): { faturamento?: number[]; ticket?: number[]; pa?: number[]; atendimentos?: number[] } {
+function seriesTendencia(fs: Store[], periodo: ResolvedPeriod, divisao: Division | null): { faturamento?: number[]; ticket?: number[]; pa?: number[]; atendimentos?: number[] } {
   const pontos = serieTendenciaAgregada(fs, periodo, divisao);
   if (pontos.length < 2) return {};
   return {
@@ -447,15 +447,15 @@ function seriesTendencia(fs: Filial[], periodo: PeriodoResolvido, divisao: Divis
 }
 
 /** Expectativa para um dia: média do mesmo dia da semana nas 4 semanas anteriores. */
-function esperadoDia(f: Filial, iso: string, divisao: Divisao | null): number {
-  if (!lojaAberta(f, iso)) return 0;
+function esperadoDia(f: Store, iso: string, divisao: Division | null): number {
+  if (!storeOpen(f, iso)) return 0;
   let soma = 0;
   let n = 0;
   for (let k = 1; k <= 4; k++) {
     const ref = somarDias(iso, -7 * k);
-    const d = diaVendas(f.id, ref);
-    if (d && ref !== HOJE_ISO) {
-      soma += agregadoDoDia(d, divisao).faturamento;
+    const d = salesDay(f.id, ref);
+    if (d && ref !== TODAY_ISO) {
+      soma += dayAggregate(d, divisao).faturamento;
       n++;
     }
   }
@@ -494,14 +494,14 @@ interface MetaCalculada {
 }
 
 /** Meta do mês. Sempre mensal, mesmo quando o período exibido é diferente. */
-function calcularMeta(fs: Filial[], competencia: string): MetaCalculada | null {
-  const metasFs = fs.map((f) => metaDaFilial(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+function calcularMeta(fs: Store[], competencia: string): MetaCalculada | null {
+  const metasFs = fs.map((f) => goalOfStore(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
   if (metasFs.length === 0) return null;
 
   const primeiroDia = `${competencia}-01`;
   const ultimoDia = fimDoMes(primeiroDia);
-  const fechada = ultimoDia < HOJE_ISO;
-  const fimReal = fechada ? ultimoDia : HOJE_ISO;
+  const fechada = ultimoDia < TODAY_ISO;
+  const fimReal = fechada ? ultimoDia : TODAY_ISO;
 
   const valor = metasFs.reduce((s, m) => s + m.valorLoja, 0);
   const realizado = fs.reduce((s, f) => s + agregadoPeriodo(f, primeiroDia, fimReal, null).faturamento, 0);
@@ -510,7 +510,7 @@ function calcularMeta(fs: Filial[], competencia: string): MetaCalculada | null {
   const atingimentoPct = divSeguro(realizado, valor) * 100;
 
   // Projeção só a partir do dia 7: cinco dias não projetam trinta.
-  const diaDoMes = deIso(fechada ? ultimoDia : HOJE_ISO).getDate();
+  const diaDoMes = deIso(fechada ? ultimoDia : TODAY_ISO).getDate();
   let projecao: number | null = null;
   let pessimista: number | null = null;
   let otimista: number | null = null;
@@ -520,13 +520,13 @@ function calcularMeta(fs: Filial[], competencia: string): MetaCalculada | null {
     veredito = atingimentoPct >= 100 ? "atinge" : "nao_atinge";
   } else if (diaDoMes >= 7) {
     let futuro = 0;
-    for (const iso of intervaloDias(somarDias(HOJE_ISO, 1), ultimoDia)) {
+    for (const iso of intervaloDias(somarDias(TODAY_ISO, 1), ultimoDia)) {
       for (const f of fs) futuro += esperadoDia(f, iso, null);
     }
     let restoHoje = 0;
     for (const f of fs) {
-      const feito = agregadoDoDia(diaVendas(f.id, HOJE_ISO)!, null).faturamento;
-      restoHoje += Math.max(0, esperadoDia(f, HOJE_ISO, null) - feito);
+      const feito = dayAggregate(salesDay(f.id, TODAY_ISO)!, null).faturamento;
+      restoHoje += Math.max(0, esperadoDia(f, TODAY_ISO, null) - feito);
     }
     // A faixa se estreita conforme o mês avança: menos dias por vir, menos incerteza.
     const fracaoRestante = divSeguro(futuro + restoHoje, realizado + futuro + restoHoje);
@@ -552,10 +552,10 @@ function statusRitmo(m: MetaCalculada): string {
 }
 
 /** Período anterior comparável, com o rótulo que a tela exibe. */
-export function periodoAnterior(periodo: PeriodoResolvido): { inicio: string; fim: string; rotulo: string; horaMax?: number } {
+export function previousPeriod(periodo: ResolvedPeriod): { inicio: string; fim: string; rotulo: string; horaMax?: number } {
   if (periodo.granularidade === "dia") {
     const ref = somarDias(periodo.inicio, -7);
-    return { inicio: ref, fim: ref, rotulo: `${DIAS_SEMANA[deIso(ref).getDay()]} passada`, horaMax: periodo.ehHoje ? HORA_ATUAL : undefined };
+    return { inicio: ref, fim: ref, rotulo: `${DIAS_SEMANA[deIso(ref).getDay()]} passada`, horaMax: periodo.ehHoje ? CURRENT_HOUR : undefined };
   }
   if (periodo.granularidade === "mes") {
     const ini = deIso(periodo.inicio);
@@ -579,10 +579,10 @@ interface CustoAgregado {
   porCategoria: Record<number, { faturamento: number; cmv: number }>;
 }
 
-function custoPeriodo(fs: Filial[], inicio: string, fim: string, divisao: Divisao | null): CustoAgregado {
+function custoPeriodo(fs: Store[], inicio: string, fim: string, divisao: Division | null): CustoAgregado {
   const out: CustoAgregado = { cmv: 0, porCategoria: {} };
   for (const f of fs) {
-    for (const d of diasVendas(f.id, inicio, fim)) {
+    for (const d of salesDays(f.id, inicio, fim)) {
       for (const [id, c] of Object.entries(d.porCategoria)) {
         const cat = categorias.find((x) => x.id === Number(id));
         if (!cat || (divisao && cat.divisao !== divisao)) continue;
@@ -597,12 +597,12 @@ function custoPeriodo(fs: Filial[], inicio: string, fim: string, divisao: Divisa
 }
 
 /** Alertas de sistema: aparecem acima de tudo e somem quando resolvem. */
-function montarAlertas(fs: Filial[]): AlertaSistema[] {
-  const alertas: AlertaSistema[] = [];
-  const minutosSemSync = Math.floor((AGORA.getTime() - ULTIMO_SYNC.getTime()) / 60000);
+function montarAlertas(fs: Store[]): SystemAlert[] {
+  const alertas: SystemAlert[] = [];
+  const minutosSemSync = Math.floor((NOW.getTime() - LAST_SYNC.getTime()) / 60000);
   if (minutosSemSync > 60) {
     const h = Math.floor(minutosSemSync / 60);
-    alertas.push({ id: "sync", tom: "warning", texto: `Dados de ${ATUALIZADO_AS}. Sync não roda há ${h}h${String(minutosSemSync % 60).padStart(2, "0")}.` });
+    alertas.push({ id: "sync", tom: "warning", texto: `Dados de ${UPDATED_AT}. Sync não roda há ${h}h${String(minutosSemSync % 60).padStart(2, "0")}.` });
   }
   for (const f of fs.filter((x) => x.id === "f2")) {
     alertas.push({ id: `nota-${f.id}`, tom: "info", texto: `${f.fantasia} tem 8 produtos com nota de entrada pendente.` });
@@ -613,7 +613,7 @@ function montarAlertas(fs: Filial[]): AlertaSistema[] {
 /* ---------- Motor de trilho ---------- */
 
 /** Curva de pesos normalizados: `peso(iso)` soma 1 nos dias abertos; `pesoBruto` é o valor pré-normalização. */
-export interface CurvaReceita {
+export interface RevenueCurve {
   peso: (iso: string) => number;
   pesoBruto: (iso: string) => number;
   soma: number;
@@ -625,7 +625,7 @@ export interface CurvaReceita {
  * ocorrências equivalentes anteriores do mesmo dia da semana; menos ocorrências
  * usa o que houver; nenhuma usa `pesoDia` como base.
  */
-export function curvaReceita(fs: Filial[], competencia: string): CurvaReceita {
+export function revenueCurve(fs: Store[], competencia: string): RevenueCurve {
   const primeiroDia = `${competencia}-01`;
   const ultimoDia = fimDoMes(primeiroDia);
   const pesos = new Map<string, number>();
@@ -634,9 +634,9 @@ export function curvaReceita(fs: Filial[], competencia: string): CurvaReceita {
     let bruto = 0;
     let abertas = 0;
     for (const f of fs) {
-      if (!lojaAberta(f, iso)) continue;
+      if (!storeOpen(f, iso)) continue;
       const ocas = ocorrenciasAnteriores(f, iso, 4);
-      bruto += ocas.length > 0 ? ocas.reduce((s, d) => s + d.total.faturamento, 0) / ocas.length : pesoDia(f, iso);
+      bruto += ocas.length > 0 ? ocas.reduce((s, d) => s + d.total.faturamento, 0) / ocas.length : dayWeight(f, iso);
       abertas++;
     }
     if (abertas === 0) continue; // nenhuma loja abre nesse dia
@@ -651,13 +651,13 @@ export function curvaReceita(fs: Filial[], competencia: string): CurvaReceita {
 }
 
 /** As últimas `n` ocorrências anteriores do mesmo dia da semana, com loja aberta (AD-034). */
-function ocorrenciasAnteriores(f: Filial, iso: string, n: number): DiaVendasVendas[] {
+function ocorrenciasAnteriores(f: Store, iso: string, n: number): DiaVendasVendas[] {
   const out: DiaVendasVendas[] = [];
   for (let i = 7; out.length < n && i <= 28; i += 7) {
     const ref = somarDias(iso, -i);
-    const d = diaVendas(f.id, ref);
+    const d = salesDay(f.id, ref);
     // Só contam ocorrências com loja aberta e registro no histórico (undefined antes do início).
-    if (d && lojaAberta(f, ref)) out.push(d);
+    if (d && storeOpen(f, ref)) out.push(d);
   }
   return out;
 }
@@ -669,8 +669,8 @@ interface DiaVendasVendas {
 }
 
 /** Meta acumulada esperada até hoje: meta mensal × fração acumulada da curvaReceita (LOJA-01 AC 2-7). */
-function metaAcumuladaAteHoje(fs: Filial[], competencia: string, metaValor: number, hojeIso: string): number {
-  const curva = curvaReceita(fs, competencia);
+function metaAcumuladaAteHoje(fs: Store[], competencia: string, metaValor: number, hojeIso: string): number {
+  const curva = revenueCurve(fs, competencia);
   const primeiroDia = `${competencia}-01`;
   let fração = 0;
   for (const iso of intervaloDias(primeiroDia, hojeIso)) fração += curva.peso(iso);
@@ -678,20 +678,20 @@ function metaAcumuladaAteHoje(fs: Filial[], competencia: string, metaValor: numb
 }
 
 /** Status do trilho do mês (LOJA-01). */
-function calcularTrilho(fs: Filial[], competencia: string): TrilhoView | null {
-  const metasFs = fs.map((f) => metaDaFilial(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+function calcularTrilho(fs: Store[], competencia: string): TrackView | null {
+  const metasFs = fs.map((f) => goalOfStore(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
   if (metasFs.length === 0) return null;
   const valor = metasFs.reduce((s, m) => s + m.valorLoja, 0);
 
   const primeiroDia = `${competencia}-01`;
   const ultimoDia = fimDoMes(primeiroDia);
-  const fechada = ultimoDia < HOJE_ISO;
-  const fimReal = fechada ? ultimoDia : HOJE_ISO;
+  const fechada = ultimoDia < TODAY_ISO;
+  const fimReal = fechada ? ultimoDia : TODAY_ISO;
   const realizado = fs.reduce((s, f) => s + agregadoPeriodo(f, primeiroDia, fimReal, null).faturamento, 0);
 
   const metaAcum = metaAcumuladaAteHoje(fs, competencia, valor, fimReal);
 
-  let status: StatusTrilho;
+  let status: TrackStatus;
   let pctTrilho: number | null;
   if (fechada) {
     status = realizado >= valor ? "meta_batida" : "meta_nao_batida";
@@ -705,31 +705,31 @@ function calcularTrilho(fs: Filial[], competencia: string): TrilhoView | null {
 }
 
 /** Venda necessária hoje (LOJA-02): (falta × pesoHoje ÷ Σ pesos restantes) − realizadoHoje. */
-function vendaNecessariaHoje(fs: Filial[], competencia: string): VendaNecessariaView | null {
-  const metasFs = fs.map((f) => metaDaFilial(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
-  if (metasFs.length === 0) return { valor: null, realizadoHoje: 0, faltaRestante: 0, diasRestantes: 0, diaReferencia: HOJE_ISO, cumpridaHoje: false, metaMesAtingida: false, semMeta: true };
+function vendaNecessariaHoje(fs: Store[], competencia: string): RequiredSalesView | null {
+  const metasFs = fs.map((f) => goalOfStore(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+  if (metasFs.length === 0) return { valor: null, realizadoHoje: 0, faltaRestante: 0, diasRestantes: 0, diaReferencia: TODAY_ISO, cumpridaHoje: false, metaMesAtingida: false, semMeta: true };
 
   const valor = metasFs.reduce((s, m) => s + m.valorLoja, 0);
   const primeiroDia = `${competencia}-01`;
   const ultimoDia = fimDoMes(primeiroDia);
-  const fechada = ultimoDia < HOJE_ISO;
-  const fimReal = fechada ? ultimoDia : HOJE_ISO;
+  const fechada = ultimoDia < TODAY_ISO;
+  const fimReal = fechada ? ultimoDia : TODAY_ISO;
   const realizado = fs.reduce((s, f) => s + agregadoPeriodo(f, primeiroDia, fimReal, null).faturamento, 0);
   if (fechada) return null;
 
-  const realizadoHoje = fs.reduce((s, f) => s + (diaVendas(f.id, HOJE_ISO) ? agregadoDoDia(diaVendas(f.id, HOJE_ISO)!, null).faturamento : 0), 0);
+  const realizadoHoje = fs.reduce((s, f) => s + (salesDay(f.id, TODAY_ISO) ? dayAggregate(salesDay(f.id, TODAY_ISO)!, null).faturamento : 0), 0);
   const faltaRestante = valor - realizado;
-  const curva = curvaReceita(fs, competencia);
-  const abertosRestantes = intervaloDias(HOJE_ISO, ultimoDia).filter((iso) => fs.some((f) => lojaAberta(f, iso)));
+  const curva = revenueCurve(fs, competencia);
+  const abertosRestantes = intervaloDias(TODAY_ISO, ultimoDia).filter((iso) => fs.some((f) => storeOpen(f, iso)));
   if (abertosRestantes.length === 0) return null;
 
   // Dia de referência: hoje se aberto, senão o próximo dia aberto (LOJA-02 AC 5).
-  const diaRef = fs.some((f) => lojaAberta(f, HOJE_ISO)) ? HOJE_ISO : abertosRestantes[0];
+  const diaRef = fs.some((f) => storeOpen(f, TODAY_ISO)) ? TODAY_ISO : abertosRestantes[0];
   const pesoHoje = curva.peso(diaRef);
   const somaPesosRest = abertosRestantes.reduce((s, iso) => s + curva.peso(iso), 0);
   const faltaRestanteRef = valor - realizado; // gap absoluto no mês (sem descontar a projeção futura)
   const necessarioBruto = somaPesosRest > 0 ? (faltaRestanteRef * pesoHoje) / somaPesosRest : 0;
-  const valorHoje = Math.max(0, necessarioBruto - (diaRef === HOJE_ISO ? realizadoHoje : 0));
+  const valorHoje = Math.max(0, necessarioBruto - (diaRef === TODAY_ISO ? realizadoHoje : 0));
 
   return {
     valor: valorHoje,
@@ -744,15 +744,15 @@ function vendaNecessariaHoje(fs: Filial[], competencia: string): VendaNecessaria
 }
 
 /** Projeção de fechamento (LOJA-03): índice da competência × curva restante, com gate do dia 7. */
-function calcularProjecao(fs: Filial[], competencia: string): ProjecaoView {
-  const metasFs = fs.map((f) => metaDaFilial(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+function calcularProjecao(fs: Store[], competencia: string): ProjectionView {
+  const metasFs = fs.map((f) => goalOfStore(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
   const valor = metasFs.reduce((s, m) => s + m.valorLoja, 0);
   if (metasFs.length === 0) return { valor: null, disponivel: false, encerrada: false, indice: null, metaValor: 0 };
 
   const primeiroDia = `${competencia}-01`;
   const ultimoDia = fimDoMes(primeiroDia);
-  const fechada = ultimoDia < HOJE_ISO;
-  const fimReal = fechada ? ultimoDia : HOJE_ISO;
+  const fechada = ultimoDia < TODAY_ISO;
+  const fimReal = fechada ? ultimoDia : TODAY_ISO;
   const realizado = fs.reduce((s, f) => s + agregadoPeriodo(f, primeiroDia, fimReal, null).faturamento, 0);
 
   if (fechada) return { valor: realizado, disponivel: false, encerrada: true, indice: null, metaValor: valor };
@@ -768,7 +768,7 @@ function calcularProjecao(fs: Filial[], competencia: string): ProjecaoView {
 }
 
 /** curvaAtendimentos (AD-034): pesos diários normalizados a partir do histórico de atendimentos. */
-function curvaAtendimentos(fs: Filial[], competencia: string): CurvaReceita {
+function curvaAtendimentos(fs: Store[], competencia: string): RevenueCurve {
   const primeiroDia = `${competencia}-01`;
   const ultimoDia = fimDoMes(primeiroDia);
   const pesos = new Map<string, number>();
@@ -777,9 +777,9 @@ function curvaAtendimentos(fs: Filial[], competencia: string): CurvaReceita {
     let bruto = 0;
     let abertas = 0;
     for (const f of fs) {
-      if (!lojaAberta(f, iso)) continue;
+      if (!storeOpen(f, iso)) continue;
       const ocas = ocorrenciasAnteriores(f, iso, 4);
-      bruto += ocas.length > 0 ? ocas.reduce((s, d) => s + d.total.atendimentos, 0) / ocas.length : pesoDia(f, iso);
+      bruto += ocas.length > 0 ? ocas.reduce((s, d) => s + d.total.atendimentos, 0) / ocas.length : dayWeight(f, iso);
       abertas++;
     }
     if (abertas === 0) continue;
@@ -794,20 +794,20 @@ function curvaAtendimentos(fs: Filial[], competencia: string): CurvaReceita {
 }
 
 /** Diagnóstica a lacuna de receita entre fluxo e ticket (LOJA-04 AC 1-9). */
-function calcularLacuna(fs: Filial[], competencia: string, pctTrilho: number | null): LacunaView {
-  const metasFs = fs.map((f) => metaDaFilial(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+function calcularLacuna(fs: Store[], competencia: string, pctTrilho: number | null): GapView {
+  const metasFs = fs.map((f) => goalOfStore(f.id, competencia)).filter((m): m is NonNullable<typeof m> => Boolean(m));
   if (metasFs.length === 0) return { exibir: false, efeitoFluxo: 0, efeitoTicket: 0, gapTotal: 0, alavancaDominante: null, semMeta: true };
 
   const meta = metasFs.reduce((s, m) => s + m.valorLoja, 0);
   const primeiroDia = `${competencia}-01`;
   const ultimoDia = fimDoMes(primeiroDia);
-  const fechada = ultimoDia < HOJE_ISO;
-  const fimReal = fechada ? ultimoDia : HOJE_ISO;
+  const fechada = ultimoDia < TODAY_ISO;
+  const fimReal = fechada ? ultimoDia : TODAY_ISO;
 
   // Atendimentos esperados no mês: soma da curvaAtendimentos (peso normalizado × faturamento? Não—
   // é o total esperado de atendimentos do mês). O total esperado = (média diária × dias abertos).
   const cA = curvaAtendimentos(fs, competencia);
-  const cR = curvaReceita(fs, competencia);
+  const cR = revenueCurve(fs, competencia);
   // Total esperado do mês = soma dos pesos brutos de atendimentos (cada dia = média de 4 semanas).
   const totalEsperadoMes = cA.soma; // soma dos pesos brutos = média diária × nº dias — já é n atendimentos esperados.
   const ticketMeta = totalEsperadoMes > 0 ? meta / totalEsperadoMes : 0;
@@ -831,7 +831,7 @@ function calcularLacuna(fs: Filial[], competencia: string, pctTrilho: number | n
   // Alavanca dominante (AC 8-9): apenas efeitos positivos; maior ≥ 60% da soma dos positivos.
   const positivos = [efeitoFluxo, efeitoTicket].filter((e) => e > 0);
   const somaPositivos = positivos.reduce((s, e) => s + e, 0);
-  let alavancaDominante: LacunaView["alavancaDominante"] = null;
+  let alavancaDominante: GapView["alavancaDominante"] = null;
   if (somaPositivos > 0 && positivos.length > 0) {
     const maior = Math.max(...positivos);
     if (maior >= 0.6 * somaPositivos) alavancaDominante = efeitoFluxo >= efeitoTicket ? "fluxo" : "ticket";
@@ -849,10 +849,10 @@ function calcularLacuna(fs: Filial[], competencia: string, pctTrilho: number | n
 }
 
 /** Mix do período/marca selecionados: participação por categoria com margem (LOJA-04 AC 10). */
-function montarMix(fs: Filial[], inicio: string, fim: string, divisao: Divisao | null, rotuloPeriodo: string): MixView {
+function montarMix(fs: Store[], inicio: string, fim: string, divisao: Division | null, rotuloPeriodo: string): MixView {
   const catResumo = new Map<number, { receita: number; cmv: number }>();
   for (const f of fs) {
-    for (const d of diasVendas(f.id, inicio, fim)) {
+    for (const d of salesDays(f.id, inicio, fim)) {
       for (const [id, c] of Object.entries(d.porCategoria)) {
         const cat = categorias.find((x) => x.id === Number(id));
         if (!cat || (divisao && cat.divisao !== divisao)) continue;
@@ -878,7 +878,7 @@ function montarMix(fs: Filial[], inicio: string, fim: string, divisao: Divisao |
 }
 
 /** Visão de grupo (LOJA-05): status do trilho por loja na competência. */
-function montarLojasGrupo(fs: Filial[], competencia: string): LojaResumoView[] {
+function montarLojasGrupo(fs: Store[], competencia: string): StoreSummaryView[] {
   return fs.map((f) => {
     const trilho = calcularTrilho([f], competencia);
     return {
@@ -886,22 +886,22 @@ function montarLojasGrupo(fs: Filial[], competencia: string): LojaResumoView[] {
       nome: f.fantasia,
       pctTrilho: trilho?.pctTrilho ?? null,
       status: trilho?.status ?? "abaixo",
-      temMeta: Boolean(metaDaFilial(f.id, competencia)),
+      temMeta: Boolean(goalOfStore(f.id, competencia)),
     };
   });
 }
 
-export function montarLojaView(escopo: Escopo): LojaView {
-  const periodo = resolverPeriodo(escopo.periodo);
-  const fs = filiaisDoEscopo(escopo);
+export function buildStoreView(escopo: Scope): StoreView {
+  const periodo = resolvePeriod(escopo.periodo);
+  const fs = storesInScope(escopo);
   const divisao = escopo.divisao;
   const todas = escopo.filialIds.length === 0 || escopo.filialIds.length > 1;
   const unica = todas ? null : fs[0];
-  const visao: LojaView["visao"] = todas ? "rede" : periodo.granularidade === "dia" ? "dia" : "periodo";
+  const visao: StoreView["visao"] = todas ? "rede" : periodo.granularidade === "dia" ? "dia" : "periodo";
 
-  const atual = somarAgregados(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, divisao)));
-  const ant = periodoAnterior(periodo);
-  const anterior = somarAgregados(fs.map((f) => agregadoPeriodo(f, ant.inicio, ant.fim, divisao, ant.horaMax)));
+  const atual = sumAggregates(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, divisao)));
+  const ant = previousPeriod(periodo);
+  const anterior = sumAggregates(fs.map((f) => agregadoPeriodo(f, ant.inicio, ant.fim, divisao, ant.horaMax)));
 
   const ticket = divSeguro(atual.faturamento, atual.atendimentos);
   const pa = divSeguro(atual.itens, atual.atendimentos);
@@ -915,7 +915,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
   const kpiPA: KpiValor = { valor: num(pa, 2), delta: temComparacao ? kpiDelta(pa, paAnt, vsRotulo, false) : undefined, serie: series.pa };
 
   // Meta é sempre mensal. Divisão ou período cruzando meses desligam.
-  const competencia = periodo.granularidade === "mes" ? periodo.inicio.slice(0, 7) : HOJE_ISO.slice(0, 7);
+  const competencia = periodo.granularidade === "mes" ? periodo.inicio.slice(0, 7) : TODAY_ISO.slice(0, 7);
   const semMetaPeriodo = periodo.atravessaMeses && periodo.granularidade !== "mes";
   const metaCalc = divisao || semMetaPeriodo ? null : calcularMeta(fs, competencia);
 
@@ -949,9 +949,9 @@ export function montarLojaView(escopo: Escopo): LojaView {
   };
 
   // Segundo tile: Participação da marca quando filtrado, Meta/Projeção quando não.
-  let tileMeta: TileMetaProjecao | null = null;
+  let tileMeta: GoalProjectionTile | null = null;
   if (divisao) {
-    const totalTudo = somarAgregados(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, null))).faturamento;
+    const totalTudo = sumAggregates(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, null))).faturamento;
     const participacaoPct = totalTudo > 0 ? (atual.faturamento / totalTudo) * 100 : 0;
     tileMeta = {
       tipo: "participacao",
@@ -1016,11 +1016,11 @@ export function montarLojaView(escopo: Escopo): LojaView {
 
   const avisos: string[] = [];
   if (semMetaPeriodo) avisos.push("Meta e lucro bruto são mensais e não aparecem neste período.");
-  if (divisao) avisos.push(`Marca ${divisao} selecionada. Meta e projeção são da loja inteira e não aparecem no recorte por marca.`);
+  if (divisao) avisos.push(`Marca ${divisao} selecionada. Goal e projeção são da loja inteira e não aparecem no recorte por marca.`);
 
   /* --- Régua de lojas e pontos de atenção --- */
-  let regua: LinhaRegua[] | null = null;
-  let pontosAtencao: PontoAtencao[] | null = null;
+  let regua: RulerRow[] | null = null;
+  let pontosAtencao: AttentionPoint[] | null = null;
   let reguaTitulo: string = "Desempenho das lojas";
   // Sempre adaptamos ao filtro (AD-047): rede = uma linha por loja; loja única =
   // painel de meta (ou de participação da marca, se houver marca). Nunca some.
@@ -1030,11 +1030,11 @@ export function montarLojaView(escopo: Escopo): LojaView {
       if (Math.abs(v) < 0.5) return { value: "=", positive: true };
       return { value: fmtDelta(v, Math.abs(v) < 10 ? 1 : 0).replace(/^[+−]/, ""), positive: v >= 0 };
     };
-    const variacaoDoDia = (f: Filial) => {
-      const hojeF = agregadoDoDia(diaVendas(f.id, HOJE_ISO)!, divisao).faturamento;
-      const refIso = somarDias(HOJE_ISO, -7);
-      const diaRef = diaVendas(f.id, refIso);
-      const refF = diaRef ? agregadoDoDia(diaRef, divisao, HORA_ATUAL).faturamento : 0;
+    const variacaoDoDia = (f: Store) => {
+      const hojeF = dayAggregate(salesDay(f.id, TODAY_ISO)!, divisao).faturamento;
+      const refIso = somarDias(TODAY_ISO, -7);
+      const diaRef = salesDay(f.id, refIso);
+      const refF = diaRef ? dayAggregate(diaRef, divisao, CURRENT_HOUR).faturamento : 0;
       return refF > 0 ? pctDelta(hojeF, refF) : null;
     };
 
@@ -1043,7 +1043,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
       const fatMarca = agregadoPeriodo(unica, periodo.inicio, periodo.fim, divisao).faturamento;
       const fatLoja = agregadoPeriodo(unica, periodo.inicio, periodo.fim, null).faturamento;
       const participacao = fatLoja > 0 ? (fatMarca / fatLoja) * 100 : 0;
-      const indiceCor = filiais.findIndex((x) => x.id === unica.id);
+      const indiceCor = stores.findIndex((x) => x.id === unica.id);
       reguaTitulo = `Desempenho · ${divisao === "WPINK" ? "Wpink" : "Wepink"}`;
       regua = [
         {
@@ -1067,7 +1067,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
       regua = receitas
         .map(({ f, receita }) => {
           const participacao = totalMarca > 0 ? (receita / totalMarca) * 100 : 0;
-          const indiceCor = filiais.findIndex((x) => x.id === f.id);
+          const indiceCor = stores.findIndex((x) => x.id === f.id);
           return { filialId: f.id, nome: f.fantasia, receita, participacao, tint: PALETA_LOJAS[indiceCor % PALETA_LOJAS.length], variacaoDiaValor: variacaoDoDia(f) };
         })
         .sort((a, b) => b.participacao - a.participacao)
@@ -1091,7 +1091,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
       const base = fs.map((f) => {
         const m = calcularMeta([f], competencia);
         const atingimento = m?.atingimentoPct ?? 0;
-        const indiceCor = filiais.findIndex((x) => x.id === f.id);
+        const indiceCor = stores.findIndex((x) => x.id === f.id);
         return { filialId: f.id, nome: f.fantasia, atingimento, tint: PALETA_LOJAS[indiceCor % PALETA_LOJAS.length], variacaoDiaValor: variacaoDoDia(f), m };
       });
 
@@ -1127,7 +1127,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
   }
 
   /* --- Por hora: loja única OU rede (soma) — mesmo gráfico AreaLine com comparação (AD-048) --- */
-  let graficoHora: GraficoHora | null = null;
+  let graficoHora: HourChart | null = null;
   if (periodo.granularidade === "dia" && fs.length > 0) {
     const refIso = somarDias(periodo.inicio, -7);
     const aberturaMin = Math.min(...fs.map((f) => f.abertura));
@@ -1136,7 +1136,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
     for (let h = aberturaMin; h < fechamentoMax; h++) horas.push(h);
 
     const fatiaHora = (filialId: string, iso: string, h: number) => {
-      const d = diaVendas(filialId, iso);
+      const d = salesDay(filialId, iso);
       const a = d?.porHora[h];
       if (!a) return 0;
       if (!divisao) return a.faturamento;
@@ -1147,7 +1147,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
 
     const valores = horas.map((h) => somaHora(periodo.inicio, h));
     const valoresAnt = horas.map((h) => {
-      if (periodo.ehHoje && h > HORA_ATUAL) return 0;
+      if (periodo.ehHoje && h > CURRENT_HOUR) return 0;
       return somaHora(refIso, h);
     });
     const totalRef = valoresAnt.reduce((s, v) => s + v, 0);
@@ -1157,20 +1157,20 @@ export function montarLojaView(escopo: Escopo): LojaView {
       valores,
       anterior: totalRef > 0 ? valoresAnt : null,
       rotuloAnterior: `${DIAS_SEMANA[deIso(refIso).getDay()]} passada`,
-      horaAtual: periodo.ehHoje ? HORA_ATUAL : null,
+      horaAtual: periodo.ehHoje ? CURRENT_HOUR : null,
     };
   }
 
   /* Rede por loja empilhada: não usada na Visão geral — o gráfico principal unificou em AreaLine (AD-048). */
-  const graficoHoraRede: GraficoHoraRede | null = null;
+  const graficoHoraRede: NetworkHourChart | null = null;
 
   /* --- Evolução diária: período > 1 dia (loja única OU rede) — AD-047 --- */
-  let evolucao: GraficoEvolucao | null = null;
+  let evolucao: EvolutionChart | null = null;
   if (periodo.granularidade !== "dia") {
     const dias = intervaloDias(periodo.inicio, periodo.fim);
     const diasAnt = intervaloDias(ant.inicio, ant.fim);
-    const valores = dias.map((iso) => somarAgregados(fs.map((f) => agregadoDoDia(diaVendas(f.id, iso)!, divisao))).faturamento);
-    const anteriores = diasAnt.map((iso) => somarAgregados(fs.map((f) => (diaVendas(f.id, iso) ? agregadoDoDia(diaVendas(f.id, iso)!, divisao) : { faturamento: 0, atendimentos: 0, itens: 0 }))).faturamento);
+    const valores = dias.map((iso) => sumAggregates(fs.map((f) => dayAggregate(salesDay(f.id, iso)!, divisao))).faturamento);
+    const anteriores = diasAnt.map((iso) => sumAggregates(fs.map((f) => (salesDay(f.id, iso) ? dayAggregate(salesDay(f.id, iso)!, divisao) : { faturamento: 0, atendimentos: 0, itens: 0 }))).faturamento);
     evolucao = {
       rotulos: dias.map((iso) => (periodo.granularidade === "mes" ? String(deIso(iso).getDate()) : diaSemanaCurto(iso))),
       valores,
@@ -1180,15 +1180,15 @@ export function montarLojaView(escopo: Escopo): LojaView {
   }
 
   /* --- Checklist do dia: todos os grupos da loja, em Hoje ou Ontem --- */
-  let checklist: ChecklistDia | null = null;
+  let checklist: DayChecklist | null = null;
   if (unica && (periodo.tipo === "hoje" || periodo.tipo === "ontem")) {
     const gruposDaLoja = grupos.filter((x) => x.filialId === unica.id).sort((a, b) => a.horaInicio - b.horaInicio);
     if (gruposDaLoja.length > 0) {
       // Mock de conclusão: grupo encerrado sai como tudo feito, grupo em
       // andamento usa uma marcação fixa por grupo, grupo futuro nada feito.
       const feitasEmAndamento: Record<string, string[]> = { "t-f1-manha": ["tf1", "tf2", "tf3", "tf5"], "t-f2-tarde": ["tf14"] };
-      const linhas: GrupoLinha[] = gruposDaLoja.map((t) => {
-        const estado: GrupoLinha["estado"] = periodo.tipo === "ontem" ? "encerrado" : HORA_ATUAL >= t.horaFim ? "encerrado" : HORA_ATUAL >= t.horaInicio ? "andamento" : "naoComecou";
+      const linhas: GroupRow[] = gruposDaLoja.map((t) => {
+        const estado: GroupRow["estado"] = periodo.tipo === "ontem" ? "encerrado" : CURRENT_HOUR >= t.horaFim ? "encerrado" : CURRENT_HOUR >= t.horaInicio ? "andamento" : "naoComecou";
         const tarefasDoGrupo = tarefas.filter((x) => x.grupoId === t.id).sort((a, b) => a.ordem - b.ordem);
         const feitasIds = estado === "andamento" ? (feitasEmAndamento[t.id] ?? []) : estado === "encerrado" ? tarefasDoGrupo.map((x) => x.id) : [];
         const itens = tarefasDoGrupo.map((x) => ({ titulo: x.titulo, feita: feitasIds.includes(x.id) }));
@@ -1207,8 +1207,8 @@ export function montarLojaView(escopo: Escopo): LojaView {
   }
 
   /* --- Lucro bruto e categorias: período de mês, dentro de uma loja. Continuam filtrados por marca. --- */
-  let lucroBruto: LojaView["lucroBruto"] = null;
-  let cats: CategoriaLinha[] | null = null;
+  let lucroBruto: StoreView["lucroBruto"] = null;
+  let cats: CategoryRow[] | null = null;
   if (visao === "periodo" && periodo.granularidade === "mes") {
     const custo = custoPeriodo(fs, periodo.inicio, periodo.fim, divisao);
     const lucro = atual.faturamento - custo.cmv;
@@ -1251,15 +1251,15 @@ export function montarLojaView(escopo: Escopo): LojaView {
   }
 
   // Motor de trilho: sempre da competência do período (AD-023).
-  const competenciaTrilho = periodo.granularidade === "mes" ? periodo.inicio.slice(0, 7) : HOJE_ISO.slice(0, 7);
+  const competenciaTrilho = periodo.granularidade === "mes" ? periodo.inicio.slice(0, 7) : TODAY_ISO.slice(0, 7);
   const trilho = calcularTrilho(fs, competenciaTrilho);
   const vendaNecessaria = trilho ? vendaNecessariaHoje(fs, competenciaTrilho) : null;
 
-  const view: LojaView = {
+  const view: StoreView = {
     escopo,
     periodo,
-    atualizadoAs: ATUALIZADO_AS,
-    proximoSyncMin: Math.max(0, INTERVALO_SYNC_MIN - Math.floor((AGORA.getTime() - ULTIMO_SYNC.getTime()) / 60000)),
+    atualizadoAs: UPDATED_AT,
+    proximoSyncMin: Math.max(0, SYNC_INTERVAL_MIN - Math.floor((NOW.getTime() - LAST_SYNC.getTime()) / 60000)),
     visao,
     alertas: montarAlertas(fs),
     leitura: null,
@@ -1304,7 +1304,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
     lucroBruto,
     categorias: cats,
   };
-  view.leitura = montarLeituraLoja(view);
+  view.leitura = buildStoreInsight(view);
   return view;
 }
 
@@ -1312,7 +1312,7 @@ export function montarLojaView(escopo: Escopo): LojaView {
  * TELA FINANCEIRO — camada de dados (montarFinanceiroView)
  * ================================================================ */
 
-export interface FinanceiroKpi {
+export interface FinanceKpi {
   label: string;
   valor: string;
   delta?: { value: string; positive: boolean; vs?: string };
@@ -1321,7 +1321,7 @@ export interface FinanceiroKpi {
   sub?: string;
 }
 
-export interface CustoLucroMes {
+export interface CostProfitMonth {
   mes: string;
   custo: number;
   lucro: number;
@@ -1329,7 +1329,7 @@ export interface CustoLucroMes {
   faturamento: number;
 }
 
-export interface ResultadoOpMes {
+export interface OpResultMonth {
   mes: string;
   lucro: number;
   resultado: number;
@@ -1337,21 +1337,21 @@ export interface ResultadoOpMes {
   faturamento: number;
 }
 
-export interface FormaPagamentoFat {
+export interface PaymentMethodRevenue {
   forma: string;
   valor: number;
   pct: number;
   cor: string;
 }
 
-export interface LinhaCustoFixo {
+export interface FixedCostRow {
   rotulo: string;
   valor: number;
   ehTotal?: boolean;
   ehResultado?: boolean;
 }
 
-export interface EvolucaoMensalLinha {
+export interface MonthlyEvolutionRow {
   mes: string;
   faturamento: number;
   custo: number;
@@ -1360,31 +1360,31 @@ export interface EvolucaoMensalLinha {
   ticketMedio: number;
 }
 
-export interface FaturamentoPorMarca {
+export interface RevenueByBrand {
   marca: string;
   valor: number;
   pct: number;
   cor: string;
 }
 
-export interface FinanceiroView {
-  escopo: Escopo;
-  periodo: PeriodoResolvido;
-  kpis: FinanceiroKpi[];
+export interface FinanceView {
+  escopo: Scope;
+  periodo: ResolvedPeriod;
+  kpis: FinanceKpi[];
   /** Eixo dos cards de tendência (CMV/Lucro e Resultado). */
-  eixoSerie: EixoSerie;
+  eixoSerie: SeriesAxis;
   /** Ex.: "Hoje · por hora". */
   rotuloSerie: string;
   /** True quando custos fixos foram rateados no eixo (hora/dia). */
   resultadoRateado: boolean;
-  custoLucroMargem: CustoLucroMes[];
-  resultadoOperacional: ResultadoOpMes[];
+  custoLucroMargem: CostProfitMonth[];
+  resultadoOperacional: OpResultMonth[];
   deltaResultado?: { value: string; positive: boolean; vs?: string; diff?: string };
-  formasPagamento: FormaPagamentoFat[];
+  formasPagamento: PaymentMethodRevenue[];
   /** Só quando filtro = todas as marcas; null se WEPINK ou WPINK isolada. */
-  faturamentoPorMarca: FaturamentoPorMarca[] | null;
-  custosFixosFranquia: LinhaCustoFixo[];
-  evolucaoMensal: EvolucaoMensalLinha[];
+  faturamentoPorMarca: RevenueByBrand[] | null;
+  custosFixosFranquia: FixedCostRow[];
+  evolucaoMensal: MonthlyEvolutionRow[];
   /** Sempre contexto mensal — não segue o eixo curto. */
   rotuloEvolucaoMensal: string;
 }
@@ -1406,14 +1406,14 @@ const PCT_CUSTOS_FIXOS = {
 } as const;
 
 /** Aluguel fixo mockado por filial (mensal). Variáveis (% sobre fat) são calculadas no view. */
-function aluguelFixoDaFilial(f: Filial): number {
+function aluguelFixoDaFilial(f: Store): number {
   const base = f.id === "f1" ? 6100 : 3450;
   return Math.round(18000 * (base / 5000));
 }
 
 /** Últimos N meses (incluindo o atual) em ordem cronológica. */
 function ultimosMeses(n: number): string[] {
-  const hoje = deIso(HOJE_ISO);
+  const hoje = deIso(TODAY_ISO);
   const out: string[] = [];
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
@@ -1423,9 +1423,9 @@ function ultimosMeses(n: number): string[] {
 }
 
 /** Eixo dos cards de tendência: 1 dia → hora; 2–31 dias → dia; >31 dias → mês. */
-export type EixoSerie = "hora" | "dia" | "mes";
+export type SeriesAxis = "hora" | "dia" | "mes";
 
-export function eixoSerieDoPeriodo(periodo: PeriodoResolvido): EixoSerie {
+export function seriesAxisForPeriod(periodo: ResolvedPeriod): SeriesAxis {
   const n = intervaloDias(periodo.inicio, periodo.fim).length;
   if (n <= 1) return "hora";
   if (n <= 31) return "dia";
@@ -1433,7 +1433,7 @@ export function eixoSerieDoPeriodo(periodo: PeriodoResolvido): EixoSerie {
 }
 
 /** Subtítulo dos cards de série (ex.: "Hoje · por hora"). */
-export function rotuloEixoSerie(periodo: PeriodoResolvido, eixo: EixoSerie): string {
+export function seriesAxisLabel(periodo: ResolvedPeriod, eixo: SeriesAxis): string {
   if (eixo === "hora") return `${periodo.rotulo} · por hora`;
   if (eixo === "dia") return `${periodo.rotulo} · por dia`;
   return `${periodo.rotulo} · por mês`;
@@ -1461,17 +1461,17 @@ function diasNoMes(mesYm: string): number {
   return new Date(y, m, 0).getDate();
 }
 
-function agregadoMes(fs: Filial[], mes: string, divisao: Divisao | null): Agregado & { cmv: number; porMeio: Record<string, number> } {
+function agregadoMes(fs: Store[], mes: string, divisao: Division | null): Aggregate & { cmv: number; porMeio: Record<string, number> } {
   const inicio = `${mes}-01`;
   const fim = fimDoMes(inicio);
-  const agg = somarAgregados(fs.map((f) => agregadoPeriodo(f, inicio, fim, divisao)));
+  const agg = sumAggregates(fs.map((f) => agregadoPeriodo(f, inicio, fim, divisao)));
   const custo = custoPeriodo(fs, inicio, fim, divisao).cmv;
   // Soma das formas de pagamento no mês.
   const dias = intervaloDias(inicio, fim);
   const porMeio: Record<string, number> = {};
   for (const f of fs) {
     for (const diaIso of dias) {
-      const dv = diaVendas(f.id, diaIso);
+      const dv = salesDay(f.id, diaIso);
       if (!dv) continue;
       for (const [meio, val] of Object.entries(dv.porMeio)) {
         porMeio[meio] = (porMeio[meio] ?? 0) + val;
@@ -1481,16 +1481,16 @@ function agregadoMes(fs: Filial[], mes: string, divisao: Divisao | null): Agrega
   return { ...agg, cmv: custo, porMeio };
 }
 
-export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
-  const periodo = resolverPeriodo(escopo.periodo);
-  const fs = filiaisDoEscopo(escopo);
+export function buildFinanceView(escopo: Scope): FinanceView {
+  const periodo = resolvePeriod(escopo.periodo);
+  const fs = storesInScope(escopo);
   const divisao = escopo.divisao;
 
   // Atual e anterior para deltas dos KPIs.
-  const atual = somarAgregados(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, divisao)));
+  const atual = sumAggregates(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, divisao)));
   const custoAtual = custoPeriodo(fs, periodo.inicio, periodo.fim, divisao).cmv;
-  const ant = periodoAnterior(periodo);
-  const anterior = somarAgregados(fs.map((f) => agregadoPeriodo(f, ant.inicio, ant.fim, divisao, ant.horaMax)));
+  const ant = previousPeriod(periodo);
+  const anterior = sumAggregates(fs.map((f) => agregadoPeriodo(f, ant.inicio, ant.fim, divisao, ant.horaMax)));
   const custoAnterior = custoPeriodo(fs, ant.inicio, ant.fim, divisao).cmv;
 
   const lucroAtual = atual.faturamento - custoAtual;
@@ -1510,7 +1510,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
   const serieLucro = serieFaturamento.map((v, i) => v - serieCmv[i]);
   const serieMargem = serieFaturamento.map((v, i) => v > 0 ? ((v - serieCmv[i]) / v) * 100 : 0);
 
-  const kpis: FinanceiroKpi[] = [
+  const kpis: FinanceKpi[] = [
     {
       label: "Faturamento",
       valor: brlK(atual.faturamento),
@@ -1541,13 +1541,13 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
   ];
 
   // Série de tendência: eixo hora / dia / mês conforme o período filtrado.
-  const eixoSerie = eixoSerieDoPeriodo(periodo);
-  const rotuloSerie = rotuloEixoSerie(periodo, eixoSerie);
+  const eixoSerie = seriesAxisForPeriod(periodo);
+  const rotuloSerie = seriesAxisLabel(periodo, eixoSerie);
   const resultadoRateado = eixoSerie !== "mes";
 
   // Faturamento por marca (sempre calculado; donut só quando filtro = todas).
-  const fatWepink = somarAgregados(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, "WEPINK"))).faturamento;
-  const fatWpink = somarAgregados(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, "WPINK"))).faturamento;
+  const fatWepink = sumAggregates(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, "WEPINK"))).faturamento;
+  const fatWpink = sumAggregates(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, "WPINK"))).faturamento;
   const fatTodasMarcas = fatWepink + fatWpink;
 
   // Custos: aluguel fixo compartilhado; variáveis % só sobre a(s) marca(s) do filtro.
@@ -1578,25 +1578,25 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     custosAgg.taxaMktWepink +
     custosAgg.taxaMktWpink;
 
-  const custoLucroMargem: CustoLucroMes[] = [];
-  const resultadoOperacional: ResultadoOpMes[] = [];
+  const custoLucroMargem: CostProfitMonth[] = [];
+  const resultadoOperacional: OpResultMonth[] = [];
 
   if (eixoSerie === "hora") {
     const abertura = Math.min(...fs.map((f) => f.abertura));
     const fechamento = Math.max(...fs.map((f) => f.fechamento));
     const horas: number[] = [];
     for (let h = abertura; h < fechamento; h++) horas.push(h);
-    const horasVisiveis = periodo.ehHoje ? horas.filter((h) => h <= HORA_ATUAL) : horas;
+    const horasVisiveis = periodo.ehHoje ? horas.filter((h) => h <= CURRENT_HOUR) : horas;
     const diaFat = atual.faturamento;
     const diaCmv = custoAtual;
     const ratioCmv = divSeguro(diaCmv, diaFat);
     const custoHora = totalCustosFixos / diasNoMes(periodo.inicio.slice(0, 7)) / (horas.length || 1);
     for (const h of horasVisiveis) {
       const fatH = fs.reduce((s, f) => {
-        const a = diaVendas(f.id, periodo.inicio)?.porHora[h];
+        const a = salesDay(f.id, periodo.inicio)?.porHora[h];
         if (!a) return s;
         if (!divisao) return s + a.faturamento;
-        const dia = diaVendas(f.id, periodo.inicio)!;
+        const dia = salesDay(f.id, periodo.inicio)!;
         const fr = dia.total.faturamento > 0 ? dia.porDivisao[divisao].faturamento / dia.total.faturamento : 0;
         return s + Math.round(a.faturamento * fr);
       }, 0);
@@ -1615,9 +1615,9 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     }
   } else if (eixoSerie === "dia") {
     for (const iso of intervaloDias(periodo.inicio, periodo.fim)) {
-      const agg = somarAgregados(fs.map((f) => {
-        const d = diaVendas(f.id, iso);
-        return d ? agregadoDoDia(d, divisao) : { faturamento: 0, atendimentos: 0, itens: 0 };
+      const agg = sumAggregates(fs.map((f) => {
+        const d = salesDay(f.id, iso);
+        return d ? dayAggregate(d, divisao) : { faturamento: 0, atendimentos: 0, itens: 0 };
       }));
       const cmv = custoPeriodo(fs, iso, iso, divisao).cmv;
       const lucro = agg.faturamento - cmv;
@@ -1673,7 +1673,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
   const totaisForma: Record<string, number> = {};
   for (const f of fs) {
     for (const diaIso of diasPeriodo) {
-      const dv = diaVendas(f.id, diaIso);
+      const dv = salesDay(f.id, diaIso);
       if (!dv) continue;
       for (const [meio, val] of Object.entries(dv.porMeio)) {
         totaisForma[meio] = (totaisForma[meio] ?? 0) + val;
@@ -1681,7 +1681,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     }
   }
   const totalFormas = Object.values(totaisForma).reduce((s, v) => s + v, 0) || 1;
-  const formasPagamento: FormaPagamentoFat[] = Object.entries(totaisForma)
+  const formasPagamento: PaymentMethodRevenue[] = Object.entries(totaisForma)
     .sort((a, b) => b[1] - a[1])
     .map(([forma, valor]) => ({
       forma,
@@ -1691,7 +1691,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     }));
 
   // Mini-DRE → Resultado Operacional. Linhas de marca só aparecem no filtro correspondente.
-  const linhasMarca: LinhaCustoFixo[] = [];
+  const linhasMarca: FixedCostRow[] = [];
   if (!divisao || divisao === "WEPINK") {
     linhasMarca.push(
       { rotulo: `Royalties WEPINK (${PCT_CUSTOS_FIXOS.royaltiesWepink}%)`, valor: custosAgg.royaltiesWepink },
@@ -1704,7 +1704,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
       { rotulo: `Marketing WPINK (${PCT_CUSTOS_FIXOS.taxaMktWpink}%)`, valor: custosAgg.taxaMktWpink },
     );
   }
-  const custosFixosFranquia: LinhaCustoFixo[] = [
+  const custosFixosFranquia: FixedCostRow[] = [
     { rotulo: "Lucro bruto", valor: lucroAtual },
     { rotulo: "Aluguel fixo", valor: custosAgg.aluguelFixo },
     { rotulo: `Aluguel variável shopping (${PCT_CUSTOS_FIXOS.aluguelShopping}%)`, valor: custosAgg.aluguelPct },
@@ -1713,7 +1713,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
     { rotulo: "Resultado operacional", valor: resultadoAtual, ehResultado: true },
   ];
 
-  const faturamentoPorMarca: FaturamentoPorMarca[] | null = divisao
+  const faturamentoPorMarca: RevenueByBrand[] | null = divisao
     ? null
     : [
         { marca: "WEPINK", valor: fatWepink, pct: fatTodasMarcas > 0 ? (fatWepink / fatTodasMarcas) * 100 : 0, cor: "var(--acc)" },
@@ -1722,7 +1722,7 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
 
   // Evolução Mensal — sempre últimos 6 meses (contexto; não finge o range curto).
   const rotuloEvolucaoMensal = "Últimos 6 meses";
-  const evolucaoMensal: EvolucaoMensalLinha[] = ultimosMeses(6).map((mes) => {
+  const evolucaoMensal: MonthlyEvolutionRow[] = ultimosMeses(6).map((mes) => {
     const agg = agregadoMes(fs, mes, divisao);
     const lucro = agg.faturamento - agg.cmv;
     return {
@@ -1757,9 +1757,9 @@ export function montarFinanceiroView(escopo: Escopo): FinanceiroView {
  * TELA PRODUTOS — camada de dados (montarProdutosView)
  * ================================================================ */
 
-import { type ProdutoResumo } from "./produtos";
+import { type ProductSummary } from "./products";
 
-export interface ProdutosKpi {
+export interface ProductsKpi {
   label: string;
   valor: string;
   sub?: string;
@@ -1768,7 +1768,7 @@ export interface ProdutosKpi {
   tooltip?: string;
 }
 
-export interface CategoriaFat {
+export interface CategoryRevenue {
   categoriaId: number;
   nome: string;
   faturamento: number;
@@ -1778,12 +1778,12 @@ export interface CategoriaFat {
   itens: number;
 }
 
-export interface LinhaProduto {
+export interface ProductLine {
   nome: string;
   faturamento: number;
 }
 
-export interface ProdutoLinha extends ProdutoResumo {
+export interface ProductRow extends ProductSummary {
   categoriaNome: string;
   cmv: number;
   cmvPct: number;
@@ -1792,20 +1792,20 @@ export interface ProdutoLinha extends ProdutoResumo {
   tendencia: "up" | "down" | "flat";
 }
 
-export type ClasseAbc = "A" | "B" | "C";
+export type AbcClass = "A" | "B" | "C";
 
 /** Categoria na curva ABC (Pareto): ordenada por faturamento desc. */
-export interface CategoriaAbc {
+export interface AbcCategory {
   categoriaId: number;
   nome: string;
   faturamento: number;
   pct: number;
   pctAcumulado: number;
-  classe: ClasseAbc;
+  classe: AbcClass;
 }
 
-export interface CurvaAbcResumo {
-  classe: ClasseAbc;
+export interface AbcCurveSummary {
+  classe: AbcClass;
   qtdCategorias: number;
   /** Participação da classe no faturamento total (0–100). */
   pctReceita: number;
@@ -1813,33 +1813,33 @@ export interface CurvaAbcResumo {
   faturamento: number;
 }
 
-export interface CurvaAbcCategorias {
-  itens: CategoriaAbc[];
-  resumo: CurvaAbcResumo[];
+export interface AbcCurveCategories {
+  itens: AbcCategory[];
+  resumo: AbcCurveSummary[];
 }
 
-export interface ProdutosView {
-  escopo: Escopo;
-  periodo: PeriodoResolvido;
-  kpis: ProdutosKpi[];
-  categorias: CategoriaFat[];
+export interface ProductsView {
+  escopo: Scope;
+  periodo: ResolvedPeriod;
+  kpis: ProductsKpi[];
+  categorias: CategoryRevenue[];
   /** Curva ABC (Pareto) das categorias — cortes 80% / 95%. */
-  curvaAbcCategorias: CurvaAbcCategorias;
-  topLinhas: LinhaProduto[];
+  curvaAbcCategorias: AbcCurveCategories;
+  topLinhas: ProductLine[];
   /** Filtro de categoria ativo na view (null = todas). */
   categoriaFiltro: number | null;
-  produtos: ProdutoLinha[];
+  produtos: ProductRow[];
 }
 
 /** Classifica categorias em A/B/C (80%/95% acumulado), já ordenadas por fat. desc. */
-export function classificarCurvaAbc(cats: Array<{ categoriaId: number; nome: string; faturamento: number }>): CurvaAbcCategorias {
+export function classifyAbcCurve(cats: Array<{ categoriaId: number; nome: string; faturamento: number }>): AbcCurveCategories {
   const total = cats.reduce((s, c) => s + c.faturamento, 0) || 1;
   let acum = 0;
-  const itens: CategoriaAbc[] = cats.map((c) => {
+  const itens: AbcCategory[] = cats.map((c) => {
     const pct = (c.faturamento / total) * 100;
     const antes = acum;
     acum += pct;
-    const classe: ClasseAbc = antes < 80 ? "A" : antes < 95 ? "B" : "C";
+    const classe: AbcClass = antes < 80 ? "A" : antes < 95 ? "B" : "C";
     return {
       categoriaId: c.categoriaId,
       nome: c.nome,
@@ -1849,8 +1849,8 @@ export function classificarCurvaAbc(cats: Array<{ categoriaId: number; nome: str
       classe,
     };
   });
-  const classes: ClasseAbc[] = ["A", "B", "C"];
-  const resumo: CurvaAbcResumo[] = classes.map((classe) => {
+  const classes: AbcClass[] = ["A", "B", "C"];
+  const resumo: AbcCurveSummary[] = classes.map((classe) => {
     const doGrupo = itens.filter((i) => i.classe === classe);
     const faturamento = doGrupo.reduce((s, i) => s + i.faturamento, 0);
     return {
@@ -1876,15 +1876,15 @@ function extrairLinha(nome: string): string {
   return partes.slice(0, Math.min(2, partes.length)).join(" ");
 }
 
-export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | null = null): ProdutosView {
-  const periodo = resolverPeriodo(escopo.periodo);
-  const fs = filiaisDoEscopo(escopo);
+export function buildProductsView(escopo: Scope, categoriaFiltro: number | null = null): ProductsView {
+  const periodo = resolvePeriod(escopo.periodo);
+  const fs = storesInScope(escopo);
   const divisao = escopo.divisao;
 
   // Agregados por categoria no período
   const catMap = new Map<number, { faturamento: number; cmv: number; itens: number }>();
   for (const f of fs) {
-    for (const d of diasVendas(f.id, periodo.inicio, periodo.fim)) {
+    for (const d of salesDays(f.id, periodo.inicio, periodo.fim)) {
       for (const [id, c] of Object.entries(d.porCategoria)) {
         const cat = categorias.find((x) => x.id === Number(id));
         if (!cat || (divisao && cat.divisao !== divisao)) continue;
@@ -1904,10 +1904,10 @@ export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | nul
   const totalMargem = divSeguro(totalLucro, totalFat) * 100;
 
   // Período anterior para deltas
-  const ant = periodoAnterior(periodo);
+  const ant = previousPeriod(periodo);
   const antCatMap = new Map<number, { faturamento: number; cmv: number; itens: number }>();
   for (const f of fs) {
-    for (const d of diasVendas(f.id, ant.inicio, ant.fim)) {
+    for (const d of salesDays(f.id, ant.inicio, ant.fim)) {
       for (const [id, c] of Object.entries(d.porCategoria)) {
         const cat = categorias.find((x) => x.id === Number(id));
         if (!cat || (divisao && cat.divisao !== divisao)) continue;
@@ -1930,7 +1930,7 @@ export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | nul
   // Séries de tendência (7 pontos)
   const serieFat = seriesTendencia(fs, periodo, divisao).faturamento?.slice(-7) ?? [];
 
-  const kpis: ProdutosKpi[] = [
+  const kpis: ProductsKpi[] = [
     {
       label: "Faturamento",
       valor: brlK(totalFat),
@@ -1975,22 +1975,22 @@ export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | nul
   // Top linhas de produto (agrega por linha derivada do nome)
   const linhaMap = new Map<string, number>();
   for (const cat of catsOrdenadas) {
-    const prods = produtosDaCategoria(cat.categoriaId, `${periodo.inicio}|${divisao ?? ""}`, cat.faturamento, cat.lucro, cat.itens);
+    const prods = productsOfCategory(cat.categoriaId, `${periodo.inicio}|${divisao ?? ""}`, cat.faturamento, cat.lucro, cat.itens);
     for (const p of prods) {
       const linha = extrairLinha(p.nome);
       linhaMap.set(linha, (linhaMap.get(linha) ?? 0) + p.receita);
     }
   }
-  const topLinhas: LinhaProduto[] = [...linhaMap.entries()]
+  const topLinhas: ProductLine[] = [...linhaMap.entries()]
     .map(([nome, faturamento]) => ({ nome, faturamento }))
     .sort((a, b) => b.faturamento - a.faturamento)
     .slice(0, 8);
 
   // Produtos (filtrados por categoria se aplicável)
-  const produtosBase: ProdutoLinha[] = [];
+  const produtosBase: ProductRow[] = [];
   for (const cat of catsOrdenadas) {
     if (categoriaFiltro !== null && cat.categoriaId !== categoriaFiltro) continue;
-    const prods = produtosDaCategoria(cat.categoriaId, `${periodo.inicio}|${divisao ?? ""}`, cat.faturamento, cat.lucro, cat.itens);
+    const prods = productsOfCategory(cat.categoriaId, `${periodo.inicio}|${divisao ?? ""}`, cat.faturamento, cat.lucro, cat.itens);
     for (const p of prods) {
       const cmv = p.receita - p.margem;
       produtosBase.push({
@@ -2006,7 +2006,7 @@ export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | nul
   }
   produtosBase.sort((a, b) => b.receita - a.receita);
 
-  const curvaAbcCategorias = classificarCurvaAbc(catsOrdenadas);
+  const curvaAbcCategorias = classifyAbcCurve(catsOrdenadas);
 
   return {
     escopo,
@@ -2024,19 +2024,19 @@ export function montarProdutosView(escopo: Escopo, categoriaFiltro: number | nul
  * TELA GRUPOS — camada de dados (montarGruposView)
  * ================================================================ */
 
-export interface GrupoKpi {
+export interface GroupKpi {
   nome: string;
   faturamento: number;
   vendas: number;
   ticketMedio: number;
 }
 
-export interface DiaGrupoFat {
+export interface GroupDayRevenue {
   dia: string;
   porGrupo: Record<string, number>;
 }
 
-export interface HoraIndicador {
+export interface HourIndicator {
   hora: number;
   faturamento: number;
   atendimentos: number;
@@ -2047,30 +2047,30 @@ export interface HoraIndicador {
   deltaVsAnterior: { value: string; positive: boolean } | null;
 }
 
-export interface HeatmapCelula {
+export interface HeatmapCell {
   dia: string;
   hora: number;
   valor: number;
 }
 
-export interface VendedoraPorHora {
+export interface SellerByHour {
   hora: number;
   reais: number;
   metaMinima: number;
 }
 
-export interface GruposView {
-  escopo: Escopo;
-  periodo: PeriodoResolvido;
+export interface GroupsView {
+  escopo: Scope;
+  periodo: ResolvedPeriod;
   /** Nome do grupo ativo (`Grupo 1` / `Grupo 2`), ou null = todos. */
   grupoFiltro: string | null;
   /** Grupos únicos no escopo (por nome), para o select do header. */
   gruposDisponiveis: { id: string; nome: string }[];
-  kpisPorGrupo: GrupoKpi[];
-  faturamentoPorDiaGrupo: DiaGrupoFat[];
-  heatmap: HeatmapCelula[];
-  indicadoresPorHora: HoraIndicador[] | null;
-  vendedorasPorHora: VendedoraPorHora[];
+  kpisPorGrupo: GroupKpi[];
+  faturamentoPorDiaGrupo: GroupDayRevenue[];
+  heatmap: HeatmapCell[];
+  indicadoresPorHora: HourIndicator[] | null;
+  vendedorasPorHora: SellerByHour[];
 }
 
 /** Horas de um grupo cadastrado. Sem grupo → 0–23. */
@@ -2099,9 +2099,9 @@ function grupoDaFilial(filialId: string, nomeGrupo: string) {
  * @param grupoFiltro Nome do grupo (`Grupo 1` / `Grupo 2`), não o id do cadastro.
  *   Null = todos os grupos.
  */
-export function montarGruposView(escopo: Escopo, grupoFiltro: string | null = null): GruposView {
-  const periodo = resolverPeriodo(escopo.periodo);
-  const fs = filiaisDoEscopo(escopo);
+export function buildGroupsView(escopo: Scope, grupoFiltro: string | null = null): GroupsView {
+  const periodo = resolvePeriod(escopo.periodo);
+  const fs = storesInScope(escopo);
   const divisao = escopo.divisao;
 
   // Grupos das filiais do escopo; nomes únicos para o select.
@@ -2114,14 +2114,14 @@ export function montarGruposView(escopo: Escopo, grupoFiltro: string | null = nu
   const horasAtivas = grupoFiltro ? horasDosGrupos(gruposDoFiltro) : horasDoGrupo(null);
 
   // KPIs por grupo — cada loja usa a faixa horária do seu próprio cadastro.
-  const kpisPorGrupo: GrupoKpi[] = nomesUnicos.map((nome) => {
+  const kpisPorGrupo: GroupKpi[] = nomesUnicos.map((nome) => {
     let faturamento = 0;
     let vendas = 0;
     for (const f of fs) {
       const grupo = grupoDaFilial(f.id, nome);
       if (!grupo) continue;
       for (const iso of intervaloDias(periodo.inicio, periodo.fim)) {
-        const dv = diaVendas(f.id, iso);
+        const dv = salesDay(f.id, iso);
         if (!dv) continue;
         for (const h of horasDoGrupo(grupo)) {
           const ag = dv.porHora[h];
@@ -2148,14 +2148,14 @@ export function montarGruposView(escopo: Escopo, grupoFiltro: string | null = nu
 
   // Faturamento por dia × grupo
   const dias = intervaloDias(periodo.inicio, periodo.fim);
-  const faturamentoPorDiaGrupo: DiaGrupoFat[] = dias.map((iso) => {
+  const faturamentoPorDiaGrupo: GroupDayRevenue[] = dias.map((iso) => {
     const porGrupo: Record<string, number> = {};
     for (const nome of nomesUnicos) {
       let fat = 0;
       for (const f of fs) {
         const grupo = grupoDaFilial(f.id, nome);
         if (!grupo) continue;
-        const dv = diaVendas(f.id, iso);
+        const dv = salesDay(f.id, iso);
         if (!dv) continue;
         for (const h of horasDoGrupo(grupo)) {
           const ag = dv.porHora[h];
@@ -2175,12 +2175,12 @@ export function montarGruposView(escopo: Escopo, grupoFiltro: string | null = nu
   });
 
   // Heatmap (dia × hora) — valores de faturamento
-  const heatmap: HeatmapCelula[] = [];
+  const heatmap: HeatmapCell[] = [];
   for (const iso of dias) {
     for (const h of horasAtivas) {
       let valor = 0;
       for (const f of fs) {
-        const dv = diaVendas(f.id, iso);
+        const dv = salesDay(f.id, iso);
         if (!dv) continue;
         const ag = dv.porHora[h];
         if (!ag) continue;
@@ -2198,13 +2198,13 @@ export function montarGruposView(escopo: Escopo, grupoFiltro: string | null = nu
 
   // Indicadores por hora (só quando período = 1 dia)
   const ehUmDia = periodo.inicio === periodo.fim;
-  let indicadoresPorHora: HoraIndicador[] | null = null;
+  let indicadoresPorHora: HourIndicator[] | null = null;
   if (ehUmDia) {
     const diaIso = periodo.inicio;
-    const ant = periodoAnterior(periodo);
+    const ant = previousPeriod(periodo);
     let fatTotalDia = 0;
     for (const f of fs) {
-      const dv = diaVendas(f.id, diaIso);
+      const dv = salesDay(f.id, diaIso);
       if (!dv) continue;
       for (const h of horasAtivas) {
         const ag = dv.porHora[h];
@@ -2223,7 +2223,7 @@ export function montarGruposView(escopo: Escopo, grupoFiltro: string | null = nu
       let fat = 0;
       let atd = 0;
       for (const f of fs) {
-        const dv = diaVendas(f.id, diaIso);
+        const dv = salesDay(f.id, diaIso);
         if (!dv) continue;
         const ag = dv.porHora[h];
         if (!ag) continue;
@@ -2241,7 +2241,7 @@ export function montarGruposView(escopo: Escopo, grupoFiltro: string | null = nu
       // Comparativo com mesmo horário do dia anterior
       let fatAnt = 0;
       for (const f of fs) {
-        const dvAnt = diaVendas(f.id, ant.inicio);
+        const dvAnt = salesDay(f.id, ant.inicio);
         if (!dvAnt) continue;
         const agAnt = dvAnt.porHora[h];
         if (!agAnt) continue;
@@ -2270,11 +2270,11 @@ export function montarGruposView(escopo: Escopo, grupoFiltro: string | null = nu
   // Vendedoras por hora (staff real vs meta mínima) — agrega todos os dias do período
   const diasDoPeriodo = intervaloDias(periodo.inicio, periodo.fim);
   const numDias = diasDoPeriodo.length || 1;
-  const vendedorasPorHora: VendedoraPorHora[] = horasAtivas.map((h) => {
+  const vendedorasPorHora: SellerByHour[] = horasAtivas.map((h) => {
     let somaReais = 0;
     for (const dia of diasDoPeriodo) {
       for (const f of fs) {
-        const dv = diaVendas(f.id, dia);
+        const dv = salesDay(f.id, dia);
         if (!dv) continue;
         const ag = dv.porHora[h];
         if (ag && ag.atendimentos > 0) {
@@ -2306,9 +2306,9 @@ export function montarGruposView(escopo: Escopo, grupoFiltro: string | null = nu
  * TELA VISÃO GERAL — camada de dados (montarVisaoGeralView)
  * ================================================================ */
 
-import { colaboradoresDaFilial } from "./equipe";
+import { collaboratorsOfStore } from "./team";
 
-export interface VisaoKpi {
+export interface OverviewKpi {
   label: string;
   valor: string;
   sub?: string;
@@ -2318,26 +2318,26 @@ export interface VisaoKpi {
   drillTo?: string;
 }
 
-export interface GaugeMeta {
+export interface GoalGauge {
   nome: string;
   pct: number;
   alvo: number;
   realizado: number;
 }
 
-export interface CategoriaVsMeta {
+export interface CategoryVsGoal {
   categoria: string;
   meta: number;
   realizado: number;
 }
 
-export interface DiaVsMeta {
+export interface DayVsGoal {
   dia: string;
   meta: number;
   realizado: number;
 }
 
-export interface EvolucaoPonto {
+export interface EvolutionPoint {
   label: string;
   realizado: number;
   meta: number;
@@ -2349,40 +2349,190 @@ export interface TopItem {
   valor: number;
 }
 
-export interface VisaoGeralView {
-  escopo: Escopo;
-  periodo: PeriodoResolvido;
-  kpis: VisaoKpi[];
-  gauges: GaugeMeta[];
+export interface OverviewView {
+  escopo: Scope;
+  periodo: ResolvedPeriod;
+  kpis: OverviewKpi[];
+  gauges: GoalGauge[];
   faltamParaMeta: string | null;
   projecaoFechamento: string | null;
   /** Delta do faturamento vs período anterior (badge dos cards de gráfico). */
   deltaFaturamento?: { value: string; positive: boolean; vs?: string };
-  eixoSerie: EixoSerie;
+  eixoSerie: SeriesAxis;
   rotuloSerie: string;
-  categoriaVsMeta: CategoriaVsMeta[];
+  categoriaVsMeta: CategoryVsGoal[];
   /** Vazio quando período = 1 dia (card oculto na UI). */
-  diaVsMeta: DiaVsMeta[];
-  evolucao: EvolucaoPonto[];
-  formasPagamento: FormaPagamentoFat[];
+  diaVsMeta: DayVsGoal[];
+  evolucao: EvolutionPoint[];
+  formasPagamento: PaymentMethodRevenue[];
   topVendedoras: (TopItem & { sub?: string; ticketMedio?: number; pctMeta?: number })[];
   topProdutos: (TopItem & { sub?: string; categoria?: string; trend?: number })[];
   rankingLojas: (TopItem & { pctMeta?: number; trend?: number })[];
+  /** True when KPIs come from sales_*_agg (possibly empty). */
+  fromAggregates?: boolean;
 }
 
-export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
-  const periodo = resolverPeriodo(escopo.periodo);
-  const fs = filiaisDoEscopo(escopo);
+export type OverviewAggInput = {
+  dayAggs: import("./salesTypes").SalesDayAgg[];
+  hourAggs?: import("./salesTypes").SalesHourAgg[];
+};
+
+/** Overview from real sales aggregates — CMV/top produtos stay empty until heavy sync. */
+export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput): OverviewView {
+  const periodo = resolvePeriod(escopo.periodo);
+  const eixoSerie = seriesAxisForPeriod(periodo);
+  const rotuloSerie = seriesAxisLabel(periodo, eixoSerie);
+  const brand = escopo.divisao;
+
+  let days = input.dayAggs;
+  if (brand) days = days.filter((d) => d.brand === brand || d.brand === "ALL");
+
+  const hours = (input.hourAggs ?? []).filter((h) =>
+    brand ? h.brand === brand || h.brand === "ALL" : true,
+  );
+
+  const sumDays = (rows: typeof days) =>
+    rows.reduce(
+      (acc, r) => {
+        acc.revenueCents += r.revenueCents;
+        acc.salesCount += r.salesCount;
+        acc.itemCount += r.itemCount;
+        return acc;
+      },
+      { revenueCents: 0, salesCount: 0, itemCount: 0 },
+    );
+
+  const atualAgg = sumDays(days);
+  const faturamento = atualAgg.revenueCents / 100;
+  const atendimentos = atualAgg.salesCount;
+  const itens = atualAgg.itemCount;
+  const ticket = atendimentos > 0 ? faturamento / atendimentos : 0;
+
+  const competencia = periodo.inicio.slice(0, 7);
+  const fs = storesInScope(escopo);
+  let metaTotal = 0;
+  for (const f of fs) {
+    const m = goalOfStore(f.id, competencia);
+    if (m) metaTotal += m.valorLoja;
+  }
+  const atingMeta = metaTotal > 0 ? (faturamento / metaTotal) * 100 : 0;
+  const faltam = metaTotal > 0 ? Math.max(0, metaTotal - faturamento) : 0;
+
+  const byDay = new Map<string, number>();
+  for (const d of days) {
+    byDay.set(d.day, (byDay.get(d.day) ?? 0) + d.revenueCents / 100);
+  }
+  const serieFat = [...byDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, v]) => v)
+    .slice(-7);
+
+  const kpis: OverviewKpi[] = [
+    {
+      label: "Faturamento",
+      valor: brlK(faturamento),
+      sub: metaTotal > 0 ? `Goal: ${brlK(metaTotal)}` : undefined,
+      serie: serieFat,
+    },
+    {
+      label: "CMV",
+      valor: "—",
+      sub: "Disponível após sync completo",
+      tooltip: "CMV entra no sync pesado (RELATORIOMARGEM), fora desta versão.",
+    },
+    {
+      label: "Nº de vendas",
+      valor: num(atendimentos),
+      sub: `${num(itens)} itens vendidos`,
+    },
+    {
+      label: "Ticket médio",
+      valor: brl(ticket),
+      sub: atendimentos > 0 ? `P.A. ${divSeguro(itens, atendimentos).toFixed(2)}` : undefined,
+    },
+  ];
+
+  const filialComMeta = fs.find((f) => Boolean(goalOfStore(f.id, competencia)));
+  const degraus = filialComMeta ? goalOfStore(filialComMeta.id, competencia)?.degraus ?? [] : [];
+  const gauges: GoalGauge[] = degraus.slice(0, 3).map((d: { nome: string; atingimentoMinPct: number }) => ({
+    nome: d.nome,
+    pct: metaTotal > 0 ? Math.min(100, (faturamento / (metaTotal * d.atingimentoMinPct / 100)) * 100) : 0,
+    alvo: Math.round(metaTotal * d.atingimentoMinPct / 100),
+    realizado: faturamento,
+  }));
+  if (gauges.length === 0 && metaTotal > 0) {
+    gauges.push({ nome: "Meta", pct: Math.min(100, atingMeta), alvo: metaTotal, realizado: faturamento });
+  }
+
+  const evolucao: EvolutionPoint[] = [];
+  if (eixoSerie === "hora") {
+    const byHour = new Map<number, number>();
+    for (const h of hours) {
+      byHour.set(h.hour, (byHour.get(h.hour) ?? 0) + h.revenueCents / 100);
+    }
+    let acum = 0;
+    const horas = [...byHour.keys()].sort((a, b) => a - b);
+    const metaPorHora = metaTotal > 0 && horas.length > 0 ? metaTotal / Math.max(horas.length, 1) : 0;
+    let acumM = 0;
+    for (const h of horas) {
+      acum += byHour.get(h) ?? 0;
+      acumM += metaPorHora;
+      evolucao.push({ label: horaCurta(h), realizado: acum, meta: acumM, projecao: null });
+    }
+  } else {
+    let acum = 0;
+    let acumM = 0;
+    const diasPeriodo = intervaloDias(periodo.inicio, periodo.fim);
+    const metaPorDia = metaTotal > 0 && diasPeriodo.length > 0 ? metaTotal / diasPeriodo.length : 0;
+    const mesesLbl = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    for (const iso of diasPeriodo) {
+      acum += byDay.get(iso) ?? 0;
+      acumM += metaPorDia;
+      const d = deIso(iso);
+      evolucao.push({
+        label: `${String(d.getDate()).padStart(2, "0")} ${mesesLbl[d.getMonth()]}`,
+        realizado: acum,
+        meta: acumM,
+        projecao: null,
+      });
+    }
+  }
+
+  return {
+    escopo,
+    periodo,
+    kpis,
+    gauges,
+    faltamParaMeta: faltam > 0 ? `Faltam ${brl(faltam)} para atingir a Goal do mês` : metaTotal > 0 ? "Meta atingida" : null,
+    projecaoFechamento: null,
+    eixoSerie,
+    rotuloSerie,
+    categoriaVsMeta: [],
+    diaVsMeta: [],
+    evolucao,
+    formasPagamento: [],
+    topVendedoras: [],
+    topProdutos: [],
+    rankingLojas: [],
+    fromAggregates: true,
+  };
+}
+
+export function buildOverviewView(escopo: Scope, aggs?: OverviewAggInput | null): OverviewView {
+  if (aggs) return buildOverviewViewFromAggs(escopo, aggs);
+
+  const periodo = resolvePeriod(escopo.periodo);
+  const fs = storesInScope(escopo);
   const divisao = escopo.divisao;
 
   // Agregados do período
-  const atual = somarAgregados(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, divisao)));
+  const atual = sumAggregates(fs.map((f) => agregadoPeriodo(f, periodo.inicio, periodo.fim, divisao)));
   const custoAtual = custoPeriodo(fs, periodo.inicio, periodo.fim, divisao).cmv;
   const lucroAtual = atual.faturamento - custoAtual;
   void lucroAtual; // reservado para KPIs futuros de margem/lucro
   // Período anterior para deltas
-  const ant = periodoAnterior(periodo);
-  const anterior = somarAgregados(fs.map((f) => agregadoPeriodo(f, ant.inicio, ant.fim, divisao)));
+  const ant = previousPeriod(periodo);
+  const anterior = sumAggregates(fs.map((f) => agregadoPeriodo(f, ant.inicio, ant.fim, divisao)));
   const custoAnterior = custoPeriodo(fs, ant.inicio, ant.fim, divisao).cmv;
   void custoAnterior; // reservado para KPIs futuros de margem/lucro
   const ticketAtual = divSeguro(atual.faturamento, atual.atendimentos);
@@ -2394,16 +2544,16 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
   const competencia = periodo.inicio.slice(0, 7);
   let metaTotal = 0;
   for (const f of fs) {
-    const m = metaDaFilial(f.id, competencia);
+    const m = goalOfStore(f.id, competencia);
     if (m) metaTotal += m.valorLoja;
   }
   const atingMeta = metaTotal > 0 ? (atual.faturamento / metaTotal) * 100 : 0;
   const faltam = metaTotal > 0 ? Math.max(0, metaTotal - atual.faturamento) : 0;
 
   // Projeção de fechamento (curva de receita)
-  const curva = curvaReceita(fs, competencia);
+  const curva = revenueCurve(fs, competencia);
   let fracaoAcum = 0;
-  for (const iso of intervaloDias(`${competencia}-01`, HOJE_ISO)) fracaoAcum += curva.peso(iso);
+  for (const iso of intervaloDias(`${competencia}-01`, TODAY_ISO)) fracaoAcum += curva.peso(iso);
   const projetado = fracaoAcum > 0 ? atual.faturamento / fracaoAcum : 0;
   const projPct = metaTotal > 0 ? (projetado / metaTotal) * 100 : 0;
 
@@ -2411,11 +2561,11 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
   const serieFat = seriesTendencia(fs, periodo, divisao).faturamento?.slice(-7) ?? [];
 
   // KPIs com drill-down
-  const kpis: VisaoKpi[] = [
+  const kpis: OverviewKpi[] = [
     {
       label: "Faturamento",
       valor: brlK(atual.faturamento),
-      sub: metaTotal > 0 ? `Meta: ${brlK(metaTotal)}` : undefined,
+      sub: metaTotal > 0 ? `Goal: ${brlK(metaTotal)}` : undefined,
       delta: temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
       serie: serieFat,
     },
@@ -2441,9 +2591,9 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
   ];
 
   // Gauges: Meta / Super Meta / Hiper Meta (degraus da primeira filial com meta)
-  const filialComMeta = fs.find((f) => Boolean(metaDaFilial(f.id, competencia)));
-  const degraus = filialComMeta ? metaDaFilial(filialComMeta.id, competencia)?.degraus ?? [] : [];
-  const gauges: GaugeMeta[] = degraus.slice(0, 3).map((d: { nome: string; atingimentoMinPct: number }) => ({
+  const filialComMeta = fs.find((f) => Boolean(goalOfStore(f.id, competencia)));
+  const degraus = filialComMeta ? goalOfStore(filialComMeta.id, competencia)?.degraus ?? [] : [];
+  const gauges: GoalGauge[] = degraus.slice(0, 3).map((d: { nome: string; atingimentoMinPct: number }) => ({
     nome: d.nome,
     pct: Math.min(100, (atual.faturamento / (metaTotal * d.atingimentoMinPct / 100)) * 100),
     alvo: Math.round(metaTotal * d.atingimentoMinPct / 100),
@@ -2454,13 +2604,13 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     gauges.push({ nome: "Meta", pct: Math.min(100, atingMeta), alvo: metaTotal, realizado: atual.faturamento });
   }
 
-  const faltamParaMeta = faltam > 0 ? `Faltam ${brl(faltam)} para atingir a Meta do mês` : metaTotal > 0 ? "Meta atingida" : null;
+  const faltamParaMeta = faltam > 0 ? `Faltam ${brl(faltam)} para atingir a Goal do mês` : metaTotal > 0 ? "Meta atingida" : null;
   const projecaoFechamento = projetado > 0 ? `Projeção: ${brlK(projetado)} · ${projPct.toFixed(0)}% da meta` : null;
 
   // Faturamento por Categoria vs Meta
   const catMap = new Map<number, { faturamento: number }>();
   for (const f of fs) {
-    for (const d of diasVendas(f.id, periodo.inicio, periodo.fim)) {
+    for (const d of salesDays(f.id, periodo.inicio, periodo.fim)) {
       for (const [id, c] of Object.entries(d.porCategoria)) {
         const cat = categorias.find((x) => x.id === Number(id));
         if (!cat || (divisao && cat.divisao !== divisao)) continue;
@@ -2470,7 +2620,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
       }
     }
   }
-  const categoriaVsMeta: CategoriaVsMeta[] = [...catMap.entries()]
+  const categoriaVsMeta: CategoryVsGoal[] = [...catMap.entries()]
     .map(([id, c]) => {
       const cat = categorias.find((x) => x.id === id)!;
       // Meta proporcional por categoria (distribuição uniforme como fallback)
@@ -2480,18 +2630,18 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     .sort((a, b) => b.realizado - a.realizado);
 
   // Faturamento por Dia da Semana vs Meta — oculto em período de 1 dia.
-  const eixoSerie = eixoSerieDoPeriodo(periodo);
-  const rotuloSerie = rotuloEixoSerie(periodo, eixoSerie);
+  const eixoSerie = seriesAxisForPeriod(periodo);
+  const rotuloSerie = seriesAxisLabel(periodo, eixoSerie);
   const diasSemanaNomes = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
   const dowToIdx = (dow: number) => (dow === 0 ? 6 : dow - 1);
-  let diaVsMeta: DiaVsMeta[] = [];
+  let diaVsMeta: DayVsGoal[] = [];
   if (eixoSerie !== "hora") {
     const diaAgg: Record<number, { fat: number; count: number }> = {};
     for (const iso of intervaloDias(periodo.inicio, periodo.fim)) {
       const idx = dowToIdx(deIso(iso).getDay());
       if (!diaAgg[idx]) diaAgg[idx] = { fat: 0, count: 0 };
       for (const f of fs) {
-        const dv = diaVendas(f.id, iso);
+        const dv = salesDay(f.id, iso);
         if (!dv) continue;
         if (divisao) {
           const divAg = dv.porDivisao[divisao];
@@ -2512,24 +2662,24 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
 
   // Evolução Fat vs Meta — eixo hora / dia / mês conforme o período.
   const diasPeriodo = intervaloDias(periodo.inicio, periodo.fim);
-  const evolucao: EvolucaoPonto[] = [];
+  const evolucao: EvolutionPoint[] = [];
   if (eixoSerie === "hora") {
     const abertura = Math.min(...fs.map((f) => f.abertura));
     const fechamento = Math.max(...fs.map((f) => f.fechamento));
     const horas: number[] = [];
     for (let h = abertura; h < fechamento; h++) horas.push(h);
-    const horasVisiveis = periodo.ehHoje ? horas.filter((h) => h <= HORA_ATUAL) : horas;
+    const horasVisiveis = periodo.ehHoje ? horas.filter((h) => h <= CURRENT_HOUR) : horas;
     const metaPorHora = metaTotal > 0 && horas.length > 0 ? metaTotal / horas.length : 0;
     let acumR = 0;
     let acumM = 0;
     for (const h of horasVisiveis) {
       let fatH = 0;
       for (const f of fs) {
-        const a = diaVendas(f.id, periodo.inicio)?.porHora[h];
+        const a = salesDay(f.id, periodo.inicio)?.porHora[h];
         if (!a) continue;
         if (!divisao) fatH += a.faturamento;
         else {
-          const dia = diaVendas(f.id, periodo.inicio)!;
+          const dia = salesDay(f.id, periodo.inicio)!;
           const fr = dia.total.faturamento > 0 ? dia.porDivisao[divisao].faturamento / dia.total.faturamento : 0;
           fatH += Math.round(a.faturamento * fr);
         }
@@ -2557,7 +2707,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     for (const iso of diasPeriodo) {
       let fatDia = 0;
       for (const f of fs) {
-        const dv = diaVendas(f.id, iso);
+        const dv = salesDay(f.id, iso);
         if (!dv) continue;
         if (divisao) fatDia += dv.porDivisao[divisao]?.faturamento ?? 0;
         else fatDia += dv.total.faturamento;
@@ -2576,7 +2726,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
   const totaisForma: Record<string, number> = {};
   for (const f of fs) {
     for (const iso of diasPeriodo) {
-      const dv = diaVendas(f.id, iso);
+      const dv = salesDay(f.id, iso);
       if (!dv) continue;
       for (const [meio, val] of Object.entries(dv.porMeio)) {
         totaisForma[meio] = (totaisForma[meio] ?? 0) + val;
@@ -2590,7 +2740,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     "Cartão de débito": "var(--info)",
     Dinheiro: "var(--warn)",
   };
-  const formasPagamento: FormaPagamentoFat[] = Object.entries(totaisForma)
+  const formasPagamento: PaymentMethodRevenue[] = Object.entries(totaisForma)
     .sort((a, b) => b[1] - a[1])
     .map(([forma, valor]) => ({
       forma,
@@ -2602,9 +2752,9 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
   // Top 5 Vendedoras (com % da meta individual)
   const vendMap = new Map<string, { nome: string; fat: number; vendas: number }>();
   for (const f of fs) {
-    const cols = colaboradoresDaFilial(f.id);
+    const cols = collaboratorsOfStore(f.id);
     for (const iso of diasPeriodo) {
-      const dv = diaVendas(f.id, iso);
+      const dv = salesDay(f.id, iso);
       if (!dv) continue;
       for (const [colId, ag] of Object.entries(dv.porVendedora)) {
         const col = cols.find((c) => c.id === colId);
@@ -2618,19 +2768,19 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
   }
   // Meta individual = meta total da loja / nº de vendedoras ativas
   const competenciaMeta = periodo.inicio.slice(0, 7); // YYYY-MM
-  const metasFs = fs.map((f) => metaDaFilial(f.id, competenciaMeta)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+  const metasFs = fs.map((f) => goalOfStore(f.id, competenciaMeta)).filter((m): m is NonNullable<typeof m> => Boolean(m));
   const metaTotalLoja = metasFs.reduce((s, m) => s + m.valorLoja, 0);
   const numVendedoras = vendMap.size || 1;
-  const metaIndividual = metaTotalLoja / numVendedoras;
+  const individualGoal = metaTotalLoja / numVendedoras;
   const topVendedoras: (TopItem & { sub?: string; ticketMedio?: number; pctMeta?: number })[] = [...vendMap.values()]
     .sort((a, b) => b.fat - a.fat)
     .slice(0, 5)
     .map((v) => ({
       nome: v.nome,
       valor: v.fat,
-      sub: `${v.vendas} vendas · ${metaIndividual > 0 ? Math.round((v.fat / metaIndividual) * 100) : 0}% da meta`,
+      sub: `${v.vendas} vendas · ${individualGoal > 0 ? Math.round((v.fat / individualGoal) * 100) : 0}% da meta`,
       ticketMedio: v.vendas > 0 ? v.fat / v.vendas : 0,
-      pctMeta: metaIndividual > 0 ? Math.min(100, (v.fat / metaIndividual) * 100) : 0,
+      pctMeta: individualGoal > 0 ? Math.min(100, (v.fat / individualGoal) * 100) : 0,
     }));
 
   // Top 5 Produtos (com categoria e trend)
@@ -2638,7 +2788,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
   for (const [catId, c] of catMap.entries()) {
     const cat = categorias.find((x) => x.id === catId);
     if (!cat) continue;
-    const prods = produtosDaCategoria(cat.id, `${periodo.inicio}|${divisao ?? ""}`, c.faturamento, 0, 0);
+    const prods = productsOfCategory(cat.id, `${periodo.inicio}|${divisao ?? ""}`, c.faturamento, 0, 0);
     for (const p of prods) {
       const acc = prodMap.get(p.codProduto) ?? { nome: p.nome, fat: 0, itens: 0, categoriaNome: cat.nome };
       acc.fat += p.receita;
@@ -2649,7 +2799,7 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
   // Calcular trend comparando com período anterior
   const prodMapAnt = new Map<string, number>();
   for (const [catId, c] of catMap.entries()) {
-    const prodsAnt = produtosDaCategoria(catId, `${ant.inicio}|${divisao ?? ""}`, c.faturamento * 0.85, 0, 0);
+    const prodsAnt = productsOfCategory(catId, `${ant.inicio}|${divisao ?? ""}`, c.faturamento * 0.85, 0, 0);
     for (const p of prodsAnt) {
       prodMapAnt.set(p.codProduto, (prodMapAnt.get(p.codProduto) ?? 0) + p.receita);
     }
@@ -2669,10 +2819,10 @@ export function montarVisaoGeralView(escopo: Escopo): VisaoGeralView {
     .sort((a, b) => b.valor - a.valor)
     .slice(0, 5);
 
-  // Ranking de lojas (faturamento + % da meta + trend) — fantasia = mesmo rótulo do SeletorLoja
+  // Ranking de lojas (faturamento + % da meta + trend) — fantasia = mesmo rótulo do StorePicker
   const rankingLojas: (TopItem & { pctMeta?: number; trend?: number })[] = fs.map((f) => {
     const fatPeriodo = agregadoPeriodo(f, periodo.inicio, periodo.fim, divisao).faturamento;
-    const metaFilial = metaDaFilial(f.id, periodo.inicio.slice(0, 7));
+    const metaFilial = goalOfStore(f.id, periodo.inicio.slice(0, 7));
     const pctMeta = metaFilial ? (fatPeriodo / metaFilial.valorLoja) * 100 : null;
     // Trend real: faturamento do período vs período anterior
     const fatAnterior = agregadoPeriodo(f, ant.inicio, ant.fim, divisao).faturamento;
