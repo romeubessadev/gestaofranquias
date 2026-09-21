@@ -259,11 +259,13 @@ T11 -> T12 -> T13 -> T14
 
 **Done when**:
 
-- [ ] Role gate + rate limit + inserts QUEUED sync_job
+- [x] Role gate + rate limit + inserts QUEUED sync_job
 
 **Tests**: none  
 **Gate**: build  
 **Commit**: `feat(sync): enqueue sync jobs via Edge Function`
+
+**Status**: ✅ Complete
 
 ---
 
