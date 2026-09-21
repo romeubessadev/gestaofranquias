@@ -210,14 +210,16 @@ T11 -> T12 -> T13 -> T14
 
 **Done when**:
 
-- [ ] Sequential stores; finally logout always
-- [ ] busy → failed; password → INVALID
-- [ ] Unit tests for lock + logout finally with mocks
-- [ ] Full gate green for worker tests
+- [x] Sequential stores; finally logout always
+- [x] busy → failed; password → INVALID
+- [x] Unit tests for lock + logout finally with mocks
+- [x] Full gate green for worker tests
 
 **Tests**: unit  
 **Gate**: full  
 **Commit**: `feat(sync): run backfill and light sync with session lock`
+
+**Status**: ✅ Complete
 
 ---
 
