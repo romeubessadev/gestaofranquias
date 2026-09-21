@@ -111,12 +111,14 @@ T11 -> T12 -> T13 -> T14
 
 **Done when**:
 
-- [ ] Includes COD_OPERACAO, DATA_H, VALOR_FINAL, QUANTIDADE, FILIAL
-- [ ] Short note on redaction in adjacent README snippet or JSON comment header
+- [x] Includes COD_OPERACAO, DATA_H, VALOR_FINAL, QUANTIDADE, FILIAL
+- [x] Short note on redaction in adjacent README snippet or JSON comment header
 
 **Tests**: none  
 **Gate**: build  
 **Commit**: `chore(sync): add VENDAS.Lista fixture`
+
+**Status**: ✅ Complete
 
 ---
 

@@ -1,0 +1,74 @@
+{
+  "_meta": {
+    "source": "VENDAS.Lista (anonymized sample for unit tests)",
+    "redaction": "Real COD_OPERACAO, VENDEDOR, and CONDICAO values replaced with placeholders. Amounts and timestamps keep realistic shapes for DATA_H TZ bucketing tests.",
+    "note": "Aggregate by DATA_H in store timezone — never by DATA."
+  },
+  "value": [
+    {
+      "COD_OPERACAO": "OP-1001",
+      "DATA_H": "2026-09-18T15:30:00.000Z",
+      "DATA": "2026-09-18T03:00:00.000Z",
+      "VALOR_FINAL": 189.9,
+      "QUANTIDADE": 2,
+      "FILIAL": 1,
+      "VENDEDOR_MILLENNIUM": "VENDEDORA A",
+      "USUARIO": "loja01",
+      "CONDICAO": "PIX",
+      "EVENTO": null,
+      "CANCELADA": false
+    },
+    {
+      "COD_OPERACAO": "OP-1001",
+      "DATA_H": "2026-09-18T15:30:00.000Z",
+      "DATA": "2026-09-18T03:00:00.000Z",
+      "VALOR_FINAL": 89.9,
+      "QUANTIDADE": 1,
+      "FILIAL": 1,
+      "VENDEDOR_MILLENNIUM": "VENDEDORA A",
+      "USUARIO": "loja01",
+      "CONDICAO": "PIX",
+      "EVENTO": null,
+      "CANCELADA": false
+    },
+    {
+      "COD_OPERACAO": "OP-1002",
+      "DATA_H": "2026-09-18T18:05:00.000Z",
+      "DATA": "2026-09-18T03:00:00.000Z",
+      "VALOR_FINAL": 249.0,
+      "QUANTIDADE": 3,
+      "FILIAL": 1,
+      "VENDEDOR_MILLENNIUM": "VENDEDORA B",
+      "USUARIO": "loja01",
+      "CONDICAO": "CREDITO",
+      "EVENTO": null,
+      "CANCELADA": false
+    },
+    {
+      "COD_OPERACAO": "OP-2001",
+      "DATA_H": "2026-09-19T03:30:00.000Z",
+      "DATA": "2026-09-19T03:00:00.000Z",
+      "VALOR_FINAL": 59.9,
+      "QUANTIDADE": 1,
+      "FILIAL": 1,
+      "VENDEDOR_MILLENNIUM": "VENDEDORA A",
+      "USUARIO": "loja01",
+      "CONDICAO": "DINHEIRO",
+      "EVENTO": null,
+      "CANCELADA": false
+    },
+    {
+      "COD_OPERACAO": "OP-2002",
+      "DATA_H": "2026-09-19T14:00:00.000Z",
+      "DATA": "2026-09-19T03:00:00.000Z",
+      "VALOR_FINAL": 120.0,
+      "QUANTIDADE": 2,
+      "FILIAL": 2,
+      "VENDEDOR_MILLENNIUM": "VENDEDORA C",
+      "USUARIO": "loja02",
+      "CONDICAO": "DEBITO",
+      "EVENTO": null,
+      "CANCELADA": false
+    }
+  ]
+}
