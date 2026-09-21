@@ -24,8 +24,8 @@
 ## Handoff
 
 - **Feature:** `erp-sync-overview`
-- **Phase:** Execute — Batch A complete (T1–T4 ✅); next Batch B T5
-- **Artifacts:** context.md, spec.md, design.md, tasks.md
-- **Next:** T5 Millennium VENDAS client (worker)
-- **Commits:** b53abbf T1 · 5a47d8e T2 · b8a1b77 T3 · (T4 pending)
-- **Note:** T1 commit also included prior staged renames; later commits are surgical. Migration not applied remotely yet.
+- **Phase:** Execute complete (T1�T14 ?) � Verifier pending
+- **Artifacts:** context, spec, design, tasks (all done)
+- **Next:** Independent Verifier ? validation.md; apply migration + deploy Edge/worker BR (needs explicit go-ahead)
+- **Latest commit:** 872ee4d feat(overview): load aggregates with watermark and force refresh
+- **Blockers:** Remote DB migration / Edge deploy / BR worker not applied yet
