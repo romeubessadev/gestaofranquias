@@ -159,15 +159,17 @@ T11 -> T12 -> T13 -> T14
 
 **Done when**:
 
-- [ ] Buckets by local DATA_H date (not DATA)
-- [ ] sales_count = distinct COD_OPERACAO
-- [ ] Hours only for current local day
-- [ ] `salesAggregate.test.ts` covers multi-day, TZ midnight trap, zero rows, duplicate ops (≥4 tests)
-- [ ] Quick gate green
+- [x] Buckets by local DATA_H date (not DATA)
+- [x] sales_count = distinct COD_OPERACAO
+- [x] Hours only for current local day
+- [x] `salesAggregate.test.ts` covers multi-day, TZ midnight trap, zero rows, duplicate ops (≥4 tests)
+- [x] Quick gate green
 
 **Tests**: unit  
 **Gate**: quick  
 **Commit**: `feat(sync): aggregate VENDAS rows into day/hour buckets`
+
+**Status**: ✅ Complete
 
 ---
 
