@@ -61,7 +61,7 @@ async function main() {
   loadDotEnv();
   acquireWorkerLock();
 
-  const pollMs = Number(process.env.POLL_INTERVAL_MS ?? "45000") || 45_000;
+  const pollMs = Number(process.env.POLL_INTERVAL_MS ?? "5000") || 5_000;
   const erpSecret = process.env.ERP_SECRET_KEY?.trim();
   if (!erpSecret) throw new Error("Missing ERP_SECRET_KEY");
   if (!process.env.SUPABASE_URL) throw new Error("Missing SUPABASE_URL");
@@ -123,12 +123,16 @@ async function main() {
         if (!worked && n === 0) {
           const now = Date.now();
           if (now - lastIdleLog > 5 * 60_000) {
-            console.log("Aguardando… (sem job com presença WeDash)");
+            console.log("Aguardando… (sem job na fila)");
             lastIdleLog = now;
           }
         } else {
           lastIdleLog = 0;
         }
+        if (stopping) break;
+        // Acabou de trabalhar → recheca rápido (FORCE não espera o poll cheio).
+        await sleep(worked || n > 0 ? Math.min(1_000, pollMs) : pollMs);
+        continue;
       }
     } catch (e) {
       console.error("Erro no ciclo:", e instanceof Error ? e.message : e);

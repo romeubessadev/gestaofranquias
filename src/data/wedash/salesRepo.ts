@@ -216,16 +216,23 @@ export type SyncJobWaitResult =
 /**
  * Espera o sync_job chegar em SUCCEEDED/FAILED (poll).
  * FORCE pode demorar (Lista + DetMov); default 12 min.
+ * `onStatus` recebe QUEUED/RUNNING a cada poll (UI: Na fila… / Atualizando…).
  */
 export async function waitForSyncJob(
   jobId: string,
-  opts?: { timeoutMs?: number; pollMs?: number; signal?: AbortSignal },
+  opts?: {
+    timeoutMs?: number;
+    pollMs?: number;
+    signal?: AbortSignal;
+    onStatus?: (status: string) => void;
+  },
 ): Promise<SyncJobWaitResult> {
   const sb = getSupabase();
   if (!sb) return { status: "FAILED", error: "supabase_unavailable" };
   const timeoutMs = opts?.timeoutMs ?? 12 * 60 * 1000;
-  const pollMs = opts?.pollMs ?? 2_000;
+  const pollMs = opts?.pollMs ?? 1_000;
   const started = Date.now();
+  let lastReported: string | null = null;
 
   while (Date.now() - started < timeoutMs) {
     if (opts?.signal?.aborted) return { status: "CANCELLED" };
@@ -239,6 +246,10 @@ export async function waitForSyncJob(
     } else if (data) {
       const row = data as { status?: string; error?: string | null };
       const st = String(row.status ?? "");
+      if (st && st !== lastReported) {
+        lastReported = st;
+        opts?.onStatus?.(st);
+      }
       if (st === "SUCCEEDED") return { status: "SUCCEEDED" };
       if (st === "FAILED" || st === "CANCELLED") {
         return { status: "FAILED", error: row.error ?? null };
