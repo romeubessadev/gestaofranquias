@@ -311,8 +311,8 @@ export default function OverviewPage() {
         subtitle="Indicadores, metas e desempenho da operação."
         actions={
           <>
-            <span className={`flex items-center gap-1.5 text-[12px] ${refreshing ? "text-acc" : minutosAtras != null && minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
-              <span className={`inline-block h-2 w-2 rounded-full ${refreshing ? "bg-acc animate-pulse" : minutosAtras != null && minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
+            <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras != null && minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
+              <span className={`inline-block h-2 w-2 rounded-full ${minutosAtras != null && minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
               {refreshing ? "Atualizando…" : rotuloAtualizacao}
             </span>
             {forceError && <span className="text-[12px] text-bad">{forceError}</span>}
@@ -328,7 +328,7 @@ export default function OverviewPage() {
                     ? `Próxima atualização em ${formatForceCooldownLabel(forceCooldownSec)} · protege o ERP (1× / 5 min)`
                     : "Refaz o período filtrado (buracos) e sempre inclui hoje · máx. 90 dias · 1× / 5 min"
               }
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
+              icon={refreshing ? undefined : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
             >
               {refreshing
                 ? "Atualizando…"
