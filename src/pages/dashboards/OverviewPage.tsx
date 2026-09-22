@@ -93,8 +93,6 @@ export default function OverviewPage() {
   const [watermark, setWatermark] = useState<Date | null>(null);
   const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  /** queued = job na fila (worker ainda não pegou); running = Millennium; null = idle */
-  const [forcePhase, setForcePhase] = useState<"queued" | "running" | null>(null);
   const [forceError, setForceError] = useState<string | null>(null);
   const [forceAtMap, setForceAtMap] = useState<ForceAtMap>(() =>
     readForceAtMap(session.tenantId),
@@ -249,7 +247,6 @@ export default function OverviewPage() {
   const forcarAtualizacao = useCallback(async () => {
     if (!canForce || refreshing || forceCooldownSec != null) return;
     setRefreshing(true);
-    setForcePhase("queued");
     setForceError(null);
     const enqueuedAt = new Date();
     const storeIds = escopo.filialIds;
@@ -274,19 +271,13 @@ export default function OverviewPage() {
         setForceError("Não foi possível enfileirar a atualização");
         console.warn("requestForceRefresh:", result.error);
       }
-      setForcePhase(null);
       setRefreshing(false);
       return;
     }
 
     // Não grava cooldown no enqueue — só quando o job termina (Aguarde 5:00 cheios).
     const wait = result.jobId
-      ? await waitForSyncJob(result.jobId, {
-          onStatus: (st) => {
-            if (st === "RUNNING") setForcePhase("running");
-            else if (st === "QUEUED") setForcePhase("queued");
-          },
-        })
+      ? await waitForSyncJob(result.jobId)
       : await waitForLatestForceJob(session.tenantId, {
           sinceIso: enqueuedAt.toISOString(),
         });
@@ -297,7 +288,6 @@ export default function OverviewPage() {
     } else if (wait.status === "TIMEOUT") {
       setForceError("Atualização ainda em andamento — os dados podem chegar em instantes");
     } else if (wait.status === "CANCELLED") {
-      setForcePhase(null);
       setRefreshing(false);
       return;
     } else if (wait.status === "SUCCEEDED") {
@@ -308,7 +298,6 @@ export default function OverviewPage() {
     try {
       await reloadAggs();
     } finally {
-      setForcePhase(null);
       setRefreshing(false);
     }
   }, [canForce, refreshing, forceCooldownSec, reloadAggs, escopo.periodo, escopo.filialIds, session.tenantId]);
@@ -339,9 +328,7 @@ export default function OverviewPage() {
               disabled={refreshing || loading || forceCooldownSec != null}
               title={
                 refreshing
-                  ? forcePhase === "queued"
-                    ? "Na fila do worker…"
-                    : "Buscando dados no ERP…"
+                  ? "Buscando dados no ERP…"
                   : forceCooldownSec != null
                     ? `Próxima atualização em ${formatForceCooldownLabel(forceCooldownSec)} · protege o ERP (1× / 5 min)`
                     : escopo.filialIds.length === 1
@@ -351,9 +338,7 @@ export default function OverviewPage() {
               icon={refreshing ? undefined : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
             >
               {refreshing
-                ? forcePhase === "queued"
-                  ? "Na fila…"
-                  : "Atualizando…"
+                ? "Atualizando…"
                 : forceCooldownSec != null
                   ? `Aguarde ${formatForceCooldownLabel(forceCooldownSec)}`
                   : "Atualizar"}
