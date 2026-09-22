@@ -131,10 +131,10 @@ T13 → T14
 
 **Done when**:
 
-- [ ] `signOut` does not call Millennium pause/release
-- [ ] No `touchErpPresence` interval on mount
-- [ ] Comments updated to match AD-021
-- [ ] Gate: `npm run build` passes
+- [x] `signOut` does not call Millennium pause/release
+- [x] No `touchErpPresence` interval on mount
+- [x] Comments updated to match AD-021
+- [x] Gate: `npm run build` passes
 
 **Tests**: none  
 **Gate**: build  
