@@ -1,8 +1,15 @@
-# Projeto Gestão — Rede de Franquias (Wepink / Wpink)
+# WeDash — Rede de Franquias (Wepink / Wpink)
 
 ## Identidade do produto
 Sistema de gestão analítica para rede de franquias de cosméticos (marcas **Wepink** e **Wpink**).
 Público-alvo principal: **gestor sênior / franqueado / dono da rede**, que precisa de dados para **tomada de decisão**, não apenas visualização.
+
+### URL do tenant (DECIDIDO — 2026-09-21)
+- Formato: **`wedash.app/{slug}`** (path), **não** subdomínio `slug.wedash.app`.
+- Slug **gerado automaticamente** a partir do nome da empresa no onboarding (sem campo manual). Em colisão: `nome`, `nome-2`, `nome-3`…
+- Sem “criar endereço próprio” / DNS wildcard no MVP.
+- Paths do produto (`login`, `dashboard`, …) ficam em lista de slugs reservados.
+- Edição manual do slug (se houver) fica em Configurações > Marca (fase futura).
 
 ## Tema visual
 - Seguir **estritamente** o tema **Vela** (paleta, componentes, tokens).
@@ -127,10 +134,9 @@ Sem esses 4 elementos, o número é "dado jogado na tela" — não serve para de
 - `Sidebar` + `SidebarContent` — menu lateral colapsável (76px / 258px)
 - `MobileDrawer` — sidebar mobile
 
-### Específicos de gestão já existentes (`src/components/gestao/`)
-- `Marca` — componente de marca (Wepink/Wpink?) — verificar
-- `Avisos` — painel de avisos
-- `ChatIA` — chat com IA
+### Específicos de produto (`src/components/wedash/`)
+- `TenantBrand` — marca do tenant (logo / iniciais)
+- `AiChat` — chat com IA
 
 ### Stack
 - React 19 + Vite 8 + Tailwind 4 + react-router-dom 7
@@ -240,13 +246,13 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
 ## Estado atual dos filtros (mapeado no código)
 
 ### Já existe e funciona:
-- **`useEscopo()`** (`src/pages/dashboard/useEscopo.ts`) — hook que centraliza o escopo (filial, período, divisão/marca) e **persiste na URL** via `useSearchParams`. Perfeito: estado compartilhável, bookmarkable, sobrevive a reload.
-  - `filialId`: "todas" ou id específico (single-select hoje)
-  - `periodo`: presets `hoje | ontem | 7dias | esteMes | mesPassado | personalizado` (com `inicio`/`fim` quando personalizado)
-  - `divisao`: `WEPINK | WPINK | null` (a "marca" que o usuário mencionou)
-- **`SeletorLoja`** (`src/pages/dashboard/SeletorLoja.tsx`) — `<Select>` nativo simples, single-select ("Todas as lojas" + lista). Mora no **Topbar**, substitui o "Buscar telas" quando está no Dashboard/Equipe.
-- **`Topbar`** (`src/layout/Topbar.tsx`) — já tem a lógica: se `noDashboard` (pathname === dashboard ou equipe) E tem >1 filial → mostra `SeletorLoja`; senão mostra botão de busca (Ctrl+K).
-- **`nav-gestao.ts`** — navegação atual do GESTOR é só: `Dashboard` (com activePaths incluindo equipe) + `Configurações` (Metas, Desafios, Colaboradores, Turnos, Mensagens, Documentos, Custos, Marca, ERP, Usuários). **Ainda não reflete a nova arquitetura decidida** (Dashboard com 4 submenus + módulos operacionais separados).
+- **`useScope()`** (`src/pages/dashboard/useScope.ts`) — hook que centraliza o escopo (loja, período, divisão/marca) e **persiste na URL** via `useSearchParams`. Estado compartilhável, bookmarkable, sobrevive a reload. Storage key: `wedash.store`.
+ - `filialIds`: `[]` = rede; `[id]` = uma loja
+ - `periodo`: presets `hoje | ontem | 7dias | esteMes | mesPassado | personalizado`
+ - `divisao`: `WEPINK | WPINK | null`
+- **`StorePicker`** (`src/pages/dashboard/StorePicker.tsx`) — single-select com avatars no Topbar.
+- **`Topbar`** — em rotas de dashboard/equipe/ao vivo com >1 loja → `StorePicker`; senão busca (Ctrl+K).
+- **`nav-wedash.ts`** — navegação por role (`OWNER` / `MANAGER` / `SELLER` / `ADMIN_GLOBAL`).
 
 ### Gaps reais nos filtros (confirmados no código):
 1. **Filial é single-select** (`filialId: string`). O usuário pediu **multi-select** (1 ou N lojas). Precisa virar `filialIds: string[]` no `Escopo` + UI de chips/multi-dropdown. Impacta `useEscopo`, `SeletorLoja`, serialização URL.
@@ -260,7 +266,7 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
 
 1. ✅ **DateRangePicker** — CRIAR componente Vela (`src/components/ui/DateRangePicker.tsx`) com presets + calendário range custom.
 2. ✅ **Segmented (WEPINK/WPINK)** — CRIAR componente `Segmented` reutilizável (extrair pattern do AnalyticsDashboard).
-3. ✅ **SeletorLoja → single-select com avatars** (REVERTIDO de multi-select, 2026-09-16) — padrão Vela "Select with avatars": loja = Avatar + fantasia + CNPJ; "Todas as lojas" sem avatar. Escopo continua `filialIds: [] | [id]` (vazio = rede). Comparar N lojas no filtro deixou de ser requisito.
+3. ✅ **StorePicker → single-select com avatars** (REVERTIDO de multi-select, 2026-09-16) — padrão Vela "Select with avatars": loja = Avatar + fantasia + CNPJ; "Todas as lojas" sem avatar. Escopo continua `filialIds: [] | [id]` (vazio = rede). Comparar N lojas no filtro deixou de ser requisito.
 4. ✅ **WaterfallChart (DRE)** — CRIAR chart em cascata (`src/components/charts/WaterfallChart.tsx`).
 5. ✅ **CommissionLadder (escada de faixas)** — CRIAR componente dedicado (`src/components/charts/CommissionLadder.tsx`). É o core da tela Equipe.
 6. ✅ **Granularidade temporal — REGRA CORRIGIDA**: NÃO é a marca que define o eixo. **É o PERÍODO**:
@@ -279,6 +285,16 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
 13. ✅ **Progresso da Meta = Σ vendedoras** (2026-09-18) — `metaGlobal.realizado` vem da soma do ranking (não do agregado bruto da loja com caixa). Demo de ritmo só redistribui o bolo real (sem inventar R$). Nível/degrau na UI = MTD (o que já garantiu); projeção alimenta só premiação projetada. Escada padrão tipicamente Meta 50% → Super 75% → **Hiper 100% (= meta da loja)** → Desafio 110% (configurável na tela de Metas). Mock set/26: Shopping CG (f1) no Hiper (N3 ≈100%); vendedoras espalhadas N1–N4.
 10. ✅ **Dashboard > Grupos pausado** (2026-09-17) — fora do menu e das abas; `/dashboard/grupos` redireciona para Visão Geral. Código (`GruposPage.tsx`, `montarGruposView`) permanece para retomar depois. Foco passa às telas fora do Dashboard.
 11. ✅ **Metas fora do Dashboard** (2026-09-17) — item de menu abaixo do Dashboard (`/metas`). Saiu de Configurações; URL legada `/configuracoes/metas` redireciona. Esqueleto em `src/pages/metas/MetasPage.tsx` (listagem fixture; CRUD amanhã).
+12. ✅ **Onboarding sem Equipe** (2026-09-19) — wizard = Empresa → ERP → Lojas → Dashboard. Sync de funcionários sai do onboarding (precisa explicar cadastro no Millennium); Edge `millennium-onboarding` só login/filiais/logout (sem FUNCIONARIOS.Lista).
+13. ✅ **Sessão ERP ligada ao usuário WeDash (persistente)** (2026-09-21) — No onboarding vinculamos credencial Millennium ao tenant. O token fica em `erp_credential.millennium_session` e **renova enquanto a integração estiver ativa**. Worker **reusa** o token (só faz login se não houver / 401); **não** desloga ao fim de cada job nem no Ctrl+C. Logout explícito só em **Configurações > Integração ERP** (`Desconectar` = pause + release) ou `npm run erp -- pause`. Ideal: usuário ERP dedicado à WeDash.
+14. ✅ **VENDAS.Lista em paralelo por loja** (2026-09-21; **default sequencial 2026-09-22**) — 1 login / 1 `WTS-Session`. SEED/HISTORY/FORCE usam Lista **com FILIAL**, mês a mês, `STORE_CONCURRENCY` default **1**. Se o ERP aguentar, subir concurrency.
+15. ✅ **Onboarding: token sobrevive até o SEED** (2026-09-21/22) — Step2 testa, **persiste** usuário/senha/token (sem SEED); Step3 confirma lojas e enfileira SEED **sem** logout. Logout só ao **Voltar** / Desconectar. Troca de username ERP **apaga** dados de sync do tenant.
+16. ✅ **Botão Atualizar (FORCE)** (2026-09-21) — **não** é só “hoje”. Refaz o **período filtrado** (preenche buracos dia a dia) e **sempre inclui hoje**; teto 90 dias; rate limit 1× / 5 min. Sync automático periódico = `LIGHT` (só hoje).
+17. ✅ **Sync NÃO depende de presença WeDash** (corrigido 2026-09-22) — Claim/LIGHT **ignoram** `wedash_present_at`. Sair da WeDash **não** pausa o Millennium. Desconectar ERP = só em Integração ERP. Contrato de jobs:
+    - **SEED** — mês anterior 01 → hoje; Lista **com** filial; lojas sequenciais; tela `/sincronizando` até cobertura.
+    - **LIGHT** — hoje; **1×** Lista **sem** filial; particiona por `FILIAL` da linha.
+    - **HISTORY** — mês a mês atrás (teto 24m / opened_at); com filial; sequencial.
+    - **FORCE** — período filtrado + hoje; com filial (exceto o pedaço “hoje” que pode reusar LIGHT).
 
 ---
 
@@ -293,9 +309,9 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
 ## Próximo passo concreto (aguardando seu OK nas decisões acima)
 
 Fase atual = **refinamento de componentes, zero implementação de feature**. Quando você validar as 7 decisões, o plano de execução será:
-1. Reestruturar `nav-gestao.ts` + `router/paths` para a nova arquitetura (Dashboard/{visao-geral,financeiro,equipe,produtos} + módulos operacionais).
+1. Manter `nav-wedash.ts` + `router/paths` alinhados à arquitetura (Dashboard/{overview,finance,team,products} + módulos operacionais).
 2. Criar os 3 componentes novos do Vela: `DateRangePicker`, `Segmented`, `CommissionLadder` (+ opcional `WaterfallChart`).
-3. Evoluir `SeletorLoja` para multi-select (se decidido) + criar `FiltroPeriodo` e `SeletorMarca` para usar dentro das subtelas.
+3. Filtros internos: `DateRangePicker` + `Segmented` (marca) nas subtelas.
 4. Definir o contrato de dados (tipos) de cada subtela com a regra de granularidade por marca.
 5. Só então montar as 4 subtelas compostas dos widgets mapeados acima.
 
@@ -1034,7 +1050,7 @@ Regra geral: **KPIs em 4 colunas no desktop**, widget central em largura total, 
 - **Comportamento:** selecionar **1 loja** ou **"Todas as lojas"** (single-select). Trigger: Avatar + fantasia + CNPJ; "Todas" sem avatar (ícone de loja + "Rede consolidada").
 - **Componente:** `SeletorLoja` compõe `Avatar` + dropdown (padrão da SelectComponentsPage).
 - **Escopo:** global via `useEscopo` (`filialIds: []` = todas; `[id]` = uma loja).
-- **Dados:** lista de lojas vem de fixture/mock (`src/data/gestao/filiais.ts`).
+- **Dados:** lista de lojas vem de fixture/mock (`src/data/wedash/stores.ts`).
 
 ### 4. Ordem sugerida de construção (quando começar)
 1. Componentes base que faltam: `DateRangePicker` (extrair), `Segmented` (criar), `CommissionLadder` (compor) + prop `showValues` nos charts.
