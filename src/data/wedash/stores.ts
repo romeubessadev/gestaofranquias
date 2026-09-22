@@ -1,9 +1,9 @@
-export type TipoPonto = "SHOPPING" | "RUA";
-export type Divisao = "WEPINK" | "WPINK";
+export type PointType = "SHOPPING" | "RUA";
+export type Division = "WEPINK" | "WPINK";
 
-export interface Filial {
+export interface Store {
   id: string;
-  milleniumFilial: number;
+  millenniumFilial: number;
   codFilial: string;
   nome: string;
   fantasia: string;
@@ -11,7 +11,7 @@ export interface Filial {
   cidade: string;
   uf: string;
   tipo: "M" | "F";
-  tipoPonto: TipoPonto;
+  pointType: PointType;
   temWpink: boolean;
   fuso: string;
   /** Hora de abertura e fechamento (hora cheia). */
@@ -22,10 +22,10 @@ export interface Filial {
   dataInauguracao: string;
 }
 
-export const filiais: Filial[] = [
+export const stores: Store[] = [
   {
     id: "f1",
-    milleniumFilial: 8,
+    millenniumFilial: 8,
     codFilial: "00008",
     nome: "ESSENCIA PERFUMARIA CG SHOPPING",
     fantasia: "Shopping Campo Grande",
@@ -33,7 +33,7 @@ export const filiais: Filial[] = [
     cidade: "Campo Grande",
     uf: "MS",
     tipo: "M",
-    tipoPonto: "SHOPPING",
+    pointType: "SHOPPING",
     temWpink: false,
     fuso: "America/Campo_Grande",
     abertura: 10,
@@ -43,7 +43,7 @@ export const filiais: Filial[] = [
   },
   {
     id: "f2",
-    milleniumFilial: 10,
+    millenniumFilial: 10,
     codFilial: "00010",
     nome: "ESSENCIA PERFUMARIA TRES LAGOAS",
     fantasia: "Shopping Três Lagoas",
@@ -51,7 +51,7 @@ export const filiais: Filial[] = [
     cidade: "Três Lagoas",
     uf: "MS",
     tipo: "F",
-    tipoPonto: "RUA",
+    pointType: "RUA",
     temWpink: true,
     fuso: "America/Campo_Grande",
     abertura: 8,
@@ -61,10 +61,176 @@ export const filiais: Filial[] = [
   },
 ];
 
-export function filialPorId(id: string): Filial {
-  const f = filiais.find((x) => x.id === id);
+export function storeById(id: string): Store {
+  const f = allStores().find((x) => x.id === id) ?? stores.find((x) => x.id === id);
   if (!f) throw new Error(`Filial não encontrada: ${id}`);
   return f;
+}
+
+/** Casa lojas do Millennium com o catálogo local (millenniumFilial → id). */
+export function storeIdsFromErp(
+  lista: {
+    storeId: number;
+    tradeName?: string;
+    taxId?: string;
+    code?: string;
+    name?: string;
+    type?: "M" | "F";
+    hasWpink?: boolean;
+    openedAt?: string;
+    city?: string;
+    state?: string;
+  }[],
+): string[] {
+  const ids: string[] = [];
+  for (const e of lista) {
+    const hit = stores.find((f) => f.millenniumFilial === e.storeId);
+    if (hit) {
+      if (!ids.includes(hit.id)) ids.push(hit.id);
+      continue;
+    }
+    const id = `erp-${e.storeId}`;
+    if (!ids.includes(id)) ids.push(id);
+    registerExtraStore({
+      id,
+      millenniumFilial: e.storeId,
+      codFilial: e.code ?? String(e.storeId).padStart(5, "0"),
+      nome: e.name ?? e.tradeName ?? id,
+      fantasia: e.tradeName ?? e.name ?? id,
+      cnpj: e.taxId ?? "",
+      cidade: e.city ?? "",
+      uf: e.state ?? "",
+      tipo: e.type ?? "F",
+      pointType: "RUA",
+      temWpink: Boolean(e.hasWpink),
+      fuso: "America/Sao_Paulo",
+      abertura: 9,
+      fechamento: 21,
+      diasFechados: [0],
+      dataInauguracao: e.openedAt ?? "2024-01-01",
+    });
+  }
+  return ids;
+}
+
+const CHAVE_EXTRAS = "wedash-filiais-extra";
+
+function lerExtras(): Store[] {
+  try {
+    const raw = window.localStorage.getItem(CHAVE_EXTRAS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Store[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function registerExtraStore(f: Store) {
+  try {
+    const atuais = lerExtras().filter((x) => x.id !== f.id);
+    window.localStorage.setItem(CHAVE_EXTRAS, JSON.stringify([...atuais, f]));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Catálogo completo: fixtures + extras vindas do ERP (localStorage). */
+export function allStores(): Store[] {
+  const map = new Map(stores.map((f) => [f.id, f]));
+  for (const e of lerExtras()) map.set(e.id, e);
+  return [...map.values()];
+}
+
+/**
+ * Lojas do produto para filtros/ranking.
+ * Se já hidratou ERP (UUIDs), ignora fixtures mock — senão "Todas" misturava f1/f2.
+ */
+export function productStores(): Store[] {
+  const extras = lerExtras();
+  return extras.length > 0 ? extras : stores;
+}
+
+/** Lojas da sessão: só ids que o membership enxerga (UUIDs reais pós-ERP). */
+export function storesForSession(sessionStoreIds: string[]): Store[] {
+  if (sessionStoreIds.length === 0) return [];
+  const catalog = allStores();
+  const hit = catalog.filter((f) => sessionStoreIds.includes(f.id));
+  if (hit.length > 0) return hit;
+  // Demo: sessão ainda aponta para fixtures f1/f2.
+  return stores.filter((f) => sessionStoreIds.includes(f.id));
+}
+
+function rowToStore(r: {
+  id: string;
+  millennium_store_id: number;
+  code: string | null;
+  name: string | null;
+  trade_name: string | null;
+  timezone: string | null;
+  opened_at?: string | null;
+}): Store {
+  return {
+    id: r.id,
+    millenniumFilial: r.millennium_store_id,
+    codFilial: r.code || String(r.millennium_store_id).padStart(5, "0"),
+    nome: r.name || r.trade_name || r.code || r.id,
+    fantasia: r.trade_name || r.name || r.code || r.id,
+    cnpj: "",
+    cidade: "",
+    uf: "",
+    tipo: "F",
+    pointType: "RUA",
+    temWpink: false,
+    fuso: r.timezone || "America/Campo_Grande",
+    abertura: 9,
+    fechamento: 21,
+    diasFechados: [0],
+    dataInauguracao: r.opened_at ? String(r.opened_at).slice(0, 10) : "2024-01-01",
+  };
+}
+
+/**
+ * Carrega lojas do Postgres (UUIDs da membership) e registra no catálogo local.
+ * Sem isso o StorePicker cai no mock f1/f2 e o useScope rejeita a seleção.
+ */
+export async function hydrateSessionStores(
+  tenantId: string,
+  sessionStoreIds: string[],
+): Promise<Store[]> {
+  if (sessionStoreIds.length === 0) return [];
+  const already = storesForSession(sessionStoreIds);
+  if (already.length === sessionStoreIds.length) return already;
+
+  try {
+    const { getSupabase } = await import("@/lib/supabase");
+    const sb = getSupabase();
+    if (!sb) return already;
+
+    let q = sb
+      .from("store")
+      .select("id, millennium_store_id, code, name, trade_name, timezone, opened_at")
+      .eq("tenant_id", tenantId)
+      .eq("active", true);
+    if (sessionStoreIds.length > 0) q = q.in("id", sessionStoreIds);
+
+    const { data, error } = await q.order("code");
+    if (error || !data?.length) {
+      if (error) console.warn("hydrateSessionStores:", error.message);
+      return already;
+    }
+
+    const out: Store[] = [];
+    for (const raw of data) {
+      const s = rowToStore(raw as Parameters<typeof rowToStore>[0]);
+      registerExtraStore(s);
+      out.push(s);
+    }
+    return out.length > 0 ? out : already;
+  } catch (e) {
+    console.warn("hydrateSessionStores:", e);
+    return already;
+  }
 }
 
 export interface Grupo {
@@ -112,7 +278,7 @@ export const tarefas: Tarefa[] = [
 export interface Categoria {
   id: number;
   nome: string;
-  divisao: Divisao;
+  divisao: Division;
   /** CMV como fração do preço de venda (custo de fábrica com imposto). */
   cmvPct: number;
 }
@@ -129,16 +295,16 @@ export const categorias: Categoria[] = [
   { id: 8, nome: "Suplementos", divisao: "WPINK", cmvPct: 0.42 },
 ];
 
-export const meiosPagamento = ["Pix", "Cartão de crédito", "Cartão de débito", "Dinheiro"] as const;
-export type MeioPagamento = (typeof meiosPagamento)[number];
+export const paymentMethods = ["Pix", "Cartão de crédito", "Cartão de débito", "Dinheiro"] as const;
+export type PaymentMethod = (typeof paymentMethods)[number];
 
-export interface ConfigFilial {
+export interface StoreConfig {
   filialId: string;
   impostoSobreCustoPct: number;
   margemMinimaPct: number | null;
 }
 
-export const configFiliais: ConfigFilial[] = [
+export const storeConfigs: StoreConfig[] = [
   { filialId: "f1", impostoSobreCustoPct: 4, margemMinimaPct: 55 },
   { filialId: "f2", impostoSobreCustoPct: 4, margemMinimaPct: null },
 ];

@@ -1,12 +1,18 @@
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { padTopo } from "@/lib/areaSegura";
+import { padTopo } from "@/lib/safeArea";
 import { useTheme } from "@/theme/ThemeProvider";
 import { Avatar, Dropdown } from "@/components/ui";
 import { paths } from "@/router/paths";
-import { rotuloPapel, useSessao, useSessaoAtiva } from "@/session/SessionProvider";
-import { filiais } from "@/data/gestao/filiais";
-import { SeletorLoja } from "@/pages/dashboard/SeletorLoja";
-import { useEscopo } from "@/pages/dashboard/useEscopo";
+import { roleLabel, useSession, useActiveSession } from "@/session/SessionProvider";
+import {
+  stores as filiaisFixture,
+  storesForSession,
+  hydrateSessionStores,
+  type Store,
+} from "@/data/wedash/stores";
+import { StorePicker } from "@/pages/dashboard/StorePicker";
+import { useScope } from "@/pages/dashboard/useScope";
 
 const notificacoesGestor = [
   { id: 1, titulo: "Três Lagoas fora do ritmo: projeta 86% da meta", tempo: "há 2 h" },
@@ -21,22 +27,45 @@ const notificacoesVendedora = [
 
 export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { onOpenMobileNav: () => void; onToggleCollapse: () => void; onOpenPalette: () => void }) {
   const { theme, toggleTheme } = useTheme();
-  const sessao = useSessaoAtiva();
-  const { sair } = useSessao();
+  const session = useActiveSession();
+  const { signOut } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
-  const { escopo, mudar } = useEscopo();
-  const notificacoes = sessao.papel === "VENDEDOR" ? notificacoesVendedora : notificacoesGestor;
+  const { escopo, mudar } = useScope();
+  const notificacoes = session.role === "SELLER" ? notificacoesVendedora : notificacoesGestor;
+
+  const [listaLojas, setListaLojas] = useState<Store[]>(() => {
+    const hit = storesForSession(session.stores);
+    return hit.length > 0 ? hit : filiaisFixture;
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const hit = storesForSession(session.stores);
+      if (hit.length === session.stores.length && session.stores.length > 0) {
+        if (!cancelled) setListaLojas(hit);
+        return;
+      }
+      const loaded = await hydrateSessionStores(session.tenantId, session.stores);
+      if (cancelled) return;
+      if (loaded.length > 0) setListaLojas(loaded);
+      else if (hit.length > 0) setListaLojas(hit);
+      // Não cai no mock f1/f2 se a sessão tem UUIDs — isso quebrava o seletor.
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session.tenantId, session.stores]);
 
   // Loja é filtro global: Topbar nas telas do produto (não só Dashboard).
-  const mostraSeletorLoja =
+  const mostraStorePicker =
     location.pathname === paths.dashboard ||
     location.pathname.startsWith(paths.dashboard + "/") ||
-    location.pathname === paths.aoVivo.root ||
-    location.pathname.startsWith(paths.aoVivo.root + "/") ||
-    location.pathname === paths.metas ||
-    location.pathname.startsWith(paths.configuracoes.root);
-  const minhas = filiais.filter((f) => sessao.filiais.includes(f.id));
+    location.pathname === paths.live.root ||
+    location.pathname.startsWith(paths.live.root + "/") ||
+    location.pathname === paths.goals ||
+    location.pathname.startsWith(paths.settings.root);
 
   return (
     <header className="pad-topo sticky top-0 z-30 flex flex-none items-center gap-2.5 border-b border-line bg-bg-1/80 px-3.5 pb-3 backdrop-blur-md sm:gap-3.5 sm:px-6" style={padTopo("0.75rem")}>
@@ -52,9 +81,9 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
         </svg>
       </button>
 
-      {mostraSeletorLoja ? (
+      {mostraStorePicker ? (
         <div className="min-w-0 flex-1 sm:max-w-sm">
-          <SeletorLoja escopo={escopo} onChange={mudar} minhas={minhas} />
+          <StorePicker escopo={escopo} onChange={mudar} minhas={listaLojas} />
         </div>
       ) : (
         <button onClick={onOpenPalette} className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-[11px] border border-line bg-bg-inset px-3 text-t1 sm:max-w-xs">
@@ -99,23 +128,23 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
           align="right"
           trigger={
             <button className="flex items-center gap-2 rounded-[10px] pl-0.5 pr-1 hover:bg-bg-3">
-              <Avatar name={sessao.nome} size="sm" />
+              <Avatar name={session.companyName} size="sm" />
               <span className="hidden text-left leading-tight md:block">
-                <span className="block max-w-[160px] truncate text-[12.5px] font-bold text-t0">{sessao.nome}</span>
-                <span className="block text-[10.5px] text-t2">{rotuloPapel[sessao.papel]}{sessao.proprietario ? " · proprietária" : ""}</span>
+                <span className="block max-w-[160px] truncate text-[12.5px] font-bold text-t0">{session.companyName}</span>
+                <span className="block text-[10.5px] text-t2">{roleLabel[session.role]}{session.isOwner ? " · proprietária" : ""}</span>
               </span>
             </button>
           }
           items={[
-            { label: "Meu perfil", onClick: () => navigate(paths.perfil) },
-            { label: "Instalar o app", onClick: () => navigate(paths.acesso.instalar) },
+            { label: "Meu perfil", onClick: () => navigate(paths.profile) },
+            { label: "Instalar o app", onClick: () => navigate(paths.access.install) },
             { divider: true, label: "" },
             {
               label: "Sair",
               danger: true,
               onClick: () => {
-                sair();
-                navigate(paths.acesso.entrar);
+                signOut();
+                navigate(paths.access.login);
               },
             },
           ]}

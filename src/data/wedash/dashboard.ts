@@ -8,12 +8,12 @@
  * AD-048 — KPIs com subtítulo só do próprio indicador; gráfico compara
  * períodos no mesmo eixo (padrão Finance / Revenue vs expenses).
  */
-import { categorias, stores, tarefas, grupos, type Division, type Store, type Grupo } from "./stores";
+import { categorias, stores, productStores, tarefas, grupos, type Division, type Store, type Grupo } from "./stores";
 import { goalOfStore } from "./goals";
 import { productsOfCategory } from "./products";
-import { NOW, UPDATED_AT, TODAY_ISO, CURRENT_HOUR, SYNC_INTERVAL_MIN, LAST_SYNC } from "./clock";
+import { NOW, UPDATED_AT, TODAY_ISO, CURRENT_HOUR, SYNC_INTERVAL_MIN, LAST_SYNC, calendarTodayIso } from "./clock";
 import { dayAggregate, salesDay, salesDays, storeOpen, dayWeight, sumAggregates, type Aggregate } from "./sales";
-import { brl, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, horaCurta, inicioDoMes, intervaloDias, mesAno, pct, somarDias } from "@/lib/format";
+import { brl, brlCent, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, horaCurta, inicioDoMes, intervaloDias, mesAno, pct, somarDias } from "@/lib/format";
 import type { TintKey } from "@/pages/dashboards/icons";
 import { buildStoreInsight } from "./insight";
 
@@ -121,43 +121,43 @@ export interface StoreSummaryView {
 
 const DIAS_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
-export function resolvePeriod(p: Period): ResolvedPeriod {
-  const hojeD = deIso(TODAY_ISO);
+export function resolvePeriod(p: Period, hojeIso: string = TODAY_ISO): ResolvedPeriod {
+  const hojeD = deIso(hojeIso);
   const mesPassadoRef = new Date(hojeD.getFullYear(), hojeD.getMonth() - 1, 1);
   const mesPassadoIso = `${mesPassadoRef.getFullYear()}-${String(mesPassadoRef.getMonth() + 1).padStart(2, "0")}-01`;
   let inicio: string;
   let fim: string;
   switch (p.tipo) {
     case "hoje":
-      inicio = fim = TODAY_ISO;
+      inicio = fim = hojeIso;
       break;
     case "ontem":
-      inicio = fim = somarDias(TODAY_ISO, -1);
+      inicio = fim = somarDias(hojeIso, -1);
       break;
     case "7dias":
-      inicio = somarDias(TODAY_ISO, -6);
-      fim = TODAY_ISO;
+      inicio = somarDias(hojeIso, -6);
+      fim = hojeIso;
       break;
     case "esteMes":
-      inicio = inicioDoMes(TODAY_ISO);
-      fim = TODAY_ISO;
+      inicio = inicioDoMes(hojeIso);
+      fim = hojeIso;
       break;
     case "mesPassado":
       inicio = mesPassadoIso;
       fim = fimDoMes(mesPassadoIso);
       break;
     case "personalizado":
-      inicio = p.inicio ?? somarDias(TODAY_ISO, -6);
-      fim = p.fim ?? TODAY_ISO;
-      if (fim > TODAY_ISO) fim = TODAY_ISO;
+      inicio = p.inicio ?? somarDias(hojeIso, -6);
+      fim = p.fim ?? hojeIso;
+      if (fim > hojeIso) fim = hojeIso;
       if (inicio > fim) inicio = fim;
       break;
   }
   const dias = intervaloDias(inicio, fim).length;
   const atravessaMeses = inicio.slice(0, 7) !== fim.slice(0, 7);
   const granularidade: Granularity = dias === 1 ? "dia" : p.tipo === "esteMes" || p.tipo === "mesPassado" ? "mes" : "periodo";
-  const ehHoje = inicio === TODAY_ISO && fim === TODAY_ISO;
-  const mesAberto = granularidade === "mes" && !atravessaMeses && inicio.slice(0, 7) === TODAY_ISO.slice(0, 7);
+  const ehHoje = inicio === hojeIso && fim === hojeIso;
+  const mesAberto = granularidade === "mes" && !atravessaMeses && inicio.slice(0, 7) === hojeIso.slice(0, 7);
 
   let rotulo: string;
   if (granularidade === "dia") rotulo = ehHoje ? "Hoje" : dataCurta(inicio);
@@ -350,9 +350,11 @@ export interface StoreView {
 /* ---------- Helpers ---------- */
 
 function storesInScope(escopo: Scope): Store[] {
-  // Array vazio = "Todas as lojas" → consolida a rede inteira.
-  // Um ou mais ids → só aquelas lojas (multi-select).
-  return escopo.filialIds.length === 0 ? stores : stores.filter((f) => escopo.filialIds.includes(f.id));
+  // Array vazio = "Todas as lojas" → consolida a rede (ERP hidratado, sem misturar mock).
+  const catalog = productStores();
+  return escopo.filialIds.length === 0
+    ? catalog
+    : catalog.filter((f) => escopo.filialIds.includes(f.id));
 }
 
 function agregadoPeriodo(f: Store, inicio: string, fim: string, divisao: Division | null, horaMax?: number): Aggregate {
@@ -2379,7 +2381,7 @@ export type OverviewAggInput = {
 
 /** Overview from real sales aggregates — CMV/top produtos stay empty until heavy sync. */
 export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput): OverviewView {
-  const periodo = resolvePeriod(escopo.periodo);
+  const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
   const eixoSerie = seriesAxisForPeriod(periodo);
   const rotuloSerie = seriesAxisLabel(periodo, eixoSerie);
   const brand = escopo.divisao;
@@ -2430,8 +2432,8 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
   const kpis: OverviewKpi[] = [
     {
       label: "Faturamento",
-      valor: brlK(faturamento),
-      sub: metaTotal > 0 ? `Goal: ${brlK(metaTotal)}` : undefined,
+      valor: brlCent(faturamento),
+      sub: metaTotal > 0 ? `Goal: ${brlCent(metaTotal)}` : undefined,
       serie: serieFat,
     },
     {
@@ -2447,7 +2449,7 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
     },
     {
       label: "Ticket médio",
-      valor: brl(ticket),
+      valor: brlCent(ticket),
       sub: atendimentos > 0 ? `P.A. ${divSeguro(itens, atendimentos).toFixed(2)}` : undefined,
     },
   ];
@@ -2503,7 +2505,7 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
     periodo,
     kpis,
     gauges,
-    faltamParaMeta: faltam > 0 ? `Faltam ${brl(faltam)} para atingir a Goal do mês` : metaTotal > 0 ? "Meta atingida" : null,
+    faltamParaMeta: faltam > 0 ? `Faltam ${brlCent(faltam)} para atingir a Goal do mês` : metaTotal > 0 ? "Meta atingida" : null,
     projecaoFechamento: null,
     eixoSerie,
     rotuloSerie,
@@ -2564,14 +2566,14 @@ export function buildOverviewView(escopo: Scope, aggs?: OverviewAggInput | null)
   const kpis: OverviewKpi[] = [
     {
       label: "Faturamento",
-      valor: brlK(atual.faturamento),
-      sub: metaTotal > 0 ? `Goal: ${brlK(metaTotal)}` : undefined,
+      valor: brlCent(atual.faturamento),
+      sub: metaTotal > 0 ? `Goal: ${brlCent(metaTotal)}` : undefined,
       delta: temComp ? kpiDelta(atual.faturamento, anterior.faturamento, vsRotulo) : undefined,
       serie: serieFat,
     },
     {
       label: "CMV",
-      valor: brlK(custoAtual),
+      valor: brlCent(custoAtual),
       sub: `${(divSeguro(custoAtual, atual.faturamento) * 100).toFixed(0)}% do faturamento`,
       delta: temComp ? kpiDelta(custoAtual, custoAnterior, vsRotulo) : undefined,
       tooltip: "Percentual do faturamento consumido pelo custo dos produtos vendidos.",
@@ -2584,7 +2586,7 @@ export function buildOverviewView(escopo: Scope, aggs?: OverviewAggInput | null)
     },
     {
       label: "Ticket médio",
-      valor: brl(ticketAtual),
+      valor: brlCent(ticketAtual),
       sub: `P.A. ${divSeguro(atual.itens, atual.atendimentos).toFixed(2)}`,
       delta: temComp ? kpiDelta(ticketAtual, ticketAnterior, vsRotulo) : undefined,
     },
@@ -2604,8 +2606,8 @@ export function buildOverviewView(escopo: Scope, aggs?: OverviewAggInput | null)
     gauges.push({ nome: "Meta", pct: Math.min(100, atingMeta), alvo: metaTotal, realizado: atual.faturamento });
   }
 
-  const faltamParaMeta = faltam > 0 ? `Faltam ${brl(faltam)} para atingir a Goal do mês` : metaTotal > 0 ? "Meta atingida" : null;
-  const projecaoFechamento = projetado > 0 ? `Projeção: ${brlK(projetado)} · ${projPct.toFixed(0)}% da meta` : null;
+  const faltamParaMeta = faltam > 0 ? `Faltam ${brlCent(faltam)} para atingir a Goal do mês` : metaTotal > 0 ? "Meta atingida" : null;
+  const projecaoFechamento = projetado > 0 ? `Projeção: ${brlCent(projetado)} · ${projPct.toFixed(0)}% da meta` : null;
 
   // Faturamento por Categoria vs Meta
   const catMap = new Map<number, { faturamento: number }>();
