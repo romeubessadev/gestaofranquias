@@ -1,14 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, ProgressBar, useToast } from "@/components/ui";
+import { Button, ProgressBar, Spinner, useToast } from "@/components/ui";
 import { paths } from "@/router/paths";
 import { useActiveSession, useSession } from "@/session/SessionProvider";
-import { clearAwaitingInitialSync, awaitingInitialSyncSince, bumpAwaitingInitialSyncSince } from "@/session/awaitingInitialSync";
 import {
-  countSalesDays,
+  clearAwaitingInitialSync,
+  awaitingInitialSyncSince,
+  bumpAwaitingInitialSyncSince,
+} from "@/session/awaitingInitialSync";
+import {
+  calendarDaysInclusive,
+  countDaysInWindow,
   fetchLatestSeedJob,
+  fetchSeedDaysByStore,
   fetchSyncReady,
+  fetchTenantStores,
   seedCoverageWindow,
+  seedMonthWindows,
+  type SyncStoreRow,
 } from "@/data/wedash/salesRepo";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { getSupabase } from "@/lib/supabase";
@@ -16,20 +25,67 @@ import { BrandMark } from "@/pages/auth/authKit";
 import { tenant } from "@/data/wedash/tenant";
 import { padTopoEBase } from "@/lib/safeArea";
 
-const STEPS = [
-  "Conectando ao Millennium",
-  "Buscando vendas do mês anterior até hoje",
-  "Salvando os dados na WeDash",
-  "Preparando o dashboard",
-] as const;
-
-const STAGE_PCT = 25;
-/** Dentro da etapa ativa sobe até 24% (fake) — os 25% só fecham ao concluir de fato. */
-const WITHIN_MAX = 24;
 /** Job na fila sem worker pegar → erro (não espera infinito). */
 const STUCK_QUEUED_MS = 90_000;
-/** RUNNING sem progresso de dias por muito tempo (SEED pode demorar; teto de segurança). */
+/** RUNNING sem progresso de dias por muito tempo. */
 const STUCK_RUNNING_MS = 20 * 60_000;
+/** Janela concluída = ≥90% dos dias do período no banco. */
+const WINDOW_DONE_RATIO = 0.9;
+
+type FetchStep = {
+  kind: "fetch";
+  id: string;
+  storeId: string;
+  storeName: string;
+  from: string;
+  to: string;
+  expected: number;
+  label: string;
+  detail: string;
+};
+
+type FinalStep = {
+  kind: "final";
+  id: "dashboard";
+  label: string;
+  detail?: string;
+};
+
+type SyncStep = FetchStep | FinalStep;
+
+function fmtBr(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function buildSteps(stores: SyncStoreRow[], seedFrom: string, seedTo: string): SyncStep[] {
+  const months = seedMonthWindows(seedFrom, seedTo);
+  const fetchSteps: FetchStep[] = [];
+  for (const s of stores) {
+    for (const w of months) {
+      fetchSteps.push({
+        kind: "fetch",
+        id: `${s.id}:${w.from}:${w.to}`,
+        storeId: s.id,
+        storeName: s.name,
+        from: w.from,
+        to: w.to,
+        expected: calendarDaysInclusive(w.from, w.to),
+        label: s.name,
+        detail: `${fmtBr(w.from)} → ${fmtBr(w.to)}`,
+      });
+    }
+  }
+  return [
+    ...fetchSteps,
+    {
+      kind: "final",
+      id: "dashboard",
+      label: "Preparando o dashboard",
+      detail: "Liberando a Visão Geral com os dados sincronizados",
+    },
+  ];
+}
 
 function isBusyError(msg: string | null | undefined): boolean {
   if (!msg) return false;
@@ -44,7 +100,6 @@ function isBusyError(msg: string | null | undefined): boolean {
   );
 }
 
-/** Cancelamentos operacionais do worker — nunca mostrar ao franqueado. */
 function isInternalJobCancel(msg: string | null | undefined): boolean {
   if (!msg) return false;
   const t = msg.toLowerCase();
@@ -57,40 +112,86 @@ function isInternalJobCancel(msg: string | null | undefined): boolean {
   );
 }
 
+function windowDone(loaded: number, expected: number): boolean {
+  if (expected <= 0) return loaded > 0;
+  return loaded >= Math.max(1, Math.ceil(expected * WINDOW_DONE_RATIO));
+}
+
 /**
- * Pós-onboarding: 4 etapas × 25%.
- * Conectar = rápido (QUEUED→RUNNING). Buscar = fica em loading até o SEED terminar (SUCCEEDED).
+ * Pós-onboarding: steps = (loja × mês SEED) + preparar dashboard.
+ * Barra = steps concluídos / total (sem fake %).
  */
 export function SyncingPage() {
   const session = useActiveSession();
   const { signOut } = useSession();
   const navigate = useNavigate();
   const { show } = useToast();
-  /** Etapa ativa (0–3). Etapas i < stepIdx já concluídas (✓). */
-  const [stepIdx, setStepIdx] = useState(0);
-  /** 0–24: progresso fake dentro da etapa ativa. */
-  const [withinPct, setWithinPct] = useState(0);
+
+  const [stores, setStores] = useState<SyncStoreRow[]>([]);
+  const [coverage, setCoverage] = useState<Map<string, Set<string>>>(new Map());
   const [status, setStatus] = useState<"running" | "ready" | "failed">("running");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [daysLoaded, setDaysLoaded] = useState(0);
-  const [expectedDays, setExpectedDays] = useState(0);
+  const [jobStatus, setJobStatus] = useState<string | null>(null);
+
   const toastBusyShown = useRef(false);
   const toastStuckShown = useRef(false);
   const enqueuedOnce = useRef(false);
   const coverageReseedDone = useRef(false);
-  /** Quando o job passou a RUNNING (pra timeout de progresso). */
   const runningSinceRef = useRef<number | null>(null);
   const daysAtRunStartRef = useRef(0);
 
-  const goToStage = useCallback((next: number) => {
-    const capped = Math.max(0, Math.min(next, STEPS.length - 1));
-    setStepIdx((prev) => {
-      if (capped === prev) return prev;
-      setWithinPct(0);
-      return capped;
+  const today = calendarTodayIso();
+  const win = useMemo(() => seedCoverageWindow(today), [today]);
+  const steps = useMemo(() => buildSteps(stores, win.from, win.to), [stores, win.from, win.to]);
+
+  const fetchDoneFlags = useMemo(() => {
+    return steps.map((s) => {
+      if (s.kind !== "fetch") return false;
+      const n = countDaysInWindow(coverage.get(s.storeId), s.from, s.to);
+      return windowDone(n, s.expected);
     });
-  }, []);
+  }, [steps, coverage]);
+
+  const allFetchDone = useMemo(() => {
+    const fetchSteps = steps.filter((s): s is FetchStep => s.kind === "fetch");
+    if (fetchSteps.length === 0) return false;
+    return fetchSteps.every((_, i) => fetchDoneFlags[i]);
+  }, [steps, fetchDoneFlags]);
+
+  /** Índice do step ativo (primeiro incompleto). */
+  const activeIdx = useMemo(() => {
+    if (status === "ready") return steps.length - 1;
+    if (status === "failed") return Math.max(0, steps.findIndex((_, i) => !fetchDoneFlags[i]));
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      if (s.kind === "fetch" && !fetchDoneFlags[i]) return i;
+      if (s.kind === "final") {
+        // Só entra no final quando buscas ok (ou job SUCCEEDED com cobertura).
+        if (allFetchDone || jobStatus === "SUCCEEDED") return i;
+        return Math.max(0, i - 1);
+      }
+    }
+    return 0;
+  }, [status, steps, fetchDoneFlags, allFetchDone, jobStatus]);
+
+  const completedCount = useMemo(() => {
+    if (status === "ready") return steps.length;
+    let n = 0;
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      if (s.kind === "fetch" && fetchDoneFlags[i]) n += 1;
+    }
+    return n;
+  }, [status, steps, fetchDoneFlags]);
+  const progressPct =
+    status === "failed"
+      ? 0
+      : steps.length === 0
+        ? 0
+        : status === "ready"
+          ? 100
+          : Math.min(99, Math.round((completedCount / steps.length) * 100));
 
   const enqueueSeed = useCallback(async () => {
     const sb = getSupabase();
@@ -104,12 +205,11 @@ export function SyncingPage() {
 
   const check = useCallback(async () => {
     const since = awaitingInitialSyncSince();
-    const today = calendarTodayIso();
-    const win = seedCoverageWindow(today);
-    setExpectedDays(win.expectedDays);
+    const list = await fetchTenantStores(session.tenantId);
+    setStores(list);
 
-    const days = await countSalesDays(session.tenantId, win.from, win.to);
-    setDaysLoaded(days);
+    const byStore = await fetchSeedDaysByStore(session.tenantId, win.from, win.to);
+    setCoverage(byStore);
 
     const ready = await fetchSyncReady(session.tenantId, {
       sinceIso: since,
@@ -120,15 +220,13 @@ export function SyncingPage() {
       clearAwaitingInitialSync();
       setBusy(false);
       setStatus("ready");
-      setStepIdx(STEPS.length - 1);
-      setWithinPct(WITHIN_MAX);
+      setJobStatus("SUCCEEDED");
       return;
     }
 
     const job = await fetchLatestSeedJob(session.tenantId);
+    setJobStatus(job?.status ?? null);
 
-    // Job antigo (antes deste onboarding) não conta como progresso atual.
-    // Sem `since`, não confia em SUCCEEDED antigo.
     const jobIsCurrent = Boolean(
       since &&
         job?.createdAt &&
@@ -141,11 +239,9 @@ export function SyncingPage() {
           ? new Date(job.finishedAt).getTime() >= new Date(since).getTime()
           : Boolean(job.finishedAt);
       if (finishedOk) {
-        // Cancelamento interno (ex.: “pausado — onboarding”) → re-enfileira, sem assustar.
         if (isInternalJobCancel(job.error)) {
           setBusy(false);
           setStatus("running");
-          goToStage(0);
           enqueuedOnce.current = false;
           await enqueueSeed();
           enqueuedOnce.current = true;
@@ -154,8 +250,6 @@ export function SyncingPage() {
         const erpBusy = isBusyError(job.error);
         setBusy(erpBusy);
         setStatus("failed");
-        // Busy = sessão/login não ficou pronto — não marcar "Conectando" como ✓.
-        goToStage(0);
         if (erpBusy) {
           setErrorMsg(
             "Este usuário já está logado no Millennium em outro lugar. Saia do ERP nessa outra sessão e toque em Tentar novamente.",
@@ -175,19 +269,11 @@ export function SyncingPage() {
     }
 
     setBusy(false);
-
-    const coverageAlmost =
-      win.expectedDays > 0 && days >= Math.ceil(win.expectedDays * 0.9);
-
     const waitedMs = since ? Date.now() - new Date(since).getTime() : 0;
+    const totalDays = [...byStore.values()].reduce((a, set) => a + set.size, 0);
 
-    // 0 Conectando — na fila / ainda sem job
-    // 1 Buscando  — RUNNING (login ok; varredura em andamento). Só sai no SUCCEEDED.
-    // 2 Salvando  — SEED acabou, dados no banco, cobertura ainda fechando
-    // 3 Preparando — cobertura ok; ready redireciona
     if (!jobIsCurrent || !job || job.status === "QUEUED") {
       runningSinceRef.current = null;
-      // Worker offline / fila parada: não deixa o gestor esperando pra sempre.
       if (waitedMs >= STUCK_QUEUED_MS) {
         setStatus("failed");
         setErrorMsg(
@@ -200,7 +286,6 @@ export function SyncingPage() {
         return;
       }
       setStatus("running");
-      goToStage(0);
       if (!enqueuedOnce.current) {
         enqueuedOnce.current = true;
         await enqueueSeed();
@@ -211,14 +296,12 @@ export function SyncingPage() {
     if (job.status === "RUNNING") {
       if (runningSinceRef.current == null) {
         runningSinceRef.current = Date.now();
-        daysAtRunStartRef.current = days;
-      } else if (days > daysAtRunStartRef.current) {
-        // Ainda gravando dias — renova o relógio de “sem progresso”.
+        daysAtRunStartRef.current = totalDays;
+      } else if (totalDays > daysAtRunStartRef.current) {
         runningSinceRef.current = Date.now();
-        daysAtRunStartRef.current = days;
+        daysAtRunStartRef.current = totalDays;
       }
-      const runMs = Date.now() - runningSinceRef.current;
-      if (runMs >= STUCK_RUNNING_MS) {
+      if (Date.now() - runningSinceRef.current >= STUCK_RUNNING_MS) {
         setStatus("failed");
         setErrorMsg("A sincronização não avançou como esperado. Tente novamente.");
         if (!toastStuckShown.current) {
@@ -228,7 +311,6 @@ export function SyncingPage() {
         return;
       }
       setStatus("running");
-      goToStage(1);
       return;
     }
 
@@ -241,63 +323,33 @@ export function SyncingPage() {
         Boolean(job.finishedAt) &&
         new Date(job.finishedAt!).getTime() >= new Date(since!).getTime();
       if (!finishedOk) {
-        // SUCCEEDED antigo (antes deste onboarding) — ignora e re-enfileira.
-        goToStage(0);
         if (!enqueuedOnce.current) {
           enqueuedOnce.current = true;
           await enqueueSeed();
         }
         return;
       }
-      // Buscando só fica ✓ se o SEED desta rodada gravou dados de verdade.
-      if (days <= 0) {
-        goToStage(1);
+      if (totalDays <= 0 || !coverageReseedDone.current) {
+        // SEED “ok” mas cobertura incompleta → um reseed.
         if (!coverageReseedDone.current) {
           coverageReseedDone.current = true;
           await enqueueSeed();
         }
-        return;
-      }
-      if (coverageAlmost) goToStage(3);
-      else goToStage(2);
-      if (!coverageAlmost && !coverageReseedDone.current) {
-        coverageReseedDone.current = true;
-        await enqueueSeed();
       }
       return;
     }
 
-    goToStage(0);
     if (!enqueuedOnce.current) {
       enqueuedOnce.current = true;
       await enqueueSeed();
     }
-  }, [session.tenantId, show, enqueueSeed, goToStage]);
+  }, [session.tenantId, show, enqueueSeed, win.from, win.to]);
 
   useEffect(() => {
     void check();
     const id = window.setInterval(() => void check(), 3_000);
     return () => window.clearInterval(id);
   }, [check]);
-
-  // Subida fake dentro da etapa ativa (nunca fecha os 25% sozinha).
-  // Na etapa "Buscando", o ritmo acompanha dias carregados quando possível.
-  useEffect(() => {
-    if (status !== "running") return;
-    const id = window.setInterval(() => {
-      setWithinPct((w) => {
-        if (stepIdx === 1 && expectedDays > 0 && daysLoaded > 0) {
-          const fromDays = Math.min(
-            WITHIN_MAX,
-            Math.floor((daysLoaded / expectedDays) * WITHIN_MAX),
-          );
-          return Math.max(w, fromDays);
-        }
-        return w >= WITHIN_MAX ? WITHIN_MAX : w + 1;
-      });
-    }, 650);
-    return () => window.clearInterval(id);
-  }, [status, stepIdx, daysLoaded, expectedDays]);
 
   useEffect(() => {
     if (!busy) return;
@@ -326,39 +378,39 @@ export function SyncingPage() {
     coverageReseedDone.current = false;
     runningSinceRef.current = null;
     daysAtRunStartRef.current = 0;
-    // Novo prazo pra “não começou” — senão o timeout antigo dispara na hora.
     bumpAwaitingInitialSyncSince();
     setStatus("running");
     setErrorMsg(null);
     setBusy(false);
-    setStepIdx(0);
-    setWithinPct(0);
     await enqueueSeed();
     enqueuedOnce.current = true;
     await check();
   }
 
   function sair() {
-    // Mantém o flag de sync — ao voltar, retoma a tela se ainda faltar carga.
     signOut();
     navigate(paths.access.login);
   }
 
-  const progressPct =
-    status === "ready"
-      ? 100
-      : status === "failed"
-        ? 0
-        : Math.min(99, stepIdx * STAGE_PCT + withinPct);
+  const activeStep = steps[activeIdx];
+  const activeLoaded =
+    activeStep?.kind === "fetch"
+      ? countDaysInWindow(coverage.get(activeStep.storeId), activeStep.from, activeStep.to)
+      : 0;
 
   const subtitle =
     status === "ready"
       ? "Dados sincronizados. Abrindo o dashboard…"
       : status === "failed"
         ? errorMsg
-        : stepIdx === 1 && expectedDays > 0
-          ? `Buscando vendas: ${daysLoaded} de aproximadamente ${expectedDays} dias.`
-          : "Estamos preparando os dados do mês anterior até hoje. O dashboard será liberado ao concluir.";
+        : busy
+          ? "Aguardando liberar a sessão no Millennium…"
+          : activeStep?.kind === "fetch"
+            ? `Buscando ${activeStep.storeName}: ${activeStep.detail}` +
+              (activeStep.expected > 0
+                ? ` · ${activeLoaded}/${activeStep.expected} dias`
+                : "")
+            : "Quase lá — preparando o dashboard.";
 
   return (
     <div
@@ -397,42 +449,77 @@ export function SyncingPage() {
             color={status === "failed" ? "var(--bad)" : "var(--acc)"}
           />
           {status === "running" && (
-            <p className="mt-2 text-right text-[11px] text-t3">{progressPct}%</p>
+            <p className="mt-2 text-right text-[11px] text-t3">
+              {completedCount}/{steps.length || "—"} · {progressPct}%
+            </p>
           )}
         </div>
 
-        <ul className="mt-6 space-y-3">
-          {STEPS.map((label, i) => {
-            const done = status === "ready" || (status === "running" && i < stepIdx);
-            const failedHere = status === "failed" && i === 0;
-            const active = status === "running" && i === stepIdx;
-            return (
-              <li
-                key={label}
-                className={`flex items-start gap-3 text-[13.5px] ${
-                  done
-                    ? "text-ok"
-                    : failedHere
-                      ? "text-bad font-semibold"
-                      : active
-                        ? "text-t0 font-semibold"
-                        : "text-t3"
-                }`}
-              >
-                <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-[11px]">
-                  {done ? "✓" : failedHere ? "!" : active ? "…" : i + 1}
-                </span>
-                <span>
-                  {label}
-                  {active && i === 1 && expectedDays > 0 ? (
-                    <span className="mt-0.5 block text-[12px] font-normal text-t2">
-                      {daysLoaded} de aproximadamente {expectedDays} dias
-                    </span>
-                  ) : null}
-                </span>
-              </li>
-            );
-          })}
+        <ul className="mt-6 max-h-[50vh] space-y-3 overflow-y-auto pr-1">
+          {steps.length === 0 ? (
+            <li className="flex items-center gap-3 text-[13.5px] text-t2">
+              <Spinner size={18} />
+              Montando a lista de lojas…
+            </li>
+          ) : (
+            steps.map((step, i) => {
+              const done =
+                status === "ready" ||
+                (step.kind === "fetch" && fetchDoneFlags[i]);
+              const failedHere = status === "failed" && i === activeIdx;
+              const active = status === "running" && i === activeIdx && !done;
+              const loaded =
+                step.kind === "fetch"
+                  ? countDaysInWindow(coverage.get(step.storeId), step.from, step.to)
+                  : 0;
+
+              return (
+                <li
+                  key={step.id}
+                  className={`flex items-start gap-3 text-[13.5px] ${
+                    done
+                      ? "text-ok"
+                      : failedHere
+                        ? "font-semibold text-bad"
+                        : active
+                          ? "font-semibold text-t0"
+                          : "text-t3"
+                  }`}
+                >
+                  <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center">
+                    {done ? (
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-current text-[11px]">
+                        ✓
+                      </span>
+                    ) : failedHere ? (
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-current text-[11px]">
+                        !
+                      </span>
+                    ) : active ? (
+                      <Spinner size={18} />
+                    ) : (
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-current text-[11px]">
+                        {i + 1}
+                      </span>
+                    )}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block">{step.label}</span>
+                    {step.kind === "fetch" ? (
+                      <span className="mt-0.5 block text-[12px] font-normal text-t2">
+                        {step.detail}
+                        {active || done
+                          ? ` · ${loaded}/${step.expected} dias`
+                          : null}
+                      </span>
+                    ) : step.detail ? (
+                      <span className="mt-0.5 block text-[12px] font-normal text-t2">{step.detail}</span>
+                    ) : null}
+                  </span>
+                </li>
+              );
+            })
+          )}
         </ul>
 
         {status === "failed" && (

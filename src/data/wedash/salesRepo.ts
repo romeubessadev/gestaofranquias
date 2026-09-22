@@ -342,3 +342,112 @@ export async function fetchSalesCoverage(
   const to = maxRes.data?.day ? String(maxRes.data.day).slice(0, 10) : null;
   return { from, to };
 }
+
+/** Dias de calendário inclusivos entre from e to (YYYY-MM-DD). */
+export function calendarDaysInclusive(from: string, to: string): number {
+  const [fy, fm, fd] = from.split("-").map(Number);
+  const [ty, tm, td] = to.split("-").map(Number);
+  const a = Date.UTC(fy, fm - 1, fd);
+  const b = Date.UTC(ty, tm - 1, td);
+  return Math.floor((b - a) / 86_400_000) + 1;
+}
+
+/** Meses civis na janela SEED (igual ao worker). */
+export function seedMonthWindows(from: string, to: string): Array<{ from: string; to: string }> {
+  if (from > to) return [];
+  const out: Array<{ from: string; to: string }> = [];
+  let [y, m] = from.split("-").map(Number);
+  const [ty, tm] = to.split("-").map(Number);
+  while (y < ty || (y === ty && m <= tm)) {
+    const monthStart = `${y}-${String(m).padStart(2, "0")}-01`;
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const monthEnd = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    const wFrom = monthStart < from ? from : monthStart;
+    const wTo = monthEnd > to ? to : monthEnd;
+    if (wFrom <= wTo) out.push({ from: wFrom, to: wTo });
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return out;
+}
+
+export type SyncStoreRow = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+/** Lojas ativas do tenant (progresso SEED por filial). */
+export async function fetchTenantStores(
+  tenantId: string,
+  clientOverride?: SalesQueryClient,
+): Promise<SyncStoreRow[]> {
+  const client = clientOrNull(clientOverride);
+  if (!client) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client.from("store") as any)
+    .select("id, code, trade_name, name")
+    .eq("tenant_id", tenantId)
+    .eq("active", true)
+    .order("code");
+  if (error) {
+    console.warn("fetchTenantStores:", error.message ?? error);
+    return [];
+  }
+  return ((data as Array<{ id: string; code: string | null; trade_name: string | null; name: string | null }> | null) ?? []).map(
+    (r) => ({
+      id: r.id,
+      code: r.code || "—",
+      name: (r.trade_name || r.name || r.code || "Loja").trim(),
+    }),
+  );
+}
+
+/**
+ * Cobertura por loja na janela SEED: storeId → set de dias YYYY-MM-DD.
+ * Uma query só (poll da SyncingPage).
+ */
+export async function fetchSeedDaysByStore(
+  tenantId: string,
+  from: string,
+  to: string,
+  clientOverride?: SalesQueryClient,
+): Promise<Map<string, Set<string>>> {
+  const client = clientOrNull(clientOverride);
+  const out = new Map<string, Set<string>>();
+  if (!client) return out;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client.from("sales_day_agg") as any)
+    .select("store_id, day")
+    .eq("tenant_id", tenantId)
+    .gte("day", from)
+    .lte("day", to);
+  if (error) {
+    console.warn("fetchSeedDaysByStore:", error.message ?? error);
+    return out;
+  }
+  for (const r of (data as { store_id: string; day: string }[] | null) ?? []) {
+    const sid = String(r.store_id);
+    const day = String(r.day).slice(0, 10);
+    let set = out.get(sid);
+    if (!set) {
+      set = new Set();
+      out.set(sid, set);
+    }
+    set.add(day);
+  }
+  return out;
+}
+
+/** Quantos dias da janela [from,to] já existem no set. */
+export function countDaysInWindow(days: Set<string> | undefined, from: string, to: string): number {
+  if (!days || days.size === 0) return 0;
+  let n = 0;
+  for (const d of days) {
+    if (d >= from && d <= to) n += 1;
+  }
+  return n;
+}
