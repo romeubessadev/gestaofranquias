@@ -279,8 +279,7 @@ export default function OverviewPage() {
       return;
     }
 
-    setForceAtMap(recordForceAt(session.tenantId, storeIds, enqueuedAt));
-
+    // Não grava cooldown no enqueue — só quando o job termina (Aguarde 5:00 cheios).
     const wait = result.jobId
       ? await waitForSyncJob(result.jobId, {
           onStatus: (st) => {
@@ -301,6 +300,9 @@ export default function OverviewPage() {
       setForcePhase(null);
       setRefreshing(false);
       return;
+    } else if (wait.status === "SUCCEEDED") {
+      // 5 min a partir do fim (loja ou Todas) — alinhado ao Edge finished_at.
+      setForceAtMap(recordForceAt(session.tenantId, storeIds, new Date()));
     }
 
     try {

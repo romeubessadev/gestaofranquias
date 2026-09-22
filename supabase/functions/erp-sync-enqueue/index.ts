@@ -141,16 +141,29 @@ Deno.serve(async (req) => {
   if (kind === "FORCE" || kind === "FORCE_LIGHT") {
     const windowMs = 5 * 60 * 1000;
     const since = new Date(Date.now() - windowMs).toISOString();
-    const { data: recentJobs, error: recentErr } = await admin
-      .from("sync_job")
-      .select("id, created_at, payload")
-      .eq("tenant_id", tenantId)
-      .in("kind", ["FORCE", "FORCE_LIGHT"])
-      .in("status", ["QUEUED", "RUNNING", "SUCCEEDED"])
-      .gte("created_at", since)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (recentErr) return json({ error: "rate_check_failed" }, 500);
+    // Abertos: pela criação. Concluídos: pelo finished_at (5 min contam a partir do fim do job).
+    const [openRes, doneRes] = await Promise.all([
+      admin
+        .from("sync_job")
+        .select("id, created_at, finished_at, status, payload")
+        .eq("tenant_id", tenantId)
+        .in("kind", ["FORCE", "FORCE_LIGHT"])
+        .in("status", ["QUEUED", "RUNNING"])
+        .gte("created_at", since)
+        .limit(50),
+      admin
+        .from("sync_job")
+        .select("id, created_at, finished_at, status, payload")
+        .eq("tenant_id", tenantId)
+        .in("kind", ["FORCE", "FORCE_LIGHT"])
+        .eq("status", "SUCCEEDED")
+        .gte("finished_at", since)
+        .limit(50),
+    ]);
+    if (openRes.error || doneRes.error) {
+      return json({ error: "rate_check_failed" }, 500);
+    }
+    const recentJobs = [...(openRes.data ?? []), ...(doneRes.data ?? [])];
 
     const requestedIds = payload.storeIds ?? null; // null = Todas as lojas
     const jobStoreIds = (p: unknown): string[] | null => {
@@ -160,29 +173,39 @@ Deno.serve(async (req) => {
       return ids.filter((id): id is string => typeof id === "string" && id.length > 0);
     };
 
-    let blocking: { created_at: string } | null = null;
-    for (const row of recentJobs ?? []) {
+    const jobAnchorMs = (row: {
+      status?: string;
+      created_at?: string;
+      finished_at?: string | null;
+    }): number => {
+      if (row.status === "SUCCEEDED" && row.finished_at) {
+        return new Date(row.finished_at).getTime();
+      }
+      return new Date(row.created_at as string).getTime();
+    };
+
+    let blocking: { created_at: string; finished_at?: string | null; status?: string } | null = null;
+    let blockingAnchor = 0;
+    for (const row of recentJobs) {
       const recentIds = jobStoreIds((row as { payload?: unknown }).payload);
-      // Opção A: FORCE "Todas" bloqueia se houver QUALQUER FORCE recente.
+      let hits = false;
       if (requestedIds == null) {
-        blocking = row as { created_at: string };
-        break;
+        hits = true; // Opção A: qualquer FORCE recente
+      } else if (recentIds == null) {
+        hits = true; // "Todas" recente bloqueia cada loja
+      } else if (requestedIds.some((id) => recentIds.includes(id))) {
+        hits = true;
       }
-      // FORCE "Todas" recente bloqueia qualquer loja.
-      if (recentIds == null) {
-        blocking = row as { created_at: string };
-        break;
-      }
-      // Sobreposição de lojas.
-      if (requestedIds.some((id) => recentIds.includes(id))) {
-        blocking = row as { created_at: string };
-        break;
+      if (!hits) continue;
+      const anchor = jobAnchorMs(row as { status?: string; created_at?: string; finished_at?: string | null });
+      if (!blocking || anchor > blockingAnchor) {
+        blocking = row as { created_at: string; finished_at?: string | null; status?: string };
+        blockingAnchor = anchor;
       }
     }
 
     if (blocking) {
-      const created = new Date(blocking.created_at).getTime();
-      const retryAfterSec = Math.max(1, Math.ceil((created + windowMs - Date.now()) / 1000));
+      const retryAfterSec = Math.max(1, Math.ceil((blockingAnchor + windowMs - Date.now()) / 1000));
       return json({ ok: false, error: "rate_limited", retryAfterSec }, 429);
     }
   }
