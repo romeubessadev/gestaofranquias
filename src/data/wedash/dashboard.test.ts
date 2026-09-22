@@ -488,6 +488,49 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
     expect(v.kpis.find((k) => k.label === "Ticket médio")?.valor).toMatch(/50/);
   });
 
+  it("brand filter uses WEPINK sales_count and ticket (not ALL)", () => {
+    const base = {
+      tenantId: "t1",
+      storeId: "f1",
+      day: "2026-09-10",
+    } as const;
+    const v = buildOverviewView(
+      { ...escopo("f1"), divisao: "WEPINK" },
+      {
+        dayAggs: [
+          { ...base, brand: "ALL", revenueCents: 100_00, salesCount: 10, itemCount: 20 },
+          { ...base, brand: "WEPINK", revenueCents: 80_00, salesCount: 7, itemCount: 14 },
+          { ...base, brand: "WPINK", revenueCents: 20_00, salesCount: 3, itemCount: 6 },
+        ],
+      },
+    );
+    expect(v.kpis.find((k) => k.label === "Nº de vendas")?.valor).toMatch(/7/);
+    // ticket = 80/7 ≈ 11,43
+    expect(v.kpis.find((k) => k.label === "Ticket médio")?.valor).toMatch(/11/);
+  });
+
+  it("brand filter with report-only counts (0) rateia do ALL pela receita", () => {
+    const base = {
+      tenantId: "t1",
+      storeId: "f1",
+      day: "2026-09-10",
+    } as const;
+    const v = buildOverviewView(
+      { ...escopo("f1"), divisao: "WEPINK" },
+      {
+        dayAggs: [
+          { ...base, brand: "ALL", revenueCents: 100_00, salesCount: 10, itemCount: 20 },
+          { ...base, brand: "WEPINK", revenueCents: 80_00, salesCount: 0, itemCount: 0 },
+          { ...base, brand: "WPINK", revenueCents: 20_00, salesCount: 0, itemCount: 0 },
+        ],
+      },
+    );
+    // 80% de 10 vendas = 8
+    expect(v.kpis.find((k) => k.label === "Nº de vendas")?.valor).toMatch(/8/);
+    // ticket = 80/8 = 10
+    expect(v.kpis.find((k) => k.label === "Ticket médio")?.valor).toMatch(/10/);
+  });
+
   it("post-sync read reflects updated aggregates without mocks (SYNC-09)", () => {
     const before = buildOverviewView(escopo("f1"), { dayAggs: [] });
     const after = buildOverviewView(escopo("f1"), {

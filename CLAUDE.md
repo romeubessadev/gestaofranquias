@@ -296,11 +296,11 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  - **HISTORY** — mês a mês atrás (teto 24m / opened_at); com filial; sequencial; **só** se `HISTORY_AFTER_SEED=1`.
  - **FORCE** — período filtrado + hoje; com filial (exceto o pedaço “hoje” que pode reusar LIGHT).
  - **EVENTO** — whitelist `S-X`, `S-03`, `S-{COD_FILIAL}` (**sem S-100**).
-18. ✅ **Split WEPINK/WPINK via ConsultaDetMov + mapa de divisão** (2026-09-22; **revisado mesmo dia**) — `VENDAS.Lista` **não** traz marca. Após gravar `brand=ALL` (Lista), o worker:
-    1. Carrega **1×** mapa `PRODUTO → marca` via wtsreports CATALOG `{9701602B-B363-4770-989C-8C4459B7E105}` (divisões **101=WPINK**, **102=WEPINK**; campo `PRODUTO_PRODUTO_PRODUTO` = id interno). União de **todos** os geradores das lojas (estoque/cadastro varia por filial).
-    2. Para cada cupom único (`COD_OPERACAO` + `NF` da Lista), chama `millenium.MOVIMENTACAO.ConsultaDetMov` (`TIPO_OPERACAO: "S"`).
-    3. Classifica linhas (`PRODUTO` + `PRECO_TOTAL` + `QUANTIDADE`) → agrega `sales_day_agg` / `sales_hour_agg` WEPINK/WPINK (receita **e** N vendas / itens).
-    Soft-fail se mapa/detalhe cair (ALL permanece). Concurrency: `DET_MOV_CONCURRENCY` (default 5). Relatório antigo `{70F9DE61…}` (só receita) fica no script `backfill-brand-split.ts` se precisar. BrandPicker reativa sozinho quando existem linhas WEPINK/WPINK.
+18. ✅ **Split WEPINK/WPINK** (2026-09-22; **revisado**) — `VENDAS.Lista` **não** traz marca. Após gravar `brand=ALL` (Lista), o worker:
+ 1. **Receita/dia** via wtsreports CATALOG `{70F9DE61-9CA7-4798-864F-B40B74E61BE5}` (mesmo relatório "TOTAL VENDA POR DIA" do ERP) → `sales_day_agg` WEPINK/WPINK.
+ 2. **Contagens (nº vendas / itens)** — DetMov day agg quando a loja tem WPINK; loja só cosmético copia counts do ALL → WEPINK. Overview rateia do ALL se counts ainda forem 0 (dados antigos).
+ 3. Mapa produto (estoque `{9701602B}` + LISTARVENDASSALDO 101/102 + lookup COD→id) + **ConsultaDetMov** → horas (e fallback se o report cair). Classificação DetMov: mapa → desc (WP*/WPINK/WEPINK) → default WEPINK.
+ Soft-fail se report/detalhe cair (ALL permanece). BrandPicker reativa quando existem linhas WEPINK/WPINK. Concurrency DetMov: `DET_MOV_CONCURRENCY` (default 5).
 
 ---
 

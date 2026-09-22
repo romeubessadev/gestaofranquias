@@ -6,7 +6,17 @@ import {
   uniqueBrandSplitHeaders,
 } from "./brandSplitFromDetalhe.ts";
 import type { DetMovLine } from "./millenniumDetMov.ts";
-import type { ProductBrandMap } from "./millenniumProductDivision.ts";
+import type {
+  ProductBrandCatalog,
+  ProductBrandMap,
+} from "./millenniumProductDivision.ts";
+import { millenniumBaseUrl } from "./millenniumAuth.ts";
+import {
+  brandReportToDayAggs,
+  applyBrandDayCounts,
+  applyAllCountsToWepinkDays,
+  type BrandReportDayRow,
+} from "./millenniumBrandReport.ts";
 import {
   partitionRowsByFilial,
   type FetchSalesListaParams,
@@ -26,7 +36,11 @@ export function detMovConcurrency(pending: number): number {
 }
 
 /**
- * Grava WEPINK/WPINK via ConsultaDetMov + mapa produto→divisão (soft-fail — ALL já veio da Lista).
+ * Grava WEPINK/WPINK:
+ * - Receita/dia = relatório oficial {70F9DE61} (bate com ERP "TOTAL VENDA POR DIA").
+ * - Contagens (vendas/itens) = DetMov quando há WPINK; senão copia do ALL (loja só WEPINK).
+ * - Horas = ConsultaDetMov quando a loja tem WPINK no catálogo.
+ * Soft-fail — ALL da Lista já está gravado.
  */
 async function upsertBrandSplit(
   deps: SyncJobDeps,
@@ -38,67 +52,137 @@ async function upsertBrandSplit(
     to: string;
     rows: SaleRowWithFilial[];
     productMap: ProductBrandMap;
+    geradorMap: Map<string, number>;
+    geradorIdsWithWpink: Set<number>;
   },
 ): Promise<void> {
-  if (args.productMap.size === 0) {
-    console.warn(`  [${args.store.code}] product map vazio — skip brand split`);
+  const geradorId = args.geradorMap.get(args.store.code);
+  if (geradorId == null) {
+    console.log(`  [${args.store.code}] sem GERADOR — skip brand split`);
     return;
   }
-  const headers = uniqueBrandSplitHeaders(
-    args.rows.filter((r) => r.storeId === args.store.id),
-  );
-  if (headers.length === 0) {
-    console.log(`  [${args.store.code}] brand split ${args.from}→${args.to} · 0 cupom(ns) c/ NF`);
-    return;
-  }
+
+  let dayAggs: SalesDayAgg[] = [];
+
+  // 1) Receita por dia × marca (fonte do relatório que o gestor confere)
   try {
-    const concurrency = detMovConcurrency(headers.length);
-    const brandRows: SaleRow[] = [];
-    let ok = 0;
-    let fail = 0;
-    await mapPool(headers, concurrency, async (header) => {
-      try {
-        const lines = await deps.fetchConsultaDetMov({
-          session: args.session,
-          codOperacao: header.millenniumOpCode,
-          nf: header.nf,
-          tipoOperacao: header.tipoOperacao,
-        });
-        brandRows.push(...saleRowsFromDetLines(header, lines, args.productMap));
-        ok += 1;
-      } catch (e) {
-        fail += 1;
-        const msg = e instanceof Error ? e.message : String(e);
-        if (isSessionDeadError(msg)) throw e;
-        console.warn(
-          `  [${args.store.code}] DetMov ${header.millenniumOpCode}/${header.nf}: ${msg}`,
-        );
-      }
+    const reportRows = await deps.fetchBrandRevenueReport({
+      session: args.session,
+      geradorIds: [geradorId],
+      from: args.from,
+      to: args.to,
     });
-    if (brandRows.length === 0) {
-      console.log(
-        `  [${args.store.code}] brand split ${args.from}→${args.to} · 0 linhas classificadas · det ${ok}ok/${fail}fail`,
-      );
-      return;
-    }
-    const agg = aggregateSales(brandRows, {
+    dayAggs = brandReportToDayAggs(reportRows, {
       tenantId: args.tenantId,
-      timeZone: args.store.timezone,
-      now: deps.now(),
-      dayFrom: args.from,
-      dayTo: args.to,
+      storeId: args.store.id,
     });
-    const brandedDays = agg.days.filter((d) => d.brand === "WEPINK" || d.brand === "WPINK");
-    const brandedHours = agg.hours.filter((h) => h.brand === "WEPINK" || h.brand === "WPINK");
-    if (brandedDays.length > 0) await deps.upsertDayAggs(brandedDays);
-    if (brandedHours.length > 0) await deps.upsertHourAggs(brandedHours);
-    console.log(
-      `  [${args.store.code}] brand split ${args.from}→${args.to} · ${brandedDays.length} dia×marca · det ${ok}ok/${fail}fail`,
-    );
+    if (dayAggs.length === 0) {
+      console.log(
+        `  [${args.store.code}] brand report ${args.from}→${args.to} · vazio`,
+      );
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (isSessionDeadError(msg)) throw e;
-    console.warn(`  [${args.store.code}] brand split falhou (ALL ok): ${msg}`);
+    console.warn(
+      `  [${args.store.code}] brand report falhou (ALL ok): ${msg}`,
+    );
+  }
+
+  const storeRows = args.rows.filter((r) => r.storeId === args.store.id);
+  const hasWpink = args.geradorIdsWithWpink.has(geradorId);
+
+  // 2a) Loja sem WPINK: counts do ALL (Lista) → WEPINK
+  if (!hasWpink && dayAggs.length > 0 && storeRows.length > 0) {
+    const listaAgg = aggregateSales(
+      storeRows.map((r) => ({ ...r, brand: "ALL" as const })),
+      {
+        tenantId: args.tenantId,
+        timeZone: args.store.timezone,
+        now: deps.now(),
+        dayFrom: args.from,
+        dayTo: args.to,
+      },
+    );
+    dayAggs = applyAllCountsToWepinkDays(dayAggs, listaAgg.days);
+  }
+
+  // 2b) Loja com WPINK: DetMov → horas + counts por marca (receita continua a do relatório)
+  if (hasWpink && args.productMap.size > 0) {
+    const headers = uniqueBrandSplitHeaders(storeRows);
+    if (headers.length > 0) {
+      try {
+        const concurrency = detMovConcurrency(headers.length);
+        const brandRows: SaleRow[] = [];
+        let ok = 0;
+        let fail = 0;
+        await mapPool(headers, concurrency, async (header) => {
+          try {
+            const lines = await deps.fetchConsultaDetMov({
+              session: args.session,
+              codOperacao: header.millenniumOpCode,
+              nf: header.nf,
+              tipoOperacao: header.tipoOperacao,
+            });
+            brandRows.push(...saleRowsFromDetLines(header, lines, args.productMap));
+            ok += 1;
+          } catch (e) {
+            fail += 1;
+            const msg = e instanceof Error ? e.message : String(e);
+            if (isSessionDeadError(msg)) throw e;
+            console.warn(
+              `  [${args.store.code}] DetMov ${header.millenniumOpCode}/${header.nf}: ${msg}`,
+            );
+          }
+        });
+        if (brandRows.length === 0) {
+          console.log(
+            `  [${args.store.code}] DetMov ${args.from}→${args.to} · 0 linhas · det ${ok}ok/${fail}fail`,
+          );
+        } else {
+          const agg = aggregateSales(brandRows, {
+            tenantId: args.tenantId,
+            timeZone: args.store.timezone,
+            now: deps.now(),
+            dayFrom: args.from,
+            dayTo: args.to,
+          });
+          const brandedDays = agg.days.filter(
+            (d) => d.brand === "WEPINK" || d.brand === "WPINK",
+          );
+          const brandedHours = agg.hours.filter(
+            (h) => h.brand === "WEPINK" || h.brand === "WPINK",
+          );
+          if (dayAggs.length > 0) {
+            dayAggs = applyBrandDayCounts(dayAggs, brandedDays);
+          } else {
+            // Relatório caiu — usa receita+counts do DetMov como fallback
+            dayAggs = brandedDays;
+          }
+          if (brandedHours.length > 0) await deps.upsertHourAggs(brandedHours);
+          console.log(
+            `  [${args.store.code}] DetMov ${args.from}→${args.to} · ${brandedDays.length} dia×marca · ${brandedHours.length} hora×marca · det ${ok}ok/${fail}fail`,
+          );
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (isSessionDeadError(msg)) throw e;
+        console.warn(`  [${args.store.code}] DetMov falhou (report ok): ${msg}`);
+      }
+    }
+  } else if (hasWpink && args.productMap.size === 0) {
+    console.log(`  [${args.store.code}] sem mapa produto — skip DetMov`);
+  } else if (!hasWpink) {
+    console.log(
+      `  [${args.store.code}] sem WPINK no cadastro — counts WEPINK ← ALL`,
+    );
+  }
+
+  if (dayAggs.length > 0) {
+    await deps.upsertDayAggs(dayAggs);
+    console.log(
+      `  [${args.store.code}] brand days ${args.from}→${args.to} · ${dayAggs.length} dia×marca`,
+    );
   }
 }
 
@@ -178,11 +262,21 @@ export type SyncJobDeps = {
   fetchSalesLista: (params: FetchSalesListaParams) => Promise<SaleRowWithFilial[] | SaleRow[]>;
   /** Lookup COD_FILIAL → FILIAL_GERADOR_GERADOR (wtsreports). */
   fetchFilialGeradorMap: (session: string) => Promise<Map<string, number>>;
-  /** Mapa PRODUTO → WEPINK|WPINK (report divisão; 1× por job, união das lojas). */
+  /** Mapa PRODUTO → WEPINK|WPINK (report + LISTAR; 1× por job, união das lojas). */
   fetchProductBrandMap: (params: {
     session: string;
     geradorIds: number[];
-  }) => Promise<ProductBrandMap>;
+    stores?: Array<{ millenniumStoreId: number; geradorId: number }>;
+    from?: string;
+    to?: string;
+  }) => Promise<ProductBrandCatalog>;
+  /** Relatório oficial faturamento por marca (dia) — CATALOG 70F9DE61. */
+  fetchBrandRevenueReport: (params: {
+    session: string;
+    geradorIds: number[];
+    from: string;
+    to: string;
+  }) => Promise<BrandReportDayRow[]>;
   /** Itens da venda (ConsultaDetMov). */
   fetchConsultaDetMov: (params: {
     session: string;
@@ -546,9 +640,31 @@ export async function releaseActiveMillenniumSession(
   console.log("Sessão Millennium mantida no tenant (shutdown só libera memória do worker)");
 }
 
+/** Smoke leve: sessão morta → 401 (não usa cache de EVENTOs). */
+async function sessionStillAlive(session: string): Promise<boolean> {
+  // Testes unitários não batem no Millennium.
+  if (process.env.VITEST || process.env.NODE_ENV === "test") return true;
+  try {
+    const res = await fetch(`${millenniumBaseUrl()}/Millennium.EVENTOS.ListaTodos`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "WTS-Session": session,
+        "X-HTTP-Method": "GET",
+        "X-IdentifierCase": "upper",
+      },
+      body: "{}",
+      signal: AbortSignal.timeout(30_000),
+    });
+    return res.status !== 401;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Reusa token do tenant; se não houver, faz login e grava.
- * Renova (novo login) só quando pedido (ex.: 401) via forceRenew.
+ * Reusa token do tenant; se não houver / 401, faz login e grava.
+ * Renova (novo login) quando forceRenew ou smoke falha.
  */
 async function ensureMillenniumSession(
   cred: SyncCredential,
@@ -561,8 +677,19 @@ async function ensureMillenniumSession(
   if (!opts?.forceRenew) {
     const stored = await deps.getStoredSession(cred.id);
     if (stored) {
-      rememberMillenniumSession(cred.id, stored);
-      return { ok: true, session: stored, reused: true };
+      const alive = await sessionStillAlive(stored);
+      if (alive) {
+        rememberMillenniumSession(cred.id, stored);
+        return { ok: true, session: stored, reused: true };
+      }
+      console.warn("Sessão salva morta (401) — login fresco…");
+      try {
+        await deps.logout(stored);
+      } catch {
+        /* best-effort */
+      }
+      await deps.setStoredSession(cred.id, null);
+      forgetMillenniumSession(cred.id);
     }
   } else {
     const old = await deps.getStoredSession(cred.id);
@@ -694,14 +821,35 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
       console.warn(`GERADOR lookup falhou — brand split desligado neste job: ${msg}`);
     }
     let productMap: ProductBrandMap = new Map();
+    let geradorIdsWithWpink = new Set<number>();
     const geradorIds = [...geradorMap.values()];
     if (geradorIds.length > 0) {
       try {
-        productMap = await deps.fetchProductBrandMap({
+        const catalogTz = storeList[0]?.timezone ?? "America/Sao_Paulo";
+        const catalogToday = ymdInTz(now, catalogTz);
+        const catalogWin = seedWindow(catalogToday);
+        const brandStores = storeList
+          .map((s) => {
+            const geradorId = geradorMap.get(s.code);
+            if (geradorId == null) return null;
+            return { millenniumStoreId: s.millenniumStoreId, geradorId };
+          })
+          .filter((x): x is { millenniumStoreId: number; geradorId: number } => x != null);
+        console.log(
+          `Product map · report+LISTAR · ${brandStores.length} filial(is) · ${catalogWin.from}→${catalogWin.to}`,
+        );
+        const catalog = await deps.fetchProductBrandMap({
           session,
           geradorIds,
+          stores: brandStores,
+          from: catalogWin.from,
+          to: catalogWin.to,
         });
-        console.log(`Product→marca map · ${productMap.size} SKU(s)`);
+        productMap = catalog.map;
+        geradorIdsWithWpink = catalog.geradorIdsWithWpink;
+        console.log(
+          `Product→marca map · ${productMap.size} SKU(s) · WPINK em ${geradorIdsWithWpink.size}/${geradorIds.length} loja(s)`,
+        );
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.warn(`Product map falhou — brand split desligado neste job: ${msg}`);
@@ -794,6 +942,8 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
           to: today,
           rows,
           productMap,
+          geradorMap,
+          geradorIdsWithWpink,
         });
       }
     } else {
@@ -980,6 +1130,8 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
           to: brandTo,
           rows: listaForBrand,
           productMap,
+          geradorMap,
+          geradorIdsWithWpink,
         });
         console.log(
           `Loja ${i + 1}/${storeList.length} (${store.code}) ok · ${storeSales} venda(s) · ${storeDays} dia(s) gravado(s)` +
@@ -1030,6 +1182,14 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
     console.error(
       `[sync] fail kind=${job.kind} tenant=${job.tenantId.slice(0, 8)} job=${job.id.slice(0, 8)} reason=other error=${msg}`,
     );
+    if (isSessionDeadError(msg)) {
+      try {
+        await deps.setStoredSession(job.credentialId, null);
+        forgetMillenniumSession(job.credentialId);
+      } catch {
+        /* best-effort */
+      }
+    }
     await deps.updateCredential({
       credentialId: job.credentialId,
       lastError: msg,

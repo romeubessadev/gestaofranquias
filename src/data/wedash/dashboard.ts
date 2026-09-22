@@ -2499,8 +2499,42 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
 
   const atualAgg = sumDays(days);
   const faturamento = atualAgg.revenueCents / 100;
-  const atendimentos = atualAgg.salesCount;
-  const itens = atualAgg.itemCount;
+  let atendimentos = atualAgg.salesCount;
+  let itens = atualAgg.itemCount;
+
+  // Relatório de marca grava só receita (counts=0). Até o próximo FORCE/SEED
+  // com counts preenchidos, deriva de horas ou rateia do ALL.
+  if (brand && atendimentos === 0 && atualAgg.revenueCents > 0) {
+    const fromHours = hours.reduce(
+      (acc, h) => {
+        acc.salesCount += h.salesCount;
+        acc.itemCount += h.itemCount;
+        return acc;
+      },
+      { salesCount: 0, itemCount: 0 },
+    );
+    if (fromHours.salesCount > 0) {
+      atendimentos = fromHours.salesCount;
+      itens = fromHours.itemCount;
+    } else {
+      const allDays = input.dayAggs.filter((d) => d.brand === "ALL");
+      const allSum = sumDays(allDays);
+      if (allSum.salesCount > 0 && allSum.revenueCents > 0) {
+        const otherBrandRev = input.dayAggs
+          .filter((d) => (d.brand === "WEPINK" || d.brand === "WPINK") && d.brand !== brand)
+          .reduce((s, d) => s + d.revenueCents, 0);
+        if (otherBrandRev <= 0) {
+          atendimentos = allSum.salesCount;
+          itens = allSum.itemCount;
+        } else {
+          const share = atualAgg.revenueCents / allSum.revenueCents;
+          atendimentos = Math.max(0, Math.round(allSum.salesCount * share));
+          itens = Math.max(0, Math.round(allSum.itemCount * share));
+        }
+      }
+    }
+  }
+
   const ticket = atendimentos > 0 ? faturamento / atendimentos : 0;
 
   const competencia = periodo.inicio.slice(0, 7);
