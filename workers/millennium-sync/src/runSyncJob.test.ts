@@ -1,15 +1,29 @@
 import { describe, expect, it, vi } from "vitest";
-import { runSyncJob, type SyncJob, type SyncJobDeps, type SyncStore } from "./runSyncJob";
+import {
+  chunkByCalendarMonths,
+  collapseDaysToWindows,
+  historyFloor,
+  missingDays,
+  nextHistoryWindow,
+  runSyncJob,
+  seedWindow,
+  storeFetchConcurrency,
+  type SyncJob,
+  type SyncJobDeps,
+  type SyncStore,
+} from "./runSyncJob";
 
 const stores: SyncStore[] = [
   {
     id: "s1",
     millenniumStoreId: 1,
+    code: "00010",
     timezone: "America/Campo_Grande",
   },
   {
     id: "s2",
     millenniumStoreId: 2,
+    code: "00114",
     timezone: "America/Campo_Grande",
   },
 ];
@@ -21,6 +35,7 @@ function baseJob(partial: Partial<SyncJob> = {}): SyncJob {
     credentialId: "c1",
     kind: "LIGHT",
     status: "QUEUED",
+    payload: {},
     ...partial,
   };
 }
@@ -42,6 +57,8 @@ function makeDeps(overrides: Partial<SyncJobDeps> = {}): SyncJobDeps & {
       status: "VALID",
     }),
     listStores: vi.fn().mockResolvedValue(stores),
+    listExistingDays: vi.fn().mockResolvedValue([]),
+    earliestSalesDay: vi.fn().mockResolvedValue(null),
     login: vi.fn().mockImplementation(async () => {
       calls.login += 1;
       return { ok: true as const, session: "sess-1" };
@@ -49,19 +66,98 @@ function makeDeps(overrides: Partial<SyncJobDeps> = {}): SyncJobDeps & {
     logout: vi.fn().mockImplementation(async () => {
       calls.logout += 1;
     }),
-    fetchSalesLista: vi.fn().mockImplementation(async (p: { storeId: string }) => {
+    resolveEventoIds: vi.fn().mockResolvedValue([17, 24, 22, 107]),
+    fetchSalesLista: vi.fn().mockImplementation(async (p: { storeId: string; eventoIds: number[] }) => {
       calls.fetch.push(p.storeId);
+      expect(p.eventoIds.length).toBeGreaterThan(0);
       return [];
     }),
     upsertDayAggs: vi.fn().mockResolvedValue(undefined),
     upsertHourAggs: vi.fn().mockResolvedValue(undefined),
     insertSyncRun: vi.fn().mockResolvedValue(undefined),
     updateCredential: vi.fn().mockResolvedValue(undefined),
+    getStoredSession: vi.fn().mockResolvedValue(null),
+    setStoredSession: vi.fn().mockResolvedValue(undefined),
+    enqueueHistoryFollowUp: vi.fn().mockResolvedValue(false),
     now: () => new Date("2026-09-19T15:00:00.000Z"),
     ...overrides,
   };
   return deps;
 }
+
+describe("seedWindow / missingDays / history", () => {
+  it("SEED window is previous month start → today", () => {
+    expect(seedWindow("2026-09-19")).toEqual({ from: "2026-08-01", to: "2026-09-19" });
+    expect(seedWindow("2026-01-05")).toEqual({ from: "2025-12-01", to: "2026-01-05" });
+  });
+
+  it("historyFloor is max(opened_at, today−24m)", () => {
+    expect(historyFloor("2026-09-21", null)).toBe("2024-09-21");
+    expect(historyFloor("2026-09-21", "2025-03-01")).toBe("2025-03-01");
+    expect(historyFloor("2026-09-21", "2020-01-01")).toBe("2024-09-21");
+  });
+
+  it("nextHistoryWindow walks one calendar month back, clamped to floor", () => {
+    expect(
+      nextHistoryWindow({
+        today: "2026-09-21",
+        openedAt: null,
+        earliestExisting: "2026-08-01",
+        seedFrom: "2026-08-01",
+      }),
+    ).toEqual({ from: "2026-07-01", to: "2026-07-31" });
+
+    expect(
+      nextHistoryWindow({
+        today: "2026-09-21",
+        openedAt: "2026-07-15",
+        earliestExisting: "2026-08-01",
+        seedFrom: "2026-08-01",
+      }),
+    ).toEqual({ from: "2026-07-15", to: "2026-07-31" });
+
+    expect(
+      nextHistoryWindow({
+        today: "2026-09-21",
+        openedAt: "2026-08-01",
+        earliestExisting: "2026-08-01",
+        seedFrom: "2026-08-01",
+      }),
+    ).toBeNull();
+  });
+
+  it("chunkByCalendarMonths splits Aug→Sep mid-month", () => {
+    expect(chunkByCalendarMonths("2026-08-01", "2026-09-19")).toEqual([
+      { from: "2026-08-01", to: "2026-08-31" },
+      { from: "2026-09-01", to: "2026-09-19" },
+    ]);
+  });
+
+  it("FORCE always includes today even when already present", () => {
+    const days = missingDays("2026-09-01", "2026-09-10", ["2026-09-01", "2026-09-19"], {
+      today: "2026-09-19",
+      alwaysToday: true,
+    });
+    expect(days).toContain("2026-09-19");
+    expect(days).toContain("2026-09-02");
+    expect(days).not.toContain("2026-09-01");
+  });
+
+  it("RANGE only returns gaps", () => {
+    const days = missingDays("2026-09-01", "2026-09-05", ["2026-09-02", "2026-09-03"], {
+      today: "2026-09-19",
+      alwaysToday: false,
+    });
+    expect(days).toEqual(["2026-09-01", "2026-09-04", "2026-09-05"]);
+  });
+
+  it("collapseDaysToWindows merges contiguous days", () => {
+    expect(collapseDaysToWindows(["2026-09-01", "2026-09-02", "2026-09-05"])).toEqual([
+      { from: "2026-09-01", to: "2026-09-02" },
+      { from: "2026-09-05", to: "2026-09-05" },
+    ]);
+  });
+});
 
 describe("runSyncJob", () => {
   it("refuses to start when another RUNNING job holds the credential", async () => {
@@ -103,24 +199,26 @@ describe("runSyncJob", () => {
     );
   });
 
-  it("always logout in finally after a successful login even if upsert throws", async () => {
+  it("keeps tenant session after job (no logout) even if upsert throws", async () => {
     const deps = makeDeps({
       upsertDayAggs: vi.fn().mockRejectedValue(new Error("db down")),
     });
     const result = await runSyncJob(baseJob(), deps);
     expect(result.ok).toBe(false);
-    expect(deps.calls.logout).toBe(1);
+    expect(deps.calls.logout).toBe(0);
+    expect(deps.setStoredSession).toHaveBeenCalledWith("c1", "sess-1");
     expect(deps.markJobFinished).toHaveBeenCalledWith(
       expect.objectContaining({ status: "FAILED" }),
     );
   });
 
-  it("processes stores sequentially and updates watermark on light success", async () => {
+  it("processes all stores under one session (parallel Lista ok)", async () => {
     const deps = makeDeps();
     const result = await runSyncJob(baseJob({ kind: "LIGHT" }), deps);
     expect(result.ok).toBe(true);
-    expect(deps.calls.fetch).toEqual(["s1", "s2"]);
-    expect(deps.calls.logout).toBe(1);
+    expect(deps.calls.fetch.sort()).toEqual(["s1", "s2"]);
+    expect(deps.calls.logout).toBe(0);
+    expect(deps.setStoredSession).toHaveBeenCalledWith("c1", "sess-1");
     expect(deps.updateCredential).toHaveBeenCalledWith(
       expect.objectContaining({ lastLightSyncAt: expect.any(Date) }),
     );
@@ -129,28 +227,117 @@ describe("runSyncJob", () => {
     );
   });
 
-  it("BACKFILL window is today−90d → yesterday in store TZ (SYNC-01)", async () => {
+  it("reuses stored tenant session without new login", async () => {
+    const deps = makeDeps({
+      getStoredSession: vi.fn().mockResolvedValue("sess-saved"),
+    });
+    const result = await runSyncJob(baseJob({ kind: "LIGHT" }), deps);
+    expect(result.ok).toBe(true);
+    expect(deps.calls.login).toBe(0);
+    expect(deps.calls.logout).toBe(0);
+  });
+
+  it("SEED uses calendar months (not day-by-day)", async () => {
     const windows: Array<{ from: string; to: string; storeId: string }> = [];
     const deps = makeDeps({
       fetchSalesLista: vi.fn().mockImplementation(async (p: { storeId: string; from: string; to: string }) => {
         windows.push({ storeId: p.storeId, from: p.from, to: p.to });
+        // Devolve 1 linha pra não cair no fallback dia a dia.
+        return [
+          {
+            storeId: p.storeId,
+            occurredAt: new Date(`${p.from}T15:00:00.000Z`),
+            operationCode: "op1",
+            revenueCents: 100,
+            itemCount: 1,
+            brand: "ALL" as const,
+          },
+        ];
+      }),
+      now: () => new Date("2026-09-19T15:00:00.000Z"),
+    });
+    const result = await runSyncJob(baseJob({ kind: "SEED" }), deps);
+    expect(result.ok).toBe(true);
+    const s1 = windows.filter((w) => w.storeId === "s1");
+    expect(s1).toEqual([
+      { storeId: "s1", from: "2026-08-01", to: "2026-08-31" },
+      { storeId: "s1", from: "2026-09-01", to: "2026-09-19" },
+    ]);
+    expect(deps.enqueueHistoryFollowUp).toHaveBeenCalled();
+  });
+
+  it("SEED falls back to day-by-day when month range returns empty", async () => {
+    const windows: Array<{ from: string; to: string }> = [];
+    const deps = makeDeps({
+      listStores: vi.fn().mockResolvedValue([stores[0]]),
+      fetchSalesLista: vi.fn().mockImplementation(async (p: { from: string; to: string }) => {
+        windows.push({ from: p.from, to: p.to });
         return [];
       }),
       now: () => new Date("2026-09-19T15:00:00.000Z"),
     });
-    const result = await runSyncJob(baseJob({ kind: "BACKFILL" }), deps);
+    const result = await runSyncJob(baseJob({ kind: "SEED" }), deps);
     expect(result.ok).toBe(true);
-    expect(windows.length).toBe(2);
-    // Campo_Grande UTC−4 → local day 2026-09-19
-    expect(windows[0].from).toBe("2026-06-21");
-    expect(windows[0].to).toBe("2026-09-18");
-    expect(windows.every((w) => w.from === "2026-06-21" && w.to === "2026-09-18")).toBe(true);
+    // Primeiro tenta mês; depois explode em dias.
+    expect(windows[0]).toEqual({ from: "2026-08-01", to: "2026-08-31" });
+    expect(windows.some((w) => w.from === "2026-08-01" && w.to === "2026-08-01")).toBe(true);
+    expect(windows.some((w) => w.from === "2026-08-15" && w.to === "2026-08-15")).toBe(true);
   });
 
-  it("FORCE_LIGHT follows light rules: today window + watermark + logout (SYNC-12)", async () => {
+  it("HISTORY fetches previous calendar month then re-enqueues", async () => {
     const windows: Array<{ from: string; to: string }> = [];
     const deps = makeDeps({
-      fetchSalesLista: vi.fn().mockImplementation(async (p: { from: string; to: string; storeId: string }) => {
+      earliestSalesDay: vi.fn().mockResolvedValue("2026-08-01"),
+      enqueueHistoryFollowUp: vi.fn().mockResolvedValue(true),
+      fetchSalesLista: vi.fn().mockImplementation(async (p: { from: string; to: string }) => {
+        windows.push({ from: p.from, to: p.to });
+        return [
+          {
+            storeId: "s1",
+            occurredAt: new Date(`${p.from}T15:00:00.000Z`),
+            operationCode: "op1",
+            revenueCents: 100,
+            itemCount: 1,
+            brand: "ALL" as const,
+          },
+        ];
+      }),
+      now: () => new Date("2026-09-19T15:00:00.000Z"),
+    });
+    const result = await runSyncJob(baseJob({ kind: "HISTORY" }), deps);
+    expect(result.ok).toBe(true);
+    expect(windows.some((w) => w.from === "2026-07-01" && w.to === "2026-07-31")).toBe(true);
+    expect(deps.enqueueHistoryFollowUp).toHaveBeenCalled();
+  });
+
+  it("FORCE fetches gaps in period + always today", async () => {
+    const windows: Array<{ from: string; to: string }> = [];
+    const deps = makeDeps({
+      listExistingDays: vi.fn().mockResolvedValue(["2026-09-01", "2026-09-02"]),
+      fetchSalesLista: vi.fn().mockImplementation(async (p: { from: string; to: string }) => {
+        windows.push({ from: p.from, to: p.to });
+        return [];
+      }),
+      now: () => new Date("2026-09-19T15:00:00.000Z"),
+    });
+    const result = await runSyncJob(
+      baseJob({ kind: "FORCE", payload: { from: "2026-09-01", to: "2026-09-05" } }),
+      deps,
+    );
+    expect(result.ok).toBe(true);
+    // gaps 03,04,05 + today 19 — agora 1 dia por janela
+    expect(windows.some((w) => w.from === "2026-09-03" && w.to === "2026-09-03")).toBe(true);
+    expect(windows.some((w) => w.from === "2026-09-05" && w.to === "2026-09-05")).toBe(true);
+    expect(windows.some((w) => w.from === "2026-09-19" && w.to === "2026-09-19")).toBe(true);
+    expect(deps.updateCredential).toHaveBeenCalledWith(
+      expect.objectContaining({ lastLightSyncAt: expect.any(Date) }),
+    );
+  });
+
+  it("FORCE_LIGHT without payload stays today-only (compat)", async () => {
+    const windows: Array<{ from: string; to: string }> = [];
+    const deps = makeDeps({
+      fetchSalesLista: vi.fn().mockImplementation(async (p: { from: string; to: string }) => {
         windows.push({ from: p.from, to: p.to });
         return [];
       }),
@@ -159,9 +346,26 @@ describe("runSyncJob", () => {
     const result = await runSyncJob(baseJob({ kind: "FORCE_LIGHT" }), deps);
     expect(result.ok).toBe(true);
     expect(windows[0]).toEqual({ from: "2026-09-19", to: "2026-09-19" });
-    expect(deps.calls.logout).toBe(1);
-    expect(deps.updateCredential).toHaveBeenCalledWith(
-      expect.objectContaining({ lastLightSyncAt: expect.any(Date) }),
-    );
+  });
+});
+
+describe("storeFetchConcurrency", () => {
+  it("defaults to sequential (1) when STORE_CONCURRENCY unset or 0", () => {
+    const prev = process.env.STORE_CONCURRENCY;
+    delete process.env.STORE_CONCURRENCY;
+    expect(storeFetchConcurrency(3)).toBe(1);
+    process.env.STORE_CONCURRENCY = "0";
+    expect(storeFetchConcurrency(3)).toBe(1);
+    if (prev === undefined) delete process.env.STORE_CONCURRENCY;
+    else process.env.STORE_CONCURRENCY = prev;
+  });
+
+  it("honors positive STORE_CONCURRENCY capped by store count", () => {
+    const prev = process.env.STORE_CONCURRENCY;
+    process.env.STORE_CONCURRENCY = "2";
+    expect(storeFetchConcurrency(3)).toBe(2);
+    expect(storeFetchConcurrency(1)).toBe(1);
+    if (prev === undefined) delete process.env.STORE_CONCURRENCY;
+    else process.env.STORE_CONCURRENCY = prev;
   });
 });

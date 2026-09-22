@@ -111,9 +111,9 @@ T13 → T14
 
 **Done when**:
 
-- [ ] Default concurrency is 1 when env unset/0
-- [ ] Unit test locks default = 1
-- [ ] Gate: `npm test -- workers/millennium-sync` passes
+- [x] Default concurrency is 1 when env unset/0
+- [x] Unit test locks default = 1
+- [x] Gate: `npm test -- workers/millennium-sync` passes
 
 **Tests**: unit  
 **Gate**: quick  
