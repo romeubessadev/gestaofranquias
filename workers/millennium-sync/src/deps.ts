@@ -626,7 +626,7 @@ export async function processOneJob(sb: SupabaseClient, erpSecret: string): Prom
   const result = await runSyncJob(job, deps);
   if (!result.ok) {
     if (result.reason === "locked") {
-      // Outro job da mesma credencial ainda RUNNING — não é falha; para o burst.
+      // Outro job da mesma credencial ainda RUNNING — deixa QUEUED, sem FAILED/spam.
       return false;
     }
     console.log(`Job ${job.id.slice(0, 8)}… falhou (${result.reason})`);

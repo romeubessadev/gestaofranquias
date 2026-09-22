@@ -171,6 +171,8 @@ describe("runSyncJob", () => {
     expect(result.reason).toBe("locked");
     expect(deps.calls.login).toBe(0);
     expect(deps.markJobRunning).not.toHaveBeenCalled();
+    // Contenção ≠ falha: job permanece QUEUED (processOneJob para o burst).
+    expect(deps.markJobFinished).not.toHaveBeenCalled();
   });
 
   it("marks job failed on busy login and does not leave a session", async () => {
