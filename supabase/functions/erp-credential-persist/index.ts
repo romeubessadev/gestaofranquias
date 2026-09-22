@@ -1,19 +1,17 @@
 /**
  * erp-credential-persist — OWNER onboarding: encrypt ERP password, upsert
- * erp_credential + store rows, remap membership_store to store uuids.
- *
- * // SPEC_DEVIATION: Edge Function required (task listed authApi only).
- * // Reason: password must be AES-encrypted with ERP_SECRET_KEY server-side;
- * // sync tables allow writes only via service_role.
+ * erp_credential (+ optional stores). Username change wipes tenant sync data.
  */
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
+import { logoutMillennium } from "../_shared/millennium.ts";
 
 type StoreIn = {
   storeId: number;
   code?: string;
   name?: string;
   tradeName?: string;
+  openedAt?: string;
 };
 
 function json(body: unknown, status = 200) {
@@ -37,6 +35,33 @@ async function encryptPassword(plain: string, secret: string): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plain));
   return `${b64(iv)}.${b64(cipher)}`;
+}
+
+/** Apaga dados de sync do tenant (troca de usuário Millennium). */
+async function wipeTenantErpSync(
+  admin: SupabaseClient,
+  tenantId: string,
+  oldSession: string | null,
+): Promise<void> {
+  if (oldSession?.trim()) {
+    try {
+      await logoutMillennium(oldSession.trim());
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  await admin.from("sync_job").delete().eq("tenant_id", tenantId);
+  await admin.from("sync_run").delete().eq("tenant_id", tenantId);
+  await admin.from("sales_hour_agg").delete().eq("tenant_id", tenantId);
+  await admin.from("sales_day_agg").delete().eq("tenant_id", tenantId);
+
+  const { data: stores } = await admin.from("store").select("id").eq("tenant_id", tenantId);
+  const storeIds = (stores ?? []).map((s) => s.id as string);
+  if (storeIds.length > 0) {
+    await admin.from("membership_store").delete().in("store_id", storeIds);
+    await admin.from("store").delete().eq("tenant_id", tenantId);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -66,6 +91,7 @@ Deno.serve(async (req) => {
     username?: string;
     password?: string;
     dedicated?: boolean;
+    millenniumSession?: string;
     stores?: StoreIn[];
   };
   try {
@@ -79,9 +105,11 @@ Deno.serve(async (req) => {
   const username = String(body.username ?? "").trim().toUpperCase();
   const password = String(body.password ?? "");
   const dedicated = Boolean(body.dedicated);
+  const millenniumSession = String(body.millenniumSession ?? "").trim();
   const stores = Array.isArray(body.stores) ? body.stores : [];
 
-  if (!tenantId || !membershipId || !username || !password || stores.length === 0) {
+  // stores vazias = só credencial (Step2); com lojas = concluir onboarding.
+  if (!tenantId || !membershipId || !username || !password) {
     return json({ error: "invalid_body" }, 400);
   }
 
@@ -106,23 +134,46 @@ Deno.serve(async (req) => {
     return json({ error: "forbidden" }, 403);
   }
 
+  const { data: existing } = await admin
+    .from("erp_credential")
+    .select("id, username, millennium_session")
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  const prevUser = String((existing as { username?: string } | null)?.username ?? "")
+    .trim()
+    .toUpperCase();
+  const usernameChanged = Boolean(prevUser && prevUser !== username);
+  if (usernameChanged) {
+    await wipeTenantErpSync(
+      admin,
+      tenantId,
+      (existing as { millennium_session?: string | null })?.millennium_session ?? null,
+    );
+  }
+
   const ciphertext = await encryptPassword(password, erpSecret);
   const lightInterval = dedicated ? 2 : 30;
 
+  const credRow: Record<string, unknown> = {
+    tenant_id: tenantId,
+    username,
+    password_ciphertext: ciphertext,
+    dedicated,
+    status: "VALID",
+    light_interval_min: lightInterval,
+    updated_at: new Date().toISOString(),
+    sync_paused: false,
+  };
+  if (millenniumSession) {
+    credRow.millennium_session = millenniumSession;
+    credRow.millennium_session_at = new Date().toISOString();
+    credRow.millennium_session_by = "app";
+  }
+
   const { data: cred, error: credErr } = await admin
     .from("erp_credential")
-    .upsert(
-      {
-        tenant_id: tenantId,
-        username,
-        password_ciphertext: ciphertext,
-        dedicated,
-        status: "VALID",
-        light_interval_min: lightInterval,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "tenant_id" },
-    )
+    .upsert(credRow, { onConflict: "tenant_id" })
     .select("id")
     .single();
   if (credErr || !cred) {
@@ -145,6 +196,9 @@ Deno.serve(async (req) => {
           trade_name: s.tradeName ?? s.name ?? String(milleniumId),
           timezone: "America/Campo_Grande",
           active: true,
+          ...(s.openedAt && /^\d{4}-\d{2}-\d{2}/.test(s.openedAt)
+            ? { opened_at: s.openedAt.slice(0, 10) }
+            : {}),
         },
         { onConflict: "tenant_id,millennium_store_id" },
       )
@@ -157,14 +211,16 @@ Deno.serve(async (req) => {
     storeIds.push(row.id as string);
   }
 
-  await admin.from("membership_store").delete().eq("membership_id", membershipId);
-  if (storeIds.length > 0) {
-    const { error: msErr } = await admin.from("membership_store").insert(
-      storeIds.map((store_id) => ({ membership_id: membershipId, store_id })),
-    );
-    if (msErr) {
-      console.error("membership_store insert", msErr);
-      return json({ error: "membership_store_failed" }, 500);
+  if (stores.length > 0) {
+    await admin.from("membership_store").delete().eq("membership_id", membershipId);
+    if (storeIds.length > 0) {
+      const { error: msErr } = await admin.from("membership_store").insert(
+        storeIds.map((store_id) => ({ membership_id: membershipId, store_id })),
+      );
+      if (msErr) {
+        console.error("membership_store insert", msErr);
+        return json({ error: "membership_store_failed" }, 500);
+      }
     }
   }
 
@@ -173,5 +229,6 @@ Deno.serve(async (req) => {
     credentialId: cred.id,
     storeIds,
     lightIntervalMin: lightInterval,
+    wiped: usernameChanged,
   });
 });

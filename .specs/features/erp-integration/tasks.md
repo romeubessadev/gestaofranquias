@@ -154,10 +154,10 @@ T13 → T14
 
 **Done when**:
 
-- [ ] Same username → no wipe; password/token update only
-- [ ] Different username → wipe listed tables then upsert
-- [ ] Token saved when provided
-- [ ] Gate: `npm run build` passes (Edge not in vitest)
+- [x] Same username → no wipe; password/token update only
+- [x] Different username → wipe listed tables then upsert
+- [x] Token saved when provided
+- [x] Gate: `npm run build` passes (Edge not in vitest)
 
 **Tests**: none  
 **Gate**: build  
