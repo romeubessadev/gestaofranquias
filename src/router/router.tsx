@@ -1,19 +1,21 @@
-import { Navigate, useRoutes, type RouteObject } from "react-router-dom";
+﻿import { Navigate, useRoutes, type RouteObject } from "react-router-dom";
 import { AppShell } from "@/layout/AppShell";
 import { AuthLayout } from "@/layout/AuthLayout";
 import { paths } from "./paths";
 import { NotFound } from "@/pages/auth/NotFound";
-import { RequireSession, inicioDoPapel } from "@/session/RequireSession";
-import { useSessao } from "@/session/SessionProvider";
+import { RequireSession } from "@/session/RequireSession";
+import { useSession } from "@/session/SessionProvider";
+import { destinationAfterAuth } from "@/session/authApi";
+import { lazyPage } from "@/lib/lazyPage";
 
 /* Produto */
-import { acessoRoutes } from "@/pages/acesso/routes";
-import { onboardingRoutes } from "@/pages/onboarding/routes";
+import { acessoRoutes } from "@/pages/access/routes";
+import { onboardingRoutes, syncingRoutes } from "@/pages/onboarding/routes";
 import { dashboardRoutes } from "@/pages/dashboard/routes";
-import { equipeRoutes } from "@/pages/equipe/routes";
-import { metasRoutes } from "@/pages/metas/routes";
-import { aoVivoRoutes } from "@/pages/ao-vivo/routes";
-import { emBreveRoutes } from "@/pages/embreve/routes";
+import { equipeRoutes } from "@/pages/team/routes";
+import { metasRoutes } from "@/pages/goals/routes";
+import { aoVivoRoutes } from "@/pages/live/routes";
+import { emBreveRoutes } from "@/pages/coming-soon/routes";
 
 /* Template Vela (referência, acessível por URL) */
 import { dashboardsRoutes } from "@/pages/dashboards/routes";
@@ -37,12 +39,13 @@ import { utilityRoutes } from "@/pages/utility/routes";
 import { miscRoutes } from "@/pages/misc/routes";
 import { authRoutes } from "@/pages/auth/routes";
 
-/** Raiz: sem sessão vai ao login; com sessão, à tela inicial do papel. */
+const TrocarSenha = lazyPage(() => import("@/pages/access/ChangePassword"), "ChangePassword");
+
+/** Raiz: sem sessão → login; com sessão → senha temp → onboarding → app. */
 function Raiz() {
-  const { sessao } = useSessao();
-  if (!sessao) return <Navigate to={paths.acesso.entrar} replace />;
-  if (sessao.onboardingEtapa !== null) return <Navigate to={paths.onboarding} replace />;
-  return <Navigate to={inicioDoPapel(sessao.papel)} replace />;
+  const { session } = useSession();
+  if (!session) return <Navigate to={paths.access.login} replace />;
+  return <Navigate to={destinationAfterAuth(session)} replace />;
 }
 
 const routeTree: RouteObject[] = [
@@ -52,8 +55,21 @@ const routeTree: RouteObject[] = [
     children: [...acessoRoutes, ...authRoutes],
   },
   {
+    element: <RequireSession modo="change-password" />,
+    children: [
+      {
+        element: <AuthLayout />,
+        children: [{ path: paths.access.changePassword, element: <TrocarSenha /> }],
+      },
+    ],
+  },
+  {
     element: <RequireSession modo="onboarding" />,
     children: [{ element: <AuthLayout />, children: [...onboardingRoutes] }],
+  },
+  {
+    element: <RequireSession modo="app" />,
+    children: [...syncingRoutes],
   },
   {
     element: <RequireSession modo="app" />,

@@ -16,59 +16,89 @@
 export const paths = {
   home: "/",
 
-  /* ---------- Gestão de franquias (produto) ---------- */
-  acesso: {
-    entrar: "/entrar",
-    recuperar: "/recuperar",
-    redefinir: (token: string = ":token") => `/redefinir/${token}`,
-    convite: (token: string = ":token") => `/convite/${token}`,
-    instalar: "/instalar",
+  /* ---------- WeDash (produto) ---------- */
+  access: {
+    login: "/login",
+    forgot: "/forgot",
+    /** Formulário OTP + nova senha (recovery). */
+    reset: "/reset",
+    invite: (token: string = ":token") => `/invite/${token}`,
+    install: "/install",
+    /** Primeiro acesso com senha temporária (antes do onboarding). */
+    changePassword: "/change-password",
   },
   onboarding: "/onboarding",
-  /** Entrada canônica do Dashboard = Visão geral. `/dashboard` redireciona. */
+  /** Pós-onboarding — aguarda SEED antes do Dashboard. */
+  syncing: "/sincronizando",
+  /** Entrada canônica do Dashboard = overview. `/dashboard` redireciona. */
   dashboard: "/dashboard",
-  financeiro: "/dashboard/financeiro",
-  produtos: "/dashboard/produtos",
-  grupos: "/dashboard/grupos",
-  /** Redirect legado — URL antiga de Turnos. */
-  turnosLegado: "/dashboard/turnos",
-  visaoGeral: "/dashboard/visao-geral",
-  /** Legado: a página principal já foi /loja; quem tiver link antigo cai na Visão geral. */
-  lojaLegado: "/loja",
-  equipe: "/dashboard/equipe",
-  /** Redirect legado — URL antiga da Equipe. */
-  equipeLegado: "/equipe",
+  overview: "/dashboard/overview",
+  /** WeDash finance screen (template Vela uses `paths.finance.*`). */
+  financial: "/dashboard/finance",
+  products: "/dashboard/products",
+  groups: "/dashboard/groups",
+  team: "/dashboard/team",
   /** CRUD de metas (fora do Dashboard). */
-  metas: "/metas",
-  /** Ao vivo — painel operacional do mês + pulso do dia. */
-  aoVivo: {
-    root: "/ao-vivo",
-    compartilhar: "/ao-vivo/compartilhar",
-    tv: "/ao-vivo/tv",
+  goals: "/goals",
+  /** Live — painel operacional do mês + pulso do dia. */
+  live: {
+    root: "/live",
+    share: "/live/share",
+    tv: "/live/tv",
   },
-  analise: "/analise",
-  configuracoes: {
-    root: "/configuracoes",
-    /** Legado — redireciona para paths.metas. */
-    metas: "/configuracoes/metas",
-    desafios: "/configuracoes/desafios",
-    colaboradores: "/configuracoes/colaboradores",
-    grupos: "/configuracoes/grupos-e-tarefas",
-    /** Redirect legado — URL antiga de Turnos e tarefas. */
-    turnosLegado: "/configuracoes/turnos-e-tarefas",
-    mensagens: "/configuracoes/mensagens",
-    documentos: "/configuracoes/documentos",
-    custos: "/configuracoes/custos",
-    marca: "/configuracoes/marca",
-    erp: "/configuracoes/erp",
-    usuarios: "/configuracoes/usuarios",
-  },
-  vendedora: {
-    minhaMeta: "/minha-meta",
-    tarefas: "/tarefas",
+  analytics: "/analytics",
+  seller: {
+    myGoal: "/my-goal",
+    tasks: "/tasks",
     ranking: "/ranking",
   },
-  perfil: "/perfil",
+  profile: "/profile",
+
+  /** URLs antigas em PT — só para redirects. */
+  legacy: {
+    auth: {
+      entrar: "/entrar",
+      recuperar: "/recuperar",
+      redefinir: "/redefinir",
+      convite: "/convite/:token",
+      instalar: "/instalar",
+      trocarSenha: "/trocar-senha",
+    },
+    overview: "/dashboard/visao-geral",
+    finance: "/dashboard/financeiro",
+    products: "/dashboard/produtos",
+    groups: "/dashboard/grupos",
+    team: "/dashboard/equipe",
+    teamRoot: "/equipe",
+    shifts: "/dashboard/turnos",
+    store: "/loja",
+    goals: "/metas",
+    goalsInSettings: "/configuracoes/metas",
+    live: {
+      root: "/ao-vivo",
+      share: "/ao-vivo/compartilhar",
+      tv: "/ao-vivo/tv",
+    },
+    analytics: "/analise",
+    settings: {
+      root: "/configuracoes",
+      challenges: "/configuracoes/desafios",
+      staff: "/configuracoes/colaboradores",
+      groups: "/configuracoes/grupos-e-tarefas",
+      shifts: "/configuracoes/turnos-e-tarefas",
+      messages: "/configuracoes/mensagens",
+      documents: "/configuracoes/documentos",
+      costs: "/configuracoes/custos",
+      brand: "/configuracoes/marca",
+      erp: "/configuracoes/erp",
+      users: "/configuracoes/usuarios",
+    },
+    seller: {
+      myGoal: "/minha-meta",
+      tasks: "/tarefas",
+    },
+    profile: "/perfil",
+  },
   /* ---------- Template Vela (referência) ---------- */
 
   dashboards: {
@@ -255,6 +285,16 @@ export const paths = {
   settings: {
     root: "/settings",
     tab: (tab: string) => `/settings/${tab}`,
+    /** WeDash app settings */
+    challenges: "/settings/challenges",
+    staff: "/settings/staff",
+    groups: "/settings/groups-and-tasks",
+    messages: "/settings/messages",
+    documents: "/settings/documents",
+    costs: "/settings/costs",
+    brand: "/settings/brand",
+    erp: "/settings/erp",
+    users: "/settings/users",
   },
 
   utility: {

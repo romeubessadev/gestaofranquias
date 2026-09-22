@@ -1,35 +1,59 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useSessao } from "./SessionProvider";
+import { useSession } from "./SessionProvider";
 import { paths } from "@/router/paths";
-import type { Papel } from "@/data/gestao/equipe";
+import type { Role } from "@/data/wedash/team";
+import { isAwaitingInitialSync } from "./awaitingInitialSync";
 
 /**
- * Protege rotas: sem sessão manda para o login; com onboarding pendente
- * manda para o onboarding (e vice-versa: onboarding concluído não reabre).
+ * Protege rotas. Ordem: senha temporária → onboarding → sync inicial → app.
  */
-export function RequireSession({ modo = "app" }: { modo?: "app" | "onboarding" }) {
-  const { sessao } = useSessao();
+export function RequireSession({ modo = "app" }: { modo?: "app" | "onboarding" | "change-password" }) {
+  const { session, ready } = useSession();
   const location = useLocation();
 
-  if (!sessao) return <Navigate to={paths.acesso.entrar} replace state={{ de: location.pathname }} />;
+  if (!ready) return null;
+  if (!session) return <Navigate to={paths.access.login} replace state={{ de: location.pathname }} />;
 
-  const pendente = sessao.onboardingEtapa !== null;
-  if (modo === "app" && pendente) return <Navigate to={paths.onboarding} replace />;
-  if (modo === "onboarding" && !pendente) return <Navigate to={paths.visaoGeral} replace />;
+  const needsPassword = session.temporaryPassword;
+  const needsOnboarding = session.onboardingStep !== null;
+  const awaitingSync = isAwaitingInitialSync();
+  const onSyncing = location.pathname === paths.syncing;
+
+  if (modo === "change-password") {
+    if (!needsPassword) {
+      if (needsOnboarding) return <Navigate to={paths.onboarding} replace />;
+      if (awaitingSync) return <Navigate to={paths.syncing} replace />;
+      return <Navigate to={homeForRole(session.role)} replace />;
+    }
+    return <Outlet />;
+  }
+
+  if (needsPassword) return <Navigate to={paths.access.changePassword} replace />;
+
+  if (modo === "app" && needsOnboarding) return <Navigate to={paths.onboarding} replace />;
+
+  // Ao concluir onboarding, NÃO manda pro Dash — manda pra tela de sync.
+  if (modo === "onboarding" && !needsOnboarding) {
+    return <Navigate to={awaitingSync ? paths.syncing : homeForRole(session.role)} replace />;
+  }
+
+  // Enquanto SEED não terminou, trava qualquer rota do app (exceto /sincronizando).
+  if (modo === "app" && awaitingSync && !onSyncing) {
+    return <Navigate to={paths.syncing} replace />;
+  }
 
   return <Outlet />;
 }
 
 /** Restringe a rota a alguns papéis; os demais vão para a tela inicial do seu papel. */
-export function RequirePapel({ papeis }: { papeis: Papel[] }) {
-  const { sessao } = useSessao();
-  if (!sessao) return <Navigate to={paths.acesso.entrar} replace />;
-  if (!papeis.includes(sessao.papel)) return <Navigate to={inicioDoPapel(sessao.papel)} replace />;
+export function RequireRole({ roles }: { roles: Role[] }) {
+  const { session } = useSession();
+  if (!session) return <Navigate to={paths.access.login} replace />;
+  if (!roles.includes(session.role)) return <Navigate to={homeForRole(session.role)} replace />;
   return <Outlet />;
 }
 
-export function inicioDoPapel(papel: Papel): string {
-  if (papel === "VENDEDOR") return paths.vendedora.minhaMeta;
-  // Gestores/Gerentes/Admins → Dashboard > Visão Geral (não a tela legada com tabs)
-  return paths.visaoGeral;
+export function homeForRole(role: Role): string {
+  if (role === "SELLER") return paths.seller.myGoal;
+  return paths.overview;
 }
