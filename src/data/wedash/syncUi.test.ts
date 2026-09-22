@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   canForceSyncRefresh,
+  FORCE_COOLDOWN_MS,
   forceRefreshRetryAfterSec,
+  formatForceCooldownLabel,
   formatSyncWatermarkLabel,
+  lastForceAtFromRetryAfter,
 } from "./syncUi";
 import { fetchSalesDayAggs, type SalesQueryClient } from "./salesRepo";
 
@@ -35,6 +38,19 @@ describe("force refresh role + rate limit (SYNC-11)", () => {
     expect(forceRefreshRetryAfterSec(last, new Date("2026-09-19T12:02:00.000Z"))).toBe(180);
     expect(forceRefreshRetryAfterSec(last, new Date("2026-09-19T12:05:00.000Z"))).toBeNull();
     expect(forceRefreshRetryAfterSec(null, new Date())).toBeNull();
+  });
+
+  it("formats cooldown mm:ss", () => {
+    expect(formatForceCooldownLabel(65)).toBe("1:05");
+    expect(formatForceCooldownLabel(9)).toBe("9s");
+    expect(formatForceCooldownLabel(300)).toBe("5:00");
+  });
+
+  it("hydrates lastForceAt from retryAfterSec", () => {
+    const now = new Date("2026-09-19T12:05:00.000Z");
+    const last = lastForceAtFromRetryAfter(120, now);
+    expect(forceRefreshRetryAfterSec(last, now)).toBe(120);
+    expect(now.getTime() - last.getTime()).toBe(FORCE_COOLDOWN_MS - 120_000);
   });
 });
 
