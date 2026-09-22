@@ -1,7 +1,11 @@
 import { aggregateSales } from "../../../src/data/wedash/salesAggregate.ts";
 import type { SalesDayAgg, SalesHourAgg } from "../../../src/data/wedash/salesTypes.ts";
 import type { SaleRow } from "../../../src/data/wedash/salesTypes.ts";
-import type { FetchSalesListaParams } from "./millenniumSales.ts";
+import {
+  partitionRowsByFilial,
+  type FetchSalesListaParams,
+  type SaleRowWithFilial,
+} from "./millenniumSales.ts";
 import {
   forgetMillenniumSession,
   logoutRememberedSessions,
@@ -81,7 +85,7 @@ export type SyncJobDeps = {
   logout: (session: string) => Promise<void>;
   /** EVENTO whitelist ids for this store's COD_FILIAL (from EVENTOS.ListaTodos). */
   resolveEventoIds: (session: string, codFilial: string) => Promise<number[]>;
-  fetchSalesLista: (params: FetchSalesListaParams) => Promise<SaleRow[]>;
+  fetchSalesLista: (params: FetchSalesListaParams) => Promise<SaleRowWithFilial[] | SaleRow[]>;
   upsertDayAggs: (rows: SalesDayAgg[]) => Promise<void>;
   upsertHourAggs: (rows: SalesHourAgg[]) => Promise<void>;
   insertSyncRun: (args: {
@@ -545,163 +549,224 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
     activeMillenniumSession = session;
     const storeList = await deps.listStores(job.tenantId);
     const now = deps.now();
-    const concurrency = storeFetchConcurrency(storeList.length);
-    console.log(
-      `Sessão OK (${ensured.reused ? "reusada" : "nova"}) · ${storeList.length} loja(s) · paralelo ×${concurrency}`,
-    );
+    const lightToday =
+      job.kind === "LIGHT" ||
+      (job.kind === "FORCE_LIGHT" && !job.payload.from && !job.payload.to);
 
-    const storeResults = await mapPool(storeList, concurrency, async (store, i) => {
-      const eventoIds = await deps.resolveEventoIds(session!, store.code);
-      if (eventoIds.length === 0) {
-        throw new Error(`Nenhum EVENTO de venda para a loja ${store.code}`);
+    if (lightToday) {
+      // LIGHT: 1× VENDAS.Lista sem FILIAL (hoje) → particiona por FILIAL da linha.
+      const tz = storeList[0]?.timezone ?? "America/Sao_Paulo";
+      const today = ymdInTz(now, tz);
+      const eventoSet = new Set<number>();
+      for (const store of storeList) {
+        const ids = await deps.resolveEventoIds(session, store.code);
+        for (const id of ids) eventoSet.add(id);
       }
-      const windows = await windowsForStore(job, store, now, deps);
-      if (windows.length === 0) {
-        console.log(
-          `Loja ${i + 1}/${storeList.length} (${store.code}) — nada a buscar (já no banco)`,
-        );
-        return 1;
+      const eventoIds = [...eventoSet];
+      if (eventoIds.length === 0) {
+        throw new Error("Nenhum EVENTO de venda para as lojas do tenant");
       }
       console.log(
-        `Loja ${i + 1}/${storeList.length} (${store.code}) · ${windows.length} janela(s) · EVENTOs ${eventoIds.join(",")}`,
+        `LIGHT hoje ${today} · ${storeList.length} loja(s) · 1× Lista FILIAL=null · EVENTOs ${eventoIds.join(",")}`,
       );
-      let storeSales = 0;
-      let storeDays = 0;
-      let dayErrors = 0;
-      // Fila: mês primeiro; se Millennium devolver vazio, explode em dias.
-      const queue: Array<{ from: string; to: string }> = [...windows];
-      while (queue.length > 0) {
-        const { from, to } = queue.shift()!;
-        console.log(`  [${store.code}] Buscando ${from} → ${to}`);
-        let rows: Awaited<ReturnType<typeof deps.fetchSalesLista>> = [];
-        try {
-          rows = await deps.fetchSalesLista({
-            session: session!,
-            storeId: store.id,
-            millenniumStoreId: store.millenniumStoreId,
-            from,
-            to,
-            eventoIds,
-          });
-        } catch (dayErr) {
-          const msg = dayErr instanceof Error ? dayErr.message : String(dayErr);
-          // Sessão caiu (401): para o job inteiro — senão marca SUCCEEDED com lixo.
-          if (isSessionDeadError(msg)) {
-            throw new Error(`Sessão Millennium inválida (401) em ${from}→${to}`);
-          }
-          if (job.kind === "SEED" || job.kind === "BACKFILL" || job.kind === "HISTORY") {
-            console.warn(`  [${store.code}] Falha em ${from}→${to}: ${msg} — nova tentativa`);
-            try {
-              rows = await deps.fetchSalesLista({
-                session: session!,
-                storeId: store.id,
-                millenniumStoreId: store.millenniumStoreId,
-                from,
-                to,
-                eventoIds,
-              });
-            } catch (retryErr) {
-              const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
-              if (isSessionDeadError(retryMsg)) {
-                throw new Error(`Sessão Millennium inválida (401) em ${from}→${to}`);
-              }
-              dayErrors += 1;
-              console.warn(`  [${store.code}] Desistindo de ${from}→${to}: ${retryMsg}`);
-              if (from === to) {
-                await deps.upsertDayAggs([
-                  {
-                    tenantId: job.tenantId,
-                    storeId: store.id,
-                    day: from,
-                    brand: "ALL",
-                    revenueCents: 0,
-                    salesCount: 0,
-                    itemCount: 0,
-                  },
-                ]);
-              } else {
-                console.warn(`  [${store.code}] Range falhou — caindo para dia a dia (${from}→${to})`);
-                queue.unshift(...chunkInclusiveRange(from, to, 1));
-              }
-              continue;
-            }
-          } else {
-            throw dayErr;
-          }
-        }
-
-        // Multi-dia 200 OK mas lista vazia → fallback dia a dia (sintoma conhecido).
-        if (rows.length === 0 && from !== to) {
-          console.warn(`  [${store.code}] Range ${from}→${to} vazio — caindo para dia a dia`);
-          queue.unshift(...chunkInclusiveRange(from, to, 1));
-          continue;
-        }
-
+      const rawRows = await deps.fetchSalesLista({
+        session,
+        storeId: "",
+        millenniumStoreId: null,
+        from: today,
+        to: today,
+        eventoIds,
+      });
+      const byMillenium = new Map(storeList.map((s) => [s.millenniumStoreId, { id: s.id }]));
+      const withFilial: SaleRowWithFilial[] = rawRows.map((r) =>
+        "millenniumFilial" in r && (r as SaleRowWithFilial).millenniumFilial != null
+          ? (r as SaleRowWithFilial)
+          : { ...r, millenniumFilial: null },
+      );
+      const parts = partitionRowsByFilial(withFilial, byMillenium);
+      for (const store of storeList) {
+        const rows = parts.get(store.id) ?? [];
         const agg = aggregateSales(rows, {
           tenantId: job.tenantId,
           timeZone: store.timezone,
           now,
         });
-
-        if (
-          agg.days.length === 0 &&
-          from === to &&
-          (job.kind === "SEED" || job.kind === "BACKFILL" || job.kind === "HISTORY")
-        ) {
+        if (agg.days.length === 0) {
           await deps.upsertDayAggs([
             {
               tenantId: job.tenantId,
               storeId: store.id,
-              day: from,
+              day: today,
               brand: "ALL",
               revenueCents: 0,
               salesCount: 0,
               itemCount: 0,
             },
           ]);
-          storeDays += 1;
         } else {
           await deps.upsertDayAggs(agg.days);
-          await deps.upsertHourAggs(agg.hours);
-          storeSales += rows.length;
-          storeDays += agg.days.length;
+          if (agg.hours.length > 0) await deps.upsertHourAggs(agg.hours);
+        }
+        storesDone += 1;
+        console.log(
+          `Loja ${store.code} · ${rows.length} venda(s) · ${agg.days.length || 1} dia(s)`,
+        );
+      }
+    } else {
+      const concurrency = storeFetchConcurrency(storeList.length);
+      console.log(
+        `Sessão OK (${ensured.reused ? "reusada" : "nova"}) · ${storeList.length} loja(s) · paralelo ×${concurrency}`,
+      );
 
-          // Marca dias sem venda no range (mês) pra cobertura/picker não ficar só no “hoje”.
+      const storeResults = await mapPool(storeList, concurrency, async (store, i) => {
+        const eventoIds = await deps.resolveEventoIds(session!, store.code);
+        if (eventoIds.length === 0) {
+          throw new Error(`Nenhum EVENTO de venda para a loja ${store.code}`);
+        }
+        const windows = await windowsForStore(job, store, now, deps);
+        if (windows.length === 0) {
+          console.log(
+            `Loja ${i + 1}/${storeList.length} (${store.code}) — nada a buscar (já no banco)`,
+          );
+          return 1;
+        }
+        console.log(
+          `Loja ${i + 1}/${storeList.length} (${store.code}) · ${windows.length} janela(s) · EVENTOs ${eventoIds.join(",")}`,
+        );
+        let storeSales = 0;
+        let storeDays = 0;
+        let dayErrors = 0;
+        const queue: Array<{ from: string; to: string }> = [...windows];
+        while (queue.length > 0) {
+          const { from, to } = queue.shift()!;
+          console.log(`  [${store.code}] Buscando ${from} → ${to}`);
+          let rows: Awaited<ReturnType<typeof deps.fetchSalesLista>> = [];
+          try {
+            rows = await deps.fetchSalesLista({
+              session: session!,
+              storeId: store.id,
+              millenniumStoreId: store.millenniumStoreId,
+              from,
+              to,
+              eventoIds,
+            });
+          } catch (dayErr) {
+            const msg = dayErr instanceof Error ? dayErr.message : String(dayErr);
+            if (isSessionDeadError(msg)) {
+              throw new Error(`Sessão Millennium inválida (401) em ${from}→${to}`);
+            }
+            if (job.kind === "SEED" || job.kind === "BACKFILL" || job.kind === "HISTORY") {
+              console.warn(`  [${store.code}] Falha em ${from}→${to}: ${msg} — nova tentativa`);
+              try {
+                rows = await deps.fetchSalesLista({
+                  session: session!,
+                  storeId: store.id,
+                  millenniumStoreId: store.millenniumStoreId,
+                  from,
+                  to,
+                  eventoIds,
+                });
+              } catch (retryErr) {
+                const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+                if (isSessionDeadError(retryMsg)) {
+                  throw new Error(`Sessão Millennium inválida (401) em ${from}→${to}`);
+                }
+                dayErrors += 1;
+                console.warn(`  [${store.code}] Desistindo de ${from}→${to}: ${retryMsg}`);
+                if (from === to) {
+                  await deps.upsertDayAggs([
+                    {
+                      tenantId: job.tenantId,
+                      storeId: store.id,
+                      day: from,
+                      brand: "ALL",
+                      revenueCents: 0,
+                      salesCount: 0,
+                      itemCount: 0,
+                    },
+                  ]);
+                } else {
+                  console.warn(`  [${store.code}] Range falhou — caindo para dia a dia (${from}→${to})`);
+                  queue.unshift(...chunkInclusiveRange(from, to, 1));
+                }
+                continue;
+              }
+            } else {
+              throw dayErr;
+            }
+          }
+
+          if (rows.length === 0 && from !== to) {
+            console.warn(`  [${store.code}] Range ${from}→${to} vazio — caindo para dia a dia`);
+            queue.unshift(...chunkInclusiveRange(from, to, 1));
+            continue;
+          }
+
+          const agg = aggregateSales(rows, {
+            tenantId: job.tenantId,
+            timeZone: store.timezone,
+            now,
+          });
+
           if (
-            from !== to &&
+            agg.days.length === 0 &&
+            from === to &&
             (job.kind === "SEED" || job.kind === "BACKFILL" || job.kind === "HISTORY")
           ) {
-            const have = new Set(agg.days.map((d) => d.day));
-            const zeros: typeof agg.days = [];
-            let cursor = from;
-            while (cursor <= to) {
-              if (!have.has(cursor)) {
-                zeros.push({
-                  tenantId: job.tenantId,
-                  storeId: store.id,
-                  day: cursor,
-                  brand: "ALL",
-                  revenueCents: 0,
-                  salesCount: 0,
-                  itemCount: 0,
-                });
+            await deps.upsertDayAggs([
+              {
+                tenantId: job.tenantId,
+                storeId: store.id,
+                day: from,
+                brand: "ALL",
+                revenueCents: 0,
+                salesCount: 0,
+                itemCount: 0,
+              },
+            ]);
+            storeDays += 1;
+          } else {
+            await deps.upsertDayAggs(agg.days);
+            await deps.upsertHourAggs(agg.hours);
+            storeSales += rows.length;
+            storeDays += agg.days.length;
+
+            if (
+              from !== to &&
+              (job.kind === "SEED" || job.kind === "BACKFILL" || job.kind === "HISTORY")
+            ) {
+              const have = new Set(agg.days.map((d) => d.day));
+              const zeros: typeof agg.days = [];
+              let cursor = from;
+              while (cursor <= to) {
+                if (!have.has(cursor)) {
+                  zeros.push({
+                    tenantId: job.tenantId,
+                    storeId: store.id,
+                    day: cursor,
+                    brand: "ALL",
+                    revenueCents: 0,
+                    salesCount: 0,
+                    itemCount: 0,
+                  });
+                }
+                cursor = addDaysIso(cursor, 1);
               }
-              cursor = addDaysIso(cursor, 1);
-            }
-            if (zeros.length > 0) {
-              await deps.upsertDayAggs(zeros);
-              storeDays += zeros.length;
+              if (zeros.length > 0) {
+                await deps.upsertDayAggs(zeros);
+                storeDays += zeros.length;
+              }
             }
           }
         }
-      }
-      console.log(
-        `Loja ${i + 1}/${storeList.length} (${store.code}) ok · ${storeSales} venda(s) · ${storeDays} dia(s) gravado(s)` +
-          (dayErrors > 0 ? ` · ${dayErrors} janela(s) com falha` : ""),
-      );
-      return 1;
-    });
-    storesDone = storeResults.reduce((a, b) => a + b, 0);
+        console.log(
+          `Loja ${i + 1}/${storeList.length} (${store.code}) ok · ${storeSales} venda(s) · ${storeDays} dia(s) gravado(s)` +
+            (dayErrors > 0 ? ` · ${dayErrors} janela(s) com falha` : ""),
+        );
+        return 1;
+      });
+      storesDone = storeResults.reduce((a, b) => a + b, 0);
+    }
 
     const finishedAt = deps.now();
     const touchesToday =
@@ -727,7 +792,6 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
     });
     console.log(`Concluído (${kindLabel(job.kind)}) · ${storesDone} loja(s)`);
 
-    // Após SEED (ou um mês de HISTORY), enfileira o próximo mês se ainda faltar.
     if (job.kind === "SEED" || job.kind === "BACKFILL" || job.kind === "HISTORY") {
       const queued = await deps.enqueueHistoryFollowUp({
         tenantId: job.tenantId,

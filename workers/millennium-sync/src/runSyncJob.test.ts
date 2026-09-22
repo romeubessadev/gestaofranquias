@@ -67,8 +67,10 @@ function makeDeps(overrides: Partial<SyncJobDeps> = {}): SyncJobDeps & {
       calls.logout += 1;
     }),
     resolveEventoIds: vi.fn().mockResolvedValue([17, 24, 22, 107]),
-    fetchSalesLista: vi.fn().mockImplementation(async (p: { storeId: string; eventoIds: number[] }) => {
-      calls.fetch.push(p.storeId);
+    fetchSalesLista: vi.fn().mockImplementation(async (p: { storeId: string; eventoIds: number[]; millenniumStoreId?: number | null }) => {
+      calls.fetch.push(
+        p.millenniumStoreId == null ? `ALL:${p.storeId || "-"}` : p.storeId,
+      );
       expect(p.eventoIds.length).toBeGreaterThan(0);
       return [];
     }),
@@ -212,11 +214,11 @@ describe("runSyncJob", () => {
     );
   });
 
-  it("processes all stores under one session (parallel Lista ok)", async () => {
+  it("LIGHT fetches all stores in one Lista call (FILIAL null)", async () => {
     const deps = makeDeps();
     const result = await runSyncJob(baseJob({ kind: "LIGHT" }), deps);
     expect(result.ok).toBe(true);
-    expect(deps.calls.fetch.sort()).toEqual(["s1", "s2"]);
+    expect(deps.calls.fetch).toEqual(["ALL:-"]);
     expect(deps.calls.logout).toBe(0);
     expect(deps.setStoredSession).toHaveBeenCalledWith("c1", "sess-1");
     expect(deps.updateCredential).toHaveBeenCalledWith(
@@ -225,6 +227,7 @@ describe("runSyncJob", () => {
     expect(deps.markJobFinished).toHaveBeenCalledWith(
       expect.objectContaining({ status: "SUCCEEDED" }),
     );
+    expect(deps.upsertDayAggs).toHaveBeenCalled();
   });
 
   it("reuses stored tenant session without new login", async () => {
