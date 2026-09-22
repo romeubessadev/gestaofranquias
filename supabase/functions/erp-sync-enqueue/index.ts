@@ -1,11 +1,11 @@
 /**
- * erp-sync-enqueue — JWT OWNER/MANAGER enfileira LIGHT | FORCE_LIGHT | BACKFILL.
- * Rate limit: FORCE_LIGHT at most once per 5 minutes per tenant.
+ * erp-sync-enqueue — JWT OWNER/MANAGER enfileira SEED | LIGHT | FORCE | RANGE.
+ * Rate limit: FORCE at most once per 5 minutes per tenant.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 
-type JobKind = "BACKFILL" | "LIGHT" | "FORCE_LIGHT";
+type JobKind = "SEED" | "LIGHT" | "FORCE" | "FORCE_LIGHT" | "RANGE" | "BACKFILL";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -20,12 +20,19 @@ function mapAction(action: string): JobKind | null {
       return "LIGHT";
     case "force":
     case "force_light":
-      return "FORCE_LIGHT";
+      return "FORCE";
+    case "seed":
     case "backfill":
-      return "BACKFILL";
+      return "SEED";
+    case "range":
+      return "RANGE";
     default:
       return null;
   }
+}
+
+function isIsoDay(s: unknown): s is string {
+  return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 }
 
 Deno.serve(async (req) => {
@@ -48,7 +55,7 @@ Deno.serve(async (req) => {
   const { data: userData, error: userError } = await userClient.auth.getUser();
   if (userError || !userData.user) return json({ error: "unauthorized" }, 401);
 
-  let body: { action?: string };
+  let body: { action?: string; from?: string; to?: string; storeIds?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -57,6 +64,22 @@ Deno.serve(async (req) => {
 
   const kind = mapAction(String(body.action ?? "").trim().toLowerCase());
   if (!kind) return json({ error: "invalid_action" }, 400);
+
+  const payload: { from?: string; to?: string; storeIds?: string[] } = {};
+  if (kind === "FORCE" || kind === "FORCE_LIGHT" || kind === "RANGE") {
+    if (!isIsoDay(body.from) || !isIsoDay(body.to)) {
+      return json({ error: "from_to_required" }, 400);
+    }
+    payload.from = body.from <= body.to ? body.from : body.to;
+    payload.to = body.from <= body.to ? body.to : body.from;
+    // Cap 90 days per request
+    const [y1, m1, d1] = payload.from.split("-").map(Number);
+    const [y2, m2, d2] = payload.to.split("-").map(Number);
+    const a = Date.UTC(y1, m1 - 1, d1);
+    const b = Date.UTC(y2, m2 - 1, d2);
+    const days = Math.floor((b - a) / 86_400_000) + 1;
+    if (days > 90) return json({ error: "range_too_large", maxDays: 90 }, 400);
+  }
 
   const admin = createClient(supabaseUrl, serviceKey);
 
@@ -79,6 +102,32 @@ Deno.serve(async (req) => {
 
   const tenantId = membership.tenant_id as string;
 
+  // FORCE/RANGE: opcionalmente só as lojas do StorePicker (não "Todas").
+  if (
+    (kind === "FORCE" || kind === "FORCE_LIGHT" || kind === "RANGE") &&
+    Array.isArray(body.storeIds) &&
+    body.storeIds.length > 0
+  ) {
+    const ids = [
+      ...new Set(
+        body.storeIds.filter((id): id is string => typeof id === "string" && id.length > 0),
+      ),
+    ];
+    if (ids.length === 0) {
+      return json({ error: "invalid_store" }, 400);
+    }
+    const { data: stores, error: storeErr } = await admin
+      .from("store")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .in("id", ids);
+    if (storeErr) return json({ error: "store_check_failed" }, 500);
+    if (!stores || stores.length !== ids.length) {
+      return json({ error: "invalid_store" }, 400);
+    }
+    payload.storeIds = ids;
+  }
+
   const { data: credential, error: credErr } = await admin
     .from("erp_credential")
     .select("id, status")
@@ -89,13 +138,14 @@ Deno.serve(async (req) => {
     return json({ error: "credential_invalid" }, 400);
   }
 
-  if (kind === "FORCE_LIGHT") {
+  if (kind === "FORCE" || kind === "FORCE_LIGHT") {
     const since = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const { data: recent, error: recentErr } = await admin
       .from("sync_job")
       .select("id, created_at")
       .eq("tenant_id", tenantId)
-      .eq("kind", "FORCE_LIGHT")
+      .in("kind", ["FORCE", "FORCE_LIGHT"])
+      .in("status", ["QUEUED", "RUNNING", "SUCCEEDED"])
       .gte("created_at", since)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -108,6 +158,21 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Avoid duplicate SEED/RANGE while one is already queued/running
+  if (kind === "SEED" || kind === "RANGE") {
+    const { data: open } = await admin
+      .from("sync_job")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("kind", kind)
+      .in("status", ["QUEUED", "RUNNING"])
+      .limit(1)
+      .maybeSingle();
+    if (open) {
+      return json({ ok: true, job: open, deduped: true });
+    }
+  }
+
   const { data: job, error: jobErr } = await admin
     .from("sync_job")
     .insert({
@@ -115,7 +180,7 @@ Deno.serve(async (req) => {
       credential_id: credential.id,
       kind,
       status: "QUEUED",
-      payload: {},
+      payload,
     })
     .select("id, kind, status, created_at")
     .single();

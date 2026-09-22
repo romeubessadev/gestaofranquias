@@ -6,7 +6,7 @@ import {
   resolveSalesEventIds,
 } from "./millenniumEvents.ts";
 import { fetchSalesLista } from "./millenniumSales.ts";
-import { fetchFilialGeradorMap } from "./millenniumBrandReport.ts";
+import { fetchFilialGeradorMap, fetchBrandRevenueReport } from "./millenniumBrandReport.ts";
 import { fetchConsultaDetMov } from "./millenniumDetMov.ts";
 import { fetchProductBrandMap } from "./millenniumProductDivision.ts";
 import {
@@ -175,6 +175,19 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
       return fetchProductBrandMap({
         session: params.session,
         geradorIds: params.geradorIds,
+        stores: params.stores,
+        from: params.from,
+        to: params.to,
+        baseUrl: millenniumBaseUrl(),
+      });
+    },
+
+    async fetchBrandRevenueReport(params) {
+      return fetchBrandRevenueReport({
+        session: params.session,
+        geradorIds: params.geradorIds,
+        from: params.from,
+        to: params.to,
         baseUrl: millenniumBaseUrl(),
       });
     },
@@ -390,7 +403,14 @@ export async function claimNextJob(sb: SupabaseClient): Promise<SyncJob | null> 
       .maybeSingle();
     if (!isIntegrationActive(cred as { sync_paused?: boolean } | null)) continue;
 
-    const payload = (row.payload ?? {}) as { from?: string; to?: string };
+    const payload = (row.payload ?? {}) as {
+      from?: string;
+      to?: string;
+      storeIds?: unknown;
+    };
+    const storeIds = Array.isArray(payload.storeIds)
+      ? payload.storeIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+      : undefined;
     return {
       id: row.id as string,
       tenantId: row.tenant_id as string,
@@ -400,6 +420,7 @@ export async function claimNextJob(sb: SupabaseClient): Promise<SyncJob | null> 
       payload: {
         from: typeof payload.from === "string" ? payload.from : undefined,
         to: typeof payload.to === "string" ? payload.to : undefined,
+        ...(storeIds && storeIds.length > 0 ? { storeIds } : {}),
       },
     };
   }
@@ -580,7 +601,7 @@ export async function enqueueDueLightJobs(sb: SupabaseClient): Promise<number> {
     const due = !last || now - last >= intervalMin * 60_000;
     if (!due) continue;
 
-    // Millennium session limit — don't spam LIGHT every poll while busy.
+    // Millennium session limit / 401 — don't spam LIGHT every poll while broken.
     const errAt = c.last_error_at ? new Date(c.last_error_at as string).getTime() : 0;
     const errText = String(c.last_error ?? "").toLowerCase();
     const busyRecently =
@@ -591,7 +612,11 @@ export async function enqueueDueLightJobs(sb: SupabaseClient): Promise<number> {
         errText.includes("maximo") ||
         errText.includes("já está conectado") ||
         errText.includes("ja esta conectado") ||
-        errText.includes("busy"));
+        errText.includes("busy") ||
+        errText.includes("401") ||
+        errText.includes("unauthorized") ||
+        errText.includes("sessão") ||
+        errText.includes("sessao"));
     if (busyRecently) continue;
 
     const { data: open } = await sb

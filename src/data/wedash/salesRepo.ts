@@ -143,6 +143,8 @@ export async function fetchSyncWatermark(
 export async function requestForceRefresh(opts: {
   from: string;
   to: string;
+  /** Empty / omit = all stores; otherwise only these store UUIDs. */
+  storeIds?: string[];
 }): Promise<
   | { ok: true; jobId?: string }
   | { ok: false; retryAfterSec?: number; error: string }
@@ -150,7 +152,12 @@ export async function requestForceRefresh(opts: {
   const sb = getSupabase();
   if (!sb) return { ok: false, error: "supabase_unavailable" };
   const { data, error } = await sb.functions.invoke("erp-sync-enqueue", {
-    body: { action: "force", from: opts.from, to: opts.to },
+    body: {
+      action: "force",
+      from: opts.from,
+      to: opts.to,
+      ...(opts.storeIds && opts.storeIds.length > 0 ? { storeIds: opts.storeIds } : {}),
+    },
   });
 
   // Em non-2xx o invoke preenche `error` e às vezes deixa `data` vazio —

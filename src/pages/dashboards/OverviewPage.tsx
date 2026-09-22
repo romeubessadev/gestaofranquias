@@ -250,7 +250,11 @@ export default function OverviewPage() {
     setForceError(null);
     const enqueuedAt = new Date();
     const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
-    const result = await requestForceRefresh({ from: periodo.inicio, to: periodo.fim });
+    const result = await requestForceRefresh({
+      from: periodo.inicio,
+      to: periodo.fim,
+      storeIds: escopo.filialIds,
+    });
     if (!result.ok) {
       if (result.error === "rate_limited") {
         const at = lastForceAtFromRetryAfter(result.retryAfterSec ?? 300);
@@ -297,7 +301,7 @@ export default function OverviewPage() {
     } finally {
       setRefreshing(false);
     }
-  }, [canForce, refreshing, forceCooldownSec, reloadAggs, escopo.periodo, session.tenantId]);
+  }, [canForce, refreshing, forceCooldownSec, reloadAggs, escopo.periodo, escopo.filialIds, session.tenantId]);
 
   const minutosAtras =
     watermark != null ? Math.floor((Date.now() - watermark.getTime()) / 60000) : null;
@@ -311,10 +315,12 @@ export default function OverviewPage() {
         subtitle="Indicadores, metas e desempenho da operação."
         actions={
           <>
+            {!refreshing && (
             <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras != null && minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
               <span className={`inline-block h-2 w-2 rounded-full ${minutosAtras != null && minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
-              {refreshing ? "Atualizando…" : rotuloAtualizacao}
+              {rotuloAtualizacao}
             </span>
+            )}
             {forceError && <span className="text-[12px] text-bad">{forceError}</span>}
             {canForce && (
             <Button
@@ -326,7 +332,9 @@ export default function OverviewPage() {
                   ? "Buscando dados no ERP…"
                   : forceCooldownSec != null
                     ? `Próxima atualização em ${formatForceCooldownLabel(forceCooldownSec)} · protege o ERP (1× / 5 min)`
-                    : "Refaz o período filtrado (buracos) e sempre inclui hoje · máx. 90 dias · 1× / 5 min"
+                    : escopo.filialIds.length === 1
+                      ? "Atualiza só a loja selecionada (período filtrado + hoje) · máx. 90 dias · 1× / 5 min"
+                      : "Atualiza todas as lojas (período filtrado + hoje) · máx. 90 dias · 1× / 5 min"
               }
               icon={refreshing ? undefined : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
             >

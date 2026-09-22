@@ -203,6 +203,8 @@ export type SyncJobPayload = {
   /** Inclusive ISO day YYYY-MM-DD (store TZ calendar). */
   from?: string;
   to?: string;
+  /** When set and non-empty, only these store UUIDs are synced. */
+  storeIds?: string[];
 };
 
 export type SyncJob = {
@@ -735,7 +737,11 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
   try {
     // HISTORY sem janelas / RANGE sem buracos: não gasta sessão no Millennium.
     if (job.kind === "RANGE" || job.kind === "HISTORY") {
-      const previewStores = await deps.listStores(job.tenantId);
+      let previewStores = await deps.listStores(job.tenantId);
+      if (job.payload.storeIds && job.payload.storeIds.length > 0) {
+        const want = new Set(job.payload.storeIds);
+        previewStores = previewStores.filter((s) => want.has(s.id));
+      }
       const nowPreview = deps.now();
       let precisaMillennium = false;
       for (const store of previewStores) {
@@ -810,7 +816,28 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
 
     session = ensured.session;
     activeMillenniumSession = session;
-    const storeList = await deps.listStores(job.tenantId);
+    let storeList = await deps.listStores(job.tenantId);
+    if (job.payload.storeIds && job.payload.storeIds.length > 0) {
+      const want = new Set(job.payload.storeIds);
+      storeList = storeList.filter((s) => want.has(s.id));
+      console.log(
+        `Escopo FORCE · ${storeList.length} loja(s): ${storeList.map((s) => s.code).join(", ") || "(nenhuma)"}`,
+      );
+      if (storeList.length === 0) {
+        const finishedAt = deps.now();
+        await deps.markJobFinished({ jobId: job.id, status: "SUCCEEDED" });
+        await deps.insertSyncRun({
+          tenantId: job.tenantId,
+          credentialId: job.credentialId,
+          kind: job.kind,
+          ok: true,
+          storesDone: 0,
+          startedAt,
+          finishedAt,
+        });
+        return { ok: true, storesDone: 0 };
+      }
+    }
     const now = deps.now();
     let geradorMap = new Map<string, number>();
     try {
