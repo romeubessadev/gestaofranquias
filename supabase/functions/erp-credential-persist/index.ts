@@ -11,6 +11,7 @@ type StoreIn = {
   code?: string;
   name?: string;
   tradeName?: string;
+  taxId?: string;
   openedAt?: string;
 };
 
@@ -153,7 +154,7 @@ Deno.serve(async (req) => {
   }
 
   const ciphertext = await encryptPassword(password, erpSecret);
-  const lightInterval = dedicated ? 2 : 30;
+  const lightInterval = 5; // alinhado ao cooldown do botão Atualizar (FORCE)
 
   const credRow: Record<string, unknown> = {
     tenant_id: tenantId,
@@ -194,6 +195,7 @@ Deno.serve(async (req) => {
           code: s.code ?? String(milleniumId),
           name: s.name ?? s.tradeName ?? String(milleniumId),
           trade_name: s.tradeName ?? s.name ?? String(milleniumId),
+          tax_id: s.taxId?.trim() || null,
           timezone: "America/Campo_Grande",
           active: true,
           ...(s.openedAt && /^\d{4}-\d{2}-\d{2}/.test(s.openedAt)

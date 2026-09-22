@@ -596,7 +596,7 @@ export async function enqueueDueLightJobs(sb: SupabaseClient): Promise<number> {
       .maybeSingle();
     if (onboarding) continue;
 
-    const intervalMin = Number(c.light_interval_min) || 30;
+    const intervalMin = Number(c.light_interval_min) || 5;
     const last = c.last_light_sync_at ? new Date(c.last_light_sync_at as string).getTime() : 0;
     const due = !last || now - last >= intervalMin * 60_000;
     if (!due) continue;

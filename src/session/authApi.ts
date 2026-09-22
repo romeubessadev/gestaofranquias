@@ -1,4 +1,4 @@
-﻿import { getSupabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import { validarSenha } from "@/lib/password";
 import { tenant } from "@/data/wedash/tenant";
 import { stores } from "@/data/wedash/stores";
@@ -413,6 +413,7 @@ export type PersistErpInput = {
     code?: string;
     name?: string;
     tradeName?: string;
+    taxId?: string;
     openedAt?: string;
   }>;
 };
@@ -423,7 +424,7 @@ export type PersistErpResult =
 
 /**
  * Persiste erp_credential (senha cifrada no Edge) + store rows e remapeia membership_store.
- * dedicated → light_interval_min 2; senão 30.
+ * light_interval_min = 5 (mesmo ritmo do botão Atualizar / FORCE).
  */
 export async function persistErpCredentialAndStores(
   input: PersistErpInput,
@@ -434,7 +435,7 @@ export async function persistErpCredentialAndStores(
     return {
       ok: true,
       storeIds,
-      lightIntervalMin: input.dedicated ? 2 : 30,
+      lightIntervalMin: 5,
     };
   }
 
@@ -471,7 +472,7 @@ export async function persistErpCredentialAndStores(
   return {
     ok: true,
     storeIds: body.storeIds,
-    lightIntervalMin: body.lightIntervalMin ?? (input.dedicated ? 2 : 30),
+    lightIntervalMin: body.lightIntervalMin ?? 5,
   };
 }
 
