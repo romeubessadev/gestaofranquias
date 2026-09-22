@@ -24,6 +24,12 @@ export type FetchSalesListaParams = {
 /** Sale row plus Millennium FILIAL from the Lista payload (for all-stores partition). */
 export type SaleRowWithFilial = SaleRow & {
   millenniumFilial: number | null;
+  /** COD_OPERACAO numérico — chave do ConsultaDetMov. */
+  millenniumOpCode: number | null;
+  /** Cupom / NF — chave do ConsultaDetMov. */
+  nf: string | null;
+  /** "S" = saída/venda. */
+  tipoOperacao: string | null;
 };
 
 function pick(o: Record<string, unknown>, ...keys: string[]): unknown {
@@ -81,6 +87,74 @@ function parseDataH(v: unknown): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/** YYYY-MM-DD do valor DATA / DATA_H (prefixo ISO). */
+export function calendarYmd(v: unknown): string | null {
+  const s = asStr(v);
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1]! : null;
+}
+
+/**
+ * Coluna DATA = dia de calendário da venda (não instante).
+ * Ancora no midnight MS (UTC−4 = T04:00Z) — senão T03:00Z vira 31/07 em CG.
+ */
+export function parseDataCalendar(v: unknown): Date | null {
+  const ymd = calendarYmd(v);
+  if (!ymd) return parseDataH(v);
+  return new Date(`${ymd}T04:00:00.000Z`);
+}
+
+function localHms(
+  date: Date,
+  timeZone: string,
+): { hour: number; minute: number; second: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const get = (t: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((p) => p.type === t)?.value ?? "0");
+  let hour = get("hour");
+  if (hour === 24) hour = 0;
+  return { hour, minute: get("minute"), second: get("second") };
+}
+
+/** America/Campo_Grande = UTC−4 o ano todo. */
+function msLocalWallToUtc(
+  ymd: string,
+  hour: number,
+  minute: number,
+  second: number,
+): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, hour + 4, minute, second));
+}
+
+/**
+ * Dia = coluna DATA (calendário ERP). Hora = DATA_H no fuso da loja.
+ * Evita 01/08 → 31/07 quando DATA_H vem como T00:00Z / T03:00Z.
+ */
+export function resolveOccurredAt(
+  row: Record<string, unknown>,
+  timeZone = "America/Campo_Grande",
+): Date | null {
+  const ymd = calendarYmd(pick(row, "DATA", "data"));
+  const rawH = pick(row, "DATA_H", "data_h");
+  const dataH =
+    rawH != null && asStr(rawH) !== "" ? parseDataH(rawH) : null;
+
+  if (ymd && dataH) {
+    const { hour, minute, second } = localHms(dataH, timeZone);
+    return msLocalWallToUtc(ymd, hour, minute, second);
+  }
+  if (ymd) return parseDataCalendar(ymd);
+  if (dataH) return dataH;
+  return null;
+}
+
 /** Add Δ days to YYYY-MM-DD (calendar, not TZ-shifted). */
 export function addDaysYmd(ymd: string, delta: number): string {
   const [y, m, d] = ymd.split("-").map(Number);
@@ -113,18 +187,35 @@ export function mapVendasListaPayload(
   for (const raw of extractList(payload)) {
     if (!raw || typeof raw !== "object") continue;
     const o = raw as Record<string, unknown>;
-    const operationCode = asStr(pick(o, "COD_OPERACAO", "cod_operacao"));
-    const occurredAt = parseDataH(pick(o, "DATA_H", "data_h"));
-    if (!operationCode || !occurredAt) continue;
+    const occurredAt = resolveOccurredAt(o);
+    if (!occurredAt) continue;
+    const revenueCents = reaisToCents(pick(o, "VALOR_FINAL", "valor_final"));
+    const millenniumOpCode = asNum(pick(o, "COD_OPERACAO", "cod_operacao"));
+    // Sem COD_OPERACAO ainda entra (ex.: R$ 53,80 só com DATA).
+    const operationCode =
+      (millenniumOpCode != null ? String(millenniumOpCode) : "") ||
+      asStr(pick(o, "COD_OPERACAO", "cod_operacao")) ||
+      asStr(pick(o, "DOCUMENTO", "documento")) ||
+      asStr(pick(o, "COD", "cod")) ||
+      `anon-${occurredAt.toISOString()}-${revenueCents}-${out.length}`;
     const millenniumFilial = asNum(pick(o, "FILIAL", "filial", "COD_FILIAL", "cod_filial"));
+    const nfRaw = pick(o, "NF", "nf");
+    const nf =
+      nfRaw == null || asStr(nfRaw) === ""
+        ? null
+        : asStr(nfRaw);
+    const tipoOperacao = asStr(pick(o, "TIPO_OPERACAO", "tipo_operacao")) || null;
     out.push({
       operationCode,
       occurredAt,
-      revenueCents: reaisToCents(pick(o, "VALOR_FINAL", "valor_final")),
+      revenueCents,
       itemQty: asNum(pick(o, "QUANTIDADE", "quantidade")) ?? 0,
       storeId: opts.storeId,
       brand: "ALL",
       millenniumFilial,
+      millenniumOpCode,
+      nf,
+      tipoOperacao,
     });
   }
   return out;
@@ -137,14 +228,13 @@ export function mapVendasListaPayload(
 export function partitionRowsByFilial(
   rows: SaleRowWithFilial[],
   storesByMillenniumId: Map<number, { id: string }>,
-): Map<string, SaleRow[]> {
-  const out = new Map<string, SaleRow[]>();
+): Map<string, SaleRowWithFilial[]> {
+  const out = new Map<string, SaleRowWithFilial[]>();
   for (const row of rows) {
     if (row.millenniumFilial == null) continue;
     const store = storesByMillenniumId.get(row.millenniumFilial);
     if (!store) continue;
-    const { millenniumFilial: _f, ...sale } = row;
-    const stamped: SaleRow = { ...sale, storeId: store.id };
+    const stamped: SaleRowWithFilial = { ...row, storeId: store.id };
     const list = out.get(store.id);
     if (list) list.push(stamped);
     else out.set(store.id, [stamped]);
@@ -222,7 +312,7 @@ export async function fetchSalesLista(params: FetchSalesListaParams): Promise<Sa
 
   const base = (params.baseUrl ?? defaultBaseUrl()).replace(/\/$/, "");
   const fetchImpl = params.fetchImpl ?? fetch;
-  const timeoutMs = Number(process.env.MILLENNIUM_FETCH_TIMEOUT_MS ?? "180000") || 180_000;
+  const timeoutMs = Number(process.env.MILLENNIUM_FETCH_TIMEOUT_MS ?? "300000") || 300_000;
   const session = params.session;
   const body = uiBody(params);
   const bodyJson = JSON.stringify(body);
@@ -324,7 +414,10 @@ export async function fetchSalesLista(params: FetchSalesListaParams): Promise<Sa
       }
       return rows;
     } catch (e) {
-      errors.push(`${attempt.label} → ${e instanceof Error ? e.message : String(e)}`);
+      const msg = e instanceof Error ? e.message : String(e);
+      errors.push(`${attempt.label} → ${msg}`);
+      // Timeout: ERP lento/travado — POST/GET fallback com o mesmo body só multiplica a espera.
+      if (/aborted|timeout|TimeoutError/i.test(msg)) break;
     }
   }
 

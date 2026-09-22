@@ -6,6 +6,9 @@ import {
   resolveSalesEventIds,
 } from "./millenniumEvents.ts";
 import { fetchSalesLista } from "./millenniumSales.ts";
+import { fetchFilialGeradorMap } from "./millenniumBrandReport.ts";
+import { fetchConsultaDetMov } from "./millenniumDetMov.ts";
+import { fetchProductBrandMap } from "./millenniumProductDivision.ts";
 import {
   nextHistoryWindow,
   runSyncJob,
@@ -161,6 +164,31 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
       });
     },
 
+    async fetchFilialGeradorMap(session) {
+      return fetchFilialGeradorMap({
+        session,
+        baseUrl: millenniumBaseUrl(),
+      });
+    },
+
+    async fetchProductBrandMap(params) {
+      return fetchProductBrandMap({
+        session: params.session,
+        geradorIds: params.geradorIds,
+        baseUrl: millenniumBaseUrl(),
+      });
+    },
+
+    async fetchConsultaDetMov(params) {
+      return fetchConsultaDetMov({
+        session: params.session,
+        codOperacao: params.codOperacao,
+        nf: params.nf,
+        tipoOperacao: params.tipoOperacao,
+        baseUrl: millenniumBaseUrl(),
+      });
+    },
+
     async upsertDayAggs(rows: SalesDayAgg[]) {
       if (rows.length === 0) return;
       const payload = rows.map((r) => ({
@@ -254,6 +282,9 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
     },
 
     async enqueueHistoryFollowUp({ tenantId, credentialId }) {
+      // MVP: só SEED (mês ant. → hoje). Histórico maior sob demanda (HISTORY_AFTER_SEED=1).
+      if (process.env.HISTORY_AFTER_SEED !== "1") return false;
+
       // Tenant ainda no onboarding? Não enfileira histórico.
       const { data: onboarding } = await sb
         .from("membership")

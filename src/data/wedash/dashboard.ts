@@ -17,7 +17,18 @@ import { brl, brlCent, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSem
 import type { TintKey } from "@/pages/dashboards/icons";
 import { buildStoreInsight } from "./insight";
 
-export type PeriodType = "hoje" | "ontem" | "7dias" | "esteMes" | "mesPassado" | "personalizado";
+export type PeriodType =
+  | "hoje"
+  | "estaSemana"
+  | "esteMes"
+  | "esteTrimestre"
+  | "esteSemestre"
+  | "esteAno"
+  /** Legados (URL antiga / testes) — ainda resolvem. */
+  | "ontem"
+  | "7dias"
+  | "mesPassado"
+  | "personalizado";
 
 /** Uma cor por loja, fixa pela posição no cadastro: a loja não muda de cor conforme o desempenho, como não muda o "Desktop"/"Mobile" da demo. */
 const PALETA_LOJAS: TintKey[] = ["acc", "ok", "info", "warn", "bad"];
@@ -54,12 +65,26 @@ export interface Scope {
 
 export const periodLabels: Record<PeriodType, string> = {
   hoje: "Hoje",
+  estaSemana: "Esta Semana",
+  esteMes: "Este mês",
+  esteTrimestre: "Este Trimestre",
+  esteSemestre: "Este Semestre",
+  esteAno: "Este Ano",
   ontem: "Ontem",
   "7dias": "7 dias",
-  esteMes: "Este mês",
   mesPassado: "Mês passado",
   personalizado: "Personalizado",
 };
+
+/** Presets do DateRangePicker (ordem dos pills). */
+export const PERIOD_PRESETS: PeriodType[] = [
+  "hoje",
+  "estaSemana",
+  "esteMes",
+  "esteTrimestre",
+  "esteSemestre",
+  "esteAno",
+];
 
 /* ---------- Tipos do motor de trilho ---------- */
 
@@ -121,6 +146,26 @@ export interface StoreSummaryView {
 
 const DIAS_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
+/** Segunda-feira da semana ISO (PT-BR) que contém `hojeIso`. */
+function inicioDaSemana(hojeIso: string): string {
+  const d = deIso(hojeIso);
+  const dow = d.getDay(); // 0=dom … 6=sáb
+  const diff = dow === 0 ? -6 : 1 - dow;
+  return somarDias(hojeIso, diff);
+}
+
+function inicioDoTrimestre(hojeIso: string): string {
+  const d = deIso(hojeIso);
+  const mes = Math.floor(d.getMonth() / 3) * 3; // 0,3,6,9
+  return `${d.getFullYear()}-${String(mes + 1).padStart(2, "0")}-01`;
+}
+
+function inicioDoSemestre(hojeIso: string): string {
+  const d = deIso(hojeIso);
+  const mes = d.getMonth() < 6 ? 0 : 6;
+  return `${d.getFullYear()}-${String(mes + 1).padStart(2, "0")}-01`;
+}
+
 export function resolvePeriod(p: Period, hojeIso: string = TODAY_ISO): ResolvedPeriod {
   const hojeD = deIso(hojeIso);
   const mesPassadoRef = new Date(hojeD.getFullYear(), hojeD.getMonth() - 1, 1);
@@ -138,8 +183,24 @@ export function resolvePeriod(p: Period, hojeIso: string = TODAY_ISO): ResolvedP
       inicio = somarDias(hojeIso, -6);
       fim = hojeIso;
       break;
+    case "estaSemana":
+      inicio = inicioDaSemana(hojeIso);
+      fim = hojeIso;
+      break;
     case "esteMes":
       inicio = inicioDoMes(hojeIso);
+      fim = hojeIso;
+      break;
+    case "esteTrimestre":
+      inicio = inicioDoTrimestre(hojeIso);
+      fim = hojeIso;
+      break;
+    case "esteSemestre":
+      inicio = inicioDoSemestre(hojeIso);
+      fim = hojeIso;
+      break;
+    case "esteAno":
+      inicio = `${hojeD.getFullYear()}-01-01`;
       fim = hojeIso;
       break;
     case "mesPassado":
@@ -155,12 +216,21 @@ export function resolvePeriod(p: Period, hojeIso: string = TODAY_ISO): ResolvedP
   }
   const dias = intervaloDias(inicio, fim).length;
   const atravessaMeses = inicio.slice(0, 7) !== fim.slice(0, 7);
-  const granularidade: Granularity = dias === 1 ? "dia" : p.tipo === "esteMes" || p.tipo === "mesPassado" ? "mes" : "periodo";
+  const granularidade: Granularity =
+    dias === 1 ? "dia" : p.tipo === "esteMes" || p.tipo === "mesPassado" ? "mes" : "periodo";
   const ehHoje = inicio === hojeIso && fim === hojeIso;
   const mesAberto = granularidade === "mes" && !atravessaMeses && inicio.slice(0, 7) === hojeIso.slice(0, 7);
 
   let rotulo: string;
-  if (granularidade === "dia") rotulo = ehHoje ? "Hoje" : dataCurta(inicio);
+  if (
+    p.tipo !== "personalizado" &&
+    p.tipo !== "ontem" &&
+    p.tipo !== "7dias" &&
+    p.tipo !== "esteMes" &&
+    p.tipo !== "mesPassado"
+  ) {
+    rotulo = periodLabels[p.tipo];
+  } else if (granularidade === "dia") rotulo = ehHoje ? "Hoje" : dataCurta(inicio);
   else if (p.tipo === "esteMes" || p.tipo === "mesPassado") rotulo = mesAno(inicio);
   else rotulo = `${dataCurta(inicio)} a ${dataCurta(fim)}`;
 
@@ -2372,6 +2442,13 @@ export interface OverviewView {
   rankingLojas: (TopItem & { pctMeta?: number; trend?: number })[];
   /** True when KPIs come from sales_*_agg (possibly empty). */
   fromAggregates?: boolean;
+  /**
+   * Sync ainda só grava brand=ALL — filtro WEPINK/WPINK não tem linhas.
+   * UI avisa em vez de mostrar zero como se a marca não tivesse vendido.
+   */
+  brandFilterUnavailable?: boolean;
+  /** Há linhas WEPINK/WPINK nos agregados (filtro de marca faz sentido). */
+  brandSplitAvailable?: boolean;
 }
 
 export type OverviewAggInput = {
@@ -2386,12 +2463,28 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
   const rotuloSerie = seriesAxisLabel(periodo, eixoSerie);
   const brand = escopo.divisao;
 
-  let days = input.dayAggs;
-  if (brand) days = days.filter((d) => d.brand === brand || d.brand === "ALL");
-
-  const hours = (input.hourAggs ?? []).filter((h) =>
-    brand ? h.brand === brand || h.brand === "ALL" : true,
+  const brandSplitAvailable = input.dayAggs.some(
+    (d) => d.brand === "WEPINK" || d.brand === "WPINK",
   );
+  // Sem split: filtrar WEPINK/WPINK zera o painel à toa (só existe brand=ALL).
+  const brandFilterUnavailable = Boolean(brand && !brandSplitAvailable);
+
+  let days = input.dayAggs;
+  if (brandFilterUnavailable) {
+    days = [];
+  } else if (brand) {
+    days = days.filter((d) => d.brand === brand);
+  } else {
+    const all = days.filter((d) => d.brand === "ALL");
+    days = all.length > 0 ? all : days.filter((d) => d.brand === "WEPINK" || d.brand === "WPINK");
+  }
+
+  const hours = (input.hourAggs ?? []).filter((h) => {
+    if (brandFilterUnavailable) return false;
+    if (brand) return h.brand === brand;
+    if ((input.hourAggs ?? []).some((x) => x.brand === "ALL")) return h.brand === "ALL";
+    return h.brand === "WEPINK" || h.brand === "WPINK" || h.brand === "ALL";
+  });
 
   const sumDays = (rows: typeof days) =>
     rows.reduce(
@@ -2517,6 +2610,8 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
     topProdutos: [],
     rankingLojas: [],
     fromAggregates: true,
+    brandFilterUnavailable,
+    brandSplitAvailable,
   };
 }
 

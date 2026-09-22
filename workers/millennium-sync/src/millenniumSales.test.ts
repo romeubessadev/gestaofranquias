@@ -8,7 +8,9 @@ import {
   mapVendasListaPayload,
   milleniumDataRange,
   milleniumDayBoundIso,
+  parseDataCalendar,
   partitionRowsByFilial,
+  resolveOccurredAt,
 } from "./millenniumSales";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -22,6 +24,79 @@ describe("mapVendasListaPayload", () => {
     expect(rows.length).toBe(5);
     expect(rows[0].revenueCents).toBe(189_90);
     expect(rows[0].millenniumFilial).toBe(1);
+  });
+
+  it("keeps NF + COD_OPERACAO numérico for ConsultaDetMov", () => {
+    const rows = mapVendasListaPayload(
+      {
+        value: [
+          {
+            COD_OPERACAO: 13199979,
+            NF: "14286",
+            TIPO_OPERACAO: "S",
+            DATA_H: "2026-09-21T15:00:00.000Z",
+            DATA: "2026-09-21T04:00:00.000Z",
+            VALOR_FINAL: 52.9,
+            QUANTIDADE: 1,
+            FILIAL: 40261,
+          },
+        ],
+      },
+      { storeId: "s1" },
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].millenniumOpCode).toBe(13199979);
+    expect(rows[0].nf).toBe("14286");
+    expect(rows[0].tipoOperacao).toBe("S");
+    expect(rows[0].operationCode).toBe("13199979");
+  });
+
+  it("keeps row without DATA_H using DATA calendar day (R$ 53,80 case)", () => {
+    const rows = mapVendasListaPayload(
+      {
+        value: [
+          {
+            COD_OPERACAO: null,
+            DATA_H: null,
+            DATA: "2026-08-06T03:00:00.000Z",
+            VALOR_FINAL: 53.8,
+            QUANTIDADE: 1,
+            FILIAL: 8,
+          },
+        ],
+      },
+      { storeId: "s1" },
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].revenueCents).toBe(53_80);
+    // Midnight MS 06/08 — not Jul 31 from T03:00Z
+    expect(rows[0].occurredAt.toISOString()).toBe("2026-08-06T04:00:00.000Z");
+  });
+});
+
+describe("parseDataCalendar / resolveOccurredAt", () => {
+  it("DATA T03:00Z still maps to the printed calendar day", () => {
+    expect(parseDataCalendar("2026-08-01T03:00:00.000Z")?.toISOString()).toBe(
+      "2026-08-01T04:00:00.000Z",
+    );
+  });
+
+  it("keeps DATA calendar day when DATA_H would shift to previous day (CG)", () => {
+    // T03:00Z = 31/07 23:00 em Campo Grande — mas DATA diz 01/08
+    const at = resolveOccurredAt({
+      DATA_H: "2026-08-01T03:00:00.000Z",
+      DATA: "2026-08-01T03:00:00.000Z",
+    });
+    // 01/08 23:00 local MS = 02/08 03:00Z
+    expect(at?.toISOString()).toBe("2026-08-02T03:00:00.000Z");
+  });
+
+  it("DATA day + DATA_H local clock (real afternoon sale)", () => {
+    const at = resolveOccurredAt({
+      DATA_H: "2026-08-01T15:30:00.000Z", // 11:30 MS
+      DATA: "2026-08-01T03:00:00.000Z",
+    });
+    expect(at?.toISOString()).toBe("2026-08-01T15:30:00.000Z");
   });
 });
 
@@ -37,7 +112,7 @@ describe("partitionRowsByFilial", () => {
     expect(parts.get("wd-store-a")).toHaveLength(4);
     expect(parts.get("wd-store-b")).toHaveLength(1);
     expect(parts.get("wd-store-a")![0].storeId).toBe("wd-store-a");
-    expect("millenniumFilial" in parts.get("wd-store-a")![0]).toBe(false);
+    expect(parts.get("wd-store-a")![0].millenniumFilial).toBe(1);
   });
 });
 

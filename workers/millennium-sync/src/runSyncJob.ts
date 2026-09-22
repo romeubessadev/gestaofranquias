@@ -2,6 +2,12 @@ import { aggregateSales } from "../../../src/data/wedash/salesAggregate.ts";
 import type { SalesDayAgg, SalesHourAgg } from "../../../src/data/wedash/salesTypes.ts";
 import type { SaleRow } from "../../../src/data/wedash/salesTypes.ts";
 import {
+  saleRowsFromDetLines,
+  uniqueBrandSplitHeaders,
+} from "./brandSplitFromDetalhe.ts";
+import type { DetMovLine } from "./millenniumDetMov.ts";
+import type { ProductBrandMap } from "./millenniumProductDivision.ts";
+import {
   partitionRowsByFilial,
   type FetchSalesListaParams,
   type SaleRowWithFilial,
@@ -12,7 +18,91 @@ import {
   rememberMillenniumSession,
 } from "./sessionStore.ts";
 
-/** SEED = 1º sync (mês ant. → hoje). HISTORY = mês a mês até teto 24m. RANGE/FORCE = sob demanda. */
+/** Quantas ConsultaDetMov em paralelo (1 sessão). Default 5. */
+export function detMovConcurrency(pending: number): number {
+  const raw = Number(process.env.DET_MOV_CONCURRENCY ?? "5");
+  if (!Number.isFinite(raw) || raw <= 0) return 1;
+  return Math.max(1, Math.min(Math.floor(raw), Math.max(1, pending)));
+}
+
+/**
+ * Grava WEPINK/WPINK via ConsultaDetMov + mapa produto→divisão (soft-fail — ALL já veio da Lista).
+ */
+async function upsertBrandSplit(
+  deps: SyncJobDeps,
+  args: {
+    session: string;
+    tenantId: string;
+    store: SyncStore;
+    from: string;
+    to: string;
+    rows: SaleRowWithFilial[];
+    productMap: ProductBrandMap;
+  },
+): Promise<void> {
+  if (args.productMap.size === 0) {
+    console.warn(`  [${args.store.code}] product map vazio — skip brand split`);
+    return;
+  }
+  const headers = uniqueBrandSplitHeaders(
+    args.rows.filter((r) => r.storeId === args.store.id),
+  );
+  if (headers.length === 0) {
+    console.log(`  [${args.store.code}] brand split ${args.from}→${args.to} · 0 cupom(ns) c/ NF`);
+    return;
+  }
+  try {
+    const concurrency = detMovConcurrency(headers.length);
+    const brandRows: SaleRow[] = [];
+    let ok = 0;
+    let fail = 0;
+    await mapPool(headers, concurrency, async (header) => {
+      try {
+        const lines = await deps.fetchConsultaDetMov({
+          session: args.session,
+          codOperacao: header.millenniumOpCode,
+          nf: header.nf,
+          tipoOperacao: header.tipoOperacao,
+        });
+        brandRows.push(...saleRowsFromDetLines(header, lines, args.productMap));
+        ok += 1;
+      } catch (e) {
+        fail += 1;
+        const msg = e instanceof Error ? e.message : String(e);
+        if (isSessionDeadError(msg)) throw e;
+        console.warn(
+          `  [${args.store.code}] DetMov ${header.millenniumOpCode}/${header.nf}: ${msg}`,
+        );
+      }
+    });
+    if (brandRows.length === 0) {
+      console.log(
+        `  [${args.store.code}] brand split ${args.from}→${args.to} · 0 linhas classificadas · det ${ok}ok/${fail}fail`,
+      );
+      return;
+    }
+    const agg = aggregateSales(brandRows, {
+      tenantId: args.tenantId,
+      timeZone: args.store.timezone,
+      now: deps.now(),
+      dayFrom: args.from,
+      dayTo: args.to,
+    });
+    const brandedDays = agg.days.filter((d) => d.brand === "WEPINK" || d.brand === "WPINK");
+    const brandedHours = agg.hours.filter((h) => h.brand === "WEPINK" || h.brand === "WPINK");
+    if (brandedDays.length > 0) await deps.upsertDayAggs(brandedDays);
+    if (brandedHours.length > 0) await deps.upsertHourAggs(brandedHours);
+    console.log(
+      `  [${args.store.code}] brand split ${args.from}→${args.to} · ${brandedDays.length} dia×marca · det ${ok}ok/${fail}fail`,
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (isSessionDeadError(msg)) throw e;
+    console.warn(`  [${args.store.code}] brand split falhou (ALL ok): ${msg}`);
+  }
+}
+
+/** SEED = 1º sync (mês ant. 01 → hoje). HISTORY = opcional (HISTORY_AFTER_SEED=1). RANGE/FORCE = sob demanda. */
 export type SyncJobKind =
   | "BACKFILL"
   | "SEED"
@@ -86,6 +176,20 @@ export type SyncJobDeps = {
   /** EVENTO whitelist ids for this store's COD_FILIAL (from EVENTOS.ListaTodos). */
   resolveEventoIds: (session: string, codFilial: string) => Promise<number[]>;
   fetchSalesLista: (params: FetchSalesListaParams) => Promise<SaleRowWithFilial[] | SaleRow[]>;
+  /** Lookup COD_FILIAL → FILIAL_GERADOR_GERADOR (wtsreports). */
+  fetchFilialGeradorMap: (session: string) => Promise<Map<string, number>>;
+  /** Mapa PRODUTO → WEPINK|WPINK (report divisão; 1× por job, união das lojas). */
+  fetchProductBrandMap: (params: {
+    session: string;
+    geradorIds: number[];
+  }) => Promise<ProductBrandMap>;
+  /** Itens da venda (ConsultaDetMov). */
+  fetchConsultaDetMov: (params: {
+    session: string;
+    codOperacao: number;
+    nf: string;
+    tipoOperacao?: string;
+  }) => Promise<DetMovLine[]>;
   upsertDayAggs: (rows: SalesDayAgg[]) => Promise<void>;
   upsertHourAggs: (rows: SalesHourAgg[]) => Promise<void>;
   insertSyncRun: (args: {
@@ -194,6 +298,40 @@ export function chunkInclusiveRange(
     cursor = addDaysIso(chunkEnd, 1);
   }
   return chunks;
+}
+
+/** Dias inclusivos em [from, to]. */
+export function inclusiveDayCount(from: string, to: string): number {
+  if (from > to) return 0;
+  let n = 0;
+  let cursor = from;
+  while (cursor <= to) {
+    n += 1;
+    cursor = addDaysIso(cursor, 1);
+  }
+  return n;
+}
+
+/**
+ * Escada após timeout/vazio: mês → 15d → 7d → 1d.
+ * `null` = já é 1 dia (não dá pra fatiar mais).
+ */
+export function nextFallbackMaxDays(from: string, to: string): number | null {
+  const days = inclusiveDayCount(from, to);
+  if (days <= 1) return null;
+  if (days > 15) return 15;
+  if (days > 7) return 7;
+  return 1;
+}
+
+/** Fatia a janela que falhou no próximo degrau da escada. */
+export function splitFailedWindow(
+  from: string,
+  to: string,
+): Array<{ from: string; to: string }> {
+  const max = nextFallbackMaxDays(from, to);
+  if (max == null) return [];
+  return chunkInclusiveRange(from, to, max);
 }
 
 /** Particiona em meses de calendário (ex.: ago/01–31, set/01–hoje). */
@@ -547,6 +685,30 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
     activeMillenniumSession = session;
     const storeList = await deps.listStores(job.tenantId);
     const now = deps.now();
+    let geradorMap = new Map<string, number>();
+    try {
+      geradorMap = await deps.fetchFilialGeradorMap(session);
+      console.log(`GERADOR map · ${geradorMap.size} filial(is)`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(`GERADOR lookup falhou — brand split desligado neste job: ${msg}`);
+    }
+    let productMap: ProductBrandMap = new Map();
+    const geradorIds = [...geradorMap.values()];
+    if (geradorIds.length > 0) {
+      try {
+        productMap = await deps.fetchProductBrandMap({
+          session,
+          geradorIds,
+        });
+        console.log(`Product→marca map · ${productMap.size} SKU(s)`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn(`Product map falhou — brand split desligado neste job: ${msg}`);
+      }
+    } else {
+      console.warn("Sem GERADOR — brand split desligado neste job");
+    }
     const lightToday =
       job.kind === "LIGHT" ||
       (job.kind === "FORCE_LIGHT" && !job.payload.from && !job.payload.to);
@@ -576,11 +738,24 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
         eventoIds,
       });
       const byMillenium = new Map(storeList.map((s) => [s.millenniumStoreId, { id: s.id }]));
-      const withFilial: SaleRowWithFilial[] = rawRows.map((r) =>
-        "millenniumFilial" in r && (r as SaleRowWithFilial).millenniumFilial != null
-          ? (r as SaleRowWithFilial)
-          : { ...r, millenniumFilial: null },
-      );
+      const withFilial: SaleRowWithFilial[] = rawRows.map((r) => {
+        const x = r as SaleRowWithFilial;
+        if (x.millenniumFilial != null) {
+          return {
+            ...x,
+            millenniumOpCode: x.millenniumOpCode ?? null,
+            nf: x.nf ?? null,
+            tipoOperacao: x.tipoOperacao ?? null,
+          };
+        }
+        return {
+          ...x,
+          millenniumFilial: null,
+          millenniumOpCode: x.millenniumOpCode ?? null,
+          nf: x.nf ?? null,
+          tipoOperacao: x.tipoOperacao ?? null,
+        };
+      });
       const parts = partitionRowsByFilial(withFilial, byMillenium);
       for (const store of storeList) {
         const rows = parts.get(store.id) ?? [];
@@ -588,6 +763,8 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
           tenantId: job.tenantId,
           timeZone: store.timezone,
           now,
+          dayFrom: today,
+          dayTo: today,
         });
         if (agg.days.length === 0) {
           await deps.upsertDayAggs([
@@ -609,6 +786,15 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
         console.log(
           `Loja ${store.code} · ${rows.length} venda(s) · ${agg.days.length || 1} dia(s)`,
         );
+        await upsertBrandSplit(deps, {
+          session: session!,
+          tenantId: job.tenantId,
+          store,
+          from: today,
+          to: today,
+          rows,
+          productMap,
+        });
       }
     } else {
       const concurrency = storeFetchConcurrency(storeList.length);
@@ -634,6 +820,13 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
         let storeSales = 0;
         let storeDays = 0;
         let dayErrors = 0;
+        let brandFrom = windows[0]!.from;
+        let brandTo = windows[0]!.to;
+        const listaForBrand: SaleRowWithFilial[] = [];
+        for (const w of windows) {
+          if (w.from < brandFrom) brandFrom = w.from;
+          if (w.to > brandTo) brandTo = w.to;
+        }
         const queue: Array<{ from: string; to: string }> = [...windows];
         while (queue.length > 0) {
           const { from, to } = queue.shift()!;
@@ -684,8 +877,12 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
                     },
                   ]);
                 } else {
-                  console.warn(`  [${store.code}] Range falhou — caindo para dia a dia (${from}→${to})`);
-                  queue.unshift(...chunkInclusiveRange(from, to, 1));
+                  const parts = splitFailedWindow(from, to);
+                  const step = nextFallbackMaxDays(from, to);
+                  console.warn(
+                    `  [${store.code}] Range falhou — caindo para ${step}d (${from}→${to} → ${parts.length} janela(s))`,
+                  );
+                  queue.unshift(...parts);
                 }
                 continue;
               }
@@ -695,15 +892,33 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
           }
 
           if (rows.length === 0 && from !== to) {
-            console.warn(`  [${store.code}] Range ${from}→${to} vazio — caindo para dia a dia`);
-            queue.unshift(...chunkInclusiveRange(from, to, 1));
+            const parts = splitFailedWindow(from, to);
+            const step = nextFallbackMaxDays(from, to);
+            console.warn(
+              `  [${store.code}] Range ${from}→${to} vazio — caindo para ${step}d (${parts.length} janela(s))`,
+            );
+            queue.unshift(...parts);
             continue;
+          }
+
+          for (const r of rows) {
+            const x = r as SaleRowWithFilial;
+            listaForBrand.push({
+              ...x,
+              storeId: store.id,
+              millenniumFilial: x.millenniumFilial ?? store.millenniumStoreId,
+              millenniumOpCode: x.millenniumOpCode ?? null,
+              nf: x.nf ?? null,
+              tipoOperacao: x.tipoOperacao ?? null,
+            });
           }
 
           const agg = aggregateSales(rows, {
             tenantId: job.tenantId,
             timeZone: store.timezone,
             now,
+            dayFrom: from,
+            dayTo: to,
           });
 
           if (
@@ -757,6 +972,15 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
             }
           }
         }
+        await upsertBrandSplit(deps, {
+          session: session!,
+          tenantId: job.tenantId,
+          store,
+          from: brandFrom,
+          to: brandTo,
+          rows: listaForBrand,
+          productMap,
+        });
         console.log(
           `Loja ${i + 1}/${storeList.length} (${store.code}) ok · ${storeSales} venda(s) · ${storeDays} dia(s) gravado(s)` +
             (dayErrors > 0 ? ` · ${dayErrors} janela(s) com falha` : ""),

@@ -291,10 +291,16 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
 15. ✅ **Onboarding: token sobrevive até o SEED** (2026-09-21/22) — Step2 testa, **persiste** usuário/senha/token (sem SEED); Step3 confirma lojas e enfileira SEED **sem** logout. Logout só ao **Voltar** / Desconectar. Troca de username ERP **apaga** dados de sync do tenant.
 16. ✅ **Botão Atualizar (FORCE)** (2026-09-21) — **não** é só “hoje”. Refaz o **período filtrado** (preenche buracos dia a dia) e **sempre inclui hoje**; teto 90 dias; rate limit 1× / 5 min. Sync automático periódico = `LIGHT` (só hoje).
 17. ✅ **Sync NÃO depende de presença WeDash** (corrigido 2026-09-22) — Claim/LIGHT **ignoram** `wedash_present_at`. Sair da WeDash **não** pausa o Millennium. Desconectar ERP = só em Integração ERP. Contrato de jobs:
-    - **SEED** — mês anterior 01 → hoje; Lista **com** filial; lojas sequenciais; tela `/sincronizando` até cobertura.
-    - **LIGHT** — hoje; **1×** Lista **sem** filial; particiona por `FILIAL` da linha.
-    - **HISTORY** — mês a mês atrás (teto 24m / opened_at); com filial; sequencial.
-    - **FORCE** — período filtrado + hoje; com filial (exceto o pedaço “hoje” que pode reusar LIGHT).
+- **SEED** — mês anterior 01 → hoje; Lista **com** filial; lojas sequenciais; tela `/sincronizando` até cobertura. Sem HISTORY automático no MVP (`HISTORY_AFTER_SEED=1` liga depois).
+ - **LIGHT** — hoje; **1×** Lista **sem** filial; particiona por `FILIAL` da linha.
+ - **HISTORY** — mês a mês atrás (teto 24m / opened_at); com filial; sequencial; **só** se `HISTORY_AFTER_SEED=1`.
+ - **FORCE** — período filtrado + hoje; com filial (exceto o pedaço “hoje” que pode reusar LIGHT).
+ - **EVENTO** — whitelist `S-X`, `S-03`, `S-{COD_FILIAL}` (**sem S-100**).
+18. ✅ **Split WEPINK/WPINK via ConsultaDetMov + mapa de divisão** (2026-09-22; **revisado mesmo dia**) — `VENDAS.Lista` **não** traz marca. Após gravar `brand=ALL` (Lista), o worker:
+    1. Carrega **1×** mapa `PRODUTO → marca` via wtsreports CATALOG `{9701602B-B363-4770-989C-8C4459B7E105}` (divisões **101=WPINK**, **102=WEPINK**; campo `PRODUTO_PRODUTO_PRODUTO` = id interno). União de **todos** os geradores das lojas (estoque/cadastro varia por filial).
+    2. Para cada cupom único (`COD_OPERACAO` + `NF` da Lista), chama `millenium.MOVIMENTACAO.ConsultaDetMov` (`TIPO_OPERACAO: "S"`).
+    3. Classifica linhas (`PRODUTO` + `PRECO_TOTAL` + `QUANTIDADE`) → agrega `sales_day_agg` / `sales_hour_agg` WEPINK/WPINK (receita **e** N vendas / itens).
+    Soft-fail se mapa/detalhe cair (ALL permanece). Concurrency: `DET_MOV_CONCURRENCY` (default 5). Relatório antigo `{70F9DE61…}` (só receita) fica no script `backfill-brand-split.ts` se precisar. BrandPicker reativa sozinho quando existem linhas WEPINK/WPINK.
 
 ---
 

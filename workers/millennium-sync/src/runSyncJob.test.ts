@@ -4,9 +4,11 @@ import {
   collapseDaysToWindows,
   historyFloor,
   missingDays,
+  nextFallbackMaxDays,
   nextHistoryWindow,
   runSyncJob,
   seedWindow,
+  splitFailedWindow,
   storeFetchConcurrency,
   type SyncJob,
   type SyncJobDeps,
@@ -74,6 +76,9 @@ function makeDeps(overrides: Partial<SyncJobDeps> = {}): SyncJobDeps & {
       expect(p.eventoIds.length).toBeGreaterThan(0);
       return [];
     }),
+    fetchFilialGeradorMap: vi.fn().mockResolvedValue(new Map([["00010", 126], ["00114", 41562]])),
+    fetchProductBrandMap: vi.fn().mockResolvedValue(new Map()),
+    fetchConsultaDetMov: vi.fn().mockResolvedValue([]),
     upsertDayAggs: vi.fn().mockResolvedValue(undefined),
     upsertHourAggs: vi.fn().mockResolvedValue(undefined),
     insertSyncRun: vi.fn().mockResolvedValue(undefined),
@@ -91,6 +96,27 @@ describe("seedWindow / missingDays / history", () => {
   it("SEED window is previous month start → today", () => {
     expect(seedWindow("2026-09-19")).toEqual({ from: "2026-08-01", to: "2026-09-19" });
     expect(seedWindow("2026-01-05")).toEqual({ from: "2025-12-01", to: "2026-01-05" });
+  });
+
+  it("splitFailedWindow ladder: >15 → 15d, >7 → 7d, else 1d", () => {
+    expect(nextFallbackMaxDays("2026-08-01", "2026-08-31")).toBe(15);
+    expect(splitFailedWindow("2026-08-01", "2026-08-31")).toEqual([
+      { from: "2026-08-01", to: "2026-08-15" },
+      { from: "2026-08-16", to: "2026-08-30" },
+      { from: "2026-08-31", to: "2026-08-31" },
+    ]);
+    expect(nextFallbackMaxDays("2026-08-01", "2026-08-15")).toBe(7);
+    expect(splitFailedWindow("2026-08-01", "2026-08-07")).toEqual([
+      { from: "2026-08-01", to: "2026-08-01" },
+      { from: "2026-08-02", to: "2026-08-02" },
+      { from: "2026-08-03", to: "2026-08-03" },
+      { from: "2026-08-04", to: "2026-08-04" },
+      { from: "2026-08-05", to: "2026-08-05" },
+      { from: "2026-08-06", to: "2026-08-06" },
+      { from: "2026-08-07", to: "2026-08-07" },
+    ]);
+    expect(nextFallbackMaxDays("2026-08-01", "2026-08-01")).toBeNull();
+    expect(splitFailedWindow("2026-08-01", "2026-08-01")).toEqual([]);
   });
 
   it("historyFloor is max(opened_at, today−24m)", () => {
@@ -271,7 +297,7 @@ describe("runSyncJob", () => {
     expect(deps.enqueueHistoryFollowUp).toHaveBeenCalled();
   });
 
-  it("SEED falls back to day-by-day when month range returns empty", async () => {
+  it("SEED falls back month → 15d when month range returns empty", async () => {
     const windows: Array<{ from: string; to: string }> = [];
     const deps = makeDeps({
       listStores: vi.fn().mockResolvedValue([stores[0]]),
@@ -283,10 +309,11 @@ describe("runSyncJob", () => {
     });
     const result = await runSyncJob(baseJob({ kind: "SEED" }), deps);
     expect(result.ok).toBe(true);
-    // Primeiro tenta mês; depois explode em dias.
     expect(windows[0]).toEqual({ from: "2026-08-01", to: "2026-08-31" });
-    expect(windows.some((w) => w.from === "2026-08-01" && w.to === "2026-08-01")).toBe(true);
-    expect(windows.some((w) => w.from === "2026-08-15" && w.to === "2026-08-15")).toBe(true);
+    // Próximo degrau: 15 dias (unshift — processa o 1º pedaço antes dos outros).
+    expect(windows[1]).toEqual({ from: "2026-08-01", to: "2026-08-15" });
+    expect(windows.some((w) => w.from === "2026-08-16" && w.to === "2026-08-30")).toBe(true);
+    expect(windows.some((w) => w.from === "2026-08-01" && w.to === "2026-08-07")).toBe(true);
   });
 
   it("HISTORY fetches previous calendar month then re-enqueues", async () => {
