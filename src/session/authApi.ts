@@ -363,6 +363,14 @@ export async function changeTemporaryPassword(novaSenha: string): Promise<{ ok: 
 export function destinationAfterAuth(s: Session, de?: string | null): string {
   if (s.temporaryPassword) return paths.access.changePassword;
   if (s.onboardingStep !== null) return paths.onboarding;
+  // Pós-onboarding: não manda pro Dash enquanto a carga inicial não terminou.
+  try {
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem("wedash.awaitingInitialSync") === "1") {
+      return paths.syncing;
+    }
+  } catch {
+    /* ignore */
+  }
   if (de && de !== "/" && !de.startsWith(paths.access.login)) return de;
   if (s.role === "SELLER") return paths.seller.myGoal;
   return paths.overview;
@@ -397,11 +405,15 @@ export type PersistErpInput = {
   username: string;
   password: string;
   dedicated: boolean;
-  stores: Array<{
+  /** Sessão Millennium já aberta no Step2 — grava p/ o worker reusar. */
+  millenniumSession?: string;
+  /** Vazio no Step2 (só credencial); preenchido ao concluir lojas. */
+  stores?: Array<{
     storeId: number;
     code?: string;
     name?: string;
     tradeName?: string;
+    openedAt?: string;
   }>;
 };
 
@@ -418,7 +430,7 @@ export async function persistErpCredentialAndStores(
 ): Promise<PersistErpResult> {
   const sb = getSupabase();
   if (!sb) {
-    const storeIds = input.stores.map((s) => `erp-${s.storeId}`);
+    const storeIds = (input.stores ?? []).map((s) => `erp-${s.storeId}`);
     return {
       ok: true,
       storeIds,
@@ -433,7 +445,10 @@ export async function persistErpCredentialAndStores(
       username: input.username,
       password: input.password,
       dedicated: input.dedicated,
-      stores: input.stores,
+      stores: input.stores ?? [],
+      ...(input.millenniumSession
+        ? { millenniumSession: input.millenniumSession }
+        : {}),
     },
   });
 

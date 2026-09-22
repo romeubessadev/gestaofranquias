@@ -15,6 +15,7 @@ import {
   saveTenantBrand,
   persistErpCredentialAndStores,
 } from "@/session/authApi";
+import { markAwaitingInitialSync } from "@/session/awaitingInitialSync";
 import { Step1Brand, type RascunhoEmpresa } from "./Step1Brand";
 import { Step2Credentials } from "./Step2Credentials";
 import { Step3Stores } from "./Step3Stores";
@@ -138,6 +139,8 @@ export function Onboarding() {
           password,
           dedicated: draft.erp.dedicada,
           stores: confirmed,
+          // Token do Step2 — worker reusa sem novo login (evita busy no Millennium).
+          millenniumSession: erpSession,
         });
         if (persisted.ok) {
           ids = persisted.storeIds;
@@ -145,11 +148,11 @@ export function Onboarding() {
           if (sb) {
             try {
               const { error: enqErr } = await sb.functions.invoke("erp-sync-enqueue", {
-                body: { action: "backfill" },
+                body: { action: "seed" },
               });
-              if (enqErr) console.warn("erp-sync-enqueue backfill:", enqErr.message);
+              if (enqErr) console.warn("erp-sync-enqueue seed:", enqErr.message);
             } catch (e) {
-              console.warn("erp-sync-enqueue backfill:", e);
+              console.warn("erp-sync-enqueue seed:", e);
             }
           }
         } else {
@@ -160,6 +163,9 @@ export function Onboarding() {
         await saveMembershipStores(membershipId, ids);
       }
 
+      // Trava o Dash até o SEED — marca ANTES de zerar onboarding_step
+      // (senão RequireSession manda pro overview e pula /sincronizando).
+      markAwaitingInitialSync();
       await saveOnboardingStep(membershipId, null);
       limparRascunho(membershipId);
       update({
@@ -169,7 +175,7 @@ export function Onboarding() {
         companySlug: empresa.slug.trim() || session.companySlug,
         companyLogoUrl: null,
       });
-      navigate(paths.overview, { replace: true });
+      navigate(paths.syncing, { replace: true });
       return;
     }
     setAtual(etapa);
@@ -215,9 +221,27 @@ export function Onboarding() {
               inicial={draft.erp}
               onErpChange={(erp) => patchDraft({ erp })}
               onConcluir={(r) => {
-                setErpSession(r.session);
-                patchDraft({ stores: r.stores });
-                void irPara(3);
+                void (async () => {
+                  setErpSession(r.session);
+                  patchDraft({ stores: r.stores });
+                  const password = lerSenhaErp(membershipId);
+                  const username = draft.erp.usuario.trim();
+                  if (username && password && r.session) {
+                    const persisted = await persistErpCredentialAndStores({
+                      tenantId: session.tenantId,
+                      membershipId,
+                      username,
+                      password,
+                      dedicated: draft.erp.dedicada,
+                      stores: [],
+                      millenniumSession: r.session,
+                    });
+                    if (!persisted.ok) {
+                      console.warn("persist ERP Step2:", persisted.error);
+                    }
+                  }
+                  void irPara(3);
+                })();
               }}
               onVoltar={() => void irPara(1)}
             />
@@ -227,10 +251,11 @@ export function Onboarding() {
               session={erpSession}
               filiaisPre={draft.stores}
               onConcluir={(confirmadas) => {
-                setErpSession(undefined);
-                void irPara(null, confirmadas);
+                // Confirma lojas + SEED; não faz logout Millennium.
+                void irPara(null, confirmadas).finally(() => setErpSession(undefined));
               }}
               onVoltar={() => {
+                // Voltar: libera sessão em memória; Edge logout no Step3.
                 setErpSession(undefined);
                 void irPara(2);
               }}
