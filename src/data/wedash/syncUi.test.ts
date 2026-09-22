@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   canForceSyncRefresh,
+  FORCE_ALL_KEY,
   FORCE_COOLDOWN_MS,
+  forceCooldownForScopeSec,
   forceRefreshRetryAfterSec,
   formatForceCooldownLabel,
   formatSyncWatermarkLabel,
@@ -38,6 +40,23 @@ describe("force refresh role + rate limit (SYNC-11)", () => {
     expect(forceRefreshRetryAfterSec(last, new Date("2026-09-19T12:02:00.000Z"))).toBe(180);
     expect(forceRefreshRetryAfterSec(last, new Date("2026-09-19T12:05:00.000Z"))).toBeNull();
     expect(forceRefreshRetryAfterSec(null, new Date())).toBeNull();
+  });
+
+  it("per-store cooldown: other stores stay free; Todas blocked by any (option A)", () => {
+    const now = new Date("2026-09-19T12:02:00.000Z");
+    const map = {
+      s010: "2026-09-19T12:00:00.000Z",
+    };
+    expect(forceCooldownForScopeSec(map, ["s010"], now)).toBe(180);
+    expect(forceCooldownForScopeSec(map, ["s020"], now)).toBeNull();
+    expect(forceCooldownForScopeSec(map, [], now)).toBe(180); // Todas
+  });
+
+  it("FORCE Todas (__all__) blocks every store", () => {
+    const now = new Date("2026-09-19T12:02:00.000Z");
+    const map = { [FORCE_ALL_KEY]: "2026-09-19T12:00:00.000Z" };
+    expect(forceCooldownForScopeSec(map, ["s010"], now)).toBe(180);
+    expect(forceCooldownForScopeSec(map, [], now)).toBe(180);
   });
 
   it("formats cooldown mm:ss", () => {

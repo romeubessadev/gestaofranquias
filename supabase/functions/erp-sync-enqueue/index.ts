@@ -139,21 +139,50 @@ Deno.serve(async (req) => {
   }
 
   if (kind === "FORCE" || kind === "FORCE_LIGHT") {
-    const since = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    const { data: recent, error: recentErr } = await admin
+    const windowMs = 5 * 60 * 1000;
+    const since = new Date(Date.now() - windowMs).toISOString();
+    const { data: recentJobs, error: recentErr } = await admin
       .from("sync_job")
-      .select("id, created_at")
+      .select("id, created_at, payload")
       .eq("tenant_id", tenantId)
       .in("kind", ["FORCE", "FORCE_LIGHT"])
       .in("status", ["QUEUED", "RUNNING", "SUCCEEDED"])
       .gte("created_at", since)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(50);
     if (recentErr) return json({ error: "rate_check_failed" }, 500);
-    if (recent) {
-      const created = new Date(recent.created_at as string).getTime();
-      const retryAfterSec = Math.max(1, Math.ceil((created + 5 * 60 * 1000 - Date.now()) / 1000));
+
+    const requestedIds = payload.storeIds ?? null; // null = Todas as lojas
+    const jobStoreIds = (p: unknown): string[] | null => {
+      if (!p || typeof p !== "object") return null;
+      const ids = (p as { storeIds?: unknown }).storeIds;
+      if (!Array.isArray(ids) || ids.length === 0) return null;
+      return ids.filter((id): id is string => typeof id === "string" && id.length > 0);
+    };
+
+    let blocking: { created_at: string } | null = null;
+    for (const row of recentJobs ?? []) {
+      const recentIds = jobStoreIds((row as { payload?: unknown }).payload);
+      // Opção A: FORCE "Todas" bloqueia se houver QUALQUER FORCE recente.
+      if (requestedIds == null) {
+        blocking = row as { created_at: string };
+        break;
+      }
+      // FORCE "Todas" recente bloqueia qualquer loja.
+      if (recentIds == null) {
+        blocking = row as { created_at: string };
+        break;
+      }
+      // Sobreposição de lojas.
+      if (requestedIds.some((id) => recentIds.includes(id))) {
+        blocking = row as { created_at: string };
+        break;
+      }
+    }
+
+    if (blocking) {
+      const created = new Date(blocking.created_at).getTime();
+      const retryAfterSec = Math.max(1, Math.ceil((created + windowMs - Date.now()) / 1000));
       return json({ ok: false, error: "rate_limited", retryAfterSec }, 429);
     }
   }

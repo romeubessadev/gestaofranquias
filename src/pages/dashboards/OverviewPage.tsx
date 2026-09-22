@@ -19,7 +19,7 @@ import type { SalesDayAgg, SalesHourAgg } from "@/data/wedash/salesTypes";
 import { brlCent, deIso, tipRelacao } from "@/lib/format";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
 import { useActiveSession } from "@/session/SessionProvider";
-import { canForceSyncRefresh, formatSyncWatermarkLabel, forceRefreshRetryAfterSec, formatForceCooldownLabel, readForceLastAt, writeForceLastAt, lastForceAtFromRetryAfter } from "@/data/wedash/syncUi";
+import { canForceSyncRefresh, formatSyncWatermarkLabel, forceCooldownForScopeSec, formatForceCooldownLabel, readForceAtMap, recordForceAt, lastForceAtFromRetryAfter, type ForceAtMap } from "@/data/wedash/syncUi";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import {
   applyPeriodDateChange,
@@ -94,26 +94,26 @@ export default function OverviewPage() {
   const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [forceError, setForceError] = useState<string | null>(null);
-  const [lastForceAt, setLastForceAt] = useState<Date | null>(() =>
-    readForceLastAt(session.tenantId),
+  const [forceAtMap, setForceAtMap] = useState<ForceAtMap>(() =>
+    readForceAtMap(session.tenantId),
   );
   const [forceCooldownSec, setForceCooldownSec] = useState<number | null>(() =>
-    forceRefreshRetryAfterSec(readForceLastAt(session.tenantId)),
+    forceCooldownForScopeSec(readForceAtMap(session.tenantId), escopo.filialIds),
   );
   const [topProdSort, setTopProdSort] = useState<TopProdSort>("faturamento");
   const [topProdDir, setTopProdDir] = useState<SortDir>("desc");
 
-  // Contador 5 min do FORCE — trava o botão em vez de erro genérico.
+  // Contador 5 min do FORCE — por loja (ou “Todas” = opção A).
   useEffect(() => {
-    const tick = () => setForceCooldownSec(forceRefreshRetryAfterSec(lastForceAt));
+    const tick = () =>
+      setForceCooldownSec(forceCooldownForScopeSec(forceAtMap, escopo.filialIds));
     tick();
-    if (!lastForceAt) return;
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, [lastForceAt]);
+  }, [forceAtMap, escopo.filialIds]);
 
   useEffect(() => {
-    setLastForceAt(readForceLastAt(session.tenantId));
+    setForceAtMap(readForceAtMap(session.tenantId));
   }, [session.tenantId]);
 
   const reloadAggs = useCallback(async () => {
@@ -249,17 +249,17 @@ export default function OverviewPage() {
     setRefreshing(true);
     setForceError(null);
     const enqueuedAt = new Date();
+    const storeIds = escopo.filialIds;
     const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
     const result = await requestForceRefresh({
       from: periodo.inicio,
       to: periodo.fim,
-      storeIds: escopo.filialIds,
+      storeIds,
     });
     if (!result.ok) {
       if (result.error === "rate_limited") {
         const at = lastForceAtFromRetryAfter(result.retryAfterSec ?? 300);
-        writeForceLastAt(session.tenantId, at);
-        setLastForceAt(at);
+        setForceAtMap(recordForceAt(session.tenantId, storeIds, at));
         setForceError(null);
       } else if (result.error === "range_too_large") {
         setForceError("Período máximo de 90 dias por atualização");
@@ -275,10 +275,9 @@ export default function OverviewPage() {
       return;
     }
 
-    // Espelha o rate limit do Edge (conta no enqueue), mas a UI fica em
-    // "Atualizando…" até o job terminar — cooldown só aparece depois.
-    writeForceLastAt(session.tenantId, enqueuedAt);
-    setLastForceAt(enqueuedAt);
+    // Espelha o rate limit do Edge (conta no enqueue); UI fica em
+    // "Atualizando…" até o job terminar — cooldown aparece depois.
+    setForceAtMap(recordForceAt(session.tenantId, storeIds, enqueuedAt));
 
     const wait = result.jobId
       ? await waitForSyncJob(result.jobId)
