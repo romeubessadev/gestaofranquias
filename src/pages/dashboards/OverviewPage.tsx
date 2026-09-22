@@ -8,14 +8,25 @@ import { buildOverviewView, resolvePeriod, type OverviewKpi } from "@/data/wedas
 import {
   fetchSalesDayAggs,
   fetchSalesHourAggs,
+  fetchSalesCoverage,
   fetchSyncWatermark,
   requestForceRefresh,
+  requestRangeSync,
+  waitForSyncJob,
+  waitForLatestForceJob,
 } from "@/data/wedash/salesRepo";
 import type { SalesDayAgg, SalesHourAgg } from "@/data/wedash/salesTypes";
-import { brlK, deIso, tipRelacao } from "@/lib/format";
-import type { DateRange } from "@/components/ui/DateRangePicker";
+import { brlCent, deIso, tipRelacao } from "@/lib/format";
+import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
 import { useActiveSession } from "@/session/SessionProvider";
-import { canForceSyncRefresh, formatSyncWatermarkLabel } from "@/data/wedash/syncUi";
+import { canForceSyncRefresh, formatSyncWatermarkLabel, forceRefreshRetryAfterSec, formatForceCooldownLabel, readForceLastAt, writeForceLastAt, lastForceAtFromRetryAfter } from "@/data/wedash/syncUi";
+import { calendarTodayIso } from "@/data/wedash/clock";
+import {
+  applyPeriodDateChange,
+  dateRangeFromPeriod,
+  periodActivePresetId,
+  periodDisplayLabel,
+} from "@/pages/dashboard/periodPicker";
 
 type TopProdSort = "nome" | "itens" | "faturamento" | "variacao";
 
@@ -80,35 +91,59 @@ export default function OverviewPage() {
   const [hourAggs, setHourAggs] = useState<SalesHourAgg[]>([]);
   const [loading, setLoading] = useState(true);
   const [watermark, setWatermark] = useState<Date | null>(null);
+  const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [forceError, setForceError] = useState<string | null>(null);
+  const [lastForceAt, setLastForceAt] = useState<Date | null>(() =>
+    readForceLastAt(session.tenantId),
+  );
+  const [forceCooldownSec, setForceCooldownSec] = useState<number | null>(() =>
+    forceRefreshRetryAfterSec(readForceLastAt(session.tenantId)),
+  );
   const [topProdSort, setTopProdSort] = useState<TopProdSort>("faturamento");
   const [topProdDir, setTopProdDir] = useState<SortDir>("desc");
 
+  // Contador 5 min do FORCE — trava o botão em vez de erro genérico.
+  useEffect(() => {
+    const tick = () => setForceCooldownSec(forceRefreshRetryAfterSec(lastForceAt));
+    tick();
+    if (!lastForceAt) return;
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [lastForceAt]);
+
+  useEffect(() => {
+    setLastForceAt(readForceLastAt(session.tenantId));
+  }, [session.tenantId]);
+
   const reloadAggs = useCallback(async () => {
-    const periodo = resolvePeriod(escopo.periodo);
+    const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
     const singleDay = periodo.inicio === periodo.fim;
-    const [days, hours, wm] = await Promise.all([
+    const [days, hours, wm, cov] = await Promise.all([
       fetchSalesDayAggs({
         tenantId: session.tenantId,
         storeIds: escopo.filialIds,
         from: periodo.inicio,
         to: periodo.fim,
-        brand: escopo.divisao,
+        // Busca todas as brands; o filtro WEPINK/WPINK é no buildOverviewViewFromAggs.
+        // (Hoje o sync só grava ALL — filtrar no SQL zera o painel.)
+        brand: null,
       }),
       singleDay
         ? fetchSalesHourAggs({
             tenantId: session.tenantId,
             storeIds: escopo.filialIds,
             day: periodo.inicio,
-            brand: escopo.divisao,
+            brand: null,
           })
         : Promise.resolve([] as SalesHourAgg[]),
       fetchSyncWatermark(session.tenantId),
+      fetchSalesCoverage(session.tenantId, escopo.filialIds),
     ]);
     setDayAggs(days);
     setHourAggs(hours);
     setWatermark(wm);
+    setCoverageFrom(cov.from ? deIso(cov.from) : null);
   }, [escopo, session.tenantId]);
 
   useEffect(() => {
@@ -123,12 +158,57 @@ export default function OverviewPage() {
     };
   }, [reloadAggs]);
 
+  // Enquanto o primeiro sync não grava watermark, repolha (SEED pode demorar).
+  useEffect(() => {
+    if (watermark != null) return;
+    const id = window.setInterval(() => {
+      void reloadAggs();
+    }, 15_000);
+    return () => window.clearInterval(id);
+  }, [watermark, reloadAggs]);
+
+  // Enquanto o histórico ainda cresce (HISTORY), repolha cobertura do picker.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void fetchSalesCoverage(session.tenantId, escopo.filialIds).then((cov) => {
+        setCoverageFrom(cov.from ? deIso(cov.from) : null);
+      });
+    }, 30_000);
+    return () => window.clearInterval(id);
+  }, [session.tenantId, escopo.filialIds]);
+
+  // Período maior que o cache: enfileira RANGE para buracos (dedupe no Edge).
+  useEffect(() => {
+    if (loading || !canForceSyncRefresh(session.role)) return;
+    const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
+    if (periodo.inicio === periodo.fim && periodo.inicio === calendarTodayIso()) return;
+    // Não pede RANGE além da cobertura já sincronizada.
+    if (coverageFrom) {
+      const covIso = (() => {
+        const d = coverageFrom;
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      })();
+      if (periodo.inicio < covIso) return;
+    }
+    const t = window.setTimeout(() => {
+      void requestRangeSync({ from: periodo.inicio, to: periodo.fim });
+    }, 800);
+    return () => window.clearTimeout(t);
+  }, [escopo.periodo, loading, session.role, coverageFrom]);
+
   const view = useMemo(
     () => buildOverviewView(escopo, { dayAggs, hourAggs }),
     [escopo, dayAggs, hourAggs],
   );
 
   const canForce = canForceSyncRefresh(session.role);
+  const brandSplitAvailable = useMemo(
+    () => dayAggs.some((d) => d.brand === "WEPINK" || d.brand === "WPINK"),
+    [dayAggs],
+  );
 
   const topProdutosOrdenados = useMemo(() => {
     const dir = topProdDir === "asc" ? 1 : -1;
@@ -155,50 +235,69 @@ export default function OverviewPage() {
   }
 
   // Resolve o DateRange a partir do escopo — sempre mostra algo selecionado.
-  const dateRange: DateRange | null = useMemo(() => {
-    if (escopo.periodo.tipo === "personalizado" && escopo.periodo.inicio && escopo.periodo.fim) {
-      return [deIso(escopo.periodo.inicio), deIso(escopo.periodo.fim)];
-    }
-    // Para presets, resolve o intervalo correspondente para exibir no picker.
-    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-    switch (escopo.periodo.tipo) {
-      case "hoje": return [hoje, hoje];
-      case "ontem": { const y = new Date(hoje); y.setDate(y.getDate() - 1); return [y, y]; }
-      case "7dias": { const s = new Date(hoje); s.setDate(s.getDate() - 6); return [s, hoje]; }
-      case "esteMes": return [new Date(hoje.getFullYear(), hoje.getMonth(), 1), hoje];
-      case "mesPassado": return [new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1), new Date(hoje.getFullYear(), hoje.getMonth(), 0)];
-      default: return null;
-    }
-  }, [escopo.periodo]);
+  const dateRange = useMemo(() => dateRangeFromPeriod(escopo.periodo), [escopo.periodo]);
 
-  function onDateChange(r: DateRange) {
-    mudar({ ...escopo, periodo: { tipo: "personalizado", inicio: r[0].toISOString().slice(0, 10), fim: r[1].toISOString().slice(0, 10) } });
+  function onDateChange(r: DateRange, meta?: DateRangeChangeMeta) {
+    mudar(applyPeriodDateChange(escopo, r, meta));
   }
   function onMarcaChange(v: "WEPINK" | "WPINK" | null) {
     mudar({ ...escopo, divisao: v });
   }
 
   const forcarAtualizacao = useCallback(async () => {
-    if (!canForce || refreshing) return;
+    if (!canForce || refreshing || forceCooldownSec != null) return;
     setRefreshing(true);
     setForceError(null);
-    const result = await requestForceRefresh();
+    const enqueuedAt = new Date();
+    const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
+    const result = await requestForceRefresh({ from: periodo.inicio, to: periodo.fim });
     if (!result.ok) {
       if (result.error === "rate_limited") {
-        setForceError(
-          result.retryAfterSec
-            ? `Aguarde ${result.retryAfterSec}s para atualizar de novo`
-            : "Atualização limitada a 1× a cada 5 min",
-        );
+        const at = lastForceAtFromRetryAfter(result.retryAfterSec ?? 300);
+        writeForceLastAt(session.tenantId, at);
+        setLastForceAt(at);
+        setForceError(null);
+      } else if (result.error === "range_too_large") {
+        setForceError("Período máximo de 90 dias por atualização");
+      } else if (result.error === "forbidden") {
+        setForceError("Sem permissão para atualizar");
+      } else if (result.error === "credential_missing" || result.error === "credential_invalid") {
+        setForceError("Integração ERP indisponível — confira em Configurações");
       } else {
         setForceError("Não foi possível enfileirar a atualização");
+        console.warn("requestForceRefresh:", result.error);
       }
       setRefreshing(false);
       return;
     }
-    await reloadAggs();
-    setRefreshing(false);
-  }, [canForce, refreshing, reloadAggs]);
+
+    // Espelha o rate limit do Edge (conta no enqueue), mas a UI fica em
+    // "Atualizando…" até o job terminar — cooldown só aparece depois.
+    writeForceLastAt(session.tenantId, enqueuedAt);
+    setLastForceAt(enqueuedAt);
+
+    const wait = result.jobId
+      ? await waitForSyncJob(result.jobId)
+      : await waitForLatestForceJob(session.tenantId, {
+          sinceIso: enqueuedAt.toISOString(),
+        });
+
+    if (wait.status === "FAILED") {
+      setForceError("Falha ao atualizar — tente de novo em alguns minutos");
+      console.warn("FORCE job failed:", wait.error);
+    } else if (wait.status === "TIMEOUT") {
+      setForceError("Atualização ainda em andamento — os dados podem chegar em instantes");
+    } else if (wait.status === "CANCELLED") {
+      setRefreshing(false);
+      return;
+    }
+
+    try {
+      await reloadAggs();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [canForce, refreshing, forceCooldownSec, reloadAggs, escopo.periodo, session.tenantId]);
 
   const minutosAtras =
     watermark != null ? Math.floor((Date.now() - watermark.getTime()) / 60000) : null;
@@ -212,16 +311,30 @@ export default function OverviewPage() {
         subtitle="Indicadores, metas e desempenho da operação."
         actions={
           <>
-            <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras != null && minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
-              <span className={`inline-block h-2 w-2 rounded-full ${minutosAtras != null && minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
-              {rotuloAtualizacao}
+            <span className={`flex items-center gap-1.5 text-[12px] ${refreshing ? "text-acc" : minutosAtras != null && minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
+              <span className={`inline-block h-2 w-2 rounded-full ${refreshing ? "bg-acc animate-pulse" : minutosAtras != null && minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
+              {refreshing ? "Atualizando…" : rotuloAtualizacao}
             </span>
             {forceError && <span className="text-[12px] text-bad">{forceError}</span>}
             {canForce && (
-            <Button size="sm" onClick={() => void forcarAtualizacao()} disabled={refreshing || loading}
+            <Button
+              size="sm"
+              onClick={() => void forcarAtualizacao()}
+              disabled={refreshing || loading || forceCooldownSec != null}
+              title={
+                refreshing
+                  ? "Buscando dados no ERP…"
+                  : forceCooldownSec != null
+                    ? `Próxima atualização em ${formatForceCooldownLabel(forceCooldownSec)} · protege o ERP (1× / 5 min)`
+                    : "Refaz o período filtrado (buracos) e sempre inclui hoje · máx. 90 dias · 1× / 5 min"
+              }
               icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
             >
-              Atualizar
+              {refreshing
+                ? "Atualizando…"
+                : forceCooldownSec != null
+                  ? `Aguarde ${formatForceCooldownLabel(forceCooldownSec)}`
+                  : "Atualizar"}
             </Button>
             )}
             <Button variant="secondary" size="sm" onClick={() => window.print()}
@@ -229,8 +342,20 @@ export default function OverviewPage() {
             >
               Exportar
             </Button>
-            <DateRangePicker value={dateRange} onChange={onDateChange} size="sm" />
-            <BrandPicker value={escopo.divisao} onChange={onMarcaChange} />
+            <DateRangePicker
+              value={dateRange}
+              onChange={onDateChange}
+              displayLabel={periodDisplayLabel(escopo.periodo)}
+              activePresetId={periodActivePresetId(escopo.periodo)}
+              size="sm"
+              minDate={coverageFrom}
+            />
+            <BrandPicker
+              value={escopo.divisao}
+              onChange={onMarcaChange}
+              brandSplitAvailable={brandSplitAvailable}
+            />
+
           </>
         }
       />
@@ -242,10 +367,21 @@ export default function OverviewPage() {
         ))}
       </div>
 
-      {!loading && dayAggs.length === 0 && (
+      {!loading && view.brandFilterUnavailable && (
         <Card className="mt-4">
           <p className="py-6 text-center text-[13px] text-t2">
-            Ainda não há vendas sincronizadas para este filtro. O backfill roda após o onboarding; use Atualizar se for gestor.
+            O sync atual ainda não separa <span className="font-semibold text-t1">WEPINK</span> e{" "}
+            <span className="font-semibold text-t1">WPINK</span> por venda — só o total da loja
+            (brand ALL). Escolha <span className="font-semibold text-t1">Todas as marcas</span> para
+            ver o faturamento. O filtro por marca volta quando o sync de produtos/divisão estiver ativo.
+          </p>
+        </Card>
+      )}
+
+      {!loading && dayAggs.length === 0 && !view.brandFilterUnavailable && (
+        <Card className="mt-4">
+          <p className="py-6 text-center text-[13px] text-t2">
+            Ainda não há vendas neste período. A carga inicial cobre o mês anterior e o atual; use Atualizar para buscar buracos + hoje.
           </p>
         </Card>
       )}
@@ -278,16 +414,16 @@ export default function OverviewPage() {
               <div className="flex flex-col gap-2.5">
                 <div className="flex justify-between">
                   <span className="text-[12.5px] text-t2">Faturamento</span>
-                  <span className="text-[13px] font-bold text-t0">{brlK(meta.realizado)}</span>
+                  <span className="text-[13px] font-bold text-t0">{brlCent(meta.realizado)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[12.5px] text-t2">Goal do mês</span>
-                  <span className={`text-[13px] font-bold ${pct < 100 ? "text-warn" : "text-ok"}`}>{brlK(meta.alvo)}</span>
+                  <span className={`text-[13px] font-bold ${pct < 100 ? "text-warn" : "text-ok"}`}>{brlCent(meta.alvo)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[12.5px] text-t2">Faltam</span>
                   <span className={`text-[13px] font-bold ${faltamValor > 0 ? "text-warn" : "text-ok"}`}>
-                    {faltamValor > 0 ? brlK(faltamValor) : "Meta atingida"}
+                    {faltamValor > 0 ? brlCent(faltamValor) : "Meta atingida"}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -317,7 +453,7 @@ export default function OverviewPage() {
                     <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--ok)]" />Realizado
                   </span>
                   <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
-                    {brlK(view.evolucao[view.evolucao.length - 1]?.realizado ?? 0)}
+                    {brlCent(view.evolucao[view.evolucao.length - 1]?.realizado ?? 0)}
                   </p>
                 </div>
                 <div>
@@ -325,7 +461,7 @@ export default function OverviewPage() {
                     <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Goal
                   </span>
                   <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
-                    {brlK(view.evolucao[view.evolucao.length - 1]?.meta ?? 0)}
+                    {brlCent(view.evolucao[view.evolucao.length - 1]?.meta ?? 0)}
                   </p>
                 </div>
               </div>
@@ -338,7 +474,7 @@ export default function OverviewPage() {
             labels={view.evolucao.map((e) => e.label)}
             color="var(--ok)"
             compareColor="var(--warn)"
-            formatValue={brlK}
+            formatValue={brlCent}
             showAxisLabels
           />
         </Card>
@@ -363,7 +499,7 @@ export default function OverviewPage() {
                     <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--acc)]" />Realizado
                   </span>
                   <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
-                    {brlK(view.categoriaVsMeta.reduce((s, c) => s + c.realizado, 0))}
+                    {brlCent(view.categoriaVsMeta.reduce((s, c) => s + c.realizado, 0))}
                   </p>
                 </div>
                 <div>
@@ -371,7 +507,7 @@ export default function OverviewPage() {
                     <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Goal
                   </span>
                   <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
-                    {brlK(view.categoriaVsMeta.reduce((s, c) => s + c.meta, 0))}
+                    {brlCent(view.categoriaVsMeta.reduce((s, c) => s + c.meta, 0))}
                   </p>
                 </div>
               </div>
@@ -384,7 +520,7 @@ export default function OverviewPage() {
             labels={view.categoriaVsMeta.map((c) => c.categoria)}
             color="var(--acc)"
             compareColor="var(--warn)"
-            formatValue={brlK}
+            formatValue={brlCent}
             showAxisLabels
           />
         </Card>
@@ -406,7 +542,7 @@ export default function OverviewPage() {
                       <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--info)]" />Realizado
                     </span>
                     <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
-                      {brlK(view.diaVsMeta.reduce((s, d) => s + d.realizado, 0))}
+                      {brlCent(view.diaVsMeta.reduce((s, d) => s + d.realizado, 0))}
                     </p>
                   </div>
                   <div>
@@ -414,7 +550,7 @@ export default function OverviewPage() {
                       <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Goal
                     </span>
                     <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
-                      {brlK(view.diaVsMeta.reduce((s, d) => s + d.meta, 0))}
+                      {brlCent(view.diaVsMeta.reduce((s, d) => s + d.meta, 0))}
                     </p>
                   </div>
                 </div>
@@ -427,7 +563,7 @@ export default function OverviewPage() {
               labels={view.diaVsMeta.map((d) => d.dia)}
               color="var(--info)"
               compareColor="var(--warn)"
-              formatValue={brlK}
+              formatValue={brlCent}
               showAxisLabels
             />
           </Card>
@@ -439,7 +575,7 @@ export default function OverviewPage() {
         <Card className="flex flex-col">
           <div className="mb-1 flex items-center justify-between">
             <CardTitle>Ranking de lojas</CardTitle>
-            <Badge variant="accent">Rede: {brlK(view.rankingLojas.reduce((s, l) => s + l.valor, 0))}</Badge>
+            <Badge variant="accent">Rede: {brlCent(view.rankingLojas.reduce((s, l) => s + l.valor, 0))}</Badge>
           </div>
           {view.rankingLojas.length === 0 ? (
             <span className="py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
@@ -458,7 +594,7 @@ export default function OverviewPage() {
                       size={148}
                       thickness={20}
                       centerLabel="Total"
-                      centerValue={brlK(total)}
+                      centerValue={brlCent(total)}
                     />
                   </div>
                   <div className="mt-4 flex flex-col gap-3">
@@ -472,7 +608,7 @@ export default function OverviewPage() {
                               <span className="h-2.5 w-2.5 rounded-[4px]" style={{ background: cor }} />
                               {loja.nome}
                             </span>
-                            <span className="font-mono text-[13px] font-extrabold text-t0">{brlK(loja.valor)}</span>
+                            <span className="font-mono text-[13px] font-extrabold text-t0">{brlCent(loja.valor)}</span>
                           </div>
                           <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-bg-2">
                             <div className="h-full rounded-full" style={{ width: `${Math.min(100, pctMeta)}%`, background: cor }} />
@@ -509,7 +645,7 @@ export default function OverviewPage() {
                         color: f.cor,
                       }))}
                       centerLabel="Total"
-                      centerValue={brlK(total)}
+                      centerValue={brlCent(total)}
                     />
                   </div>
                   <div className="mt-2 flex flex-col gap-2">
@@ -519,7 +655,7 @@ export default function OverviewPage() {
                         <div key={f.forma} className="flex items-center gap-2.5">
                           <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: f.cor }} />
                           <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{f.forma}</span>
-                          <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlK(f.valor)}</span>
+                          <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlCent(f.valor)}</span>
                           <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
                         </div>
                       );
@@ -550,7 +686,7 @@ export default function OverviewPage() {
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex items-baseline justify-between">
                       <span className="text-[13px] font-bold text-t0">{v.nome}</span>
-                      <span className="font-mono text-[13px] font-extrabold text-ok">{brlK(v.valor)}</span>
+                      <span className="font-mono text-[13px] font-extrabold text-ok">{brlCent(v.valor)}</span>
                     </div>
                     <ProgressBar value={pct} height={5} />
                     <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-t2">
@@ -558,7 +694,7 @@ export default function OverviewPage() {
                       {v.ticketMedio != null && v.ticketMedio > 0 && (
                         <>
                           <span>·</span>
-                          <span>Ticket médio {brlK(v.ticketMedio)}</span>
+                          <span>Ticket médio {brlCent(v.ticketMedio)}</span>
                         </>
                       )}
                       <span>·</span>
@@ -633,7 +769,7 @@ export default function OverviewPage() {
                         </div>
                       </td>
                       <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{p.sub?.replace(" itens", "") ?? "—"}</td>
-                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlK(p.valor)}</td>
+                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.valor)}</td>
                       <td className="px-1 py-3 text-right text-xs font-bold" style={{ color: p.trend != null ? (p.trend >= 0 ? "var(--ok)" : "var(--bad)") : undefined }}>
                         {p.trend != null ? `${p.trend >= 0 ? "+" : ""}${p.trend}%` : "—"}
                       </td>

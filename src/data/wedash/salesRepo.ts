@@ -143,20 +143,48 @@ export async function fetchSyncWatermark(
 export async function requestForceRefresh(opts: {
   from: string;
   to: string;
-}): Promise<{ ok: true } | { ok: false; retryAfterSec?: number; error: string }> {
+}): Promise<
+  | { ok: true; jobId?: string }
+  | { ok: false; retryAfterSec?: number; error: string }
+> {
   const sb = getSupabase();
   if (!sb) return { ok: false, error: "supabase_unavailable" };
   const { data, error } = await sb.functions.invoke("erp-sync-enqueue", {
     body: { action: "force", from: opts.from, to: opts.to },
   });
-  const body = data as { ok?: boolean; error?: string; retryAfterSec?: number } | null;
-  // invoke often sets `error` on non-2xx while still returning the JSON body
-  if (body?.error === "rate_limited" || body?.error === "range_too_large" || body?.ok === false) {
+
+  // Em non-2xx o invoke preenche `error` e às vezes deixa `data` vazio —
+  // o JSON real (rate_limited etc.) vem em error.context.
+  let body = data as {
+    ok?: boolean;
+    error?: string;
+    retryAfterSec?: number;
+    job?: { id?: string };
+  } | null;
+  if ((!body || typeof body !== "object") && error && typeof error === "object") {
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === "function") {
+      try {
+        body = (await ctx.json()) as typeof body;
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  if (body?.ok === true) {
+    const jobId = body.job?.id ? String(body.job.id) : undefined;
+    return { ok: true, jobId };
+  }
+  if (body?.error === "rate_limited" || body?.error === "range_too_large") {
     return {
       ok: false,
-      error: body.error ?? "rejected",
+      error: body.error,
       retryAfterSec: body.retryAfterSec,
     };
+  }
+  if (body?.ok === false && body.error) {
+    return { ok: false, error: body.error, retryAfterSec: body.retryAfterSec };
   }
   if (error) {
     const msg = error.message ?? "enqueue_failed";
@@ -165,7 +193,97 @@ export async function requestForceRefresh(opts: {
     }
     return { ok: false, error: msg };
   }
-  return { ok: true };
+  return { ok: false, error: body?.error ?? "enqueue_failed" };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export type SyncJobWaitResult =
+  | { status: "SUCCEEDED" }
+  | { status: "FAILED"; error: string | null }
+  | { status: "TIMEOUT" }
+  | { status: "CANCELLED" };
+
+/**
+ * Espera o sync_job chegar em SUCCEEDED/FAILED (poll).
+ * FORCE pode demorar (Lista + DetMov); default 12 min.
+ */
+export async function waitForSyncJob(
+  jobId: string,
+  opts?: { timeoutMs?: number; pollMs?: number; signal?: AbortSignal },
+): Promise<SyncJobWaitResult> {
+  const sb = getSupabase();
+  if (!sb) return { status: "FAILED", error: "supabase_unavailable" };
+  const timeoutMs = opts?.timeoutMs ?? 12 * 60 * 1000;
+  const pollMs = opts?.pollMs ?? 2_000;
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    if (opts?.signal?.aborted) return { status: "CANCELLED" };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (sb.from("sync_job") as any)
+      .select("status, error")
+      .eq("id", jobId)
+      .maybeSingle();
+    if (error) {
+      console.warn("waitForSyncJob:", error.message ?? error);
+    } else if (data) {
+      const row = data as { status?: string; error?: string | null };
+      const st = String(row.status ?? "");
+      if (st === "SUCCEEDED") return { status: "SUCCEEDED" };
+      if (st === "FAILED" || st === "CANCELLED") {
+        return { status: "FAILED", error: row.error ?? null };
+      }
+    }
+    await sleep(pollMs);
+  }
+  return { status: "TIMEOUT" };
+}
+
+/** Fallback quando o enqueue não devolveu jobId — pega o FORCE mais recente do tenant. */
+export async function waitForLatestForceJob(
+  tenantId: string,
+  opts?: { sinceIso?: string; timeoutMs?: number; pollMs?: number; signal?: AbortSignal },
+): Promise<SyncJobWaitResult> {
+  const sb = getSupabase();
+  if (!sb) return { status: "FAILED", error: "supabase_unavailable" };
+  const timeoutMs = opts?.timeoutMs ?? 12 * 60 * 1000;
+  const pollMs = opts?.pollMs ?? 2_000;
+  const started = Date.now();
+  const sinceMs = opts?.sinceIso ? new Date(opts.sinceIso).getTime() : 0;
+
+  while (Date.now() - started < timeoutMs) {
+    if (opts?.signal?.aborted) return { status: "CANCELLED" };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (sb.from("sync_job") as any)
+      .select("id, status, error, created_at")
+      .eq("tenant_id", tenantId)
+      .eq("kind", "FORCE")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.warn("waitForLatestForceJob:", error.message ?? error);
+    } else if (data) {
+      const row = data as {
+        status?: string;
+        error?: string | null;
+        created_at?: string | null;
+      };
+      const created = row.created_at ? new Date(row.created_at).getTime() : 0;
+      if (!sinceMs || created >= sinceMs - 5_000) {
+        const st = String(row.status ?? "");
+        if (st === "SUCCEEDED") return { status: "SUCCEEDED" };
+        if (st === "FAILED" || st === "CANCELLED") {
+          return { status: "FAILED", error: row.error ?? null };
+        }
+      }
+    }
+    await sleep(pollMs);
+  }
+  return { status: "TIMEOUT" };
 }
 
 /** Enfileira RANGE para preencher dias faltantes no período (sem forçar hoje). */
