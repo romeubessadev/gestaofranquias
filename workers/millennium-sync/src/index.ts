@@ -5,11 +5,18 @@
  *   npm install
  *   cp .env.example .env   # fill values
  *   npm start
+ *
+ * Pausar / liberar usuário do ERP (outro terminal):
+ *   npm run erp -- pause | resume | logout | status
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createAdminClient, enqueueDueLightJobs, processOneJob } from "./deps.ts";
+import { createAdminClient, disconnectTenantSessions, enqueueDueLightJobs, processOneJob, recoverOnStartup, recoverStaleRunningJobs } from "./deps.ts";
+import { logoutMillennium } from "./millenniumAuth.ts";
+import { releaseActiveMillenniumSession } from "./runSyncJob.ts";
+import { isWorkerPaused } from "./workerPause.ts";
+import { acquireWorkerLock, releaseWorkerLock } from "./workerLock.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -41,7 +48,7 @@ function loadDotEnv() {
     if (!process.env.SUPABASE_URL && process.env.VITE_SUPABASE_URL) {
       process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL;
     }
-    console.log(`[env] loaded ${path}`);
+    console.log(`Ambiente carregado: ${path}`);
     return;
   }
 }
@@ -52,6 +59,7 @@ function sleep(ms: number) {
 
 async function main() {
   loadDotEnv();
+  acquireWorkerLock();
 
   const pollMs = Number(process.env.POLL_INTERVAL_MS ?? "45000") || 45_000;
   const erpSecret = process.env.ERP_SECRET_KEY?.trim();
@@ -62,40 +70,78 @@ async function main() {
   }
 
   const sb = createAdminClient();
-  console.log(`[sync] worker up · poll ${pollMs}ms · millennium ${process.env.MILLENNIUM_API_BASE ?? "(default)"}`);
+  await recoverOnStartup(sb);
+  console.log(
+    `Worker Millennium · poll ${Math.round(pollMs / 1000)}s · SEED/HISTORY com filial; LIGHT hoje sem filial · desconectar em Configurações > Integração ERP`,
+  );
+  if (isWorkerPaused()) {
+    console.log("⚠ Pausado local (.millennium-pause) — npm run erp -- resume");
+  }
 
   let stopping = false;
+  let wasPaused = isWorkerPaused();
+  let lastIdleLog = 0;
   const stop = () => {
     if (stopping) return;
     stopping = true;
-    console.log("[sync] shutting down…");
+    console.log("Encerrando… (token ERP do tenant permanece até pause/logout)");
+    void releaseActiveMillenniumSession(logoutMillennium).finally(() => {
+      releaseWorkerLock();
+    });
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
+  process.on("exit", () => {
+    releaseWorkerLock();
+  });
 
   while (!stopping) {
     try {
-      let worked = false;
-      // Drain queue (cap per tick)
-      for (let i = 0; i < 5; i++) {
-        const did = await processOneJob(sb, erpSecret);
-        if (!did) break;
-        worked = true;
+      const paused = isWorkerPaused();
+      if (paused && !wasPaused) {
+        console.log("Pausa local — liberando sessão Millennium…");
+        await releaseActiveMillenniumSession(logoutMillennium);
+        const n = await disconnectTenantSessions(sb, logoutMillennium);
+        console.log(`Pausado · ${n} sessão(ões) encerrada(s)`);
       }
-      const n = await enqueueDueLightJobs(sb);
-      if (n > 0) console.log(`[sync] enqueued ${n} LIGHT job(s)`);
-      if (!worked && n === 0) {
-        /* idle */
+      if (!paused && wasPaused) {
+        console.log("Retomado");
+      }
+      wasPaused = paused;
+
+      if (!paused) {
+        const stale = await recoverStaleRunningJobs(sb);
+        if (stale > 0) console.log(`Recuperados ${stale} job(s) travados`);
+        let worked = false;
+        for (let i = 0; i < 5; i++) {
+          const did = await processOneJob(sb, erpSecret);
+          if (!did) break;
+          worked = true;
+        }
+        const n = await enqueueDueLightJobs(sb);
+        if (n > 0) console.log(`+${n} sync do dia (LIGHT)`);
+        if (!worked && n === 0) {
+          const now = Date.now();
+          if (now - lastIdleLog > 5 * 60_000) {
+            console.log("Aguardando… (sem job com presença WeDash)");
+            lastIdleLog = now;
+          }
+        } else {
+          lastIdleLog = 0;
+        }
       }
     } catch (e) {
-      console.error("[sync] tick error", e instanceof Error ? e.message : e);
+      console.error("Erro no ciclo:", e instanceof Error ? e.message : e);
     }
     if (stopping) break;
     await sleep(pollMs);
   }
+
+  releaseWorkerLock();
 }
 
 main().catch((e) => {
-  console.error(e);
+  console.error(e instanceof Error ? e.message : e);
+  releaseWorkerLock();
   process.exit(1);
 });

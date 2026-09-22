@@ -463,7 +463,9 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
   let session: string | null = null;
   let storesDone = 0;
 
-  console.log(`Iniciando ${kindLabel(job.kind)} · tenant ${job.tenantId.slice(0, 8)}…`);
+  console.log(
+    `[sync] start kind=${job.kind} tenant=${job.tenantId.slice(0, 8)} job=${job.id.slice(0, 8)}`,
+  );
 
   try {
     // HISTORY sem janelas / RANGE sem buracos: não gasta sessão no Millennium.
@@ -506,13 +508,9 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
     const ensured = await ensureMillenniumSession(cred, deps);
     if (!ensured.ok) {
       const reason = ensured.reason;
-      const msgPt =
-        reason === "busy"
-          ? "Sessão ocupada no Millennium — nova tentativa em breve"
-          : reason === "password"
-            ? "Senha do ERP inválida — reconecte em Configurações"
-            : `Falha no login Millennium: ${ensured.raw}`;
-      console.warn(msgPt);
+      console.warn(
+        `[sync] fail kind=${job.kind} tenant=${job.tenantId.slice(0, 8)} job=${job.id.slice(0, 8)} reason=${reason}`,
+      );
       if (reason === "password") {
         await deps.updateCredential({
           credentialId: cred.id,
@@ -790,7 +788,9 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
       startedAt,
       finishedAt,
     });
-    console.log(`Concluído (${kindLabel(job.kind)}) · ${storesDone} loja(s)`);
+    console.log(
+      `[sync] ok kind=${job.kind} tenant=${job.tenantId.slice(0, 8)} job=${job.id.slice(0, 8)} stores=${storesDone}`,
+    );
 
     if (job.kind === "SEED" || job.kind === "BACKFILL" || job.kind === "HISTORY") {
       const queued = await deps.enqueueHistoryFollowUp({
@@ -803,7 +803,9 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
     return { ok: true, storesDone };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error(`Erro no sync: ${msg}`);
+    console.error(
+      `[sync] fail kind=${job.kind} tenant=${job.tenantId.slice(0, 8)} job=${job.id.slice(0, 8)} reason=other error=${msg}`,
+    );
     await deps.updateCredential({
       credentialId: job.credentialId,
       lastError: msg,
