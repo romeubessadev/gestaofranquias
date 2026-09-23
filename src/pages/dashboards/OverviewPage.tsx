@@ -3,14 +3,15 @@ import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, RadialProgress
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, BarChart, DonutChart } from "@/components/charts";
 import { useScope } from "@/pages/dashboard/useScope";
-import { BrandPicker } from "@/pages/dashboard/BrandPicker";
-import { buildOverviewView, resolvePeriod, type OverviewKpi } from "@/data/wedash/dashboard";
+import { buildOverviewView, resolvePeriod, previousPeriod, type OverviewKpi } from "@/data/wedash/dashboard";
 import {
   fetchSalesDayAggs,
   fetchSalesHourAggs,
   fetchSalesCategoryDayAggs,
   fetchSalesCategoryCatalog,
   fetchSalesPaymentDayAggs,
+  fetchSalesSellerDayAggs,
+  fetchSalesProductDayAggs,
   fetchSalesCoverage,
   fetchSyncWatermark,
   requestForceRefresh,
@@ -24,6 +25,8 @@ import type {
   SalesDayAgg,
   SalesHourAgg,
   SalesPaymentDayAgg,
+  SalesSellerDayAgg,
+  SalesProductDayAgg,
 } from "@/data/wedash/salesTypes";
 import { brlCent, deIso, tipRelacao } from "@/lib/format";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
@@ -36,6 +39,7 @@ import {
   periodActivePresetId,
   periodDisplayLabel,
 } from "@/pages/dashboard/periodPicker";
+import { TINT, type TintKey } from "@/pages/dashboards/icons";
 type TopProdSort = "nome" | "itens" | "faturamento" | "variacao";
 
 const IconFat = () => (
@@ -66,6 +70,7 @@ const IconTicket = () => (
 );
 
 const KPI_ICONS = [IconFat, IconCmv, IconVendas, IconTicket];
+const KPI_WPINK_ICONS = [IconFat, IconCmv, IconVendas, IconTicket];
 
 /** Cores fixas para as lojas no donut e barras do Ranking de Lojas. */
 const CORES_LOJAS = ["var(--acc)", "var(--info)", "var(--ok)", "var(--warn)", "var(--bad)"];
@@ -77,6 +82,7 @@ const KPI_COLORS = [
   { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },
   { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
 ];
+const KPI_WPINK_TINTS: TintKey[] = ["acc", "warn", "ok", "info"];
 
 /** Badge de delta — só % no chip; base do comparativo no tooltip (igual StatCard). */
 function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; diff?: string } }) {
@@ -94,12 +100,14 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
 
 export default function OverviewPage() {
   const session = useActiveSession();
-  const { escopo, mudar, showBrandPicker } = useScope();
+  const { escopo, mudar } = useScope();
   const [dayAggs, setDayAggs] = useState<SalesDayAgg[]>([]);
   const [hourAggs, setHourAggs] = useState<SalesHourAgg[]>([]);
   const [categoryDayAggs, setCategoryDayAggs] = useState<SalesCategoryDayAgg[]>([]);
   const [categoryCatalog, setCategoryCatalog] = useState<SalesCategoryRef[]>([]);
   const [paymentDayAggs, setPaymentDayAggs] = useState<SalesPaymentDayAgg[]>([]);
+  const [sellerDayAggs, setSellerDayAggs] = useState<SalesSellerDayAgg[]>([]);
+  const [productDayAggs, setProductDayAggs] = useState<SalesProductDayAgg[]>([]);
   const [loading, setLoading] = useState(true);
   const [watermark, setWatermark] = useState<Date | null>(null);
   const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
@@ -114,7 +122,9 @@ export default function OverviewPage() {
   const [topProdSort, setTopProdSort] = useState<TopProdSort>("faturamento");
   const [topProdDir, setTopProdDir] = useState<SortDir>("desc");
   /** Evita dois waitForSyncJob paralelos (remount + clique). */
-  const forceWaitLock = useRef(false);
+  const forceWaitLock = useRef<Promise<void> | null>(null);
+  /** Só a leitura mais recente aplica setState (evita corrida stale sobrescrever pós-FORCE). */
+  const reloadGen = useRef(0);
 
   // Contador 5 min do FORCE — por loja (ou “Todas” = opção A).
   useEffect(() => {
@@ -130,10 +140,12 @@ export default function OverviewPage() {
   }, [session.tenantId]);
 
   const reloadAggs = useCallback(async () => {
+    const gen = ++reloadGen.current;
     const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
+    const ant = previousPeriod(periodo);
     const singleDay = periodo.inicio === periodo.fim;
     try {
-      const [days, hours, cats, catalog, payments, wm, cov] = await Promise.all([
+      const [days, hours, cats, catalog, payments, sellers, products, wm, cov] = await Promise.all([
         fetchSalesDayAggs({
           tenantId: session.tenantId,
           // Sempre a rede: Ranking precisa do total/participação mesmo com 1 loja no StorePicker.
@@ -168,17 +180,33 @@ export default function OverviewPage() {
           from: periodo.inicio,
           to: periodo.fim,
         }),
+        fetchSalesSellerDayAggs({
+          tenantId: session.tenantId,
+          storeIds: escopo.filialIds,
+          from: periodo.inicio,
+          to: periodo.fim,
+        }),
+        fetchSalesProductDayAggs({
+          tenantId: session.tenantId,
+          storeIds: escopo.filialIds,
+          from: ant.inicio < periodo.inicio ? ant.inicio : periodo.inicio,
+          to: periodo.fim,
+        }),
         fetchSyncWatermark(session.tenantId),
         fetchSalesCoverage(session.tenantId, escopo.filialIds),
       ]);
+      if (gen !== reloadGen.current) return;
       setDayAggs(days);
       setHourAggs(hours);
       setCategoryDayAggs(cats);
       setCategoryCatalog(catalog);
       setPaymentDayAggs(payments);
+      setSellerDayAggs(sellers);
+      setProductDayAggs(products);
       setWatermark(wm);
       setCoverageFrom(cov.from ? deIso(cov.from) : null);
     } catch (e) {
+      if (gen !== reloadGen.current) return;
       console.error("Overview reloadAggs:", e);
     }
   }, [escopo, session.tenantId]);
@@ -211,20 +239,27 @@ export default function OverviewPage() {
 
   const resumeOrWaitForce = useCallback(
     async (opts: { jobId?: string; storeIds: string[]; enqueuedAt: string }) => {
-      if (forceWaitLock.current) return;
-      forceWaitLock.current = true;
+      // Se já há wait em curso, reusa a mesma Promise (evita return vazio + UI “pronto” cedo).
+      if (forceWaitLock.current) {
+        await forceWaitLock.current;
+        return;
+      }
       setRefreshing(true);
       setForceError(null);
-      try {
-        const wait = opts.jobId
-          ? await waitForSyncJob(opts.jobId)
-          : await waitForLatestForceJob(session.tenantId, {
-              sinceIso: opts.enqueuedAt,
-            });
-        await applyForceWaitResult(wait, opts.storeIds);
-      } finally {
-        forceWaitLock.current = false;
-      }
+      const run = (async () => {
+        try {
+          const wait = opts.jobId
+            ? await waitForSyncJob(opts.jobId)
+            : await waitForLatestForceJob(session.tenantId, {
+                sinceIso: opts.enqueuedAt,
+              });
+          await applyForceWaitResult(wait, opts.storeIds);
+        } finally {
+          forceWaitLock.current = null;
+        }
+      })();
+      forceWaitLock.current = run;
+      await run;
     },
     [session.tenantId, applyForceWaitResult],
   );
@@ -312,8 +347,10 @@ export default function OverviewPage() {
         categoryDayAggs,
         categoryCatalog,
         paymentDayAggs,
+        sellerDayAggs,
+        productDayAggs,
       }),
-    [escopo, dayAggs, hourAggs, categoryDayAggs, categoryCatalog, paymentDayAggs],
+    [escopo, dayAggs, hourAggs, categoryDayAggs, categoryCatalog, paymentDayAggs, sellerDayAggs, productDayAggs],
   );
 
   const canForce = canForceSyncRefresh(session.role);
@@ -348,9 +385,6 @@ export default function OverviewPage() {
   function onDateChange(r: DateRange, meta?: DateRangeChangeMeta) {
     mudar(applyPeriodDateChange(escopo, r, meta));
   }
-  function onMarcaChange(v: "WEPINK" | "WPINK" | null) {
-    mudar({ ...escopo, divisao: v });
-  }
 
   const forcarAtualizacao = useCallback(async () => {
     if (!canForce || refreshing || forceCooldownSec != null) return;
@@ -358,10 +392,10 @@ export default function OverviewPage() {
     setForceError(null);
     const enqueuedAt = new Date();
     const storeIds = escopo.filialIds;
-    const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
+    const today = calendarTodayIso();
     const result = await requestForceRefresh({
-      from: periodo.inicio,
-      to: periodo.fim,
+      from: today,
+      to: today,
       storeIds,
     });
     if (!result.ok) {
@@ -369,8 +403,6 @@ export default function OverviewPage() {
         const at = lastForceAtFromRetryAfter(result.retryAfterSec ?? 300);
         setForceAtMap(recordForceAt(session.tenantId, storeIds, at));
         setForceError(null);
-      } else if (result.error === "range_too_large") {
-        setForceError("Período máximo de 90 dias por atualização");
       } else if (result.error === "forbidden") {
         setForceError("Sem permissão para atualizar");
       } else if (result.error === "credential_missing" || result.error === "credential_invalid") {
@@ -411,55 +443,87 @@ export default function OverviewPage() {
         title="Visão geral"
         subtitle="Indicadores, metas e desempenho da operação."
         actions={
-          <>
-            {!refreshing && (
-            <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras != null && minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
-              <span className={`inline-block h-2 w-2 rounded-full ${minutosAtras != null && minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
-              {rotuloAtualizacao}
-            </span>
-            )}
-            {forceError && <span className="text-[12px] text-bad">{forceError}</span>}
-            {canForce && (
-            <Button
-              size="sm"
-              onClick={() => void forcarAtualizacao()}
-              disabled={refreshing || loading || forceCooldownSec != null}
-              title={
-                refreshing
-                  ? "Buscando dados no ERP…"
-                  : forceCooldownSec != null
-                    ? `Próxima atualização em ${formatForceCooldownLabel(forceCooldownSec)} · protege o ERP (1× / 5 min)`
-                    : escopo.filialIds.length === 1
-                      ? "Atualiza só a loja selecionada (período filtrado + hoje) · máx. 90 dias · 1× / 5 min"
-                      : "Atualiza todas as lojas (período filtrado + hoje) · máx. 90 dias · 1× / 5 min"
-              }
-              icon={refreshing ? undefined : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
-            >
-              {refreshing
-                ? "Atualizando…"
-                : forceCooldownSec != null
-                  ? `Aguarde ${formatForceCooldownLabel(forceCooldownSec)}`
-                  : "Atualizar"}
-            </Button>
-            )}
-            <Button variant="secondary" size="sm" onClick={() => window.print()}
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>}
-            >
-              Exportar
-            </Button>
-            <DateRangePicker
-              value={dateRange}
-              onChange={onDateChange}
-              displayLabel={periodDisplayLabel(escopo.periodo)}
-              activePresetId={periodActivePresetId(escopo.periodo)}
-              size="sm"
-              minDate={coverageFrom}
-            />
-            {showBrandPicker && (
-              <BrandPicker value={escopo.divisao} onChange={onMarcaChange} />
-            )}
-
-          </>
+          <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
+            <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+              <span
+                className={`flex items-center gap-1.5 text-[12px] ${
+                  refreshing
+                    ? "text-warn"
+                    : minutosAtras != null && minutosAtras < 10
+                      ? "text-ok"
+                      : "text-t2"
+                }`}
+              >
+                <span
+                  className={`inline-block h-2 w-2 rounded-full ${
+                    refreshing
+                      ? "bg-warn"
+                      : minutosAtras != null && minutosAtras < 10
+                        ? "bg-ok"
+                        : "bg-warn"
+                  }`}
+                />
+                {rotuloAtualizacao}
+              </span>
+              {forceError && <span className="text-[12px] text-bad">{forceError}</span>}
+              {canForce && (
+                <Button
+                  size="sm"
+                  onClick={() => void forcarAtualizacao()}
+                  disabled={refreshing || loading || forceCooldownSec != null}
+                  title={
+                    refreshing
+                      ? "Buscando dados no ERP…"
+                      : forceCooldownSec != null
+                        ? `Próxima atualização em ${formatForceCooldownLabel(forceCooldownSec)} · protege o ERP (1× / 5 min)`
+                        : escopo.filialIds.length === 1
+                          ? "Atualiza só a loja selecionada · dados de hoje"
+                          : "Atualiza todas as lojas · dados de hoje"
+                  }
+                  icon={
+                    refreshing ? undefined : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 2v6h-6" />
+                        <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                        <path d="M3 22v-6h6" />
+                        <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                      </svg>
+                    )
+                  }
+                >
+                  {refreshing
+                    ? "Atualizando…"
+                    : forceCooldownSec != null
+                      ? `Aguarde ${formatForceCooldownLabel(forceCooldownSec)}`
+                      : "Atualizar"}
+                </Button>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+              <DateRangePicker
+                value={dateRange}
+                onChange={onDateChange}
+                displayLabel={periodDisplayLabel(escopo.periodo)}
+                activePresetId={periodActivePresetId(escopo.periodo)}
+                size="sm"
+                minDate={coverageFrom}
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => window.print()}
+                icon={
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                }
+              >
+                Exportar
+              </Button>
+            </div>
+          </div>
         }
       />
 
@@ -470,10 +534,44 @@ export default function OverviewPage() {
         ))}
       </div>
 
+      {/* Quick stats WPINK — só quando a loja (ou rede) tem a marca */}
+      {view.kpisWpink.length > 0 && (
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {view.kpisWpink.map((kpi, i) => {
+            const Icon = KPI_WPINK_ICONS[i] ?? IconVendas;
+            const tint = TINT[kpi.tint ?? KPI_WPINK_TINTS[i] ?? "acc"];
+            return (
+              <Card key={kpi.label} padding="sm" className="flex items-center gap-3.5">
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]"
+                  style={{ background: tint.bg, color: tint.fg }}
+                >
+                  <Icon />
+                </span>
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 text-[11.5px] font-semibold text-t2">
+                    {kpi.label}
+                    {kpi.tooltip ? (
+                      <Tooltip label={kpi.tooltip} side="bottom">
+                        <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+                          ?
+                        </span>
+                      </Tooltip>
+                    ) : null}
+                  </p>
+                  <p className="mt-1 truncate font-mono text-lg font-extrabold text-t0">{kpi.valor}</p>
+                  {kpi.sub ? <p className="text-[11px] text-t2">{kpi.sub}</p> : null}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
       {!loading && dayAggs.length === 0 && (
         <Card className="mt-4">
           <p className="py-6 text-center text-[13px] text-t2">
-            Ainda não há vendas neste período. A carga inicial cobre o mês anterior e o atual; use Atualizar para buscar buracos + hoje.
+            Ainda não há vendas neste período. A carga inicial cobre o mês anterior e o atual; use Atualizar para buscar o dia de hoje.
           </p>
         </Card>
       )}
@@ -601,20 +699,32 @@ export default function OverviewPage() {
             <div>
               <div className="flex items-center gap-1.5">
                 <CardTitle>Faturamento por categoria</CardTitle>
-                <Tooltip label="Mix por tipo de produto. Em breve: mapa produto→categoria persistido (sem N reports por tipo).">
+                <Tooltip label="Mix do faturamento por tipo de produto no período.">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
                 </Tooltip>
               </div>
             </div>
-            <span className="rounded-md border border-line bg-bg-inset px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-t2">
-              TODO
-            </span>
+            <BadgeVsAnterior delta={view.deltaFaturamento} />
           </div>
-          <p className="py-8 text-center text-sm text-t2">
-            Em breve — categorias ficam de fora do Atualizar por enquanto.
-          </p>
+          {view.categoriaVsMeta.filter((c) => c.realizado > 0).length === 0 ? (
+            <p className="py-8 text-center text-sm text-t2">
+              Sem categorias no período — use Atualizar para sincronizar o dia.
+            </p>
+          ) : (
+            <BarChart
+              data={view.categoriaVsMeta
+                .filter((c) => c.realizado > 0)
+                .map((c) => ({
+                  label: c.categoria,
+                  value: c.realizado,
+                }))}
+              height={220}
+              color="var(--acc)"
+              formatValue={brlCent}
+            />
+          )}
         </Card>
         {view.diaVsMeta.length > 0 && (
           <Card padding="lg">
@@ -792,6 +902,7 @@ export default function OverviewPage() {
           </CardHeader>
           <div className="flex flex-col gap-4 px-4 pb-4">
             {view.topVendedoras.map((v, idx) => {
+              const hasMeta = v.pctMeta != null;
               const pct = v.pctMeta ?? 0;
               return (
                 <div key={v.nome} className="flex items-center gap-3">
@@ -802,8 +913,8 @@ export default function OverviewPage() {
                       <span className="text-[13px] font-bold text-t0">{v.nome}</span>
                       <span className="font-mono text-[13px] font-extrabold text-ok">{brlCent(v.valor)}</span>
                     </div>
-                    <ProgressBar value={pct} height={5} />
-                    <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-t2">
+                    {hasMeta && <ProgressBar value={pct} height={5} />}
+                    <div className={`flex items-center gap-1.5 text-[11px] text-t2 ${hasMeta ? "mt-0.5" : ""}`}>
                       <span>{v.sub?.split("·")[0]?.trim() ?? ""}</span>
                       {v.ticketMedio != null && v.ticketMedio > 0 && (
                         <>
@@ -811,8 +922,12 @@ export default function OverviewPage() {
                           <span>Ticket médio {brlCent(v.ticketMedio)}</span>
                         </>
                       )}
-                      <span>·</span>
-                      <span className={pct >= 100 ? "font-semibold text-ok" : ""}>{Math.round(pct)}% da meta</span>
+                      {hasMeta && (
+                        <>
+                          <span>·</span>
+                          <span className={pct >= 100 ? "font-semibold text-ok" : ""}>{Math.round(pct)}% da meta</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

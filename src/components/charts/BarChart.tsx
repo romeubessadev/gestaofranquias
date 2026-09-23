@@ -69,16 +69,22 @@ export function BarChart({
 
   return (
     <div className="w-full overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
-      <div className="relative" style={{ minWidth: minW, height }}>
-        <div className="relative flex h-full items-stretch" style={{ gap: gapPx }}>
+      <div
+        className="relative box-border w-full"
+        style={{
+          minWidth: Math.max(minW, 280),
+          height,
+        }}
+      >
+        <div className="relative flex h-full w-full items-stretch" style={{ gap: gapPx }}>
           {data.map((d, i) => (
             <div
               key={d.label}
-              className="relative z-[1] flex flex-col items-center gap-2"
+              className="relative z-[1] flex min-w-0 flex-col items-center gap-2"
               style={{ flex: `1 0 ${colW}px`, minWidth: colW }}
             >
               {showValues && (
-                <span className="whitespace-nowrap text-center text-[10.5px] font-bold tabular-nums text-t1">
+                <span className="max-w-full truncate whitespace-nowrap text-center text-[10.5px] font-bold tabular-nums text-t1" title={d.value === 0 ? undefined : formatValue(d.value)}>
                   {d.value === 0 ? "" : formatValue(d.value)}
                 </span>
               )}
