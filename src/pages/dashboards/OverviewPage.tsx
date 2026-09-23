@@ -622,7 +622,10 @@ export default function OverviewPage() {
                   </div>
                   <div className="mt-4 flex flex-col gap-3">
                     {view.rankingLojas.map((loja, idx) => {
-                      const pctMeta = loja.pctMeta != null ? Math.round(loja.pctMeta) : 0;
+                      const temMeta = loja.pctMeta != null;
+                      const pctBar = temMeta
+                        ? Math.min(100, Math.round(loja.pctMeta!))
+                        : Math.round((loja.valor / total) * 100);
                       const cor = CORES_LOJAS[idx % CORES_LOJAS.length];
                       return (
                         <div key={loja.nome} className="rounded-xl bg-bg-inset p-3">
@@ -634,10 +637,10 @@ export default function OverviewPage() {
                             <span className="font-mono text-[13px] font-extrabold text-t0">{brlCent(loja.valor)}</span>
                           </div>
                           <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-bg-2">
-                            <div className="h-full rounded-full" style={{ width: `${Math.min(100, pctMeta)}%`, background: cor }} />
+                            <div className="h-full rounded-full" style={{ width: `${pctBar}%`, background: cor }} />
                           </div>
                           <span className="text-[11px] font-semibold text-t2">
-                            {pctMeta}% da meta
+                            {temMeta ? `${pctBar}% da meta` : `${pctBar}% da rede`}
                           </span>
                         </div>
                       );

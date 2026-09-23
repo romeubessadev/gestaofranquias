@@ -542,6 +542,35 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
     expect(v.categoriaVsMeta[2]?.realizado).toBe(0);
   });
 
+  it("fills rankingLojas from dayAggs by store", () => {
+    const v = buildOverviewView(escopo("todas"), {
+      dayAggs: [
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day: "2026-09-10",
+          brand: "ALL",
+          revenueCents: 300_00,
+          salesCount: 3,
+          itemCount: 3,
+        },
+        {
+          tenantId: "t1",
+          storeId: "f2",
+          day: "2026-09-10",
+          brand: "ALL",
+          revenueCents: 100_00,
+          salesCount: 1,
+          itemCount: 1,
+        },
+      ],
+    });
+    expect(v.rankingLojas.length).toBeGreaterThanOrEqual(2);
+    expect(v.rankingLojas[0]?.valor).toBe(300);
+    expect(v.rankingLojas[1]?.valor).toBe(100);
+    expect(v.rankingLojas[0]?.nome).toMatch(/Campo Grande|f1/i);
+  });
+
   it("brand filter uses WEPINK sales_count and ticket (not ALL)", () => {
     const base = {
       tenantId: "t1",

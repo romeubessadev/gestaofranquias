@@ -2663,6 +2663,24 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
     }))
     .sort((a, b) => b.realizado - a.realizado || a.categoria.localeCompare(b.categoria, "pt-BR"));
 
+  // Ranking de lojas — Σ sales_day_agg por store_id (reais).
+  const byStore = new Map<string, number>();
+  for (const f of fs) byStore.set(f.id, 0);
+  for (const d of days) {
+    byStore.set(d.storeId, (byStore.get(d.storeId) ?? 0) + d.revenueCents / 100);
+  }
+  const rankingLojas: (TopItem & { pctMeta?: number; trend?: number })[] = [...byStore.entries()]
+    .map(([id, valor]) => {
+      const f = fs.find((x) => x.id === id) ?? productStores().find((x) => x.id === id);
+      const m = goalOfStore(id, competencia);
+      return {
+        nome: f?.fantasia ?? id.slice(0, 8),
+        valor,
+        pctMeta: m && m.valorLoja > 0 ? (valor / m.valorLoja) * 100 : undefined,
+      };
+    })
+    .sort((a, b) => b.valor - a.valor);
+
   return {
     escopo,
     periodo,
@@ -2678,7 +2696,7 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
     formasPagamento: [],
     topVendedoras: [],
     topProdutos: [],
-    rankingLojas: [],
+    rankingLojas,
     fromAggregates: true,
   };
 }
