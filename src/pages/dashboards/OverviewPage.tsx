@@ -1,5 +1,4 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, DonutChart } from "@/components/charts";
@@ -28,7 +27,6 @@ import {
   periodActivePresetId,
   periodDisplayLabel,
 } from "@/pages/dashboard/periodPicker";
-import { paths } from "@/router/paths";
 type TopProdSort = "nome" | "itens" | "faturamento" | "variacao";
 
 const IconFat = () => (
@@ -407,14 +405,12 @@ export default function OverviewPage() {
                   >
                     <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01" />
                   </svg>
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-semibold text-t0">Meta não configurada</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-bold" style={{ color: "var(--warn)" }}>
+                      Meta não configurada
+                    </p>
                     <p className="mt-0.5 text-[12.5px] text-t1">
-                      Cadastre em{" "}
-                      <Link to={paths.goals} className="font-semibold text-acc underline-offset-2 hover:underline">
-                        Metas
-                      </Link>{" "}
-                      para acompanhar o atingimento.
+                      Cadastre em Metas para acompanhar o atingimento.
                     </p>
                   </div>
                 </div>
