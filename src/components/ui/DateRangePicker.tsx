@@ -211,15 +211,26 @@ export function DateRangePicker({
   const podeMesProx =
     new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1) <= max;
 
+  /** 1 dia = Hoje/Ontem se bater com o calendário real (igual aos pills). */
+  function presetDoRange(r: DateRange): DatePresetId | undefined {
+    const [a, b] = r;
+    if (!mesmoDia(a, b)) return undefined;
+    if (mesmoDia(a, hoje)) return "hoje";
+    if (mesmoDia(a, addDias(hoje, -1))) return "ontem";
+    return undefined;
+  }
+
   function escolherDia(dia: Date) {
     if (diaBloqueado(dia)) return;
-    if (!draftStart || draftStart > dia) {
+    // 1º clique (ou dia anterior ao início) → marca início; 2º no mesmo dia → só aquele dia.
+    if (!draftStart || (!mesmoDia(draftStart, dia) && draftStart > dia)) {
       setDraftStart(dia);
       return;
     }
     const clamped = clampRange([draftStart, dia]);
     if (!clamped) return;
-    onChange(clamped);
+    const presetId = presetDoRange(clamped);
+    onChange(clamped, presetId ? { presetId } : undefined);
     setDraftStart(null);
     setOpen(false);
   }
@@ -372,10 +383,10 @@ export function DateRangePicker({
               <p className="mt-3 text-[11px] text-t2">
                 {min
                   ? draftStart
-                    ? "Agora selecione o último dia (só dados já sincronizados)."
+                    ? "Clique de novo no mesmo dia (só ele) ou no último dia. Só dados já sincronizados."
                     : "Só períodos já sincronizados. Selecione o primeiro e o último dia."
                   : draftStart
-                    ? "Agora selecione o último dia."
+                    ? "Clique de novo no mesmo dia (só ele) ou no último dia."
                     : "Selecione o primeiro e o último dia."}
               </p>
             </div>
