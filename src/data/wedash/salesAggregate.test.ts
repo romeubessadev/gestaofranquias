@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aggregateSales } from "./salesAggregate";
+import { aggregatePaymentDay, aggregateSales, normalizePaymentMethod } from "./salesAggregate";
 import type { SaleRow } from "./salesTypes";
 
 /** America/Campo_Grande = UTC−4 year-round (MS). */
@@ -127,5 +127,101 @@ describe("aggregateSales", () => {
     expect(byHour[10].salesCount).toBe(1);
     expect(byHour[10].revenueCents).toBe(80_00);
     expect(byHour[14].revenueCents).toBe(120_00);
+  });
+
+  it("clamps local day before dayFrom into the window start", () => {
+    // 2026-07-31T23:00 local CG ≈ 2026-08-01T03:00Z
+    const rows: SaleRow[] = [
+      row({
+        operationCode: "EDGE",
+        occurredAt: new Date("2026-08-01T03:00:00.000Z"),
+        revenueCents: 53_80,
+      }),
+    ];
+    const { days } = aggregateSales(rows, {
+      tenantId: TENANT,
+      timeZone: TZ,
+      now: new Date("2026-09-19T12:00:00Z"),
+      dayFrom: "2026-08-01",
+      dayTo: "2026-08-31",
+    });
+    expect(days).toHaveLength(1);
+    expect(days[0].day).toBe("2026-08-01");
+    expect(days[0].revenueCents).toBe(53_80);
+  });
+
+  it("drops rows whose local day is after dayTo (avoid double-count next chunk)", () => {
+    const rows: SaleRow[] = [
+      row({
+        operationCode: "SEP1",
+        occurredAt: new Date("2026-09-01T15:00:00.000Z"),
+        revenueCents: 13_128_56,
+      }),
+      row({
+        operationCode: "AUG31",
+        occurredAt: new Date("2026-08-31T15:00:00.000Z"),
+        revenueCents: 10_216_03,
+      }),
+    ];
+    const { days } = aggregateSales(rows, {
+      tenantId: TENANT,
+      timeZone: TZ,
+      now: new Date("2026-09-19T12:00:00Z"),
+      dayFrom: "2026-08-01",
+      dayTo: "2026-08-31",
+    });
+    expect(days).toHaveLength(1);
+    expect(days[0].day).toBe("2026-08-31");
+    expect(days[0].revenueCents).toBe(10_216_03);
+  });
+});
+
+describe("normalizePaymentMethod", () => {
+  it("maps common CONDICAO codes", () => {
+    expect(normalizePaymentMethod("PIX")).toBe("Pix");
+    expect(normalizePaymentMethod("CREDITO")).toBe("Cartão de crédito");
+    expect(normalizePaymentMethod("DEBITO")).toBe("Cartão de débito");
+    expect(normalizePaymentMethod("DINHEIRO")).toBe("Dinheiro");
+    expect(normalizePaymentMethod("")).toBe("Outros");
+    expect(normalizePaymentMethod(null)).toBe("Outros");
+  });
+});
+
+describe("aggregatePaymentDay", () => {
+  it("sums revenue by CONDICAO and counts distinct ops", () => {
+    const rows: SaleRow[] = [
+      row({
+        operationCode: "OP-1",
+        occurredAt: new Date("2026-09-18T15:30:00.000Z"),
+        revenueCents: 100_00,
+        paymentMethod: "PIX",
+      }),
+      row({
+        operationCode: "OP-1",
+        occurredAt: new Date("2026-09-18T15:30:00.000Z"),
+        revenueCents: 50_00,
+        paymentMethod: "PIX",
+      }),
+      row({
+        operationCode: "OP-2",
+        occurredAt: new Date("2026-09-18T16:00:00.000Z"),
+        revenueCents: 80_00,
+        paymentMethod: "CREDITO",
+      }),
+    ];
+    const pay = aggregatePaymentDay(rows, {
+      tenantId: TENANT,
+      timeZone: TZ,
+      now: new Date("2026-09-19T12:00:00Z"),
+      dayFrom: "2026-09-18",
+      dayTo: "2026-09-18",
+    });
+    expect(pay).toHaveLength(2);
+    const pix = pay.find((p) => p.paymentMethod === "Pix")!;
+    const cred = pay.find((p) => p.paymentMethod === "Cartão de crédito")!;
+    expect(pix.revenueCents).toBe(150_00);
+    expect(pix.salesCount).toBe(1);
+    expect(cred.revenueCents).toBe(80_00);
+    expect(cred.brand).toBe("ALL");
   });
 });

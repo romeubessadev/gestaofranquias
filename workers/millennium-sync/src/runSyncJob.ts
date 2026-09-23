@@ -1,4 +1,4 @@
-import { aggregateSales } from "../../../src/data/wedash/salesAggregate.ts";
+import { aggregatePaymentDay, aggregateSales } from "../../../src/data/wedash/salesAggregate.ts";
 import type { SalesDayAgg, SalesHourAgg } from "../../../src/data/wedash/salesTypes.ts";
 import type { SaleRow } from "../../../src/data/wedash/salesTypes.ts";
 import {
@@ -19,10 +19,47 @@ import {
 } from "./millenniumBrandReport.ts";
 import { cmvCentsFromMargemLines } from "./millenniumMargem.ts";
 import {
+  aggregateCategoryDay,
+  buildProductTipoMap,
+  isUsableTipoId,
+  type CategorySalesLine,
+  type ProductTipo,
+} from "./millenniumCategoryReport.ts";
+import type { SalesCategoryDayAgg, SalesPaymentDayAgg } from "../../../src/data/wedash/salesTypes.ts";
+import {
   partitionRowsByFilial,
   type FetchSalesListaParams,
   type SaleRowWithFilial,
 } from "./millenniumSales.ts";
+
+/** Grava formas de pagamento da janela Lista (replace no range). */
+async function persistPaymentDayAggs(
+  deps: Pick<SyncJobDeps, "replacePaymentDayAggs">,
+  args: {
+    tenantId: string;
+    storeId: string;
+    timeZone: string;
+    from: string;
+    to: string;
+    rows: SaleRow[];
+    now: Date;
+  },
+): Promise<void> {
+  const pay = aggregatePaymentDay(args.rows, {
+    tenantId: args.tenantId,
+    timeZone: args.timeZone,
+    now: args.now,
+    dayFrom: args.from,
+    dayTo: args.to,
+  });
+  await deps.replacePaymentDayAggs({
+    tenantId: args.tenantId,
+    storeId: args.storeId,
+    from: args.from,
+    to: args.to,
+    rows: pay,
+  });
+}
 import {
   forgetMillenniumSession,
   logoutRememberedSessions,
@@ -91,7 +128,9 @@ async function upsertBrandSplit(
   }
 
   const storeRows = args.rows.filter((r) => r.storeId === args.store.id);
-  const hasWpink = args.geradorIdsWithWpink.has(geradorId);
+  // Relatório de marca pode ter WPINK mesmo se o mapa de estoque não listou o gerador.
+  const reportHasWpink = dayAggs.some((d) => d.brand === "WPINK");
+  const hasWpink = args.geradorIdsWithWpink.has(geradorId) || reportHasWpink;
 
   // 2a) Loja sem WPINK: counts do ALL (Lista) → WEPINK
   if (!hasWpink && dayAggs.length > 0 && storeRows.length > 0) {
@@ -185,6 +224,22 @@ async function upsertBrandSplit(
       `  [${args.store.code}] brand days ${args.from}→${args.to} · ${dayAggs.length} dia×marca`,
     );
   }
+  if (reportHasWpink) {
+    await deps.setStoresHasWpink([{ storeId: args.store.id, hasWpink: true }]);
+  }
+}
+
+function eachIsoDay(from: string, to: string): string[] {
+  const days: string[] = [];
+  const start = new Date(`${from}T12:00:00`);
+  const end = new Date(`${to}T12:00:00`);
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    days.push(`${y}-${m}-${day}`);
+  }
+  return days;
 }
 
 /** CMV via RELATORIOMARGEM — 1 chamada por dia (imposto% = 0). Soft-fail. */
@@ -198,17 +253,7 @@ async function syncCmvForRange(
     to: string;
   },
 ): Promise<void> {
-  const days: string[] = [];
-  {
-    const start = new Date(`${args.from}T12:00:00`);
-    const end = new Date(`${args.to}T12:00:00`);
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      days.push(`${y}-${m}-${day}`);
-    }
-  }
+  const days = eachIsoDay(args.from, args.to);
   const patches: Array<{ tenantId: string; storeId: string; day: string; cmvCents: number }> = [];
   let ok = 0;
   let fail = 0;
@@ -237,6 +282,97 @@ async function syncCmvForRange(
   if (patches.length > 0) await deps.patchDayCmv(patches);
   console.log(
     `  [${args.store.code}] CMV ${args.from}→${args.to} · ${ok} dia(s) ok · ${fail} fail`,
+  );
+}
+
+/**
+ * Categorias × meta — C5BBF0E2.
+ * 1) lookup tipos + N calls filtradas (mapa produto→tipo no período)
+ * 2) 1 call/dia sem filtro → agrega por categoria
+ */
+async function syncCategoriesForRange(
+  deps: SyncJobDeps,
+  args: {
+    session: string;
+    tenantId: string;
+    store: SyncStore;
+    geradorId: number;
+    from: string;
+    to: string;
+  },
+): Promise<void> {
+  let tipos: ProductTipo[] = [];
+  try {
+    tipos = (await deps.fetchProductTipos(args.session)).filter((t) => isUsableTipoId(t.id));
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (isSessionDeadError(msg)) throw e;
+    console.warn(`  [${args.store.code}] produto.tipo.tipo: ${msg}`);
+    return;
+  }
+  if (tipos.length === 0) {
+    console.warn(`  [${args.store.code}] categorias: nenhum tipo utilizável`);
+    return;
+  }
+
+  let productToTipo: Map<number, ProductTipo>;
+  try {
+    productToTipo = await buildProductTipoMap({
+      session: args.session,
+      geradorId: args.geradorId,
+      from: args.from,
+      to: args.to,
+      tipos,
+      fetchReport: (p) =>
+        deps.fetchCategorySalesReport({
+          session: p.session,
+          geradorId: p.geradorId,
+          from: p.from,
+          to: p.to,
+          tipoId: p.tipoId ?? null,
+        }),
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (isSessionDeadError(msg)) throw e;
+    console.warn(`  [${args.store.code}] mapa produto→tipo: ${msg}`);
+    return;
+  }
+  console.log(
+    `  [${args.store.code}] produto→tipo · ${productToTipo.size} SKU(s) · ${tipos.length} tipo(s)`,
+  );
+
+  const days = eachIsoDay(args.from, args.to);
+  const out: SalesCategoryDayAgg[] = [];
+  let ok = 0;
+  let fail = 0;
+  for (const day of days) {
+    try {
+      const lines: CategorySalesLine[] = await deps.fetchCategorySalesReport({
+        session: args.session,
+        geradorId: args.geradorId,
+        from: day,
+        to: day,
+        tipoId: null,
+      });
+      out.push(
+        ...aggregateCategoryDay(lines, productToTipo, {
+          tenantId: args.tenantId,
+          storeId: args.store.id,
+          day,
+        }),
+      );
+      ok += 1;
+    } catch (e) {
+      fail += 1;
+      const msg = e instanceof Error ? e.message : String(e);
+      if (isSessionDeadError(msg)) throw e;
+      console.warn(`  [${args.store.code}] categorias ${day}: ${msg}`);
+    }
+  }
+  if (out.length > 0) await deps.upsertCategoryDayAggs(out);
+  console.log(
+    `  [${args.store.code}] categorias ${args.from}→${args.to} · ${ok} dia(s) ok · ${fail} fail · ${out.length} linha(s)`,
   );
 }
 
@@ -347,12 +483,36 @@ export type SyncJobDeps = {
     from: string;
     to: string;
   }) => Promise<import("./millenniumMargem.ts").MargemLine[]>;
+  /** Lookup produto.tipo.tipo — catálogo de categorias. */
+  fetchProductTipos: (session: string) => Promise<ProductTipo[]>;
+  /** C5BBF0E2 — linhas produto×vendedor (filtrável por tipo). */
+  fetchCategorySalesReport: (params: {
+    session: string;
+    geradorId: number;
+    from: string;
+    to: string;
+    tipoId?: number | null;
+  }) => Promise<CategorySalesLine[]>;
   upsertDayAggs: (rows: SalesDayAgg[]) => Promise<void>;
   /** Patch só cmv_cents em brand=ALL (não zera receita no upsert). */
   patchDayCmv: (
     rows: Array<{ tenantId: string; storeId: string; day: string; cmvCents: number }>,
   ) => Promise<void>;
+  upsertCategoryDayAggs: (rows: SalesCategoryDayAgg[]) => Promise<void>;
+  /**
+   * Substitui formas de pagamento no intervalo [from,to] da loja
+   * (delete + upsert — evita CONDICAO órfã após FORCE).
+   */
+  replacePaymentDayAggs: (args: {
+    tenantId: string;
+    storeId: string;
+    from: string;
+    to: string;
+    rows: SalesPaymentDayAgg[];
+  }) => Promise<void>;
   upsertHourAggs: (rows: SalesHourAgg[]) => Promise<void>;
+  /** Persiste flag WPINK por loja (mapa produto / FILIAIS). */
+  setStoresHasWpink: (rows: Array<{ storeId: string; hasWpink: boolean }>) => Promise<void>;
   insertSyncRun: (args: {
     tenantId: string;
     credentialId: string;
@@ -666,6 +826,11 @@ function shouldSyncCmv(kind: SyncJobKind): boolean {
   );
 }
 
+/** Mesma janela do CMV — categorias não rodam no LIGHT. */
+function shouldSyncCategories(kind: SyncJobKind): boolean {
+  return shouldSyncCmv(kind);
+}
+
 async function windowsForStore(
   job: SyncJob,
   store: SyncStore,
@@ -969,6 +1134,15 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
         console.log(
           `Product→marca map · ${productMap.size} SKU(s) · WPINK em ${geradorIdsWithWpink.size}/${geradorIds.length} loja(s)`,
         );
+        // Só liga o flag (nunca desliga) — loja pode ter WPINK no relatório
+        // mesmo sem SKU WPINK no mapa de estoque do gerador.
+        const fromCatalog = storeList
+          .filter((s) => {
+            const g = geradorMap.get(s.code);
+            return g != null && geradorIdsWithWpink.has(g);
+          })
+          .map((s) => ({ storeId: s.id, hasWpink: true as const }));
+        if (fromCatalog.length > 0) await deps.setStoresHasWpink(fromCatalog);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.warn(`Product map falhou — brand split desligado neste job: ${msg}`);
@@ -1045,9 +1219,27 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
               itemCount: 0,
             },
           ]);
+          await persistPaymentDayAggs(deps, {
+            tenantId: job.tenantId,
+            storeId: store.id,
+            timeZone: store.timezone,
+            from: today,
+            to: today,
+            rows: [],
+            now,
+          });
         } else {
           await deps.upsertDayAggs(agg.days);
           if (agg.hours.length > 0) await deps.upsertHourAggs(agg.hours);
+          await persistPaymentDayAggs(deps, {
+            tenantId: job.tenantId,
+            storeId: store.id,
+            timeZone: store.timezone,
+            from: today,
+            to: today,
+            rows,
+            now,
+          });
         }
         storesDone += 1;
         console.log(
@@ -1099,6 +1291,21 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
               from: cmvWin.from,
               to: cmvWin.to,
             });
+          }
+          if (shouldSyncCategories(job.kind) && cmvWin) {
+            const geradorId = geradorMap.get(store.code);
+            if (geradorId == null) {
+              console.warn(`  [${store.code}] categorias: sem gerador (pula)`);
+            } else {
+              await syncCategoriesForRange(deps, {
+                session: session!,
+                tenantId: job.tenantId,
+                store,
+                geradorId,
+                from: cmvWin.from,
+                to: cmvWin.to,
+              });
+            }
           }
           return 1;
         }
@@ -1225,10 +1432,28 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
                 itemCount: 0,
               },
             ]);
+            await persistPaymentDayAggs(deps, {
+              tenantId: job.tenantId,
+              storeId: store.id,
+              timeZone: store.timezone,
+              from,
+              to,
+              rows: [],
+              now,
+            });
             storeDays += 1;
           } else {
             await deps.upsertDayAggs(agg.days);
             await deps.upsertHourAggs(agg.hours);
+            await persistPaymentDayAggs(deps, {
+              tenantId: job.tenantId,
+              storeId: store.id,
+              timeZone: store.timezone,
+              from,
+              to,
+              rows,
+              now,
+            });
             storeSales += rows.length;
             storeDays += agg.days.length;
 
@@ -1281,6 +1506,22 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
             from: cmvWin.from,
             to: cmvWin.to,
           });
+        }
+        // Categorias (C5BBF0E2) — mapa produto→tipo + 1 call/dia.
+        if (shouldSyncCategories(job.kind) && cmvWin) {
+          const geradorId = geradorMap.get(store.code);
+          if (geradorId == null) {
+            console.warn(`  [${store.code}] categorias: sem gerador (pula)`);
+          } else {
+            await syncCategoriesForRange(deps, {
+              session: session!,
+              tenantId: job.tenantId,
+              store,
+              geradorId,
+              from: cmvWin.from,
+              to: cmvWin.to,
+            });
+          }
         }
         console.log(
           `Loja ${i + 1}/${storeList.length} (${store.code}) ok · ${storeSales} venda(s) · ${storeDays} dia(s) gravado(s)` +

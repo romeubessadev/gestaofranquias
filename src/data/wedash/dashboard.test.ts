@@ -534,12 +534,62 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
       ],
     });
     expect(v.categoriaVsMeta).toHaveLength(3);
-    expect(v.categoriaVsMeta[0]?.categoria).toBe("Perfumaria");
+    expect(v.categoriaVsMeta[0]?.categoria).toBe("PERFUMARIA");
     expect(v.categoriaVsMeta[0]?.realizado).toBe(80);
     expect(v.categoriaVsMeta[0]?.meta).toBe(0);
     expect(v.categoriaVsMeta[1]?.realizado).toBe(20);
-    expect(v.categoriaVsMeta[2]?.categoria).toBe("Hair");
+    expect(v.categoriaVsMeta[2]?.categoria).toBe("HAIR");
     expect(v.categoriaVsMeta[2]?.realizado).toBe(0);
+  });
+
+  it("fills formasPagamento from paymentDayAggs (reais)", () => {
+    const v = buildOverviewView(escopo("f1"), {
+      dayAggs: [
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day: "2026-09-10",
+          brand: "ALL",
+          revenueCents: 150_00,
+          salesCount: 2,
+          itemCount: 2,
+        },
+      ],
+      paymentDayAggs: [
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day: "2026-09-10",
+          paymentMethod: "Pix",
+          brand: "ALL",
+          revenueCents: 100_00,
+          salesCount: 1,
+        },
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day: "2026-09-10",
+          paymentMethod: "Cartão de crédito",
+          brand: "ALL",
+          revenueCents: 50_00,
+          salesCount: 1,
+        },
+        {
+          tenantId: "t1",
+          storeId: "f2",
+          day: "2026-09-10",
+          paymentMethod: "Dinheiro",
+          brand: "ALL",
+          revenueCents: 999_00,
+          salesCount: 1,
+        },
+      ],
+    });
+    expect(v.formasPagamento).toHaveLength(2);
+    expect(v.formasPagamento[0]?.forma).toBe("Pix");
+    expect(v.formasPagamento[0]?.valor).toBe(100);
+    expect(v.formasPagamento[1]?.forma).toBe("Cartão de crédito");
+    expect(v.formasPagamento[1]?.valor).toBe(50);
   });
 
   it("fills rankingLojas from dayAggs by store", () => {
@@ -569,6 +619,55 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
     expect(v.rankingLojas[0]?.valor).toBe(300);
     expect(v.rankingLojas[1]?.valor).toBe(100);
     expect(v.rankingLojas[0]?.nome).toMatch(/Campo Grande|f1/i);
+  });
+
+  it("rankingLojas with single store ignores other stores in dayAggs", () => {
+    const v = buildOverviewView(escopo("f1"), {
+      dayAggs: [
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day: "2026-09-10",
+          brand: "ALL",
+          revenueCents: 300_00,
+          salesCount: 3,
+          itemCount: 3,
+        },
+        {
+          tenantId: "t1",
+          storeId: "f2",
+          day: "2026-09-10",
+          brand: "ALL",
+          revenueCents: 100_00,
+          salesCount: 1,
+          itemCount: 1,
+        },
+      ],
+    });
+    expect(v.rankingLojas).toHaveLength(1);
+    expect(v.rankingLojas[0]?.valor).toBe(300);
+    expect(v.rankingRedeTotal).toBe(400);
+    expect(v.rankingLojas[0]?.pctRede).toBe(75);
+    expect(v.rankingLojas[0]?.nome).toMatch(/Campo Grande|f1/i);
+  });
+
+  it("rankingLojas rede omits stores with zero revenue (no ghost cards)", () => {
+    const v = buildOverviewView(escopo("todas"), {
+      dayAggs: [
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day: "2026-09-10",
+          brand: "ALL",
+          revenueCents: 300_00,
+          salesCount: 3,
+          itemCount: 3,
+        },
+      ],
+    });
+    expect(v.rankingLojas.every((l) => l.valor > 0)).toBe(true);
+    expect(v.rankingLojas).toHaveLength(1);
+    expect(v.rankingLojas[0]?.valor).toBe(300);
   });
 
   it("brand filter uses WEPINK sales_count and ticket (not ALL)", () => {

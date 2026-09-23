@@ -205,6 +205,7 @@ export function mapVendasListaPayload(
         ? null
         : asStr(nfRaw);
     const tipoOperacao = asStr(pick(o, "TIPO_OPERACAO", "tipo_operacao")) || null;
+    const condicaoRaw = asStr(pick(o, "CONDICAO", "condicao", "TIPO_PAGTO", "tipo_pagto"));
     out.push({
       operationCode,
       occurredAt,
@@ -212,6 +213,7 @@ export function mapVendasListaPayload(
       itemQty: asNum(pick(o, "QUANTIDADE", "quantidade")) ?? 0,
       storeId: opts.storeId,
       brand: "ALL",
+      paymentMethod: condicaoRaw || null,
       millenniumFilial,
       millenniumOpCode,
       nf,

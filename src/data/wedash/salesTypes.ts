@@ -13,6 +13,8 @@ export type SaleRow = {
   itemQty: number;
   storeId: string;
   brand?: SalesBrand;
+  /** CONDICAO da Lista (meio de pagamento), já normalizado p/ UI. */
+  paymentMethod?: string | null;
 };
 
 /** Daily bucket — matches sales_day_agg natural key. */
@@ -51,6 +53,19 @@ export type SalesCategoryRef = {
   categoryId: number;
   categoryName: string;
   brand: SalesBrand;
+};
+
+/** Daily revenue by payment method (CONDICAO) — sales_payment_day_agg. */
+export type SalesPaymentDayAgg = {
+  tenantId: string;
+  storeId: string;
+  day: string;
+  /** Label de UI (Pix, Cartão de crédito, …). */
+  paymentMethod: string;
+  brand: SalesBrand;
+  revenueCents: number;
+  /** Distinct COD_OPERACAO count. */
+  salesCount: number;
 };
 
 /** Hourly bucket — matches sales_hour_agg (current local day). */

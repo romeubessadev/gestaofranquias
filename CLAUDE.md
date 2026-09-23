@@ -310,6 +310,12 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  - Visão Geral: card **Faturamento por categoria** (barras + scroll; inclui tipos já vistos no sync com R$ 0). Meta por categoria só quando existir no CRUD de Metas — **não** inventar Goal proporcional.
  - Não roda no LIGHT.
 
+20b. ✅ **Formas de pagamento** (2026-09-23) — `CONDICAO` da `VENDAS.Lista` (sem relatório novo).
+ - Tabela `sales_payment_day_agg` (loja×dia×forma, brand=ALL).
+ - Worker grava em SEED/HISTORY/FORCE/LIGHT (replace no range da janela).
+ - Overview: donut + lista; rótulos Pix / Cartão de crédito / Cartão de débito / Dinheiro / Outros.
+ - Histórico só após FORCE (ou próximo SEED) — LIGHT só cobre o dia atual.
+
 ### Relatórios Millennium — nomes UI ↔ GUID/path
 | Uso WeDash | Nome visual no ERP | Identificador |
 |---|---|---|

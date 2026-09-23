@@ -4,6 +4,7 @@ import type {
   SalesBrand,
   SalesDayAgg,
   SalesHourAgg,
+  SalesPaymentDayAgg,
 } from "./salesTypes";
 
 export type AggregateSalesOptions = {
@@ -11,10 +12,19 @@ export type AggregateSalesOptions = {
   timeZone: string;
   /** Clock for “today” hour filtering (injectable in tests). */
   now?: Date;
+  /**
+   * Quando a Lista veio de uma janela [dayFrom, dayTo]:
+   * - dia local < dayFrom → prende em dayFrom (ex.: 31/07→01/08 no fuso)
+   * - dia local > dayTo → ignora a linha (fica pro próximo chunk; senão
+   *   duplicava: ago clampava 01/09 em 31/08 e set gravava de novo)
+   */
+  dayFrom?: string;
+  dayTo?: string;
 };
 
 type DayKey = string;
 type HourKey = string;
+type PayKey = string;
 
 type DayBucket = {
   storeId: string;
@@ -26,6 +36,14 @@ type DayBucket = {
 };
 
 type HourBucket = DayBucket & { hour: number };
+
+type PayBucket = {
+  storeId: string;
+  day: string;
+  paymentMethod: string;
+  revenueCents: number;
+  ops: Set<string>;
+};
 
 function localDayHour(date: Date, timeZone: string): { day: string; hour: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -57,6 +75,50 @@ function hourKey(storeId: string, day: string, hour: number, brand: SalesBrand):
   return `${storeId}|${day}|${hour}|${brand}`;
 }
 
+function payKey(storeId: string, day: string, method: string): PayKey {
+  return `${storeId}|${day}|${method}`;
+}
+
+/**
+ * Normaliza CONDICAO do Millennium → label de UI.
+ * Aceita códigos curtos (PIX) e nomes longos (CARTÃO DE CRÉDITO).
+ */
+export function normalizePaymentMethod(raw: string | null | undefined): string {
+  const s = (raw ?? "").trim();
+  if (!s) return "Outros";
+  const key = s
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim();
+
+  if (key === "PIX" || key.includes("PIX")) return "Pix";
+  if (
+    key === "CREDITO" ||
+    key.includes("CARTAO DE CREDITO") ||
+    key.includes("CARTAO CREDITO") ||
+    (key.includes("CREDITO") && !key.includes("DEBITO"))
+  ) {
+    return "Cartão de crédito";
+  }
+  if (
+    key === "DEBITO" ||
+    key.includes("CARTAO DE DEBITO") ||
+    key.includes("CARTAO DEBITO") ||
+    key.includes("DEBITO")
+  ) {
+    return "Cartão de débito";
+  }
+  if (key === "DINHEIRO" || key.includes("DINHEIRO") || key === "CASH") return "Dinheiro";
+  if (key.includes("TROCA") || key.includes("VALE")) return "Troca / vale";
+  if (key.includes("CHEQUE")) return "Cheque";
+  if (key.includes("BOLETO")) return "Boleto";
+
+  // Title-case residual (ex.: "VENDA MISTA" → "Venda Mista")
+  return s.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+}
+
 /**
  * Pure aggregator: SaleRow[] → day/hour aggs.
  * Buckets by store-local DATA_H (occurredAt); sales_count = distinct operationCode.
@@ -74,7 +136,9 @@ export function aggregateSales(
 
   for (const row of rows) {
     const brand: SalesBrand = row.brand ?? "ALL";
-    const { day, hour } = localDayHour(row.occurredAt, opts.timeZone);
+    let { day, hour } = localDayHour(row.occurredAt, opts.timeZone);
+    if (opts.dayTo && day > opts.dayTo) continue;
+    if (opts.dayFrom && day < opts.dayFrom) day = opts.dayFrom;
 
     const dk = dayKey(row.storeId, day, brand);
     let dayBucket = daysMap.get(dk);
@@ -145,4 +209,54 @@ export function aggregateSales(
     );
 
   return { days, hours };
+}
+
+/**
+ * Agrega receita por CONDICAO (dia × loja). brand sempre ALL.
+ * Usa `paymentMethod` já normalizado na linha; fallback "Outros".
+ */
+export function aggregatePaymentDay(
+  rows: SaleRow[],
+  opts: AggregateSalesOptions,
+): SalesPaymentDayAgg[] {
+  const map = new Map<PayKey, PayBucket>();
+
+  for (const row of rows) {
+    let { day } = localDayHour(row.occurredAt, opts.timeZone);
+    if (opts.dayTo && day > opts.dayTo) continue;
+    if (opts.dayFrom && day < opts.dayFrom) day = opts.dayFrom;
+
+    const method = normalizePaymentMethod(row.paymentMethod);
+    const pk = payKey(row.storeId, day, method);
+    let bucket = map.get(pk);
+    if (!bucket) {
+      bucket = {
+        storeId: row.storeId,
+        day,
+        paymentMethod: method,
+        revenueCents: 0,
+        ops: new Set(),
+      };
+      map.set(pk, bucket);
+    }
+    bucket.revenueCents += row.revenueCents;
+    bucket.ops.add(row.operationCode);
+  }
+
+  return [...map.values()]
+    .map((b) => ({
+      tenantId: opts.tenantId,
+      storeId: b.storeId,
+      day: b.day,
+      paymentMethod: b.paymentMethod,
+      brand: "ALL" as const,
+      revenueCents: b.revenueCents,
+      salesCount: b.ops.size,
+    }))
+    .sort(
+      (a, b) =>
+        a.day.localeCompare(b.day) ||
+        a.storeId.localeCompare(b.storeId) ||
+        a.paymentMethod.localeCompare(b.paymentMethod, "pt-BR"),
+    );
 }

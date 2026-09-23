@@ -9,6 +9,10 @@ import { fetchSalesLista } from "./millenniumSales.ts";
 import { fetchFilialGeradorMap, fetchBrandRevenueReport } from "./millenniumBrandReport.ts";
 import { fetchConsultaDetMov } from "./millenniumDetMov.ts";
 import { fetchRelatorioMargem } from "./millenniumMargem.ts";
+import {
+  fetchCategorySalesReport,
+  fetchProductTipos,
+} from "./millenniumCategoryReport.ts";
 import { fetchProductBrandMap } from "./millenniumProductDivision.ts";
 import {
   nextHistoryWindow,
@@ -21,7 +25,12 @@ import {
   type SyncJobKind,
   type SyncStore,
 } from "./runSyncJob.ts";
-import type { SalesDayAgg, SalesHourAgg } from "../../../src/data/wedash/salesTypes.ts";
+import type {
+  SalesCategoryDayAgg,
+  SalesDayAgg,
+  SalesHourAgg,
+  SalesPaymentDayAgg,
+} from "../../../src/data/wedash/salesTypes.ts";
 
 function requireEnv(name: string): string {
   const v = process.env[name]?.trim();
@@ -213,6 +222,21 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
       });
     },
 
+    async fetchProductTipos(session) {
+      return fetchProductTipos({ session, baseUrl: millenniumBaseUrl() });
+    },
+
+    async fetchCategorySalesReport(params) {
+      return fetchCategorySalesReport({
+        session: params.session,
+        geradorId: params.geradorId,
+        from: params.from,
+        to: params.to,
+        tipoId: params.tipoId,
+        baseUrl: millenniumBaseUrl(),
+      });
+    },
+
     async upsertDayAggs(rows: SalesDayAgg[]) {
       if (rows.length === 0) return;
       const payload = rows.map((r) => ({
@@ -267,6 +291,55 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
       }
     },
 
+    async upsertCategoryDayAggs(rows: SalesCategoryDayAgg[]) {
+      if (rows.length === 0) return;
+      const payload = rows.map((r) => ({
+        tenant_id: r.tenantId,
+        store_id: r.storeId,
+        day: r.day,
+        category_id: r.categoryId,
+        category_name: r.categoryName,
+        brand: r.brand,
+        revenue_cents: r.revenueCents,
+        item_count: r.itemCount,
+      }));
+      const { error } = await sb.from("sales_category_day_agg").upsert(payload, {
+        onConflict: "tenant_id,store_id,day,category_id",
+      });
+      if (error) throw error;
+    },
+
+    async replacePaymentDayAggs(args: {
+      tenantId: string;
+      storeId: string;
+      from: string;
+      to: string;
+      rows: SalesPaymentDayAgg[];
+    }) {
+      const { error: delErr } = await sb
+        .from("sales_payment_day_agg")
+        .delete()
+        .eq("tenant_id", args.tenantId)
+        .eq("store_id", args.storeId)
+        .gte("day", args.from)
+        .lte("day", args.to);
+      if (delErr) throw delErr;
+      if (args.rows.length === 0) return;
+      const payload = args.rows.map((r) => ({
+        tenant_id: r.tenantId,
+        store_id: r.storeId,
+        day: r.day,
+        payment_method: r.paymentMethod,
+        brand: r.brand,
+        revenue_cents: r.revenueCents,
+        sales_count: r.salesCount,
+      }));
+      const { error } = await sb.from("sales_payment_day_agg").upsert(payload, {
+        onConflict: "tenant_id,store_id,day,payment_method",
+      });
+      if (error) throw error;
+    },
+
     async upsertHourAggs(rows: SalesHourAgg[]) {
       if (rows.length === 0) return;
       const payload = rows.map((r) => ({
@@ -283,6 +356,16 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
         onConflict: "tenant_id,store_id,day,hour,brand",
       });
       if (error) throw error;
+    },
+
+    async setStoresHasWpink(rows) {
+      for (const r of rows) {
+        const { error } = await sb
+          .from("store")
+          .update({ has_wpink: r.hasWpink })
+          .eq("id", r.storeId);
+        if (error) throw error;
+      }
     },
 
     async insertSyncRun(args) {

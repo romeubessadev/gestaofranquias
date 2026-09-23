@@ -13,7 +13,7 @@ import { goalOfStore } from "./goals";
 import { productsOfCategory } from "./products";
 import { NOW, UPDATED_AT, TODAY_ISO, CURRENT_HOUR, SYNC_INTERVAL_MIN, LAST_SYNC, calendarTodayIso } from "./clock";
 import { dayAggregate, salesDay, salesDays, storeOpen, dayWeight, sumAggregates, type Aggregate } from "./sales";
-import { brl, brlCent, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, horaCurta, inicioDoMes, intervaloDias, mesAno, pct, somarDias } from "@/lib/format";
+import { brl, brlCent, dataCompleta, dataCurta, deIso, delta as fmtDelta, diaSemanaCurto, fimDoMes, horaCurta, inicioDoMes, intervaloDias, labelUpper, mesAno, pct, somarDias } from "@/lib/format";
 import type { TintKey } from "@/pages/dashboards/icons";
 import { buildStoreInsight } from "./insight";
 
@@ -2440,7 +2440,9 @@ export interface OverviewView {
   formasPagamento: PaymentMethodRevenue[];
   topVendedoras: (TopItem & { sub?: string; ticketMedio?: number; pctMeta?: number })[];
   topProdutos: (TopItem & { sub?: string; categoria?: string; trend?: number })[];
-  rankingLojas: (TopItem & { pctMeta?: number; trend?: number })[];
+  rankingLojas: (TopItem & { id?: string; pctMeta?: number; pctRede?: number; trend?: number })[];
+  /** Faturamento da rede no período (badge do Ranking — independente do StorePicker). */
+  rankingRedeTotal?: number;
   /** True when KPIs come from sales_*_agg (possibly empty). */
   fromAggregates?: boolean;
 }
@@ -2451,6 +2453,8 @@ export type OverviewAggInput = {
   categoryDayAggs?: import("./salesTypes").SalesCategoryDayAgg[];
   /** Tipos já vistos no sync (histórico) — barras com R$ 0 no período. */
   categoryCatalog?: import("./salesTypes").SalesCategoryRef[];
+  /** Formas de pagamento (CONDICAO) — brand=ALL. */
+  paymentDayAggs?: import("./salesTypes").SalesPaymentDayAgg[];
 };
 
 /** Overview from real sales aggregates — CMV/top produtos stay empty until heavy sync. */
@@ -2459,18 +2463,28 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
   const eixoSerie = seriesAxisForPeriod(periodo);
   const rotuloSerie = seriesAxisLabel(periodo, eixoSerie);
   const brand = escopo.divisao;
+  const fs = storesInScope(escopo);
+  const scopedStoreIds = new Set(fs.map((f) => f.id));
 
-  let days = input.dayAggs;
-  if (brand) {
-    days = days.filter((d) => d.brand === brand);
-  } else {
-    const all = days.filter((d) => d.brand === "ALL");
-    days = all.length > 0 ? all : days.filter((d) => d.brand === "WEPINK" || d.brand === "WPINK");
+  function byBrand(rows: typeof input.dayAggs) {
+    if (brand) return rows.filter((d) => d.brand === brand);
+    const all = rows.filter((d) => d.brand === "ALL");
+    return all.length > 0 ? all : rows.filter((d) => d.brand === "WEPINK" || d.brand === "WPINK");
   }
 
+  // Rede (todas as lojas do fetch) — ranking / badge / % participação.
+  const daysRede = byBrand(input.dayAggs);
+  // Escopo do StorePicker — KPIs / gráficos.
+  let days =
+    escopo.filialIds.length > 0
+      ? daysRede.filter((d) => scopedStoreIds.has(d.storeId))
+      : daysRede;
+
   const hours = (input.hourAggs ?? []).filter((h) => {
+    if (escopo.filialIds.length > 0 && !scopedStoreIds.has(h.storeId)) return false;
     if (brand) return h.brand === brand;
-    if ((input.hourAggs ?? []).some((x) => x.brand === "ALL")) return h.brand === "ALL";
+    const hourPool = input.hourAggs ?? [];
+    if (hourPool.some((x) => x.brand === "ALL")) return h.brand === "ALL";
     return h.brand === "WEPINK" || h.brand === "WPINK" || h.brand === "ALL";
   });
 
@@ -2505,11 +2519,18 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
       atendimentos = fromHours.salesCount;
       itens = fromHours.itemCount;
     } else {
-      const allDays = input.dayAggs.filter((d) => d.brand === "ALL");
+      const allDays = input.dayAggs.filter((d) => {
+        if (d.brand !== "ALL") return false;
+        if (escopo.filialIds.length > 0 && !scopedStoreIds.has(d.storeId)) return false;
+        return true;
+      });
       const allSum = sumDays(allDays);
       if (allSum.salesCount > 0 && allSum.revenueCents > 0) {
         const otherBrandRev = input.dayAggs
-          .filter((d) => (d.brand === "WEPINK" || d.brand === "WPINK") && d.brand !== brand)
+          .filter((d) => {
+            if (escopo.filialIds.length > 0 && !scopedStoreIds.has(d.storeId)) return false;
+            return (d.brand === "WEPINK" || d.brand === "WPINK") && d.brand !== brand;
+          })
           .reduce((s, d) => s + d.revenueCents, 0);
         if (otherBrandRev <= 0) {
           atendimentos = allSum.salesCount;
@@ -2526,7 +2547,6 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
   const ticket = atendimentos > 0 ? faturamento / atendimentos : 0;
 
   const competencia = periodo.inicio.slice(0, 7);
-  const fs = storesInScope(escopo);
   let metaTotal = 0;
   for (const f of fs) {
     const m = goalOfStore(f.id, competencia);
@@ -2645,15 +2665,16 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
   for (const ref of input.categoryCatalog ?? []) {
     if (brand && ref.brand !== brand && ref.brand !== "ALL") continue;
     const name = ref.categoryName || `Tipo ${ref.categoryId}`;
-    if (!catAcc.has(name)) catAcc.set(name, { realizado: 0 });
+    if (!catAcc.has(labelUpper(name))) catAcc.set(labelUpper(name), { realizado: 0 });
   }
   for (const row of input.categoryDayAggs ?? []) {
     if (brand && row.brand !== brand && row.brand !== "ALL") continue;
     if (brand && row.brand === "ALL") continue;
     const name = row.categoryName || `Tipo ${row.categoryId}`;
-    const cur = catAcc.get(name) ?? { realizado: 0 };
+    const key = labelUpper(name);
+    const cur = catAcc.get(key) ?? { realizado: 0 };
     cur.realizado += row.revenueCents / 100;
-    catAcc.set(name, cur);
+    catAcc.set(key, cur);
   }
   const categoriaVsMeta: CategoryVsGoal[] = [...catAcc.entries()]
     .map(([categoria, c]) => ({
@@ -2663,23 +2684,51 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
     }))
     .sort((a, b) => b.realizado - a.realizado || a.categoria.localeCompare(b.categoria, "pt-BR"));
 
-  // Ranking de lojas — Σ sales_day_agg por store_id (reais).
+  // Ranking de lojas — totais da rede; lista pode filtrar 1 loja, mas %/badge = rede.
   const byStore = new Map<string, number>();
-  for (const f of fs) byStore.set(f.id, 0);
-  for (const d of days) {
+  for (const d of daysRede) {
     byStore.set(d.storeId, (byStore.get(d.storeId) ?? 0) + d.revenueCents / 100);
   }
-  const rankingLojas: (TopItem & { pctMeta?: number; trend?: number })[] = [...byStore.entries()]
+  const rankingRedeTotal = [...byStore.values()].reduce((s, v) => s + v, 0);
+  const catalog = productStores();
+  const rankingLojas: (TopItem & { id?: string; pctMeta?: number; pctRede?: number; trend?: number })[] = [...byStore.entries()]
     .map(([id, valor]) => {
-      const f = fs.find((x) => x.id === id) ?? productStores().find((x) => x.id === id);
+      const f = catalog.find((x) => x.id === id) ?? fs.find((x) => x.id === id);
       const m = goalOfStore(id, competencia);
       return {
-        nome: f?.fantasia ?? id.slice(0, 8),
+        id,
+        nome: labelUpper(f?.fantasia ?? id.slice(0, 8)),
         valor,
         pctMeta: m && m.valorLoja > 0 ? (valor / m.valorLoja) * 100 : undefined,
+        pctRede: rankingRedeTotal > 0 ? (valor / rankingRedeTotal) * 100 : undefined,
       };
     })
+    .filter((row) => {
+      if (row.valor <= 0) return false;
+      if (escopo.filialIds.length === 1) return row.id === escopo.filialIds[0];
+      return true;
+    })
     .sort((a, b) => b.valor - a.valor);
+
+  // Formas: sempre brand=ALL (Lista não traz marca). Filtra só por loja/período.
+  const totaisForma: Record<string, number> = {};
+  for (const row of input.paymentDayAggs ?? []) {
+    if (escopo.filialIds.length > 0 && !scopedStoreIds.has(row.storeId)) continue;
+    if (row.day < periodo.inicio || row.day > periodo.fim) continue;
+    if (row.revenueCents <= 0) continue;
+    const forma = row.paymentMethod || "Outros";
+    totaisForma[forma] = (totaisForma[forma] ?? 0) + row.revenueCents / 100;
+  }
+  const totalFormas = Object.values(totaisForma).reduce((s, v) => s + v, 0) || 1;
+  const FORMAS_FALLBACK = ["var(--acc)", "var(--info)", "var(--ok)", "var(--warn)", "var(--t2)"];
+  const formasPagamento: PaymentMethodRevenue[] = Object.entries(totaisForma)
+    .sort((a, b) => b[1] - a[1])
+    .map(([forma, valor], i) => ({
+      forma,
+      valor,
+      pct: (valor / totalFormas) * 100,
+      cor: CORES_FORMAS[forma] ?? FORMAS_FALLBACK[i % FORMAS_FALLBACK.length]!,
+    }));
 
   return {
     escopo,
@@ -2693,10 +2742,11 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
     categoriaVsMeta,
     diaVsMeta: [],
     evolucao,
-    formasPagamento: [],
+    formasPagamento,
     topVendedoras: [],
     topProdutos: [],
     rankingLojas,
+    rankingRedeTotal,
     fromAggregates: true,
   };
 }
@@ -2810,7 +2860,7 @@ export function buildOverviewView(escopo: Scope, aggs?: OverviewAggInput | null)
   const categoriaVsMeta: CategoryVsGoal[] = [...catMap.entries()]
     .map(([id, c]) => {
       const cat = categorias.find((x) => x.id === id)!;
-      return { categoria: cat.nome, meta: 0, realizado: c.faturamento };
+      return { categoria: labelUpper(cat.nome), meta: 0, realizado: c.faturamento };
     })
     .sort((a, b) => b.realizado - a.realizado || a.categoria.localeCompare(b.categoria, "pt-BR"));
 
@@ -2994,10 +3044,10 @@ export function buildOverviewView(escopo: Scope, aggs?: OverviewAggInput | null)
       const fatAnt = prodMapAnt.get(cod) ?? 0;
       const trendPct = fatAnt > 0 ? ((p.fat - fatAnt) / fatAnt) * 100 : null;
       return {
-        nome: p.nome,
+        nome: labelUpper(p.nome),
         valor: p.fat,
         sub: `${p.itens} itens`,
-        categoria: p.categoriaNome,
+        categoria: labelUpper(p.categoriaNome),
         trend: trendPct != null ? Math.round(trendPct) : undefined,
       };
     })
@@ -3013,7 +3063,7 @@ export function buildOverviewView(escopo: Scope, aggs?: OverviewAggInput | null)
     const fatAnterior = agregadoPeriodo(f, ant.inicio, ant.fim, divisao).faturamento;
     const trend = fatAnterior > 0 ? Math.round(((fatPeriodo - fatAnterior) / fatAnterior) * 100) : undefined;
     return {
-      nome: f.fantasia,
+      nome: labelUpper(f.fantasia),
       valor: fatPeriodo,
       pctMeta: pctMeta ?? undefined,
       trend,

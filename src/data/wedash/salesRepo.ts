@@ -5,6 +5,7 @@ import type {
   SalesCategoryRef,
   SalesDayAgg,
   SalesHourAgg,
+  SalesPaymentDayAgg,
 } from "./salesTypes";
 
 export type SalesDayQuery = {
@@ -29,6 +30,13 @@ export type SalesCategoryDayQuery = {
   from: string;
   to: string;
   brand?: SalesBrand | null;
+};
+
+export type SalesPaymentDayQuery = {
+  tenantId: string;
+  storeIds: string[];
+  from: string;
+  to: string;
 };
 
 /** Minimal thenable query surface for unit tests (Supabase-compatible). */
@@ -62,6 +70,16 @@ type CategoryDayRow = {
   item_count: number;
 };
 
+type PaymentDayRow = {
+  tenant_id: string;
+  store_id: string;
+  day: string;
+  payment_method: string;
+  brand: SalesBrand;
+  revenue_cents: number;
+  sales_count: number;
+};
+
 function mapDay(r: DayRow): SalesDayAgg {
   return {
     tenantId: r.tenant_id,
@@ -92,6 +110,18 @@ function mapCategoryDay(r: CategoryDayRow): SalesCategoryDayAgg {
     brand: r.brand,
     revenueCents: Number(r.revenue_cents) || 0,
     itemCount: Number(r.item_count) || 0,
+  };
+}
+
+function mapPaymentDay(r: PaymentDayRow): SalesPaymentDayAgg {
+  return {
+    tenantId: r.tenant_id,
+    storeId: r.store_id,
+    day: r.day,
+    paymentMethod: String(r.payment_method ?? "") || "Outros",
+    brand: r.brand,
+    revenueCents: Number(r.revenue_cents) || 0,
+    salesCount: Number(r.sales_count) || 0,
   };
 }
 
@@ -216,6 +246,33 @@ export async function fetchSalesCategoryCatalog(
     });
   }
   return [...byId.values()].sort((a, b) => a.categoryName.localeCompare(b.categoryName, "pt-BR"));
+}
+
+/** Receita diária por forma de pagamento (CONDICAO / VENDAS.Lista). */
+export async function fetchSalesPaymentDayAggs(
+  query: SalesPaymentDayQuery,
+  clientOverride?: SalesQueryClient,
+): Promise<SalesPaymentDayAgg[]> {
+  const client = clientOrNull(clientOverride);
+  if (!client) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q: any = (client.from("sales_payment_day_agg") as any)
+    .select(
+      "tenant_id, store_id, day, payment_method, brand, revenue_cents, sales_count",
+    )
+    .eq("tenant_id", query.tenantId)
+    .gte("day", query.from)
+    .lte("day", query.to);
+
+  if (query.storeIds.length > 0) q = q.in("store_id", query.storeIds);
+
+  const { data, error } = await q.order("day", { ascending: true }).limit(10_000);
+  if (error) {
+    console.error("fetchSalesPaymentDayAggs:", error.message ?? error);
+    return [];
+  }
+  return ((data as PaymentDayRow[] | null) ?? []).map(mapPaymentDay);
 }
 
 /** Tenant watermark of last successful light sync. */

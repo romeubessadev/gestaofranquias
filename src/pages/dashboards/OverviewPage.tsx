@@ -10,6 +10,7 @@ import {
   fetchSalesHourAggs,
   fetchSalesCategoryDayAggs,
   fetchSalesCategoryCatalog,
+  fetchSalesPaymentDayAggs,
   fetchSalesCoverage,
   fetchSyncWatermark,
   requestForceRefresh,
@@ -17,7 +18,13 @@ import {
   waitForSyncJob,
   waitForLatestForceJob,
 } from "@/data/wedash/salesRepo";
-import type { SalesCategoryDayAgg, SalesCategoryRef, SalesDayAgg, SalesHourAgg } from "@/data/wedash/salesTypes";
+import type {
+  SalesCategoryDayAgg,
+  SalesCategoryRef,
+  SalesDayAgg,
+  SalesHourAgg,
+  SalesPaymentDayAgg,
+} from "@/data/wedash/salesTypes";
 import { brlCent, deIso, tipRelacao } from "@/lib/format";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
 import { useActiveSession } from "@/session/SessionProvider";
@@ -87,11 +94,12 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
 
 export default function OverviewPage() {
   const session = useActiveSession();
-  const { escopo, mudar } = useScope();
+  const { escopo, mudar, showBrandPicker } = useScope();
   const [dayAggs, setDayAggs] = useState<SalesDayAgg[]>([]);
   const [hourAggs, setHourAggs] = useState<SalesHourAgg[]>([]);
   const [categoryDayAggs, setCategoryDayAggs] = useState<SalesCategoryDayAgg[]>([]);
   const [categoryCatalog, setCategoryCatalog] = useState<SalesCategoryRef[]>([]);
+  const [paymentDayAggs, setPaymentDayAggs] = useState<SalesPaymentDayAgg[]>([]);
   const [loading, setLoading] = useState(true);
   const [watermark, setWatermark] = useState<Date | null>(null);
   const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
@@ -123,10 +131,11 @@ export default function OverviewPage() {
     const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
     const singleDay = periodo.inicio === periodo.fim;
     try {
-      const [days, hours, cats, catalog, wm, cov] = await Promise.all([
+      const [days, hours, cats, catalog, payments, wm, cov] = await Promise.all([
         fetchSalesDayAggs({
           tenantId: session.tenantId,
-          storeIds: escopo.filialIds,
+          // Sempre a rede: Ranking precisa do total/participação mesmo com 1 loja no StorePicker.
+          storeIds: [],
           from: periodo.inicio,
           to: periodo.fim,
           brand: null,
@@ -151,6 +160,12 @@ export default function OverviewPage() {
           storeIds: escopo.filialIds,
           brand: null,
         }),
+        fetchSalesPaymentDayAggs({
+          tenantId: session.tenantId,
+          storeIds: escopo.filialIds,
+          from: periodo.inicio,
+          to: periodo.fim,
+        }),
         fetchSyncWatermark(session.tenantId),
         fetchSalesCoverage(session.tenantId, escopo.filialIds),
       ]);
@@ -158,6 +173,7 @@ export default function OverviewPage() {
       setHourAggs(hours);
       setCategoryDayAggs(cats);
       setCategoryCatalog(catalog);
+      setPaymentDayAggs(payments);
       setWatermark(wm);
       setCoverageFrom(cov.from ? deIso(cov.from) : null);
     } catch (e) {
@@ -219,8 +235,15 @@ export default function OverviewPage() {
   }, [escopo.periodo, loading, session.role, coverageFrom]);
 
   const view = useMemo(
-    () => buildOverviewView(escopo, { dayAggs, hourAggs, categoryDayAggs, categoryCatalog }),
-    [escopo, dayAggs, hourAggs, categoryDayAggs, categoryCatalog],
+    () =>
+      buildOverviewView(escopo, {
+        dayAggs,
+        hourAggs,
+        categoryDayAggs,
+        categoryCatalog,
+        paymentDayAggs,
+      }),
+    [escopo, dayAggs, hourAggs, categoryDayAggs, categoryCatalog, paymentDayAggs],
   );
 
   const canForce = canForceSyncRefresh(session.role);
@@ -372,7 +395,9 @@ export default function OverviewPage() {
               size="sm"
               minDate={coverageFrom}
             />
-            <BrandPicker value={escopo.divisao} onChange={onMarcaChange} />
+            {showBrandPicker && (
+              <BrandPicker value={escopo.divisao} onChange={onMarcaChange} />
+            )}
 
           </>
         }
@@ -596,51 +621,64 @@ export default function OverviewPage() {
       {/* Linha: Ranking de Lojas + Formas de Pagamento */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="flex flex-col">
-          <div className="mb-1 flex items-center justify-between">
+          <div className="mb-1 flex items-center justify-between gap-2">
             <CardTitle>Ranking de lojas</CardTitle>
-            <Badge variant="accent">Rede: {brlCent(view.rankingLojas.reduce((s, l) => s + l.valor, 0))}</Badge>
+            {escopo.filialIds.length === 1 && (
+              <Badge variant="accent">
+                Rede: {brlCent(view.rankingRedeTotal ?? 0)}
+              </Badge>
+            )}
           </div>
           {view.rankingLojas.length === 0 ? (
             <span className="py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
           ) : (
             (() => {
-              const total = view.rankingLojas.reduce((s, l) => s + l.valor, 0) || 1;
+              const totalRede =
+                (view.rankingRedeTotal ?? view.rankingLojas.reduce((s, l) => s + l.valor, 0)) || 1;
+              const umaLoja = escopo.filialIds.length === 1;
+              const donutSegments = view.rankingLojas.map((l, i) => ({
+                label: l.nome,
+                value: l.valor,
+                color: CORES_LOJAS[i % CORES_LOJAS.length],
+              }));
               return (
                 <>
                   <div className="flex flex-1 flex-col items-center justify-center">
                     <DonutChart
-                      segments={view.rankingLojas.map((l, i) => ({
-                        label: l.nome,
-                        value: l.valor,
-                        color: CORES_LOJAS[i % CORES_LOJAS.length],
-                      }))}
+                      segments={donutSegments}
                       size={148}
                       thickness={20}
-                      centerLabel="Total"
-                      centerValue={brlCent(total)}
+                      centerLabel={umaLoja ? "Loja" : "Total"}
+                      centerValue={brlCent(
+                        umaLoja
+                          ? (view.rankingLojas[0]?.valor ?? 0)
+                          : totalRede,
+                      )}
                     />
                   </div>
                   <div className="mt-4 flex flex-col gap-3">
                     {view.rankingLojas.map((loja, idx) => {
-                      const temMeta = loja.pctMeta != null;
-                      const pctBar = temMeta
-                        ? Math.min(100, Math.round(loja.pctMeta!))
-                        : Math.round((loja.valor / total) * 100);
+                      const pctRede = Math.round(
+                        loja.pctRede ?? (totalRede > 0 ? (loja.valor / totalRede) * 100 : 0),
+                      );
+                      const pctBar = Math.min(100, Math.max(0, pctRede));
                       const cor = CORES_LOJAS[idx % CORES_LOJAS.length];
                       return (
-                        <div key={loja.nome} className="rounded-xl bg-bg-inset p-3">
-                          <div className="mb-1.5 flex items-center justify-between">
-                            <span className="flex items-center gap-2 text-[13px] font-bold text-t0">
-                              <span className="h-2.5 w-2.5 rounded-[4px]" style={{ background: cor }} />
-                              {loja.nome}
+                        <div key={"id" in loja && loja.id ? String(loja.id) : `${loja.nome}-${idx}`} className="min-w-0 rounded-xl bg-bg-inset p-3">
+                          <div className="mb-1.5 flex min-w-0 items-baseline gap-2">
+                            <span className="flex min-w-0 flex-1 items-center gap-2 text-[13px] font-bold text-t0">
+                              <span className="h-2.5 w-2.5 shrink-0 rounded-[4px]" style={{ background: cor }} />
+                              <span className="min-w-0 truncate uppercase" title={loja.nome}>{loja.nome}</span>
                             </span>
-                            <span className="font-mono text-[13px] font-extrabold text-t0">{brlCent(loja.valor)}</span>
+                            <span className="shrink-0 font-mono text-[13px] font-extrabold tabular-nums text-t0">
+                              {brlCent(loja.valor)}
+                            </span>
                           </div>
                           <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-bg-2">
                             <div className="h-full rounded-full" style={{ width: `${pctBar}%`, background: cor }} />
                           </div>
                           <span className="text-[11px] font-semibold text-t2">
-                            {temMeta ? `${pctBar}% da meta` : `${pctBar}% da rede`}
+                            {pctBar}% da rede
                           </span>
                         </div>
                       );
@@ -789,8 +827,8 @@ export default function OverviewPage() {
                         <div className="flex min-w-0 items-center gap-2.5">
                           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] text-[13px] font-extrabold" style={{ background: `color-mix(in srgb, ${corAvatar} 15%, transparent)`, color: corAvatar }}>{iniciais || "?"}</span>
                           <div className="min-w-0">
-                            <p className="truncate text-[13px] font-bold text-t0">{p.nome}</p>
-                            {p.categoria && <p className="text-[11px] text-t2">{p.categoria}</p>}
+                            <p className="truncate text-[13px] font-bold uppercase text-t0">{p.nome}</p>
+                            {p.categoria && <p className="text-[11px] uppercase text-t2">{p.categoria}</p>}
                           </div>
                         </div>
                       </td>
