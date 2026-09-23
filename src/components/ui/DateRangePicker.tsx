@@ -14,7 +14,7 @@ import { cn } from "@/lib/cn";
  *
  * - value: [inicio, fim] | null  →  null = sem seleção
  * - onChange: dispara ao fechar um intervalo válido (inicio <= fim)
- * - quickRanges: atalhos pré-definidos (Hoje, Últimos 7 dias, etc.)
+ * - quickRanges: atalhos pré-definidos (Hoje, Esta Semana, …)
  *
  * Painel em portal no `document.body` (position:fixed), alinhado à direita
  * do trigger e limitado à viewport — evita corte pelo overflow-x-hidden /
@@ -23,25 +23,23 @@ import { cn } from "@/lib/cn";
 
 export type DateRange = [Date, Date];
 
+/** Ids dos pills — alinhados a PeriodType no dashboard. */
+export type DatePresetId =
+  | "hoje"
+  | "ontem"
+  | "estaSemana"
+  | "esteMes"
+  | "esteTrimestre"
+  | "esteSemestre"
+  | "esteAno";
+
 export interface QuickRange {
+  /** Id do preset — quando presente, onChange informa o preset. */
+  id?: DatePresetId;
   label: string;
   /** Resolve o intervalo [inicio, fim] a partir de "hoje" (data base). */
   resolve: (hoje: Date) => DateRange;
 }
-
-/** Atalhos padrão em português, alinhados ao negócio (filtro de período). */
-export const QUICK_RANGES_PADRAO: QuickRange[] = [
-  { label: "Hoje", resolve: (h) => [zeraHora(h), zeraHora(h)] },
-  { label: "Ontem", resolve: (h) => [addDias(zeraHora(h), -1), addDias(zeraHora(h), -1)] },
-  { label: "Últimos 7 dias", resolve: (h) => [addDias(zeraHora(h), -6), zeraHora(h)] },
-  { label: "Últimos 30 dias", resolve: (h) => [addDias(zeraHora(h), -29), zeraHora(h)] },
-  { label: "Este mês", resolve: (h) => [new Date(h.getFullYear(), h.getMonth(), 1), zeraHora(h)] },
-  { label: "Mês passado", resolve: (h) => [new Date(h.getFullYear(), h.getMonth() - 1, 1), new Date(h.getFullYear(), h.getMonth(), 0)] },
-];
-
-const DOW_PT = ["D", "S", "T", "Q", "Q", "S", "S"];
-const MESES_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-const MESES_CURTO = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 function zeraHora(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -52,6 +50,39 @@ function addDias(d: Date, n: number): Date {
   r.setDate(r.getDate() + n);
   return r;
 }
+
+/** Segunda-feira da semana (PT-BR / ISO). */
+function inicioSemana(hoje: Date): Date {
+  const d = zeraHora(hoje);
+  const dow = d.getDay();
+  const diff = dow === 0 ? -6 : 1 - dow;
+  return addDias(d, diff);
+}
+
+function inicioTrimestre(hoje: Date): Date {
+  const mes = Math.floor(hoje.getMonth() / 3) * 3;
+  return new Date(hoje.getFullYear(), mes, 1);
+}
+
+function inicioSemestre(hoje: Date): Date {
+  const mes = hoje.getMonth() < 6 ? 0 : 6;
+  return new Date(hoje.getFullYear(), mes, 1);
+}
+
+/** Atalhos padrão alinhados ao escopo (URL `periodo=`). */
+export const QUICK_RANGES_PADRAO: QuickRange[] = [
+  { id: "hoje", label: "Hoje", resolve: (h) => { const d = zeraHora(h); return [d, d]; } },
+  { id: "ontem", label: "Ontem", resolve: (h) => { const d = addDias(zeraHora(h), -1); return [d, d]; } },
+  { id: "estaSemana", label: "Esta Semana", resolve: (h) => { const d = zeraHora(h); return [inicioSemana(d), d]; } },
+  { id: "esteMes", label: "Este mês", resolve: (h) => { const d = zeraHora(h); return [new Date(d.getFullYear(), d.getMonth(), 1), d]; } },
+  { id: "esteTrimestre", label: "Este Trimestre", resolve: (h) => { const d = zeraHora(h); return [inicioTrimestre(d), d]; } },
+  { id: "esteSemestre", label: "Este Semestre", resolve: (h) => { const d = zeraHora(h); return [inicioSemestre(d), d]; } },
+  { id: "esteAno", label: "Este Ano", resolve: (h) => { const d = zeraHora(h); return [new Date(d.getFullYear(), 0, 1), d]; } },
+];
+
+const DOW_PT = ["D", "S", "T", "Q", "Q", "S", "S"];
+const MESES_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const MESES_CURTO = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 function mesmoDia(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -66,27 +97,63 @@ function formatarIntervalo(r: DateRange): string {
   return mesmoDia(a, b) ? formatarCurto(a) : `${formatarCurto(a)} – ${formatarCurto(b)}`;
 }
 
+export type DateRangeChangeMeta = {
+  /** Preset clicado (pill). Ausente = seleção manual no calendário. */
+  presetId?: DatePresetId;
+};
+
 export function DateRangePicker({
   value,
   onChange,
   quickRanges = QUICK_RANGES_PADRAO,
+  /** Quando o escopo é um preset, mostra o nome no input (ex.: "Este mês"). */
+  displayLabel,
+  /** Preset ativo no escopo — destaca o pill correspondente. */
+  activePresetId,
   className,
   size = "md",
+  minDate,
+  maxDate,
 }: {
   value: DateRange | null;
-  onChange: (r: DateRange) => void;
+  onChange: (r: DateRange, meta?: DateRangeChangeMeta) => void;
   quickRanges?: QuickRange[];
+  displayLabel?: string | null;
+  activePresetId?: string | null;
   className?: string;
   /** Alinha ao Button: sm = h-8 (ações do PageHeader), md = h-10. */
   size?: "sm" | "md";
+  /** Dias antes disso ficam bloqueados (cobertura sync). */
+  minDate?: Date | null;
+  /** Dias depois disso ficam bloqueados (default: hoje). */
+  maxDate?: Date | null;
 }) {
   const hoje = useMemo(() => zeraHora(new Date()), []);
+  const min = useMemo(() => (minDate ? zeraHora(minDate) : null), [minDate]);
+  const max = useMemo(() => zeraHora(maxDate ?? hoje), [maxDate, hoje]);
   const [open, setOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState<Date>(() => (value ? new Date(value[0].getFullYear(), value[0].getMonth(), 1) : new Date(hoje.getFullYear(), hoje.getMonth(), 1)));
   const [draftStart, setDraftStart] = useState<Date | null>(null);
   const [panelPos, setPanelPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  function diaBloqueado(dia: Date): boolean {
+    if (min && dia < min) return true;
+    if (dia > max) return true;
+    return false;
+  }
+
+  function clampRange(r: DateRange): DateRange | null {
+    let [a, b] = r;
+    if (a > b) [a, b] = [b, a];
+    if (min && b < min) return null;
+    if (a > max) return null;
+    const start = min && a < min ? min : a;
+    const end = b > max ? max : b;
+    if (start > end) return null;
+    return [start, end];
+  }
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -140,23 +207,35 @@ export function DateRangePicker({
     return arr;
   }, [viewMonth]);
 
+  const podeMesAnt = !min || new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 0) >= min;
+  const podeMesProx =
+    new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1) <= max;
+
   function escolherDia(dia: Date) {
+    if (diaBloqueado(dia)) return;
     if (!draftStart || draftStart > dia) {
       setDraftStart(dia);
       return;
     }
-    const range: DateRange = [draftStart, dia];
-    onChange(range);
+    const clamped = clampRange([draftStart, dia]);
+    if (!clamped) return;
+    onChange(clamped);
     setDraftStart(null);
     setOpen(false);
   }
 
   function aplicarQuick(qr: QuickRange) {
-    const range = qr.resolve(hoje);
-    onChange(range);
+    const raw = qr.resolve(hoje);
+    const clamped = clampRange(raw);
+    if (!clamped) return;
+    onChange(clamped, qr.id ? { presetId: qr.id } : undefined);
     setDraftStart(null);
-    setViewMonth(new Date(range[0].getFullYear(), range[0].getMonth(), 1));
+    setViewMonth(new Date(clamped[0].getFullYear(), clamped[0].getMonth(), 1));
     setOpen(false);
+  }
+
+  function quickDisponivel(qr: QuickRange): boolean {
+    return clampRange(qr.resolve(hoje)) != null;
   }
 
   function ehSelecionado(dia: Date): boolean {
@@ -173,7 +252,11 @@ export function DateRangePicker({
     return dia > lo && dia < hi;
   }
 
-  const rotulo = value ? formatarIntervalo(value) : "Período personalizado";
+  const rotulo = displayLabel?.trim()
+    ? displayLabel
+    : value
+      ? formatarIntervalo(value)
+      : "Período personalizado";
 
   const painel =
     open && panelPos
@@ -185,25 +268,41 @@ export function DateRangePicker({
           >
             <div className="flex shrink-0 flex-row flex-wrap gap-2 sm:w-[150px] sm:flex-col sm:flex-nowrap">
               <span className="mb-0.5 hidden text-[11px] font-bold uppercase tracking-wide text-t2 sm:block">Períodos</span>
-              {quickRanges.map((qr) => (
-                <button
-                  key={qr.label}
-                  type="button"
-                  onClick={() => aplicarQuick(qr)}
-                  className="h-8 rounded-[9px] border border-line px-3 text-left text-xs font-semibold text-t1 transition-colors hover:border-acc hover:text-acc"
-                >
-                  {qr.label}
-                </button>
-              ))}
+              {quickRanges.map((qr) => {
+                const ok = quickDisponivel(qr);
+                const ativo = Boolean(qr.id && activePresetId && qr.id === activePresetId);
+                return (
+                  <button
+                    key={qr.id ?? qr.label}
+                    type="button"
+                    disabled={!ok}
+                    onClick={() => aplicarQuick(qr)}
+                    className={cn(
+                      "h-8 rounded-[9px] border px-3 text-left text-xs font-semibold transition-colors",
+                      !ok
+                        ? "cursor-not-allowed border-line/60 text-t2 opacity-40"
+                        : ativo
+                          ? "border-acc bg-acc-soft text-acc"
+                          : "border-line text-t1 hover:border-acc hover:text-acc",
+                    )}
+                  >
+                    {qr.label}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="mb-3 flex items-center justify-between">
                 <button
                   type="button"
+                  disabled={!podeMesAnt}
                   onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))}
                   aria-label="Mês anterior"
-                  className="flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-line text-t1 hover:bg-bg-3"
+                  className={cn(
+                    "flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-line text-t1",
+                    podeMesAnt ? "hover:bg-bg-3" : "cursor-not-allowed opacity-40",
+                  )}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m15 18-6-6 6-6" />
@@ -214,9 +313,13 @@ export function DateRangePicker({
                 </span>
                 <button
                   type="button"
+                  disabled={!podeMesProx}
                   onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))}
                   aria-label="Próximo mês"
-                  className="flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-line text-t1 hover:bg-bg-3"
+                  className={cn(
+                    "flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-line text-t1",
+                    podeMesProx ? "hover:bg-bg-3" : "cursor-not-allowed opacity-40",
+                  )}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m9 18 6-6-6-6" />
@@ -233,26 +336,48 @@ export function DateRangePicker({
               </div>
 
               <div className="grid grid-cols-7 gap-1">
-                {cells.map((dia, i) =>
-                  dia === null ? (
-                    <span key={`e${i}`} />
-                  ) : (
+                {cells.map((dia, i) => {
+                  if (dia === null) return <span key={`e${i}`} />;
+                  const isHoje = mesmoDia(dia, hoje);
+                  const bloqueado = diaBloqueado(dia);
+                  const selecionado = ehSelecionado(dia);
+                  const dentro = ehDentro(dia);
+                  return (
                     <button
                       key={dia.toISOString()}
                       type="button"
+                      disabled={bloqueado}
                       onClick={() => escolherDia(dia)}
+                      aria-current={isHoje ? "date" : undefined}
+                      title={isHoje ? "Hoje" : undefined}
                       className={cn(
-                        "flex h-9 min-w-0 items-center justify-center rounded-[9px] text-[12.5px] font-semibold transition-colors",
-                        ehSelecionado(dia) ? "bg-acc text-white" : ehDentro(dia) ? "bg-acc-soft text-acc" : "text-t1 hover:bg-bg-3",
+                        "flex h-9 min-w-0 items-center justify-center rounded-[9px] text-[12.5px] transition-colors",
+                        bloqueado
+                          ? "cursor-not-allowed text-t2 opacity-30"
+                          : selecionado
+                            ? "bg-acc font-bold text-white"
+                            : dentro
+                              ? "bg-acc-soft font-semibold text-acc"
+                              : isHoje
+                                ? "font-bold text-acc ring-1 ring-acc/50 hover:bg-acc-soft"
+                                : "font-semibold text-t1 hover:bg-bg-3",
                       )}
                     >
                       {dia.getDate()}
                     </button>
-                  ),
-                )}
+                  );
+                })}
               </div>
 
-              <p className="mt-3 text-[11px] text-t2">{draftStart ? "Agora selecione o último dia." : "Selecione o primeiro e o último dia."}</p>
+              <p className="mt-3 text-[11px] text-t2">
+                {min
+                  ? draftStart
+                    ? "Agora selecione o último dia (só dados já sincronizados)."
+                    : "Só períodos já sincronizados. Selecione o primeiro e o último dia."
+                  : draftStart
+                    ? "Agora selecione o último dia."
+                    : "Selecione o primeiro e o último dia."}
+              </p>
             </div>
           </div>,
           document.body,
@@ -274,7 +399,7 @@ export function DateRangePicker({
           <rect x="3" y="4" width="18" height="18" rx="2" />
           <path d="M16 2v4M8 2v4M3 10h18" />
         </svg>
-        <span className={cn("min-w-0 truncate font-semibold", size === "sm" ? "text-xs" : "text-[13.5px]", value ? "text-t0" : "text-t2")}>{rotulo}</span>
+        <span className={cn("min-w-0 truncate font-semibold", size === "sm" ? "text-xs" : "text-[13.5px]", value || displayLabel ? "text-t0" : "text-t2")}>{rotulo}</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={cn("shrink-0 text-t2 transition-transform", open && "rotate-180")}>
           <path d="m6 9 6 6 6-6" />
         </svg>
