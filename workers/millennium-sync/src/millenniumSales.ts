@@ -410,8 +410,8 @@ export async function fetchSalesLista(params: FetchSalesListaParams): Promise<Sa
         );
       } else {
         console.log(
-          `[sync] VENDAS.Lista ok via ${attempt.label} · ${params.from}→${params.to}` +
-            `${allStores ? " · FILIAL=null" : ""} · ${rows.length} linha(s)`,
+          `  Lista ok · ${params.from}→${params.to}` +
+            `${allStores ? " · rede" : ""} · ${rows.length} venda(s)`,
         );
       }
       return rows;

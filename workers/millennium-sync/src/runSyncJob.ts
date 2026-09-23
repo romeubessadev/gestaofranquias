@@ -96,10 +96,11 @@ async function upsertBrandSplit(
 ): Promise<void> {
   const geradorId = args.geradorMap.get(args.store.code);
   if (geradorId == null) {
-    console.log(`  [${args.store.code}] sem GERADOR — skip brand split`);
+    console.log(`  [${args.store.code}] → marca · skip (sem GERADOR)`);
     return;
   }
 
+  console.log(`  [${args.store.code}] → marca · report receita…`);
   let dayAggs: SalesDayAgg[] = [];
 
   // 1) Receita por dia × marca (fonte do relatório que o gestor confere)
@@ -116,14 +117,14 @@ async function upsertBrandSplit(
     });
     if (dayAggs.length === 0) {
       console.log(
-        `  [${args.store.code}] brand report ${args.from}→${args.to} · vazio`,
+        `  [${args.store.code}] marca · report vazio ${args.from}→${args.to}`,
       );
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (isSessionDeadError(msg)) throw e;
     console.warn(
-      `  [${args.store.code}] brand report falhou (ALL ok): ${msg}`,
+      `  [${args.store.code}] marca · report falhou (ALL ok): ${msg}`,
     );
   }
 
@@ -151,6 +152,9 @@ async function upsertBrandSplit(
   if (hasWpink && args.productMap.size > 0) {
     const headers = uniqueBrandSplitHeaders(storeRows);
     if (headers.length > 0) {
+      console.log(
+        `  [${args.store.code}] → marca · DetMov ${headers.length} NF (pode demorar)…`,
+      );
       try {
         const concurrency = detMovConcurrency(headers.length);
         const brandRows: SaleRow[] = [];
@@ -256,7 +260,11 @@ async function syncCmvForRange(
   },
 ): Promise<void> {
   const days = args.days ?? eachIsoDay(args.from, args.to);
-  if (days.length === 0) return;
+  if (days.length === 0) {
+    console.log(`  [${args.store.code}] → CMV · skip (sem buraco)`);
+    return;
+  }
+  console.log(`  [${args.store.code}] → CMV · ${days.length} dia(s)…`);
   const patches: Array<{ tenantId: string; storeId: string; day: string; cmvCents: number }> = [];
   let ok = 0;
   let fail = 0;
@@ -279,12 +287,12 @@ async function syncCmvForRange(
       fail += 1;
       const msg = e instanceof Error ? e.message : String(e);
       if (isSessionDeadError(msg)) throw e;
-      console.warn(`  [${args.store.code}] RELATORIOMARGEM ${day}: ${msg}`);
+      console.warn(`  [${args.store.code}] CMV ${day}: ${msg}`);
     }
   }
   if (patches.length > 0) await deps.patchDayCmv(patches);
   console.log(
-    `  [${args.store.code}] CMV ${days[0]}→${days[days.length - 1]} · ${ok} dia(s) ok · ${fail} fail`,
+    `  [${args.store.code}] CMV ok · ${ok} dia(s) · ${fail} fail`,
   );
 }
 
@@ -1565,7 +1573,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
         const queue: Array<{ from: string; to: string }> = [...windows];
         while (queue.length > 0) {
           const { from, to } = queue.shift()!;
-          console.log(`  [${store.code}] Buscando ${from} → ${to}`);
+          console.log(`  [${store.code}] → Lista ${from} → ${to}…`);
           let rows: Awaited<ReturnType<typeof deps.fetchSalesLista>> = [];
           try {
             rows = await deps.fetchSalesLista({
@@ -1725,6 +1733,9 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
             }
           }
         }
+        console.log(
+          `  [${store.code}] Lista/formas ok · ${storeSales} venda(s) · ${storeDays} dia(s)`,
+        );
         await upsertBrandSplit(deps, {
           session: session!,
           tenantId: job.tenantId,
@@ -1755,6 +1766,8 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
             to: cmvWin.to,
             days: cmvDays,
           });
+        } else if (shouldSyncCmv(job.kind)) {
+          console.log(`  [${store.code}] → CMV · skip (sem janela)`);
         }
         if (shouldSyncCategories(job.kind) && cmvWin) {
           const geradorId = geradorMap.get(store.code);
@@ -1786,7 +1799,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
           }
         }
         console.log(
-          `Loja ${i + 1}/${storeList.length} (${store.code}) ok · ${storeSales} venda(s) · ${storeDays} dia(s) gravado(s)` +
+          `  [${store.code}] ✓ loja ${i + 1}/${storeList.length} ok` +
             (dayErrors > 0 ? ` · ${dayErrors} janela(s) com falha` : ""),
         );
         return 1;
