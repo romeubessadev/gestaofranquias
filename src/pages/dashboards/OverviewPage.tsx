@@ -393,12 +393,30 @@ export default function OverviewPage() {
                 <CardTitle>Atingimento da meta</CardTitle>
               </div>
               {!meta && (
-                <div className="mb-3 rounded-[10px] border border-warn/30 bg-warn-soft px-3 py-2 text-[12px] font-semibold text-t1">
-                  Configure uma meta em{" "}
-                  <Link to={paths.goals} className="text-acc underline-offset-2 hover:underline">
-                    Metas
-                  </Link>{" "}
-                  para acompanhar o atingimento.
+                <div className="mb-3 flex items-start gap-3 rounded-xl px-4 py-3.5" style={{ background: "var(--warn-soft)" }}>
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--warn)"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="mt-0.5 shrink-0"
+                  >
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01" />
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-t0">Meta não configurada</p>
+                    <p className="mt-0.5 text-[12.5px] text-t1">
+                      Cadastre em{" "}
+                      <Link to={paths.goals} className="font-semibold text-acc underline-offset-2 hover:underline">
+                        Metas
+                      </Link>{" "}
+                      para acompanhar o atingimento.
+                    </p>
+                  </div>
                 </div>
               )}
               <div className="relative mx-auto mb-4 h-[150px] w-[150px]">
