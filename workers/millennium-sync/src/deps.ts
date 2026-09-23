@@ -769,9 +769,11 @@ export async function recoverStaleRunningJobs(
 
 /**
  * Enqueue LIGHT for credentials due (interval elapsed, no open job).
- * Runs after processing claimed jobs so force/backfill stay priority.
+ * Default OFF — só Atualizar (FORCE). Ligar com LIGHT_AUTO=1 no .env.
  */
 export async function enqueueDueLightJobs(sb: SupabaseClient): Promise<number> {
+  if (process.env.LIGHT_AUTO !== "1") return 0;
+
   const { data: creds, error } = await sb
     .from("erp_credential")
     .select(
@@ -844,6 +846,21 @@ export async function enqueueDueLightJobs(sb: SupabaseClient): Promise<number> {
 export async function processOneJob(sb: SupabaseClient, erpSecret: string): Promise<boolean> {
   const job = await claimNextJob(sb);
   if (!job) return false;
+
+  // LIGHT automático desligado — descarta se ainda houver na fila.
+  if (job.kind === "LIGHT" && process.env.LIGHT_AUTO !== "1") {
+    await sb
+      .from("sync_job")
+      .update({
+        status: "FAILED",
+        error: "LIGHT auto desligado (só Atualizar / FORCE)",
+        finished_at: new Date().toISOString(),
+      })
+      .eq("id", job.id)
+      .in("status", ["QUEUED", "RUNNING"]);
+    console.log(`Job ${job.id.slice(0, 8)}… LIGHT ignorado (LIGHT_AUTO off)`);
+    return true;
+  }
 
   // Nunca compete com o wizard: onboarding usa a mesma sessão Millennium.
   const { data: onboarding } = await sb

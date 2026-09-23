@@ -71,9 +71,9 @@ async function main() {
 
   const sb = createAdminClient();
   await recoverOnStartup(sb);
-  console.log(
-    `Worker Millennium · poll ${Math.round(pollMs / 1000)}s · SEED/HISTORY com filial; LIGHT hoje sem filial · desconectar em Configurações > Integração ERP`,
-  );
+        console.log(
+          `Worker Millennium · poll ${Math.round(pollMs / 1000)}s · só Atualizar (FORCE)${process.env.LIGHT_AUTO === "1" ? " · LIGHT_AUTO=1" : ""} · desconectar em Configurações > Integração ERP`,
+        );
   if (isWorkerPaused()) {
     console.log("⚠ Pausado local (.millennium-pause) — npm run erp -- resume");
   }
