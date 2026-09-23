@@ -1,0 +1,54 @@
+import { deIso } from "@/lib/format";
+import { calendarTodayIso } from "@/data/wedash/clock";
+import {
+  periodLabels,
+  resolvePeriod,
+  type Period,
+  type PeriodType,
+  type Scope,
+} from "@/data/wedash/dashboard";
+import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
+
+/** Intervalo Date a partir do escopo (presets + personalizado).
+ *  Usa o dia civil real das lojas — não o TODAY_ISO congelado do mock. */
+export function dateRangeFromPeriod(periodo: Period): DateRange {
+  const r = resolvePeriod(periodo, calendarTodayIso());
+  return [deIso(r.inicio), deIso(r.fim)];
+}
+
+/** Rótulo do input: nome do preset; personalizado → null (mostra o range). */
+export function periodDisplayLabel(periodo: Period): string | null {
+  if (periodo.tipo === "personalizado") return null;
+  return periodLabels[periodo.tipo];
+}
+
+export function periodActivePresetId(periodo: Period): PeriodType | null {
+  if (periodo.tipo === "personalizado") return null;
+  return periodo.tipo;
+}
+
+function toIsoLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Aplica clique no pill (preset) ou range manual no calendário. */
+export function applyPeriodDateChange(
+  escopo: Scope,
+  range: DateRange,
+  meta?: DateRangeChangeMeta,
+): Scope {
+  if (meta?.presetId) {
+    return { ...escopo, periodo: { tipo: meta.presetId } };
+  }
+  return {
+    ...escopo,
+    periodo: {
+      tipo: "personalizado",
+      inicio: toIsoLocal(range[0]),
+      fim: toIsoLocal(range[1]),
+    },
+  };
+}

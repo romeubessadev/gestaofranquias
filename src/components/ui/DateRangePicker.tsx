@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
+import { deIso } from "@/lib/format";
+import { calendarTodayIso } from "@/data/wedash/clock";
 
 /**
  * Seletor de intervalo de datas (DateRangePicker) — extraído do markup já
@@ -128,7 +130,8 @@ export function DateRangePicker({
   /** Dias depois disso ficam bloqueados (default: hoje). */
   maxDate?: Date | null;
 }) {
-  const hoje = useMemo(() => zeraHora(new Date()), []);
+  // Dia civil das lojas (Campo Grande) — alinhado a resolvePeriod/calendarTodayIso.
+  const hoje = useMemo(() => deIso(calendarTodayIso()), []);
   const min = useMemo(() => (minDate ? zeraHora(minDate) : null), [minDate]);
   const max = useMemo(() => zeraHora(maxDate ?? hoje), [maxDate, hoje]);
   const [open, setOpen] = useState(false);
@@ -137,6 +140,13 @@ export function DateRangePicker({
   const [panelPos, setPanelPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // Ao abrir: zera rascunho e alinha o mês ao valor atual (evita dia “fantasma” do draft).
+  useEffect(() => {
+    if (!open) return;
+    setDraftStart(null);
+    if (value) setViewMonth(new Date(value[0].getFullYear(), value[0].getMonth(), 1));
+  }, [open]); // value lido só no momento do open
 
   function diaBloqueado(dia: Date): boolean {
     if (min && dia < min) return true;
