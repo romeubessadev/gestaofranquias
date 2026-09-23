@@ -101,7 +101,7 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
     async listStores(tenantId) {
       const { data, error } = await sb
         .from("store")
-        .select("id, millennium_store_id, code, timezone, opened_at")
+        .select("id, millennium_store_id, code, timezone, opened_at, has_wpink")
         .eq("tenant_id", tenantId)
         .eq("active", true)
         .order("millennium_store_id");
@@ -112,6 +112,7 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
         code: string | null;
         timezone: string;
         opened_at: string | null;
+        has_wpink: boolean | null;
       }>).map(
         (r): SyncStore => ({
           id: r.id,
@@ -119,6 +120,7 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
           code: r.code || String(r.millennium_store_id).padStart(5, "0"),
           timezone: r.timezone || "America/Campo_Grande",
           openedAt: r.opened_at ? String(r.opened_at).slice(0, 10) : null,
+          hasWpink: r.has_wpink,
         }),
       );
     },

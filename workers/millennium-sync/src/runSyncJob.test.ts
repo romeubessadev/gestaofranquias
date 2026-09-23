@@ -4,6 +4,7 @@ import {
   collapseDaysToWindows,
   daysNeedingHeavySync,
   historyFloor,
+  isContentionError,
   missingDays,
   nextFallbackMaxDays,
   nextHistoryWindow,
@@ -186,7 +187,7 @@ describe("seedWindow / missingDays / history", () => {
     expect(days).not.toContain("2026-09-01");
   });
 
-  it("FORCE CMV/categoria = buracos + hoje (não reprocessa o que já tem)", async () => {
+  it("FORCE CMV = buracos + hoje; categorias = só buracos (sem alwaysToday)", async () => {
     const deps = {
       listDaysWithCmv: vi.fn().mockResolvedValue(["2026-09-01", "2026-09-02", "2026-09-03"]),
       listDaysWithCategory: vi.fn().mockResolvedValue(["2026-09-01", "2026-09-02"]),
@@ -210,7 +211,8 @@ describe("seedWindow / missingDays / history", () => {
       today: "2026-09-19",
       which: "category",
     });
-    expect(cat).toEqual(["2026-09-03", "2026-09-04", "2026-09-05", "2026-09-19"]);
+    // Sem alwaysToday: não inclui 09-19 se já não é buraco do range.
+    expect(cat).toEqual(["2026-09-03", "2026-09-04", "2026-09-05"]);
   });
 
   it("RANGE only returns gaps", () => {
@@ -450,12 +452,11 @@ describe("runSyncJob", () => {
 });
 
 describe("storeFetchConcurrency", () => {
-  it("defaults to sequential (1) when STORE_CONCURRENCY unset or 0", () => {
+  it("defaults to all stores when STORE_CONCURRENCY unset", () => {
     const prev = process.env.STORE_CONCURRENCY;
     delete process.env.STORE_CONCURRENCY;
-    expect(storeFetchConcurrency(3)).toBe(1);
-    process.env.STORE_CONCURRENCY = "0";
-    expect(storeFetchConcurrency(3)).toBe(1);
+    expect(storeFetchConcurrency(3)).toBe(3);
+    expect(storeFetchConcurrency(1)).toBe(1);
     if (prev === undefined) delete process.env.STORE_CONCURRENCY;
     else process.env.STORE_CONCURRENCY = prev;
   });
@@ -467,5 +468,24 @@ describe("storeFetchConcurrency", () => {
     expect(storeFetchConcurrency(1)).toBe(1);
     if (prev === undefined) delete process.env.STORE_CONCURRENCY;
     else process.env.STORE_CONCURRENCY = prev;
+  });
+
+  it("treats 0 / invalid as all stores", () => {
+    const prev = process.env.STORE_CONCURRENCY;
+    process.env.STORE_CONCURRENCY = "0";
+    expect(storeFetchConcurrency(3)).toBe(3);
+    process.env.STORE_CONCURRENCY = "abc";
+    expect(storeFetchConcurrency(2)).toBe(2);
+    if (prev === undefined) delete process.env.STORE_CONCURRENCY;
+    else process.env.STORE_CONCURRENCY = prev;
+  });
+});
+
+describe("isContentionError", () => {
+  it("detects busy / timeout / rate limit", () => {
+    expect(isContentionError("Millennium busy")).toBe(true);
+    expect(isContentionError("ETIMEDOUT")).toBe(true);
+    expect(isContentionError("429 Too Many Requests")).toBe(true);
+    expect(isContentionError("invalid password")).toBe(false);
   });
 });

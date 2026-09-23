@@ -310,6 +310,9 @@ async function syncCategoriesForRange(
   if (days.length === 0) return;
   const mapFrom = days[0]!;
   const mapTo = days[days.length - 1]!;
+  console.log(
+    `  [${args.store.code}] categorias… ${days.length} dia(s)`,
+  );
 
   let tipos: ProductTipo[] = [];
   try {
@@ -324,6 +327,9 @@ async function syncCategoriesForRange(
     console.warn(`  [${args.store.code}] categorias: nenhum tipo utilizável`);
     return;
   }
+  console.log(
+    `  [${args.store.code}] categorias · mapa produto→tipo · ${tipos.length} tipo(s)`,
+  );
 
   let productToTipo: Map<number, ProductTipo>;
   try {
@@ -333,6 +339,14 @@ async function syncCategoriesForRange(
       from: mapFrom,
       to: mapTo,
       tipos,
+      concurrency: 2,
+      onTipo: ({ done, total, tipo }) => {
+        if (done === 1 || done === total || done % 5 === 0) {
+          console.log(
+            `  [${args.store.code}] produto→tipo ${done}/${total} · ${tipo.name}`,
+          );
+        }
+      },
       fetchReport: (p) =>
         deps.fetchCategorySalesReport({
           session: p.session,
@@ -431,6 +445,8 @@ export type SyncStore = {
   timezone: string;
   /** DATA_INAUGURACAO — chão do backfill (null = só teto 24m). */
   openedAt?: string | null;
+  /** true = loja já teve WPINK no sync; false = só cosmético; undefined = ainda não sabemos. */
+  hasWpink?: boolean | null;
 };
 
 export type LoginResult =
@@ -610,6 +626,26 @@ function isSessionDeadError(msg: string): boolean {
   return /\b401\b/.test(t) || t.includes("unauthorized");
 }
 
+/** Contenção Millennium (sessão única / limite) — vale baixar concorrência e retry. */
+export function isContentionError(msg: string): boolean {
+  const t = msg.toLowerCase();
+  return (
+    t.includes("busy") ||
+    t.includes("ocupad") ||
+    t.includes("limite") ||
+    t.includes("too many") ||
+    t.includes("max session") ||
+    t.includes("concurrent") ||
+    t.includes("timeout") ||
+    t.includes("timed out") ||
+    t.includes("etimedout") ||
+    t.includes("econnreset") ||
+    t.includes("503") ||
+    t.includes("429") ||
+    t.includes("rate limit")
+  );
+}
+
 /** Run up to `concurrency` async tasks over `items` (order of results = input order). */
 export async function mapPool<T, R>(
   items: T[],
@@ -630,11 +666,94 @@ export async function mapPool<T, R>(
   return results;
 }
 
-/** Quantas lojas consultam VENDAS.Lista ao mesmo tempo (1 sessão Millennium). Default = 1 (sequencial). */
+/**
+ * Processa itens em paralelo; se der contenção Millennium, desce N → ⌊N/2⌋ → 1 e retenta só os que falharam.
+ * Índices originais preservados nos resultados.
+ */
+export async function mapPoolAdaptive<T, R>(
+  items: T[],
+  fn: (item: T, index: number) => Promise<R>,
+  opts?: { initialConcurrency?: number },
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let pending = items.map((item, i) => ({ item, i }));
+  let concurrency = Math.max(
+    1,
+    Math.min(opts?.initialConcurrency ?? items.length, items.length || 1),
+  );
+
+  while (pending.length > 0) {
+    const batch = pending;
+    pending = [];
+    const limit = Math.min(concurrency, batch.length);
+    if (batch.length === items.length) {
+      console.log(`Paralelo ×${limit} · ${batch.length} loja(s)/item(s)`);
+    } else {
+      console.log(`Retry paralelo ×${limit} · ${batch.length} loja(s)/item(s)`);
+    }
+
+    const contention: Array<{ item: T; i: number }> = [];
+    await mapPool(batch, limit, async (entry) => {
+      try {
+        results[entry.i] = await fn(entry.item, entry.i);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (isContentionError(msg) && concurrency > 1) {
+          contention.push(entry);
+          console.warn(`  contenção [${entry.i}]: ${msg.slice(0, 120)}`);
+        } else {
+          throw e;
+        }
+      }
+    });
+
+    if (contention.length === 0) break;
+    concurrency = Math.max(1, Math.floor(concurrency / 2));
+    console.warn(`↓ concorrência → ${concurrency} · retry ${contention.length} item(ns)`);
+    pending = contention;
+  }
+
+  return results;
+}
+
+/**
+ * Quantas lojas em paralelo (1 sessão Millennium).
+ * Default = todas as lojas do job. `STORE_CONCURRENCY` opcional só como teto.
+ */
 export function storeFetchConcurrency(storeCount: number): number {
-  const raw = Number(process.env.STORE_CONCURRENCY ?? "1");
-  if (!Number.isFinite(raw) || raw <= 0) return 1;
-  return Math.max(1, Math.min(Math.floor(raw), Math.max(1, storeCount)));
+  const n = Math.max(1, storeCount);
+  const raw = process.env.STORE_CONCURRENCY;
+  if (raw == null || raw.trim() === "") return n;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return n;
+  return Math.max(1, Math.min(Math.floor(parsed), n));
+}
+
+/** LIGHT / FORCE: brand report basta; DetMov classifica por descrição se sem mapa. */
+function shouldBuildProductBrandMap(
+  kind: SyncJobKind,
+  stores: SyncStore[],
+  lightToday: boolean,
+): boolean {
+  if (lightToday) return false;
+  if (kind === "FORCE" || kind === "FORCE_LIGHT") return false;
+  // Nenhuma loja marcada com WPINK → DetMov não roda; brand report basta.
+  if (stores.length > 0 && stores.every((s) => s.hasWpink === false)) return false;
+  if (kind === "SEED" || kind === "HISTORY" || kind === "BACKFILL" || kind === "RANGE") {
+    return true;
+  }
+  return false;
+}
+
+/** Janela do LISTAR enrich: SEED/HISTORY amplo; FORCE/RANGE só o dia (SKU do dia). */
+function productCatalogWindow(
+  kind: SyncJobKind,
+  todayIso: string,
+): { from: string; to: string } {
+  if (kind === "SEED" || kind === "HISTORY" || kind === "BACKFILL") {
+    return seedWindow(todayIso);
+  }
+  return { from: todayIso, to: todayIso };
 }
 
 /** Chunk inclusive range into ≤ maxDays windows. */
@@ -811,7 +930,8 @@ export function missingDays(
 
 /**
  * CMV / categorias: SEED/HISTORY = janela inteira;
- * FORCE = buracos + hoje; RANGE = só buracos (dia fechado não muda).
+ * FORCE CMV = buracos + hoje; FORCE categorias = só buracos (mapa tipos é caro —
+ * reprocessar hoje a cada Atualizar trava o job). RANGE = só buracos.
  */
 export async function daysNeedingHeavySync(
   deps: Pick<SyncJobDeps, "listDaysWithCmv" | "listDaysWithCategory">,
@@ -837,7 +957,10 @@ export async function daysNeedingHeavySync(
     from,
     to,
   });
-  const alwaysToday = kind === "FORCE" || kind === "FORCE_LIGHT";
+  // Categorias: NÃO forçar hoje — cada refresh = dezenas de wtsreports (1× por tipo).
+  // CMV / Lista ainda rebuscam hoje.
+  const alwaysToday =
+    (kind === "FORCE" || kind === "FORCE_LIGHT") && args.which === "cmv";
   return missingDays(from, to, have, { today, alwaysToday });
 }
 
@@ -891,9 +1014,14 @@ function shouldSyncCmv(kind: SyncJobKind): boolean {
   );
 }
 
-/** Mesma janela do CMV — categorias não rodam no LIGHT. */
+/** Categorias: SEED/HISTORY/RANGE. FORCE pula — mapa 1×tipo trava o Atualizar. */
 function shouldSyncCategories(kind: SyncJobKind): boolean {
-  return shouldSyncCmv(kind);
+  return (
+    kind === "SEED" ||
+    kind === "BACKFILL" ||
+    kind === "HISTORY" ||
+    kind === "RANGE"
+  );
 }
 
 async function windowsForStore(
@@ -1185,11 +1313,21 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
     let productMap: ProductBrandMap = new Map();
     let geradorIdsWithWpink = new Set<number>();
     const geradorIds = [...geradorMap.values()];
-    if (geradorIds.length > 0) {
+    const lightToday =
+      job.kind === "LIGHT" ||
+      (job.kind === "FORCE_LIGHT" && !job.payload.from && !job.payload.to);
+    // Pré-marca lojas já conhecidas com WPINK (evita DetMov sem mapa no FORCE).
+    for (const s of storeList) {
+      if (s.hasWpink === true) {
+        const g = geradorMap.get(s.code);
+        if (g != null) geradorIdsWithWpink.add(g);
+      }
+    }
+    if (geradorIds.length > 0 && shouldBuildProductBrandMap(job.kind, storeList, lightToday)) {
       try {
         const catalogTz = storeList[0]?.timezone ?? "America/Sao_Paulo";
         const catalogToday = ymdInTz(now, catalogTz);
-        const catalogWin = seedWindow(catalogToday);
+        const catalogWin = productCatalogWindow(job.kind, catalogToday);
         const brandStores = storeList
           .map((s) => {
             const geradorId = geradorMap.get(s.code);
@@ -1225,12 +1363,15 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
         const msg = e instanceof Error ? e.message : String(e);
         console.warn(`Product map falhou — brand split desligado neste job: ${msg}`);
       }
-    } else {
+    } else if (geradorIds.length === 0) {
       console.warn("Sem GERADOR — brand split desligado neste job");
+    } else {
+      console.log(
+        lightToday
+          ? "Product map · skip (LIGHT — brand report basta)"
+          : "Product map · skip (nenhuma loja com WPINK)",
+      );
     }
-    const lightToday =
-      job.kind === "LIGHT" ||
-      (job.kind === "FORCE_LIGHT" && !job.payload.from && !job.payload.to);
 
     if (lightToday) {
       // LIGHT: 1× VENDAS.Lista sem FILIAL (hoje) → particiona por FILIAL da linha.
@@ -1338,10 +1479,12 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
     } else {
       const concurrency = storeFetchConcurrency(storeList.length);
       console.log(
-        `Sessão OK (${ensured.reused ? "reusada" : "nova"}) · ${storeList.length} loja(s) · paralelo ×${concurrency}`,
+        `Sessão OK (${ensured.reused ? "reusada" : "nova"}) · ${storeList.length} loja(s) · começa paralelo ×${concurrency}`,
       );
 
-      const storeResults = await mapPool(storeList, concurrency, async (store, i) => {
+      const storeResults = await mapPoolAdaptive(
+        storeList,
+        async (store, i) => {
         const eventoIds = await deps.resolveEventoIds(session!, store.code);
         if (eventoIds.length === 0) {
           throw new Error(`Nenhum EVENTO de venda para a loja ${store.code}`);
@@ -1394,15 +1537,19 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
                 today: todayStore,
                 which: "category",
               });
-              await syncCategoriesForRange(deps, {
-                session: session!,
-                tenantId: job.tenantId,
-                store,
-                geradorId,
-                from: cmvWin.from,
-                to: cmvWin.to,
-                days: catDays,
-              });
+              if (catDays.length === 0) {
+                console.log(`  [${store.code}] categorias · skip (sem buraco)`);
+              } else {
+                await syncCategoriesForRange(deps, {
+                  session: session!,
+                  tenantId: job.tenantId,
+                  store,
+                  geradorId,
+                  from: cmvWin.from,
+                  to: cmvWin.to,
+                  days: catDays,
+                });
+              }
             }
           }
           return 1;
@@ -1628,15 +1775,19 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
               today: todayStore,
               which: "category",
             });
-            await syncCategoriesForRange(deps, {
-              session: session!,
-              tenantId: job.tenantId,
-              store,
-              geradorId,
-              from: cmvWin.from,
-              to: cmvWin.to,
-              days: catDays,
-            });
+            if (catDays.length === 0) {
+              console.log(`  [${store.code}] categorias · skip (sem buraco)`);
+            } else {
+              await syncCategoriesForRange(deps, {
+                session: session!,
+                tenantId: job.tenantId,
+                store,
+                geradorId,
+                from: cmvWin.from,
+                to: cmvWin.to,
+                days: catDays,
+              });
+            }
           }
         }
         console.log(
@@ -1644,8 +1795,10 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
             (dayErrors > 0 ? ` · ${dayErrors} janela(s) com falha` : ""),
         );
         return 1;
-      });
-      storesDone = storeResults.reduce((a, b) => a + b, 0);
+        },
+        { initialConcurrency: concurrency },
+      );
+      storesDone = storeResults.reduce((a, b) => a + (b ?? 0), 0);
     }
 
     const finishedAt = deps.now();

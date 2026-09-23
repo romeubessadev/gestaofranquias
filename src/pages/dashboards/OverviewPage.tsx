@@ -601,30 +601,20 @@ export default function OverviewPage() {
             <div>
               <div className="flex items-center gap-1.5">
                 <CardTitle>Faturamento por categoria</CardTitle>
-                <Tooltip label="Mostra o mix de faturamento por tipo de produto no período — inclusive categorias zeradas.">
+                <Tooltip label="Mix por tipo de produto. Em breve: mapa produto→categoria persistido (sem N reports por tipo).">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
                 </Tooltip>
               </div>
             </div>
-            <BadgeVsAnterior delta={view.deltaFaturamento} />
+            <span className="rounded-md border border-line bg-bg-inset px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-t2">
+              TODO
+            </span>
           </div>
-          {view.categoriaVsMeta.length === 0 ? (
-            <p className="py-8 text-center text-sm text-t2">
-              Sem categorias sincronizadas ainda. Rode Atualizar após o SEED de vendas.
-            </p>
-          ) : (
-            <BarChart
-              data={view.categoriaVsMeta.map((c) => ({
-                label: c.categoria,
-                value: c.realizado,
-              }))}
-              height={220}
-              color="var(--acc)"
-              formatValue={brlCent}
-            />
-          )}
+          <p className="py-8 text-center text-sm text-t2">
+            Em breve — categorias ficam de fora do Atualizar por enquanto.
+          </p>
         </Card>
         {view.diaVsMeta.length > 0 && (
           <Card padding="lg">

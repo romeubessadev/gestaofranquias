@@ -287,11 +287,12 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
 11. ✅ **Metas fora do Dashboard** (2026-09-17) — item de menu abaixo do Dashboard (`/metas`). Saiu de Configurações; URL legada `/configuracoes/metas` redireciona. Esqueleto em `src/pages/metas/MetasPage.tsx` (listagem fixture; CRUD amanhã).
 12. ✅ **Onboarding sem Equipe** (2026-09-19) — wizard = Empresa → ERP → Lojas → Dashboard. Sync de funcionários sai do onboarding (precisa explicar cadastro no Millennium); Edge `millennium-onboarding` só login/filiais/logout (sem FUNCIONARIOS.Lista).
 13. ✅ **Sessão ERP ligada ao usuário WeDash (persistente)** (2026-09-21) — No onboarding vinculamos credencial Millennium ao tenant. O token fica em `erp_credential.millennium_session` e **renova enquanto a integração estiver ativa**. Worker **reusa** o token (só faz login se não houver / 401); **não** desloga ao fim de cada job nem no Ctrl+C. Logout explícito só em **Configurações > Integração ERP** (`Desconectar` = pause + release) ou `npm run erp -- pause`. Ideal: usuário ERP dedicado à WeDash.
-14. ✅ **VENDAS.Lista em paralelo por loja** (2026-09-21; **default sequencial 2026-09-22**) — 1 login / 1 `WTS-Session`. SEED/HISTORY/FORCE usam Lista **com FILIAL**, mês a mês, `STORE_CONCURRENCY` default **1**. Se o ERP aguentar, subir concurrency.
+14. ✅ **VENDAS.Lista em paralelo por loja** (2026-09-21; **adaptativo 2026-09-23**) — 1 login / 1 `WTS-Session`. Default = **todas as lojas do job em paralelo**; se Millennium der busy/timeout, desce N→⌊N/2⌋→1 e retenta. `STORE_CONCURRENCY` opcional só como teto. LIGHT: 1× Lista sem filial. FORCE: Product map só se alguma loja tem WPINK; janela LISTAR = hoje (não mês ant.).
 15. ✅ **Onboarding: token sobrevive até o SEED** (2026-09-21/22) — Step2 testa, **persiste** usuário/senha/token (sem SEED); Step3 confirma lojas e enfileira SEED **sem** logout. Logout só ao **Voltar** / Desconectar. Troca de username ERP **apaga** dados de sync do tenant.
-16. ✅ **Botão Atualizar (FORCE)** (2026-09-21; **loja + cooldown 2026-09-22**; **CMV/cat/formas = buracos+hoje 2026-09-23**) — período filtrado + hoje; teto 90 dias. Escopo = loja do StorePicker (`storeIds`); “Todas” = rede. Cooldown **5 min por loja** a partir do **fim** do job (`finished_at`); “Todas” bloqueia se **qualquer** FORCE recente (opção A). FORCE “Todas” recente também bloqueia cada loja. FORCE bem-sucedido grava `last_light_sync_at` → reinicia LIGHT (5 min, rede). Worker: 1 job RUNNING/credencial (fila), escopo por loja no payload.
- - **1º FORCE** no período: Lista + CMV + categorias + formas nos **buracos** (+ sempre hoje).
- - **2º FORCE** no mesmo período: só **hoje** (dia fechado não muda).
+16. ✅ **Botão Atualizar (FORCE)** (2026-09-21; **loja + cooldown 2026-09-22**; **rápido 2026-09-23**) — período filtrado + hoje; teto 90 dias. Escopo = loja do StorePicker (`storeIds`); “Todas” = rede. Cooldown **5 min por loja** a partir do **fim** do job (`finished_at`); “Todas” bloqueia se **qualquer** FORCE recente (opção A). FORCE “Todas” recente também bloqueia cada loja. FORCE bem-sucedido grava `last_light_sync_at` → reinicia LIGHT (5 min, rede). Worker: 1 job RUNNING/credencial (fila), escopo por loja no payload.
+ - **FORCE faz:** Lista + brand split + CMV + formas (buracos + hoje). **Não faz** Product map LISTAR nem categorias (17× wtsreports/loja — travava o Atualizar).
+ - Categorias ficam em SEED/HISTORY/RANGE (backfill).
+ - **2º FORCE** no mesmo período: Lista/CMV/formas = só **hoje**.
  - Buraco de forma = venda no `sales_day_agg` sem `sales_payment_day_agg` (exceto R$ 0).
 17. ✅ **Sync NÃO depende de presença WeDash** (corrigido 2026-09-22) — Claim/LIGHT **ignoram** `wedash_present_at`. Sair da WeDash **não** pausa o Millennium. Desconectar ERP = só em Integração ERP. Contrato de jobs:
 - **SEED** — mês anterior 01 → hoje; Lista **com** filial; lojas sequenciais; tela `/sincronizando` até cobertura. Sem HISTORY automático no MVP (`HISTORY_AFTER_SEED=1` liga depois).
@@ -307,11 +308,11 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
 19. ✅ **CMV na Visão Geral** (2026-09-23; **DATAF inclusivo**) — fonte `MILLENIUM!FRANQUIAS.RELATORIOS.RELATORIOMARGEM`.
    - **Nome no ERP (UI / path):** `FRANQUIAS > RELATORIOS > RELATORIOMARGEM` (`CUSTO_TOTAL` = `CUSTO_FRANQUIAS × QTDE`).
    - Grava `sales_day_agg.cmv_cents` (brand=ALL) em SEED/HISTORY/FORCE/RANGE (não no LIGHT). Faturamento continua da Lista. Com filtro de marca, CMV fica “—” até split de custo. **DATAI/DATAF = calendário inclusivo** (UI Data Inicial→Final) — **não** reusar `milleniumDataRange` da Lista (`DATAF` exclusivo / +1 dia), senão cada dia puxa o seguinte e o somatório dobra (~2×).
-20. ✅ **Categorias (mix)** (2026-09-23; UI **sem meta** no Overview) — report wtsreports `C5BBF0E2`.
- - **Nome no ERP (UI):** `WEPINK - PRODUTOS VENDIDOS POR VENDEDOR`
- - Linha **não** traz `PRODUTO_TIPO_TIPO` (só filtro). Sync: (1) lookup `produto.tipo.tipo`; (2) 1 call filtrada por tipo no período → mapa produto→tipo; (3) 1 call/dia sem filtro → `sales_category_day_agg`.
- - Visão Geral: card **Faturamento por categoria** (barras + scroll; inclui tipos já vistos no sync com R$ 0). Meta por categoria só quando existir no CRUD de Metas — **não** inventar Goal proporcional.
- - Não roda no LIGHT.
+20. 🔲 **TODO Categorias (mix Overview)** (pausado 2026-09-23) — card **Faturamento por categoria** na Visão Geral fica placeholder TODO.
+ - **Não** popular via FORCE / LIGHT / Atualizar (sync de categorias tirado do FORCE — 17× wtsreports/tipo travava).
+ - Direção futura: tabela `produto → tipo`, backfill 1×, dia = 1 report (ou DetMov) + join. Meta por categoria só com CRUD de Metas.
+ - Código de sync (SEED/HISTORY/RANGE + `sales_category_day_agg`) preservado; UI não consome por enquanto.
+ - Report ERP: **WEPINK - PRODUTOS VENDIDOS POR VENDEDOR** `{C5BBF0E2-…}`.
 
 20b. ✅ **Formas de pagamento** (2026-09-23) — `CONDICAO` da `VENDAS.Lista` (sem relatório novo).
  - Tabela `sales_payment_day_agg` (loja×dia×forma, brand=ALL).
@@ -324,7 +325,7 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
 |---|---|---|
 | Marca / dia (WEPINK·WPINK) | **TOTAL VENDA POR DIA** | `{70F9DE61-9CA7-4798-864F-B40B74E61BE5}` |
 | CMV | **RELATORIOMARGEM** (`FRANQUIAS > RELATORIOS`) | `MILLENIUM!FRANQUIAS.RELATORIOS.RELATORIOMARGEM` |
-| Categorias (mix Overview) | **WEPINK - PRODUTOS VENDIDOS POR VENDEDOR** | `{C5BBF0E2-23D5-4493-903F-F529968AC0F2}` |
+| Categorias (mix Overview) | **WEPINK - PRODUTOS VENDIDOS POR VENDEDOR** | `{C5BBF0E2-…}` — **TODO UI** (card pausado) |
 | Mapa produto→marca (estoque) | report divisão estoque | `{9701602B-B363-4770-989C-8C4459B7E105}` |
 
 21. 🔲 **TODO Configurações > Custos** (não esquecer):
