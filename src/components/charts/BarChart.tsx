@@ -6,8 +6,26 @@ export interface BarDatum {
   color?: string;
 }
 
-/** Largura mínima por barra no mobile — abaixo disso ativa scroll (padrão AreaLineChart). */
+/** Largura mínima por barra — abaixo disso ativa scroll-x. */
 const MIN_BAR_W = 72;
+/** ~px/char em text-[10.5px] font-bold tabular — "R$ 313.390,27" ≈ 14 chars. */
+const VALUE_CHAR_PX = 8;
+const VALUE_PAD_PX = 28;
+
+/** Largura mínima da coluna para o R$ do topo não invadir a vizinha. */
+function minColWidth(
+  data: BarDatum[],
+  formatValue: (v: number) => string,
+  showValues: boolean,
+): number {
+  if (!showValues) return MIN_BAR_W;
+  let maxChars = 4;
+  for (const d of data) {
+    if (d.value === 0) continue;
+    maxChars = Math.max(maxChars, formatValue(d.value).length);
+  }
+  return Math.max(MIN_BAR_W, Math.ceil(maxChars * VALUE_CHAR_PX + VALUE_PAD_PX));
+}
 
 export function BarChart({
   data,
@@ -30,7 +48,9 @@ export function BarChart({
   const max = Math.max(...data.map((d) => Math.max(d.value, d.goal ?? 0)), 1);
   /** Área das barras (sem labels/valores) — mesma altura efetiva p/ a linha SVG. */
   const plotH = Math.max(80, height - (showValues ? 28 : 8) - 22);
-  const minW = Math.max(data.length * MIN_BAR_W, 280);
+  const colW = minColWidth(data, formatValue, showValues);
+  const gapPx = 16;
+  const minW = Math.max(data.length * colW + Math.max(0, data.length - 1) * gapPx, 280);
 
   const goalPoints = hasGoals
     ? data.map((d, i) => {
@@ -50,14 +70,15 @@ export function BarChart({
   return (
     <div className="w-full overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
       <div className="relative" style={{ minWidth: minW, height }}>
-        <div className="relative flex h-full items-stretch gap-2.5 sm:gap-3">
+        <div className="relative flex h-full items-stretch" style={{ gap: gapPx }}>
           {data.map((d, i) => (
             <div
               key={d.label}
-              className="relative z-[1] flex min-w-[56px] flex-1 flex-col items-center gap-2"
+              className="relative z-[1] flex flex-col items-center gap-2"
+              style={{ flex: `1 0 ${colW}px`, minWidth: colW }}
             >
               {showValues && (
-                <span className="whitespace-nowrap text-[10.5px] font-bold text-t1">
+                <span className="whitespace-nowrap text-center text-[10.5px] font-bold tabular-nums text-t1">
                   {d.value === 0 ? "" : formatValue(d.value)}
                 </span>
               )}
@@ -73,7 +94,7 @@ export function BarChart({
                   }}
                 />
               </div>
-              <span className="w-full truncate text-center text-[10.5px] font-semibold text-t2" title={d.label}>
+              <span className="w-full truncate text-center text-[10.5px] font-semibold uppercase text-t2" title={d.label}>
                 {d.label}
               </span>
             </div>
@@ -183,7 +204,7 @@ export function StackedBarWithGoal({ data, height = 200, color = "var(--acc)", f
               )}
             </div>
             {/* Label do eixo X */}
-            <span className="truncate text-[9px] font-semibold text-t2 sm:text-[10px]">{d.label}</span>
+            <span className="truncate text-[9px] font-semibold uppercase text-t2 sm:text-[10px]">{d.label}</span>
           </div>
         );
       })}
