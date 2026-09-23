@@ -140,6 +140,42 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
       return [...days];
     },
 
+    async listDaysWithCmv({ tenantId, storeId, from, to }) {
+      const { data, error } = await sb
+        .from("sales_day_agg")
+        .select("day")
+        .eq("tenant_id", tenantId)
+        .eq("store_id", storeId)
+        .eq("brand", "ALL")
+        .not("cmv_cents", "is", null)
+        .gte("day", from)
+        .lte("day", to);
+      if (error) throw error;
+      const days = new Set<string>();
+      for (const r of data ?? []) {
+        const d = String((r as { day: string }).day).slice(0, 10);
+        if (d) days.add(d);
+      }
+      return [...days];
+    },
+
+    async listDaysWithCategory({ tenantId, storeId, from, to }) {
+      const { data, error } = await sb
+        .from("sales_category_day_agg")
+        .select("day")
+        .eq("tenant_id", tenantId)
+        .eq("store_id", storeId)
+        .gte("day", from)
+        .lte("day", to);
+      if (error) throw error;
+      const days = new Set<string>();
+      for (const r of data ?? []) {
+        const d = String((r as { day: string }).day).slice(0, 10);
+        if (d) days.add(d);
+      }
+      return [...days];
+    },
+
     async earliestSalesDay({ tenantId, storeId }) {
       const { data, error } = await sb
         .from("sales_day_agg")

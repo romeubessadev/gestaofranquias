@@ -251,9 +251,12 @@ async function syncCmvForRange(
     store: SyncStore;
     from: string;
     to: string;
+    /** Se passado, só estes dias (pula intermediários). */
+    days?: string[];
   },
 ): Promise<void> {
-  const days = eachIsoDay(args.from, args.to);
+  const days = args.days ?? eachIsoDay(args.from, args.to);
+  if (days.length === 0) return;
   const patches: Array<{ tenantId: string; storeId: string; day: string; cmvCents: number }> = [];
   let ok = 0;
   let fail = 0;
@@ -281,7 +284,7 @@ async function syncCmvForRange(
   }
   if (patches.length > 0) await deps.patchDayCmv(patches);
   console.log(
-    `  [${args.store.code}] CMV ${args.from}→${args.to} · ${ok} dia(s) ok · ${fail} fail`,
+    `  [${args.store.code}] CMV ${days[0]}→${days[days.length - 1]} · ${ok} dia(s) ok · ${fail} fail`,
   );
 }
 
@@ -299,8 +302,15 @@ async function syncCategoriesForRange(
     geradorId: number;
     from: string;
     to: string;
+    /** Se passado, só estes dias (pula intermediários). */
+    days?: string[];
   },
 ): Promise<void> {
+  const days = args.days ?? eachIsoDay(args.from, args.to);
+  if (days.length === 0) return;
+  const mapFrom = days[0]!;
+  const mapTo = days[days.length - 1]!;
+
   let tipos: ProductTipo[] = [];
   try {
     tipos = (await deps.fetchProductTipos(args.session)).filter((t) => isUsableTipoId(t.id));
@@ -320,8 +330,8 @@ async function syncCategoriesForRange(
     productToTipo = await buildProductTipoMap({
       session: args.session,
       geradorId: args.geradorId,
-      from: args.from,
-      to: args.to,
+      from: mapFrom,
+      to: mapTo,
       tipos,
       fetchReport: (p) =>
         deps.fetchCategorySalesReport({
@@ -342,7 +352,6 @@ async function syncCategoriesForRange(
     `  [${args.store.code}] produto→tipo · ${productToTipo.size} SKU(s) · ${tipos.length} tipo(s)`,
   );
 
-  const days = eachIsoDay(args.from, args.to);
   const out: SalesCategoryDayAgg[] = [];
   let ok = 0;
   let fail = 0;
@@ -372,7 +381,7 @@ async function syncCategoriesForRange(
   }
   if (out.length > 0) await deps.upsertCategoryDayAggs(out);
   console.log(
-    `  [${args.store.code}] categorias ${args.from}→${args.to} · ${ok} dia(s) ok · ${fail} fail · ${out.length} linha(s)`,
+    `  [${args.store.code}] categorias ${mapFrom}→${mapTo} · ${ok} dia(s) ok · ${fail} fail · ${out.length} linha(s)`,
   );
 }
 
@@ -440,6 +449,20 @@ export type SyncJobDeps = {
   listStores: (tenantId: string) => Promise<SyncStore[]>;
   /** Days already in sales_day_agg for this store (any brand). */
   listExistingDays: (args: {
+    tenantId: string;
+    storeId: string;
+    from: string;
+    to: string;
+  }) => Promise<string[]>;
+  /** Dias com CMV preenchido (brand=ALL, cmv_cents not null). */
+  listDaysWithCmv: (args: {
+    tenantId: string;
+    storeId: string;
+    from: string;
+    to: string;
+  }) => Promise<string[]>;
+  /** Dias que já têm sales_category_day_agg. */
+  listDaysWithCategory: (args: {
     tenantId: string;
     storeId: string;
     from: string;
@@ -774,6 +797,38 @@ export function missingDays(
     return [...set].sort();
   }
   return need.sort();
+}
+
+/**
+ * CMV / categorias: SEED/HISTORY = janela inteira;
+ * FORCE = buracos + hoje; RANGE = só buracos (dia fechado não muda).
+ */
+export async function daysNeedingHeavySync(
+  deps: Pick<SyncJobDeps, "listDaysWithCmv" | "listDaysWithCategory">,
+  args: {
+    kind: SyncJobKind;
+    tenantId: string;
+    storeId: string;
+    from: string;
+    to: string;
+    today: string;
+    which: "cmv" | "category";
+  },
+): Promise<string[]> {
+  const { kind, from, to, today } = args;
+  if (kind === "SEED" || kind === "BACKFILL" || kind === "HISTORY") {
+    return eachIsoDay(from, to);
+  }
+  const listHave =
+    args.which === "cmv" ? deps.listDaysWithCmv.bind(deps) : deps.listDaysWithCategory.bind(deps);
+  const have = await listHave({
+    tenantId: args.tenantId,
+    storeId: args.storeId,
+    from,
+    to,
+  });
+  const alwaysToday = kind === "FORCE" || kind === "FORCE_LIGHT";
+  return missingDays(from, to, have, { today, alwaysToday });
 }
 
 function kindLabel(kind: SyncJobKind): string {
@@ -1284,12 +1339,22 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
             `Loja ${i + 1}/${storeList.length} (${store.code}) — nada a buscar (já no banco)`,
           );
           if (shouldSyncCmv(job.kind) && cmvWin) {
+            const cmvDays = await daysNeedingHeavySync(deps, {
+              kind: job.kind,
+              tenantId: job.tenantId,
+              storeId: store.id,
+              from: cmvWin.from,
+              to: cmvWin.to,
+              today: todayStore,
+              which: "cmv",
+            });
             await syncCmvForRange(deps, {
               session: session!,
               tenantId: job.tenantId,
               store,
               from: cmvWin.from,
               to: cmvWin.to,
+              days: cmvDays,
             });
           }
           if (shouldSyncCategories(job.kind) && cmvWin) {
@@ -1297,6 +1362,15 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
             if (geradorId == null) {
               console.warn(`  [${store.code}] categorias: sem gerador (pula)`);
             } else {
+              const catDays = await daysNeedingHeavySync(deps, {
+                kind: job.kind,
+                tenantId: job.tenantId,
+                storeId: store.id,
+                from: cmvWin.from,
+                to: cmvWin.to,
+                today: todayStore,
+                which: "category",
+              });
               await syncCategoriesForRange(deps, {
                 session: session!,
                 tenantId: job.tenantId,
@@ -1304,6 +1378,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
                 geradorId,
                 from: cmvWin.from,
                 to: cmvWin.to,
+                days: catDays,
               });
             }
           }
@@ -1496,23 +1571,40 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
           geradorMap,
           geradorIdsWithWpink,
         });
-        // CMV (RELATORIOMARGEM) — período do filtro no FORCE, não só buracos da Lista.
-        // imposto% = TODO Configurações > Custos.
+        // CMV / categorias: FORCE = buracos + hoje; SEED/HISTORY = janela; RANGE = só buracos.
         if (shouldSyncCmv(job.kind) && cmvWin) {
+          const cmvDays = await daysNeedingHeavySync(deps, {
+            kind: job.kind,
+            tenantId: job.tenantId,
+            storeId: store.id,
+            from: cmvWin.from,
+            to: cmvWin.to,
+            today: todayStore,
+            which: "cmv",
+          });
           await syncCmvForRange(deps, {
             session: session!,
             tenantId: job.tenantId,
             store,
             from: cmvWin.from,
             to: cmvWin.to,
+            days: cmvDays,
           });
         }
-        // Categorias (C5BBF0E2) — mapa produto→tipo + 1 call/dia.
         if (shouldSyncCategories(job.kind) && cmvWin) {
           const geradorId = geradorMap.get(store.code);
           if (geradorId == null) {
             console.warn(`  [${store.code}] categorias: sem gerador (pula)`);
           } else {
+            const catDays = await daysNeedingHeavySync(deps, {
+              kind: job.kind,
+              tenantId: job.tenantId,
+              storeId: store.id,
+              from: cmvWin.from,
+              to: cmvWin.to,
+              today: todayStore,
+              which: "category",
+            });
             await syncCategoriesForRange(deps, {
               session: session!,
               tenantId: job.tenantId,
@@ -1520,6 +1612,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
               geradorId,
               from: cmvWin.from,
               to: cmvWin.to,
+              days: catDays,
             });
           }
         }

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   chunkByCalendarMonths,
   collapseDaysToWindows,
+  daysNeedingHeavySync,
   historyFloor,
   missingDays,
   nextFallbackMaxDays,
@@ -60,6 +61,8 @@ function makeDeps(overrides: Partial<SyncJobDeps> = {}): SyncJobDeps & {
     }),
     listStores: vi.fn().mockResolvedValue(stores),
     listExistingDays: vi.fn().mockResolvedValue([]),
+    listDaysWithCmv: vi.fn().mockResolvedValue([]),
+    listDaysWithCategory: vi.fn().mockResolvedValue([]),
     earliestSalesDay: vi.fn().mockResolvedValue(null),
     login: vi.fn().mockImplementation(async () => {
       calls.login += 1;
@@ -180,6 +183,33 @@ describe("seedWindow / missingDays / history", () => {
     expect(days).toContain("2026-09-19");
     expect(days).toContain("2026-09-02");
     expect(days).not.toContain("2026-09-01");
+  });
+
+  it("FORCE CMV/categoria = buracos + hoje (não reprocessa o que já tem)", async () => {
+    const deps = {
+      listDaysWithCmv: vi.fn().mockResolvedValue(["2026-09-01", "2026-09-02", "2026-09-03"]),
+      listDaysWithCategory: vi.fn().mockResolvedValue(["2026-09-01", "2026-09-02"]),
+    };
+    const cmv = await daysNeedingHeavySync(deps, {
+      kind: "FORCE",
+      tenantId: "t1",
+      storeId: "s1",
+      from: "2026-09-01",
+      to: "2026-09-05",
+      today: "2026-09-19",
+      which: "cmv",
+    });
+    expect(cmv).toEqual(["2026-09-04", "2026-09-05", "2026-09-19"]);
+    const cat = await daysNeedingHeavySync(deps, {
+      kind: "FORCE",
+      tenantId: "t1",
+      storeId: "s1",
+      from: "2026-09-01",
+      to: "2026-09-05",
+      today: "2026-09-19",
+      which: "category",
+    });
+    expect(cat).toEqual(["2026-09-03", "2026-09-04", "2026-09-05", "2026-09-19"]);
   });
 
   it("RANGE only returns gaps", () => {
