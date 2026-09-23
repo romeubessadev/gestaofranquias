@@ -5,7 +5,7 @@ export type SalesBrand = "WEPINK" | "WPINK" | "ALL";
 /** One VENDAS.Lista line (or collapsed operation) after Millennium map. */
 export type SaleRow = {
   operationCode: string;
-  /** Instant from DATA_H (never ERP DATA). */
+  /** Instant used for day/hour buckets (DATA calendar + DATA_H clock). */
   occurredAt: Date;
   /** VALOR_FINAL in cents. */
   revenueCents: number;
@@ -26,6 +26,11 @@ export type SalesDayAgg = {
   /** Distinct COD_OPERACAO count. */
   salesCount: number;
   itemCount: number;
+  /**
+   * CMV em centavos (RELATORIOMARGEM Σ CUSTO_TOTAL). brand=ALL na v1.
+   * TODO(Configurações>Custos): × (1 + imposto_sobre_custo_pct).
+   */
+  cmvCents?: number;
 };
 
 /** Hourly bucket — matches sales_hour_agg (current local day). */

@@ -470,6 +470,7 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
           revenueCents: 150_00,
           salesCount: 3,
           itemCount: 5,
+          cmvCents: 60_00,
         },
         {
           tenantId: "t1",
@@ -479,6 +480,7 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
           revenueCents: 50_00,
           salesCount: 1,
           itemCount: 2,
+          cmvCents: 20_00,
         },
       ],
     });
@@ -486,6 +488,8 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
     const fat = v.kpis.find((k) => k.label === "Faturamento")?.valor ?? "";
     expect(fat).toMatch(/200|R\$/);
     expect(v.kpis.find((k) => k.label === "Ticket médio")?.valor).toMatch(/50/);
+    expect(v.kpis.find((k) => k.label === "CMV")?.valor).toMatch(/80/);
+    expect(v.kpis.find((k) => k.label === "CMV")?.sub).toMatch(/%/);
   });
 
   it("brand filter uses WEPINK sales_count and ticket (not ALL)", () => {

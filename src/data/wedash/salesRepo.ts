@@ -32,6 +32,7 @@ type DayRow = {
   revenue_cents: number;
   sales_count: number;
   item_count: number;
+  cmv_cents?: number | null;
 };
 
 type HourRow = DayRow & { hour: number };
@@ -45,6 +46,7 @@ function mapDay(r: DayRow): SalesDayAgg {
     revenueCents: Number(r.revenue_cents) || 0,
     salesCount: Number(r.sales_count) || 0,
     itemCount: Number(r.item_count) || 0,
+    cmvCents: Number(r.cmv_cents) || 0,
   };
 }
 
@@ -70,7 +72,7 @@ export async function fetchSalesDayAggs(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let q: any = (client.from("sales_day_agg") as any)
-    .select("tenant_id, store_id, day, brand, revenue_cents, sales_count, item_count")
+    .select("tenant_id, store_id, day, brand, revenue_cents, sales_count, item_count, cmv_cents")
     .eq("tenant_id", query.tenantId)
     .gte("day", query.from)
     .lte("day", query.to);

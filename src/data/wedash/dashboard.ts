@@ -19,13 +19,13 @@ import { buildStoreInsight } from "./insight";
 
 export type PeriodType =
   | "hoje"
+  | "ontem"
   | "estaSemana"
   | "esteMes"
   | "esteTrimestre"
   | "esteSemestre"
   | "esteAno"
   /** Legados (URL antiga / testes) — ainda resolvem. */
-  | "ontem"
   | "7dias"
   | "mesPassado"
   | "personalizado";
@@ -79,6 +79,7 @@ export const periodLabels: Record<PeriodType, string> = {
 /** Presets do DateRangePicker (ordem dos pills). */
 export const PERIOD_PRESETS: PeriodType[] = [
   "hoje",
+  "ontem",
   "estaSemana",
   "esteMes",
   "esteTrimestre",
@@ -224,7 +225,6 @@ export function resolvePeriod(p: Period, hojeIso: string = TODAY_ISO): ResolvedP
   let rotulo: string;
   if (
     p.tipo !== "personalizado" &&
-    p.tipo !== "ontem" &&
     p.tipo !== "7dias" &&
     p.tipo !== "esteMes" &&
     p.tipo !== "mesPassado"
@@ -2442,13 +2442,6 @@ export interface OverviewView {
   rankingLojas: (TopItem & { pctMeta?: number; trend?: number })[];
   /** True when KPIs come from sales_*_agg (possibly empty). */
   fromAggregates?: boolean;
-  /**
-   * Sync ainda só grava brand=ALL — filtro WEPINK/WPINK não tem linhas.
-   * UI avisa em vez de mostrar zero como se a marca não tivesse vendido.
-   */
-  brandFilterUnavailable?: boolean;
-  /** Há linhas WEPINK/WPINK nos agregados (filtro de marca faz sentido). */
-  brandSplitAvailable?: boolean;
 }
 
 export type OverviewAggInput = {
@@ -2463,16 +2456,8 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
   const rotuloSerie = seriesAxisLabel(periodo, eixoSerie);
   const brand = escopo.divisao;
 
-  const brandSplitAvailable = input.dayAggs.some(
-    (d) => d.brand === "WEPINK" || d.brand === "WPINK",
-  );
-  // Sem split: filtrar WEPINK/WPINK zera o painel à toa (só existe brand=ALL).
-  const brandFilterUnavailable = Boolean(brand && !brandSplitAvailable);
-
   let days = input.dayAggs;
-  if (brandFilterUnavailable) {
-    days = [];
-  } else if (brand) {
+  if (brand) {
     days = days.filter((d) => d.brand === brand);
   } else {
     const all = days.filter((d) => d.brand === "ALL");
@@ -2480,7 +2465,6 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
   }
 
   const hours = (input.hourAggs ?? []).filter((h) => {
-    if (brandFilterUnavailable) return false;
     if (brand) return h.brand === brand;
     if ((input.hourAggs ?? []).some((x) => x.brand === "ALL")) return h.brand === "ALL";
     return h.brand === "WEPINK" || h.brand === "WPINK" || h.brand === "ALL";
@@ -2565,9 +2549,30 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
     },
     {
       label: "CMV",
-      valor: "—",
-      sub: "Disponível após sync completo",
-      tooltip: "CMV entra no sync pesado (RELATORIOMARGEM), fora desta versão.",
+      valor: (() => {
+        const cmvCents = days.reduce((s, d) => s + (d.cmvCents ?? 0), 0);
+        // brand filter: CMV v1 só em ALL — com marca ativa não misturar.
+        if (brand) return "—";
+        if (cmvCents <= 0) return "—";
+        return brlCent(cmvCents / 100);
+      })(),
+      sub: (() => {
+        if (brand) return "CMV por marca em breve";
+        const cmvCents = days.reduce((s, d) => s + (d.cmvCents ?? 0), 0);
+        if (cmvCents <= 0) return "Disponível após Atualizar / SEED";
+        const cmv = cmvCents / 100;
+        const pctCmv = faturamento > 0 ? (cmv / faturamento) * 100 : 0;
+        return `${pctCmv.toFixed(0)}% do faturamento`;
+      })(),
+      tooltip: (() => {
+        const cmvCents = days.reduce((s, d) => s + (d.cmvCents ?? 0), 0);
+        if (brand || cmvCents <= 0) {
+          return "Custo dos produtos (RELATORIOMARGEM). Imposto sobre custo: Configurações > Custos (TODO).";
+        }
+        const cmv = cmvCents / 100;
+        const lucro = faturamento - cmv;
+        return `Lucro bruto ≈ ${brlCent(lucro)} (faturamento − CMV). Imposto sobre custo: TODO Configurações.`;
+      })(),
     },
     {
       label: "Nº de vendas",
@@ -2644,8 +2649,6 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
     topProdutos: [],
     rankingLojas: [],
     fromAggregates: true,
-    brandFilterUnavailable,
-    brandSplitAvailable,
   };
 }
 

@@ -17,6 +17,7 @@ import {
   applyAllCountsToWepinkDays,
   type BrandReportDayRow,
 } from "./millenniumBrandReport.ts";
+import { cmvCentsFromMargemLines } from "./millenniumMargem.ts";
 import {
   partitionRowsByFilial,
   type FetchSalesListaParams,
@@ -186,6 +187,59 @@ async function upsertBrandSplit(
   }
 }
 
+/** CMV via RELATORIOMARGEM — 1 chamada por dia (imposto% = 0). Soft-fail. */
+async function syncCmvForRange(
+  deps: SyncJobDeps,
+  args: {
+    session: string;
+    tenantId: string;
+    store: SyncStore;
+    from: string;
+    to: string;
+  },
+): Promise<void> {
+  const days: string[] = [];
+  {
+    const start = new Date(`${args.from}T12:00:00`);
+    const end = new Date(`${args.to}T12:00:00`);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      days.push(`${y}-${m}-${day}`);
+    }
+  }
+  const patches: Array<{ tenantId: string; storeId: string; day: string; cmvCents: number }> = [];
+  let ok = 0;
+  let fail = 0;
+  for (const day of days) {
+    try {
+      const lines = await deps.fetchRelatorioMargem({
+        session: args.session,
+        millenniumStoreId: args.store.millenniumStoreId,
+        from: day,
+        to: day,
+      });
+      patches.push({
+        tenantId: args.tenantId,
+        storeId: args.store.id,
+        day,
+        cmvCents: cmvCentsFromMargemLines(lines),
+      });
+      ok += 1;
+    } catch (e) {
+      fail += 1;
+      const msg = e instanceof Error ? e.message : String(e);
+      if (isSessionDeadError(msg)) throw e;
+      console.warn(`  [${args.store.code}] RELATORIOMARGEM ${day}: ${msg}`);
+    }
+  }
+  if (patches.length > 0) await deps.patchDayCmv(patches);
+  console.log(
+    `  [${args.store.code}] CMV ${args.from}→${args.to} · ${ok} dia(s) ok · ${fail} fail`,
+  );
+}
+
 /** SEED = 1º sync (mês ant. 01 → hoje). HISTORY = opcional (HISTORY_AFTER_SEED=1). RANGE/FORCE = sob demanda. */
 export type SyncJobKind =
   | "BACKFILL"
@@ -286,7 +340,18 @@ export type SyncJobDeps = {
     nf: string;
     tipoOperacao?: string;
   }) => Promise<DetMovLine[]>;
+  /** RELATORIOMARGEM — CMV do período (chamar por dia). */
+  fetchRelatorioMargem: (params: {
+    session: string;
+    millenniumStoreId: number;
+    from: string;
+    to: string;
+  }) => Promise<import("./millenniumMargem.ts").MargemLine[]>;
   upsertDayAggs: (rows: SalesDayAgg[]) => Promise<void>;
+  /** Patch só cmv_cents em brand=ALL (não zera receita no upsert). */
+  patchDayCmv: (
+    rows: Array<{ tenantId: string; storeId: string; day: string; cmvCents: number }>,
+  ) => Promise<void>;
   upsertHourAggs: (rows: SalesHourAgg[]) => Promise<void>;
   insertSyncRun: (args: {
     tenantId: string;
@@ -1160,6 +1225,22 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
           geradorMap,
           geradorIdsWithWpink,
         });
+        // CMV (RELATORIOMARGEM) — fora do LIGHT; imposto% = TODO Configurações > Custos.
+        if (
+          job.kind === "SEED" ||
+          job.kind === "BACKFILL" ||
+          job.kind === "HISTORY" ||
+          job.kind === "FORCE" ||
+          job.kind === "RANGE"
+        ) {
+          await syncCmvForRange(deps, {
+            session: session!,
+            tenantId: job.tenantId,
+            store,
+            from: brandFrom,
+            to: brandTo,
+          });
+        }
         console.log(
           `Loja ${i + 1}/${storeList.length} (${store.code}) ok · ${storeSales} venda(s) · ${storeDays} dia(s) gravado(s)` +
             (dayErrors > 0 ? ` · ${dayErrors} janela(s) com falha` : ""),

@@ -301,6 +301,12 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  2. **Contagens (nº vendas / itens)** — DetMov day agg quando a loja tem WPINK; loja só cosmético copia counts do ALL → WEPINK. Overview rateia do ALL se counts ainda forem 0 (dados antigos).
  3. Mapa produto (estoque `{9701602B}` + LISTARVENDASSALDO 101/102 + lookup COD→id) + **ConsultaDetMov** → horas (e fallback se o report cair). Classificação DetMov: mapa → desc (WP*/WPINK/WEPINK) → default WEPINK.
  Soft-fail se report/detalhe cair (ALL permanece). BrandPicker reativa quando existem linhas WEPINK/WPINK. Concurrency DetMov: `DET_MOV_CONCURRENCY` (default 5).
+19. ✅ **CMV na Visão Geral** (2026-09-23) — fonte `MILLENIUM!FRANQUIAS.RELATORIOS.RELATORIOMARGEM` (`CUSTO_TOTAL` = `CUSTO_FRANQUIAS × QTDE`). Grava `sales_day_agg.cmv_cents` (brand=ALL) em SEED/HISTORY/FORCE/RANGE (não no LIGHT). Faturamento continua da Lista. Com filtro de marca, CMV fica “—” até split de custo.
+20. 🔲 **TODO Configurações > Custos** (não esquecer):
+ - Coluna `store.imposto_sobre_custo_pct` + UI.
+ - Fórmula: `custo_real = CUSTO_FRANQUIAS × (1 + imposto%) × qtd` (validar se imposto já vem embutido no Millennium).
+ - Royalties / marketing / aluguel / custo fixo → margem de contribuição (Financeiro v2).
+ - CMV por marca (WEPINK/WPINK).
 
 ---
 

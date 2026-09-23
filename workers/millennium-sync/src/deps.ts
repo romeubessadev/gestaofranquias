@@ -8,6 +8,7 @@ import {
 import { fetchSalesLista } from "./millenniumSales.ts";
 import { fetchFilialGeradorMap, fetchBrandRevenueReport } from "./millenniumBrandReport.ts";
 import { fetchConsultaDetMov } from "./millenniumDetMov.ts";
+import { fetchRelatorioMargem } from "./millenniumMargem.ts";
 import { fetchProductBrandMap } from "./millenniumProductDivision.ts";
 import {
   nextHistoryWindow,
@@ -202,6 +203,16 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
       });
     },
 
+    async fetchRelatorioMargem(params) {
+      return fetchRelatorioMargem({
+        session: params.session,
+        millenniumStoreId: params.millenniumStoreId,
+        from: params.from,
+        to: params.to,
+        baseUrl: millenniumBaseUrl(),
+      });
+    },
+
     async upsertDayAggs(rows: SalesDayAgg[]) {
       if (rows.length === 0) return;
       const payload = rows.map((r) => ({
@@ -212,11 +223,48 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
         revenue_cents: r.revenueCents,
         sales_count: r.salesCount,
         item_count: r.itemCount,
+        // cmv_cents omitido de propósito — patchDayCmv; upsert não zera CMV.
       }));
       const { error } = await sb.from("sales_day_agg").upsert(payload, {
         onConflict: "tenant_id,store_id,day,brand",
       });
       if (error) throw error;
+    },
+
+    async patchDayCmv(rows) {
+      if (rows.length === 0) return;
+      for (const r of rows) {
+        const { error } = await sb
+          .from("sales_day_agg")
+          .update({ cmv_cents: r.cmvCents })
+          .eq("tenant_id", r.tenantId)
+          .eq("store_id", r.storeId)
+          .eq("day", r.day)
+          .eq("brand", "ALL");
+        if (error) throw error;
+        // Se ainda não existe linha ALL (dia sem Lista), cria stub com CMV.
+        const { data: existing } = await sb
+          .from("sales_day_agg")
+          .select("day")
+          .eq("tenant_id", r.tenantId)
+          .eq("store_id", r.storeId)
+          .eq("day", r.day)
+          .eq("brand", "ALL")
+          .maybeSingle();
+        if (!existing) {
+          const { error: insErr } = await sb.from("sales_day_agg").insert({
+            tenant_id: r.tenantId,
+            store_id: r.storeId,
+            day: r.day,
+            brand: "ALL",
+            revenue_cents: 0,
+            sales_count: 0,
+            item_count: 0,
+            cmv_cents: r.cmvCents,
+          });
+          if (insErr) throw insErr;
+        }
+      }
     },
 
     async upsertHourAggs(rows: SalesHourAgg[]) {

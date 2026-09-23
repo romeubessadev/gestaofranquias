@@ -77,9 +77,15 @@ function makeDeps(overrides: Partial<SyncJobDeps> = {}): SyncJobDeps & {
       return [];
     }),
     fetchFilialGeradorMap: vi.fn().mockResolvedValue(new Map([["00010", 126], ["00114", 41562]])),
-    fetchProductBrandMap: vi.fn().mockResolvedValue(new Map()),
+    fetchProductBrandMap: vi.fn().mockResolvedValue({
+      map: new Map(),
+      geradorIdsWithWpink: new Set(),
+    }),
+    fetchBrandRevenueReport: vi.fn().mockResolvedValue([]),
     fetchConsultaDetMov: vi.fn().mockResolvedValue([]),
+    fetchRelatorioMargem: vi.fn().mockResolvedValue([]),
     upsertDayAggs: vi.fn().mockResolvedValue(undefined),
+    patchDayCmv: vi.fn().mockResolvedValue(undefined),
     upsertHourAggs: vi.fn().mockResolvedValue(undefined),
     insertSyncRun: vi.fn().mockResolvedValue(undefined),
     updateCredential: vi.fn().mockResolvedValue(undefined),
