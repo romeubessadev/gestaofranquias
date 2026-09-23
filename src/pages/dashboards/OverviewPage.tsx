@@ -522,9 +522,6 @@ export default function OverviewPage() {
                   </span>
                 </Tooltip>
               </div>
-              <p className="mt-2.5 font-mono text-base font-extrabold text-t0">
-                {brlCent(view.categoriaVsMeta.reduce((s, c) => s + c.realizado, 0))}
-              </p>
             </div>
             <BadgeVsAnterior delta={view.deltaFaturamento} />
           </div>
