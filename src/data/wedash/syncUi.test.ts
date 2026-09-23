@@ -1,13 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import {
   canForceSyncRefresh,
   FORCE_ALL_KEY,
   FORCE_COOLDOWN_MS,
   forceCooldownForScopeSec,
+  forcePendingStorageKey,
   forceRefreshRetryAfterSec,
   formatForceCooldownLabel,
   formatSyncWatermarkLabel,
   lastForceAtFromRetryAfter,
+  clearPendingForce,
+  readPendingForce,
+  writePendingForce,
 } from "./syncUi";
 import { fetchSalesDayAggs, type SalesQueryClient } from "./salesRepo";
 
@@ -111,5 +115,38 @@ describe("dashboard read path never hits Millennium (SYNC-05)", () => {
     );
     expect(tables).toEqual(["sales_day_agg"]);
     expect(tables.join(",")).not.toMatch(/VENDAS|millennium|MILLENNIUM/i);
+  });
+});
+
+describe("pending FORCE (Atualizando persiste ao fechar PWA)", () => {
+  const mem = new Map<string, string>();
+  beforeEach(() => {
+    mem.clear();
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        mem.set(k, v);
+      },
+      removeItem: (k: string) => {
+        mem.delete(k);
+      },
+    });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads/writes/clears pending job", () => {
+    const key = forcePendingStorageKey("t1");
+    const job = {
+      jobId: "job-abc",
+      storeIds: ["s1"],
+      enqueuedAt: "2026-09-23T14:00:00.000Z",
+    };
+    writePendingForce("t1", job);
+    expect(readPendingForce("t1")).toEqual(job);
+    clearPendingForce("t1");
+    expect(readPendingForce("t1")).toBeNull();
+    expect(mem.has(key)).toBe(false);
   });
 });

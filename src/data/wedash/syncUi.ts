@@ -164,3 +164,50 @@ export function readForceLastAt(tenantId: string): Date | null {
 export function writeForceLastAt(tenantId: string, at: Date = new Date()): void {
   recordForceAt(tenantId, [], at);
 }
+
+/** FORCE enfileirado ainda QUEUED/RUNNING — sobrevive a fechar o PWA. */
+export type PendingForceJob = {
+  /** sync_job.id quando o enqueue devolveu. */
+  jobId?: string;
+  storeIds: string[];
+  enqueuedAt: string;
+};
+
+export function forcePendingStorageKey(tenantId: string): string {
+  return `wedash.forcePending.${tenantId}`;
+}
+
+export function readPendingForce(tenantId: string): PendingForceJob | null {
+  try {
+    const raw = localStorage.getItem(forcePendingStorageKey(tenantId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const o = parsed as Record<string, unknown>;
+    const enqueuedAt = typeof o.enqueuedAt === "string" ? o.enqueuedAt : "";
+    if (!enqueuedAt) return null;
+    const storeIds = Array.isArray(o.storeIds)
+      ? o.storeIds.filter((x): x is string => typeof x === "string")
+      : [];
+    const jobId = typeof o.jobId === "string" && o.jobId ? o.jobId : undefined;
+    return { jobId, storeIds, enqueuedAt };
+  } catch {
+    return null;
+  }
+}
+
+export function writePendingForce(tenantId: string, job: PendingForceJob): void {
+  try {
+    localStorage.setItem(forcePendingStorageKey(tenantId), JSON.stringify(job));
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+export function clearPendingForce(tenantId: string): void {
+  try {
+    localStorage.removeItem(forcePendingStorageKey(tenantId));
+  } catch {
+    /* ignore */
+  }
+}

@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, BarChart, DonutChart } from "@/components/charts";
@@ -28,7 +28,7 @@ import type {
 import { brlCent, deIso, tipRelacao } from "@/lib/format";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
 import { useActiveSession } from "@/session/SessionProvider";
-import { canForceSyncRefresh, formatSyncWatermarkLabel, forceCooldownForScopeSec, formatForceCooldownLabel, readForceAtMap, recordForceAt, lastForceAtFromRetryAfter, type ForceAtMap } from "@/data/wedash/syncUi";
+import { canForceSyncRefresh, formatSyncWatermarkLabel, forceCooldownForScopeSec, formatForceCooldownLabel, readForceAtMap, recordForceAt, lastForceAtFromRetryAfter, readPendingForce, writePendingForce, clearPendingForce, type ForceAtMap } from "@/data/wedash/syncUi";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import {
   applyPeriodDateChange,
@@ -103,7 +103,7 @@ export default function OverviewPage() {
   const [loading, setLoading] = useState(true);
   const [watermark, setWatermark] = useState<Date | null>(null);
   const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, setRefreshing] = useState(() => !!readPendingForce(session.tenantId));
   const [forceError, setForceError] = useState<string | null>(null);
   const [forceAtMap, setForceAtMap] = useState<ForceAtMap>(() =>
     readForceAtMap(session.tenantId),
@@ -113,6 +113,8 @@ export default function OverviewPage() {
   );
   const [topProdSort, setTopProdSort] = useState<TopProdSort>("faturamento");
   const [topProdDir, setTopProdDir] = useState<SortDir>("desc");
+  /** Evita dois waitForSyncJob paralelos (remount + clique). */
+  const forceWaitLock = useRef(false);
 
   // Contador 5 min do FORCE — por loja (ou “Todas” = opção A).
   useEffect(() => {
@@ -180,6 +182,74 @@ export default function OverviewPage() {
       console.error("Overview reloadAggs:", e);
     }
   }, [escopo, session.tenantId]);
+
+  const applyForceWaitResult = useCallback(
+    async (
+      wait: Awaited<ReturnType<typeof waitForSyncJob>>,
+      storeIds: string[],
+    ) => {
+      clearPendingForce(session.tenantId);
+      if (wait.status === "FAILED") {
+        setForceError("Falha ao atualizar — tente de novo em alguns minutos");
+        console.warn("FORCE job failed:", wait.error);
+      } else if (wait.status === "TIMEOUT") {
+        setForceError("Atualização ainda em andamento — os dados podem chegar em instantes");
+      } else if (wait.status === "CANCELLED") {
+        setRefreshing(false);
+        return;
+      } else if (wait.status === "SUCCEEDED") {
+        setForceAtMap(recordForceAt(session.tenantId, storeIds, new Date()));
+      }
+      try {
+        await reloadAggs();
+      } finally {
+        setRefreshing(false);
+      }
+    },
+    [session.tenantId, reloadAggs],
+  );
+
+  const resumeOrWaitForce = useCallback(
+    async (opts: { jobId?: string; storeIds: string[]; enqueuedAt: string }) => {
+      if (forceWaitLock.current) return;
+      forceWaitLock.current = true;
+      setRefreshing(true);
+      setForceError(null);
+      try {
+        const wait = opts.jobId
+          ? await waitForSyncJob(opts.jobId)
+          : await waitForLatestForceJob(session.tenantId, {
+              sinceIso: opts.enqueuedAt,
+            });
+        await applyForceWaitResult(wait, opts.storeIds);
+      } finally {
+        forceWaitLock.current = false;
+      }
+    },
+    [session.tenantId, applyForceWaitResult],
+  );
+
+  // Reabre o PWA no meio do FORCE → mantém "Atualizando…" até o job terminar.
+  useEffect(() => {
+    if (!canForceSyncRefresh(session.role)) return;
+    const pending = readPendingForce(session.tenantId);
+    if (!pending) return;
+    void resumeOrWaitForce(pending);
+  }, [session.tenantId, session.role, resumeOrWaitForce]);
+
+  // Voltou do background: se ainda há pending e o poll parou, retoma.
+  useEffect(() => {
+    if (!canForceSyncRefresh(session.role)) return;
+    const onVis = () => {
+      if (document.visibilityState !== "visible") return;
+      if (forceWaitLock.current) return;
+      const pending = readPendingForce(session.tenantId);
+      if (!pending) return;
+      void resumeOrWaitForce(pending);
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [session.tenantId, session.role, resumeOrWaitForce]);
 
   useEffect(() => {
     let cancelled = false;
@@ -313,32 +383,22 @@ export default function OverviewPage() {
       return;
     }
 
-    // Não grava cooldown no enqueue — só quando o job termina (Aguarde 5:00 cheios).
-    const wait = result.jobId
-      ? await waitForSyncJob(result.jobId)
-      : await waitForLatestForceJob(session.tenantId, {
-          sinceIso: enqueuedAt.toISOString(),
-        });
-
-    if (wait.status === "FAILED") {
-      setForceError("Falha ao atualizar — tente de novo em alguns minutos");
-      console.warn("FORCE job failed:", wait.error);
-    } else if (wait.status === "TIMEOUT") {
-      setForceError("Atualização ainda em andamento — os dados podem chegar em instantes");
-    } else if (wait.status === "CANCELLED") {
-      setRefreshing(false);
-      return;
-    } else if (wait.status === "SUCCEEDED") {
-      // 5 min a partir do fim (loja ou Todas) — alinhado ao Edge finished_at.
-      setForceAtMap(recordForceAt(session.tenantId, storeIds, new Date()));
-    }
-
-    try {
-      await reloadAggs();
-    } finally {
-      setRefreshing(false);
-    }
-  }, [canForce, refreshing, forceCooldownSec, reloadAggs, escopo.periodo, escopo.filialIds, session.tenantId]);
+    const pending = {
+      jobId: result.jobId,
+      storeIds,
+      enqueuedAt: enqueuedAt.toISOString(),
+    };
+    writePendingForce(session.tenantId, pending);
+    await resumeOrWaitForce(pending);
+  }, [
+    canForce,
+    refreshing,
+    forceCooldownSec,
+    escopo.periodo,
+    escopo.filialIds,
+    session.tenantId,
+    resumeOrWaitForce,
+  ]);
 
   const minutosAtras =
     watermark != null ? Math.floor((Date.now() - watermark.getTime()) / 60000) : null;
