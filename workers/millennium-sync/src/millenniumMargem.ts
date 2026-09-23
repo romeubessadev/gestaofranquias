@@ -6,9 +6,25 @@
  * TODO(Configurações>Custos): aplicar imposto_sobre_custo_pct por loja.
  */
 import { millenniumBaseUrl } from "./millenniumAuth.ts";
-import { milleniumDataRange } from "./millenniumSales.ts";
+import { milleniumDayBoundIso } from "./millenniumSales.ts";
 
 export const RELATORIO_MARGEM_PATH = "MILLENIUM!FRANQUIAS.RELATORIOS.RELATORIOMARGEM";
+
+/**
+ * RELATORIOMARGEM trata DATAI/DATAF como **datas de calendário inclusivas**
+ * (UI: Data Inicial → Data Final). Não usar `milleniumDataRange` (DATAF exclusivo
+ * da VENDAS.Lista / +1 dia) — isso puxa o dia seguinte e dobra o CMV no somatório
+ * dia a dia.
+ */
+export function milleniumMargemDataRange(
+  from: string,
+  to: string,
+): { datai: string; dataf: string } {
+  return {
+    datai: milleniumDayBoundIso(from),
+    dataf: milleniumDayBoundIso(to),
+  };
+}
 
 export type MargemLine = {
   codProduto: string;
@@ -100,7 +116,7 @@ export async function fetchRelatorioMargem(
 ): Promise<MargemLine[]> {
   const base = (params.baseUrl ?? millenniumBaseUrl()).replace(/\/$/, "");
   const fetchImpl = params.fetchImpl ?? fetch;
-  const { datai, dataf } = milleniumDataRange(params.from, params.to);
+  const { datai, dataf } = milleniumMargemDataRange(params.from, params.to);
   const body = {
     FILIAL: params.millenniumStoreId,
     DESC: null,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cmvCentsFromMargemLines,
+  milleniumMargemDataRange,
   parseRelatorioMargemPayload,
 } from "./millenniumMargem.ts";
 
@@ -39,5 +40,18 @@ describe("parseRelatorioMargemPayload", () => {
       { COD_PRODUTO: "b", QTDE_VENDIDA: 2, CUSTO_FRANQUIAS: 5.5, CUSTO_TOTAL: 11 },
     ]);
     expect(cmvCentsFromMargemLines(lines)).toBe(2100);
+  });
+});
+
+describe("milleniumMargemDataRange", () => {
+  it("uses inclusive DATAF (same calendar end day, not Lista +1)", () => {
+    expect(milleniumMargemDataRange("2026-09-01", "2026-09-01")).toEqual({
+      datai: "2026-09-01T04:00:00.000Z",
+      dataf: "2026-09-01T04:00:00.000Z",
+    });
+    expect(milleniumMargemDataRange("2026-09-01", "2026-09-22")).toEqual({
+      datai: "2026-09-01T04:00:00.000Z",
+      dataf: "2026-09-22T04:00:00.000Z",
+    });
   });
 });
