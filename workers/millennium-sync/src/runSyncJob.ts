@@ -1014,14 +1014,9 @@ function shouldSyncCmv(kind: SyncJobKind): boolean {
   );
 }
 
-/** Categorias: SEED/HISTORY/RANGE. FORCE pula — mapa 1×tipo trava o Atualizar. */
-function shouldSyncCategories(kind: SyncJobKind): boolean {
-  return (
-    kind === "SEED" ||
-    kind === "BACKFILL" ||
-    kind === "HISTORY" ||
-    kind === "RANGE"
-  );
+/** Categorias: pausado (TODO mapa produto→tipo). Nenhum job synca até retomar. */
+function shouldSyncCategories(_kind: SyncJobKind): boolean {
+  return false;
 }
 
 async function windowsForStore(
