@@ -26,6 +26,7 @@ import {
   type ProductTipo,
 } from "./millenniumCategoryReport.ts";
 import type { SalesCategoryDayAgg, SalesPaymentDayAgg } from "../../../src/data/wedash/salesTypes.ts";
+import { formatElapsed, nowMs } from "./syncTiming.ts";
 import {
   partitionRowsByFilial,
   type FetchSalesListaParams,
@@ -102,6 +103,7 @@ async function upsertBrandSplit(
 
   console.log(`  [${args.store.code}] → marca · report receita…`);
   let dayAggs: SalesDayAgg[] = [];
+  const tReport = nowMs();
 
   // 1) Receita por dia × marca (fonte do relatório que o gestor confere)
   try {
@@ -115,6 +117,9 @@ async function upsertBrandSplit(
       tenantId: args.tenantId,
       storeId: args.store.id,
     });
+    console.log(
+      `  [${args.store.code}] marca · report ok · ${dayAggs.length} dia×marca · ${formatElapsed(tReport)}`,
+    );
     if (dayAggs.length === 0) {
       console.log(
         `  [${args.store.code}] marca · report vazio ${args.from}→${args.to}`,
@@ -124,7 +129,7 @@ async function upsertBrandSplit(
     const msg = e instanceof Error ? e.message : String(e);
     if (isSessionDeadError(msg)) throw e;
     console.warn(
-      `  [${args.store.code}] marca · report falhou (ALL ok): ${msg}`,
+      `  [${args.store.code}] marca · report falhou (${formatElapsed(tReport)}): ${msg}`,
     );
   }
 
@@ -156,6 +161,7 @@ async function upsertBrandSplit(
         `  [${args.store.code}] → marca · DetMov ${headers.length} NF (pode demorar)…`,
       );
       try {
+        const tDet = nowMs();
         const concurrency = detMovConcurrency(headers.length);
         const brandRows: SaleRow[] = [];
         let ok = 0;
@@ -181,7 +187,7 @@ async function upsertBrandSplit(
         });
         if (brandRows.length === 0) {
           console.log(
-            `  [${args.store.code}] DetMov ${args.from}→${args.to} · 0 linhas · det ${ok}ok/${fail}fail`,
+            `  [${args.store.code}] DetMov · 0 linhas · ${ok}ok/${fail}fail · ${formatElapsed(tDet)}`,
           );
         } else {
           const agg = aggregateSales(brandRows, {
@@ -205,7 +211,7 @@ async function upsertBrandSplit(
           }
           if (brandedHours.length > 0) await deps.upsertHourAggs(brandedHours);
           console.log(
-            `  [${args.store.code}] DetMov ${args.from}→${args.to} · ${brandedDays.length} dia×marca · ${brandedHours.length} hora×marca · det ${ok}ok/${fail}fail`,
+            `  [${args.store.code}] DetMov ok · ${brandedDays.length} dia×marca · ${brandedHours.length} hora · ${ok}ok/${fail}fail · ${formatElapsed(tDet)}`,
           );
         }
       } catch (e) {
@@ -265,10 +271,12 @@ async function syncCmvForRange(
     return;
   }
   console.log(`  [${args.store.code}] → CMV · ${days.length} dia(s)…`);
+  const tCmv = nowMs();
   const patches: Array<{ tenantId: string; storeId: string; day: string; cmvCents: number }> = [];
   let ok = 0;
   let fail = 0;
   for (const day of days) {
+    const tDay = nowMs();
     try {
       const lines = await deps.fetchRelatorioMargem({
         session: args.session,
@@ -283,16 +291,19 @@ async function syncCmvForRange(
         cmvCents: cmvCentsFromMargemLines(lines),
       });
       ok += 1;
+      if (days.length > 1) {
+        console.log(`  [${args.store.code}] CMV ${day} · ${formatElapsed(tDay)}`);
+      }
     } catch (e) {
       fail += 1;
       const msg = e instanceof Error ? e.message : String(e);
       if (isSessionDeadError(msg)) throw e;
-      console.warn(`  [${args.store.code}] CMV ${day}: ${msg}`);
+      console.warn(`  [${args.store.code}] CMV ${day} (${formatElapsed(tDay)}): ${msg}`);
     }
   }
   if (patches.length > 0) await deps.patchDayCmv(patches);
   console.log(
-    `  [${args.store.code}] CMV ok · ${ok} dia(s) · ${fail} fail`,
+    `  [${args.store.code}] CMV ok · ${ok} dia(s) · ${fail} fail · ${formatElapsed(tCmv)}`,
   );
 }
 
@@ -1197,6 +1208,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
 
   await deps.markJobRunning(job.id);
   const startedAt = deps.now();
+  const tJob = nowMs();
   let session: string | null = null;
   let storesDone = 0;
 
@@ -1307,8 +1319,9 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
     const now = deps.now();
     let geradorMap = new Map<string, number>();
     try {
+      const tGer = nowMs();
       geradorMap = await deps.fetchFilialGeradorMap(session);
-      console.log(`GERADOR map · ${geradorMap.size} filial(is)`);
+      console.log(`GERADOR map · ${geradorMap.size} filial(is) · ${formatElapsed(tGer)}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn(`GERADOR lookup falhou — brand split desligado neste job: ${msg}`);
@@ -1341,6 +1354,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
         console.log(
           `Product map · report+LISTAR · ${brandStores.length} filial(is) · ${catalogWin.from}→${catalogWin.to}`,
         );
+        const tProd = nowMs();
         const catalog = await deps.fetchProductBrandMap({
           session,
           geradorIds,
@@ -1351,7 +1365,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
         productMap = catalog.map;
         geradorIdsWithWpink = catalog.geradorIdsWithWpink;
         console.log(
-          `Product→marca map · ${productMap.size} SKU(s) · WPINK em ${geradorIdsWithWpink.size}/${geradorIds.length} loja(s)`,
+          `Product→marca map · ${productMap.size} SKU(s) · WPINK em ${geradorIdsWithWpink.size}/${geradorIds.length} loja(s) · ${formatElapsed(tProd)}`,
         );
         // Só liga o flag (nunca desliga) — loja pode ter WPINK no relatório
         // mesmo sem SKU WPINK no mapa de estoque do gerador.
@@ -1488,6 +1502,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
       const storeResults = await mapPoolAdaptive(
         storeList,
         async (store, i) => {
+        const tStore = nowMs();
         const eventoIds = await deps.resolveEventoIds(session!, store.code);
         if (eventoIds.length === 0) {
           throw new Error(`Nenhum EVENTO de venda para a loja ${store.code}`);
@@ -1574,6 +1589,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
         while (queue.length > 0) {
           const { from, to } = queue.shift()!;
           console.log(`  [${store.code}] → Lista ${from} → ${to}…`);
+          const tLista = nowMs();
           let rows: Awaited<ReturnType<typeof deps.fetchSalesLista>> = [];
           try {
             rows = await deps.fetchSalesLista({
@@ -1584,6 +1600,9 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
               to,
               eventoIds,
             });
+            console.log(
+              `  [${store.code}] Lista ok · ${rows.length} venda(s) · ${formatElapsed(tLista)}`,
+            );
           } catch (dayErr) {
             const msg = dayErr instanceof Error ? dayErr.message : String(dayErr);
             if (isSessionDeadError(msg)) {
@@ -1736,6 +1755,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
         console.log(
           `  [${store.code}] Lista/formas ok · ${storeSales} venda(s) · ${storeDays} dia(s)`,
         );
+        const tBrand = nowMs();
         await upsertBrandSplit(deps, {
           session: session!,
           tenantId: job.tenantId,
@@ -1747,6 +1767,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
           geradorMap,
           geradorIdsWithWpink,
         });
+        console.log(`  [${store.code}] marca total · ${formatElapsed(tBrand)}`);
         // CMV / categorias: FORCE = buracos + hoje; SEED/HISTORY = janela; RANGE = só buracos.
         if (shouldSyncCmv(job.kind) && cmvWin) {
           const cmvDays = await daysNeedingHeavySync(deps, {
@@ -1799,7 +1820,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
           }
         }
         console.log(
-          `  [${store.code}] ✓ loja ${i + 1}/${storeList.length} ok` +
+          `  [${store.code}] ✓ loja ${i + 1}/${storeList.length} ok · ${formatElapsed(tStore)}` +
             (dayErrors > 0 ? ` · ${dayErrors} janela(s) com falha` : ""),
         );
         return 1;
@@ -1832,7 +1853,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
       finishedAt,
     });
     console.log(
-      `[sync] ok kind=${job.kind} tenant=${job.tenantId.slice(0, 8)} job=${job.id.slice(0, 8)} stores=${storesDone}`,
+      `[sync] ok kind=${job.kind} tenant=${job.tenantId.slice(0, 8)} job=${job.id.slice(0, 8)} stores=${storesDone} · ${formatElapsed(tJob)}`,
     );
 
     if (job.kind === "SEED" || job.kind === "BACKFILL" || job.kind === "HISTORY") {
@@ -1847,7 +1868,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(
-      `[sync] fail kind=${job.kind} tenant=${job.tenantId.slice(0, 8)} job=${job.id.slice(0, 8)} reason=other error=${msg}`,
+      `[sync] fail kind=${job.kind} tenant=${job.tenantId.slice(0, 8)} job=${job.id.slice(0, 8)} reason=other · ${formatElapsed(tJob)} error=${msg}`,
     );
     if (isSessionDeadError(msg)) {
       try {

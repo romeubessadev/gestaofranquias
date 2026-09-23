@@ -1,4 +1,5 @@
 import type { SaleRow } from "../../../src/data/wedash/salesTypes.ts";
+import { formatElapsed, nowMs } from "./syncTiming.ts";
 
 export type FetchSalesListaParams = {
   session: string;
@@ -394,11 +395,14 @@ export async function fetchSalesLista(params: FetchSalesListaParams): Promise<Sa
 
   const errors: string[] = [];
   for (const attempt of attempts) {
+    const tAttempt = nowMs();
     try {
       const res = await fetchImpl(attempt.url, attempt.init);
       const raw = await res.text();
       if (!res.ok) {
-        errors.push(`${attempt.label} → ${res.status} ${raw.slice(0, 160)}`);
+        errors.push(
+          `${attempt.label} → ${res.status} ${raw.slice(0, 160)} (${formatElapsed(tAttempt)})`,
+        );
         continue;
       }
       const parsed = raw ? JSON.parse(raw) : [];
@@ -406,18 +410,20 @@ export async function fetchSalesLista(params: FetchSalesListaParams): Promise<Sa
       const multiDay = params.from !== params.to;
       if (multiDay && rows.length === 0) {
         console.warn(
-          `[sync] VENDAS.Lista VAZIO em range ${params.from}→${params.to} via ${attempt.label} · raw=${raw.length}b · preview=${raw.slice(0, 120).replace(/\s+/g, " ")}`,
+          `  Lista VAZIO · ${params.from}→${params.to} via ${attempt.label} · ${formatElapsed(tAttempt)} · raw=${raw.length}b`,
         );
-      } else {
+      }
+      // Sucesso: o caller (runSyncJob) loga com código da loja + tempo.
+      // Aqui só registra se for fallback (não o 1º attempt) para diagnóstico.
+      if (attempt !== attempts[0]) {
         console.log(
-          `  Lista ok · ${params.from}→${params.to}` +
-            `${allStores ? " · rede" : ""} · ${rows.length} venda(s)`,
+          `  Lista via ${attempt.label} · ${rows.length} venda(s) · ${formatElapsed(tAttempt)}`,
         );
       }
       return rows;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      errors.push(`${attempt.label} → ${msg}`);
+      errors.push(`${attempt.label} → ${msg} (${formatElapsed(tAttempt)})`);
       // Timeout: ERP lento/travado — POST/GET fallback com o mesmo body só multiplica a espera.
       if (/aborted|timeout|TimeoutError/i.test(msg)) break;
     }
