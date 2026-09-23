@@ -301,8 +301,24 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  2. **Contagens (nº vendas / itens)** — DetMov day agg quando a loja tem WPINK; loja só cosmético copia counts do ALL → WEPINK. Overview rateia do ALL se counts ainda forem 0 (dados antigos).
  3. Mapa produto (estoque `{9701602B}` + LISTARVENDASSALDO 101/102 + lookup COD→id) + **ConsultaDetMov** → horas (e fallback se o report cair). Classificação DetMov: mapa → desc (WP*/WPINK/WEPINK) → default WEPINK.
  Soft-fail se report/detalhe cair (ALL permanece). BrandPicker reativa quando existem linhas WEPINK/WPINK. Concurrency DetMov: `DET_MOV_CONCURRENCY` (default 5).
-19. ✅ **CMV na Visão Geral** (2026-09-23; **DATAF inclusivo**) — fonte `MILLENIUM!FRANQUIAS.RELATORIOS.RELATORIOMARGEM` (`CUSTO_TOTAL` = `CUSTO_FRANQUIAS × QTDE`). Grava `sales_day_agg.cmv_cents` (brand=ALL) em SEED/HISTORY/FORCE/RANGE (não no LIGHT). Faturamento continua da Lista. Com filtro de marca, CMV fica “—” até split de custo. **DATAI/DATAF = calendário inclusivo** (UI Data Inicial→Final) — **não** reusar `milleniumDataRange` da Lista (`DATAF` exclusivo / +1 dia), senão cada dia puxa o seguinte e o somatório dobra (~2×).
-20. 🔲 **TODO Configurações > Custos** (não esquecer):
+19. ✅ **CMV na Visão Geral** (2026-09-23; **DATAF inclusivo**) — fonte `MILLENIUM!FRANQUIAS.RELATORIOS.RELATORIOMARGEM`.
+   - **Nome no ERP (UI / path):** `FRANQUIAS > RELATORIOS > RELATORIOMARGEM` (`CUSTO_TOTAL` = `CUSTO_FRANQUIAS × QTDE`).
+   - Grava `sales_day_agg.cmv_cents` (brand=ALL) em SEED/HISTORY/FORCE/RANGE (não no LIGHT). Faturamento continua da Lista. Com filtro de marca, CMV fica “—” até split de custo. **DATAI/DATAF = calendário inclusivo** (UI Data Inicial→Final) — **não** reusar `milleniumDataRange` da Lista (`DATAF` exclusivo / +1 dia), senão cada dia puxa o seguinte e o somatório dobra (~2×).
+20. ✅ **Categorias (mix)** (2026-09-23; UI **sem meta** no Overview) — report wtsreports `C5BBF0E2`.
+ - **Nome no ERP (UI):** `WEPINK - PRODUTOS VENDIDOS POR VENDEDOR`
+ - Linha **não** traz `PRODUTO_TIPO_TIPO` (só filtro). Sync: (1) lookup `produto.tipo.tipo`; (2) 1 call filtrada por tipo no período → mapa produto→tipo; (3) 1 call/dia sem filtro → `sales_category_day_agg`.
+ - Visão Geral: card **Faturamento por categoria** (barras + scroll; inclui tipos já vistos no sync com R$ 0). Meta por categoria só quando existir no CRUD de Metas — **não** inventar Goal proporcional.
+ - Não roda no LIGHT.
+
+### Relatórios Millennium — nomes UI ↔ GUID/path
+| Uso WeDash | Nome visual no ERP | Identificador |
+|---|---|---|
+| Marca / dia (WEPINK·WPINK) | **TOTAL VENDA POR DIA** | `{70F9DE61-9CA7-4798-864F-B40B74E61BE5}` |
+| CMV | **RELATORIOMARGEM** (`FRANQUIAS > RELATORIOS`) | `MILLENIUM!FRANQUIAS.RELATORIOS.RELATORIOMARGEM` |
+| Categorias (mix Overview) | **WEPINK - PRODUTOS VENDIDOS POR VENDEDOR** | `{C5BBF0E2-23D5-4493-903F-F529968AC0F2}` |
+| Mapa produto→marca (estoque) | report divisão estoque | `{9701602B-B363-4770-989C-8C4459B7E105}` |
+
+21. 🔲 **TODO Configurações > Custos** (não esquecer):
  - Coluna `store.imposto_sobre_custo_pct` + UI.
  - Fórmula: `custo_real = CUSTO_FRANQUIAS × (1 + imposto%) × qtd` (validar se imposto já vem embutido no Millennium).
  - Royalties / marketing / aluguel / custo fixo → margem de contribuição (Financeiro v2).

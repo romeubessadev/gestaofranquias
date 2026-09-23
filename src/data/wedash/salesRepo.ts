@@ -1,5 +1,11 @@
 import { getSupabase } from "@/lib/supabase";
-import type { SalesBrand, SalesDayAgg, SalesHourAgg } from "./salesTypes";
+import type {
+  SalesBrand,
+  SalesCategoryDayAgg,
+  SalesCategoryRef,
+  SalesDayAgg,
+  SalesHourAgg,
+} from "./salesTypes";
 
 export type SalesDayQuery = {
   tenantId: string;
@@ -14,6 +20,14 @@ export type SalesHourQuery = {
   tenantId: string;
   storeIds: string[];
   day: string;
+  brand?: SalesBrand | null;
+};
+
+export type SalesCategoryDayQuery = {
+  tenantId: string;
+  storeIds: string[];
+  from: string;
+  to: string;
   brand?: SalesBrand | null;
 };
 
@@ -37,6 +51,17 @@ type DayRow = {
 
 type HourRow = DayRow & { hour: number };
 
+type CategoryDayRow = {
+  tenant_id: string;
+  store_id: string;
+  day: string;
+  category_id: number;
+  category_name: string;
+  brand: SalesBrand;
+  revenue_cents: number;
+  item_count: number;
+};
+
 function mapDay(r: DayRow): SalesDayAgg {
   return {
     tenantId: r.tenant_id,
@@ -54,6 +79,19 @@ function mapHour(r: HourRow): SalesHourAgg {
   return {
     ...mapDay(r),
     hour: Number(r.hour),
+  };
+}
+
+function mapCategoryDay(r: CategoryDayRow): SalesCategoryDayAgg {
+  return {
+    tenantId: r.tenant_id,
+    storeId: r.store_id,
+    day: r.day,
+    categoryId: Number(r.category_id),
+    categoryName: String(r.category_name ?? ""),
+    brand: r.brand,
+    revenueCents: Number(r.revenue_cents) || 0,
+    itemCount: Number(r.item_count) || 0,
   };
 }
 
@@ -111,6 +149,73 @@ export async function fetchSalesHourAggs(
     return [];
   }
   return ((data as HourRow[] | null) ?? []).map(mapHour);
+}
+
+/** Receita diária por categoria (PRODUTO_TIPO / C5BBF0E2). */
+export async function fetchSalesCategoryDayAggs(
+  query: SalesCategoryDayQuery,
+  clientOverride?: SalesQueryClient,
+): Promise<SalesCategoryDayAgg[]> {
+  const client = clientOrNull(clientOverride);
+  if (!client) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q: any = (client.from("sales_category_day_agg") as any)
+    .select(
+      "tenant_id, store_id, day, category_id, category_name, brand, revenue_cents, item_count",
+    )
+    .eq("tenant_id", query.tenantId)
+    .gte("day", query.from)
+    .lte("day", query.to);
+
+  if (query.storeIds.length > 0) q = q.in("store_id", query.storeIds);
+  if (query.brand) q = q.eq("brand", query.brand);
+
+  const { data, error } = await q.order("day", { ascending: true }).limit(10_000);
+  if (error) {
+    console.error("fetchSalesCategoryDayAggs:", error.message ?? error);
+    return [];
+  }
+  return ((data as CategoryDayRow[] | null) ?? []).map(mapCategoryDay);
+}
+
+/**
+ * Catálogo de categorias já vistas no sync da loja/rede (sem filtro de período).
+ * Serve para exibir barras zeradas no gráfico de mix.
+ */
+export async function fetchSalesCategoryCatalog(
+  query: { tenantId: string; storeIds: string[]; brand?: SalesBrand | null },
+  clientOverride?: SalesQueryClient,
+): Promise<SalesCategoryRef[]> {
+  const client = clientOrNull(clientOverride);
+  if (!client) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q: any = (client.from("sales_category_day_agg") as any)
+    .select("category_id, category_name, brand")
+    .eq("tenant_id", query.tenantId)
+    .limit(5_000);
+
+  if (query.storeIds.length > 0) q = q.in("store_id", query.storeIds);
+  if (query.brand) q = q.eq("brand", query.brand);
+
+  const { data, error } = await q;
+  if (error) {
+    console.error("fetchSalesCategoryCatalog:", error.message ?? error);
+    return [];
+  }
+
+  const byId = new Map<number, SalesCategoryRef>();
+  for (const r of (data as { category_id: number; category_name: string; brand: SalesBrand }[] | null) ?? []) {
+    const id = Number(r.category_id);
+    if (!Number.isFinite(id) || byId.has(id)) continue;
+    byId.set(id, {
+      categoryId: id,
+      categoryName: String(r.category_name ?? "") || `Tipo ${id}`,
+      brand: r.brand,
+    });
+  }
+  return [...byId.values()].sort((a, b) => a.categoryName.localeCompare(b.categoryName, "pt-BR"));
 }
 
 /** Tenant watermark of last successful light sync. */

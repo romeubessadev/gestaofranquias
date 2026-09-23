@@ -492,6 +492,56 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
     expect(v.kpis.find((k) => k.label === "CMV")?.sub).toMatch(/%/);
   });
 
+  it("fills categoriaVsMeta from categoryDayAggs (reais) and keeps catalog zeros", () => {
+    const v = buildOverviewView(escopo("f1"), {
+      dayAggs: [
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day: "2026-09-10",
+          brand: "ALL",
+          revenueCents: 100_00,
+          salesCount: 1,
+          itemCount: 1,
+        },
+      ],
+      categoryDayAggs: [
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day: "2026-09-10",
+          categoryId: 13,
+          categoryName: "Perfumaria",
+          brand: "WEPINK",
+          revenueCents: 80_00,
+          itemCount: 2,
+        },
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day: "2026-09-10",
+          categoryId: 14,
+          categoryName: "Body Splash",
+          brand: "WEPINK",
+          revenueCents: 20_00,
+          itemCount: 1,
+        },
+      ],
+      categoryCatalog: [
+        { categoryId: 13, categoryName: "Perfumaria", brand: "WEPINK" },
+        { categoryId: 14, categoryName: "Body Splash", brand: "WEPINK" },
+        { categoryId: 15, categoryName: "Hair", brand: "WEPINK" },
+      ],
+    });
+    expect(v.categoriaVsMeta).toHaveLength(3);
+    expect(v.categoriaVsMeta[0]?.categoria).toBe("Perfumaria");
+    expect(v.categoriaVsMeta[0]?.realizado).toBe(80);
+    expect(v.categoriaVsMeta[0]?.meta).toBe(0);
+    expect(v.categoriaVsMeta[1]?.realizado).toBe(20);
+    expect(v.categoriaVsMeta[2]?.categoria).toBe("Hair");
+    expect(v.categoriaVsMeta[2]?.realizado).toBe(0);
+  });
+
   it("brand filter uses WEPINK sales_count and ticket (not ALL)", () => {
     const base = {
       tenantId: "t1",

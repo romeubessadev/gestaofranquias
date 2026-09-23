@@ -2399,6 +2399,7 @@ export interface GoalGauge {
 
 export interface CategoryVsGoal {
   categoria: string;
+  /** Reservado p/ meta por categoria (CRUD Metas). Hoje sempre 0 neste card. */
   meta: number;
   realizado: number;
 }
@@ -2447,6 +2448,9 @@ export interface OverviewView {
 export type OverviewAggInput = {
   dayAggs: import("./salesTypes").SalesDayAgg[];
   hourAggs?: import("./salesTypes").SalesHourAgg[];
+  categoryDayAggs?: import("./salesTypes").SalesCategoryDayAgg[];
+  /** Tipos já vistos no sync (histórico) — barras com R$ 0 no período. */
+  categoryCatalog?: import("./salesTypes").SalesCategoryRef[];
 };
 
 /** Overview from real sales aggregates — CMV/top produtos stay empty until heavy sync. */
@@ -2632,16 +2636,43 @@ export function buildOverviewViewFromAggs(escopo: Scope, input: OverviewAggInput
     }
   }
 
+  const faltamParaMeta = faltam > 0 ? `Faltam ${brlCent(faltam)} para atingir a Goal do mês` : metaTotal > 0 ? "Meta atingida" : null;
+  const projecaoFechamento = null;
+
+  // Faturamento por categoria — mix do período + catálogo histórico (zeros).
+  // Meta por categoria fica p/ CRUD de Metas; não inventar Goal aqui.
+  const catAcc = new Map<string, { realizado: number }>();
+  for (const ref of input.categoryCatalog ?? []) {
+    if (brand && ref.brand !== brand && ref.brand !== "ALL") continue;
+    const name = ref.categoryName || `Tipo ${ref.categoryId}`;
+    if (!catAcc.has(name)) catAcc.set(name, { realizado: 0 });
+  }
+  for (const row of input.categoryDayAggs ?? []) {
+    if (brand && row.brand !== brand && row.brand !== "ALL") continue;
+    if (brand && row.brand === "ALL") continue;
+    const name = row.categoryName || `Tipo ${row.categoryId}`;
+    const cur = catAcc.get(name) ?? { realizado: 0 };
+    cur.realizado += row.revenueCents / 100;
+    catAcc.set(name, cur);
+  }
+  const categoriaVsMeta: CategoryVsGoal[] = [...catAcc.entries()]
+    .map(([categoria, c]) => ({
+      categoria,
+      realizado: c.realizado,
+      meta: 0,
+    }))
+    .sort((a, b) => b.realizado - a.realizado || a.categoria.localeCompare(b.categoria, "pt-BR"));
+
   return {
     escopo,
     periodo,
     kpis,
     gauges,
-    faltamParaMeta: faltam > 0 ? `Faltam ${brlCent(faltam)} para atingir a Goal do mês` : metaTotal > 0 ? "Meta atingida" : null,
-    projecaoFechamento: null,
+    faltamParaMeta,
+    projecaoFechamento,
     eixoSerie,
     rotuloSerie,
-    categoriaVsMeta: [],
+    categoriaVsMeta,
     diaVsMeta: [],
     evolucao,
     formasPagamento: [],
@@ -2741,8 +2772,12 @@ export function buildOverviewView(escopo: Scope, aggs?: OverviewAggInput | null)
   const faltamParaMeta = faltam > 0 ? `Faltam ${brlCent(faltam)} para atingir a Goal do mês` : metaTotal > 0 ? "Meta atingida" : null;
   const projecaoFechamento = projetado > 0 ? `Projeção: ${brlCent(projetado)} · ${projPct.toFixed(0)}% da meta` : null;
 
-  // Faturamento por Categoria vs Meta
+  // Faturamento por categoria (fixture): todas as categorias da marca, mesmo com R$ 0.
   const catMap = new Map<number, { faturamento: number }>();
+  for (const cat of categorias) {
+    if (divisao && cat.divisao !== divisao) continue;
+    catMap.set(cat.id, { faturamento: 0 });
+  }
   for (const f of fs) {
     for (const d of salesDays(f.id, periodo.inicio, periodo.fim)) {
       for (const [id, c] of Object.entries(d.porCategoria)) {
@@ -2757,11 +2792,9 @@ export function buildOverviewView(escopo: Scope, aggs?: OverviewAggInput | null)
   const categoriaVsMeta: CategoryVsGoal[] = [...catMap.entries()]
     .map(([id, c]) => {
       const cat = categorias.find((x) => x.id === id)!;
-      // Meta proporcional por categoria (distribuição uniforme como fallback)
-      const metaCat = metaTotal > 0 ? metaTotal / catMap.size : 0;
-      return { categoria: cat.nome, meta: metaCat, realizado: c.faturamento };
+      return { categoria: cat.nome, meta: 0, realizado: c.faturamento };
     })
-    .sort((a, b) => b.realizado - a.realizado);
+    .sort((a, b) => b.realizado - a.realizado || a.categoria.localeCompare(b.categoria, "pt-BR"));
 
   // Faturamento por Dia da Semana vs Meta — oculto em período de 1 dia.
   const eixoSerie = seriesAxisForPeriod(periodo);

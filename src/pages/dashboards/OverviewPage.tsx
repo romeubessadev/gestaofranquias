@@ -9,6 +9,7 @@ import {
   fetchSalesDayAggs,
   fetchSalesHourAggs,
   fetchSalesCategoryDayAggs,
+  fetchSalesCategoryCatalog,
   fetchSalesCoverage,
   fetchSyncWatermark,
   requestForceRefresh,
@@ -16,7 +17,7 @@ import {
   waitForSyncJob,
   waitForLatestForceJob,
 } from "@/data/wedash/salesRepo";
-import type { SalesCategoryDayAgg, SalesDayAgg, SalesHourAgg } from "@/data/wedash/salesTypes";
+import type { SalesCategoryDayAgg, SalesCategoryRef, SalesDayAgg, SalesHourAgg } from "@/data/wedash/salesTypes";
 import { brlCent, deIso, tipRelacao } from "@/lib/format";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
 import { useActiveSession } from "@/session/SessionProvider";
@@ -90,6 +91,7 @@ export default function OverviewPage() {
   const [dayAggs, setDayAggs] = useState<SalesDayAgg[]>([]);
   const [hourAggs, setHourAggs] = useState<SalesHourAgg[]>([]);
   const [categoryDayAggs, setCategoryDayAggs] = useState<SalesCategoryDayAgg[]>([]);
+  const [categoryCatalog, setCategoryCatalog] = useState<SalesCategoryRef[]>([]);
   const [loading, setLoading] = useState(true);
   const [watermark, setWatermark] = useState<Date | null>(null);
   const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
@@ -121,7 +123,7 @@ export default function OverviewPage() {
     const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
     const singleDay = periodo.inicio === periodo.fim;
     try {
-      const [days, hours, cats, wm, cov] = await Promise.all([
+      const [days, hours, cats, catalog, wm, cov] = await Promise.all([
         fetchSalesDayAggs({
           tenantId: session.tenantId,
           storeIds: escopo.filialIds,
@@ -144,12 +146,18 @@ export default function OverviewPage() {
           to: periodo.fim,
           brand: null,
         }),
+        fetchSalesCategoryCatalog({
+          tenantId: session.tenantId,
+          storeIds: escopo.filialIds,
+          brand: null,
+        }),
         fetchSyncWatermark(session.tenantId),
         fetchSalesCoverage(session.tenantId, escopo.filialIds),
       ]);
       setDayAggs(days);
       setHourAggs(hours);
       setCategoryDayAggs(cats);
+      setCategoryCatalog(catalog);
       setWatermark(wm);
       setCoverageFrom(cov.from ? deIso(cov.from) : null);
     } catch (e) {
@@ -211,8 +219,8 @@ export default function OverviewPage() {
   }, [escopo.periodo, loading, session.role, coverageFrom]);
 
   const view = useMemo(
-    () => buildOverviewView(escopo, { dayAggs, hourAggs, categoryDayAggs }),
-    [escopo, dayAggs, hourAggs, categoryDayAggs],
+    () => buildOverviewView(escopo, { dayAggs, hourAggs, categoryDayAggs, categoryCatalog }),
+    [escopo, dayAggs, hourAggs, categoryDayAggs, categoryCatalog],
   );
 
   const canForce = canForceSyncRefresh(session.role);
@@ -507,55 +515,31 @@ export default function OverviewPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-1.5">
-                <CardTitle>Categorias x meta</CardTitle>
-                <Tooltip label="Evidencia as categorias acima ou abaixo da meta no período.">
+                <CardTitle>Faturamento por categoria</CardTitle>
+                <Tooltip label="Mostra o mix de faturamento por tipo de produto no período — inclusive categorias zeradas.">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
                 </Tooltip>
               </div>
-              <div className="mt-2.5 flex flex-wrap gap-5">
-                <div>
-                  <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
-                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--acc)]" />Realizado
-                  </span>
-                  <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
-                    {brlCent(view.categoriaVsMeta.reduce((s, c) => s + c.realizado, 0))}
-                  </p>
-                </div>
-                <div>
-                  <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
-                    <span
-                      className="inline-block w-3 border-t-2 border-dashed border-[var(--warn)]"
-                      aria-hidden
-                    />
-                    Goal
-                  </span>
-                  <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
-                    {(() => {
-                      const metaSum = view.categoriaVsMeta.reduce((s, c) => s + c.meta, 0);
-                      return metaSum > 0 ? brlCent(metaSum) : "—";
-                    })()}
-                  </p>
-                </div>
-              </div>
+              <p className="mt-2.5 font-mono text-base font-extrabold text-t0">
+                {brlCent(view.categoriaVsMeta.reduce((s, c) => s + c.realizado, 0))}
+              </p>
             </div>
             <BadgeVsAnterior delta={view.deltaFaturamento} />
           </div>
           {view.categoriaVsMeta.length === 0 ? (
             <p className="py-8 text-center text-sm text-t2">
-              Sem receita por categoria neste período. Confira o filtro (Hoje sem venda = vazio) ou rode Atualizar.
+              Sem categorias sincronizadas ainda. Rode Atualizar após o SEED de vendas.
             </p>
           ) : (
             <BarChart
               data={view.categoriaVsMeta.map((c) => ({
                 label: c.categoria,
                 value: c.realizado,
-                goal: c.meta > 0 ? c.meta : undefined,
               }))}
               height={220}
               color="var(--acc)"
-              goalColor="var(--warn)"
               formatValue={brlCent}
             />
           )}

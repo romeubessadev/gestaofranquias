@@ -33,6 +33,26 @@ export type SalesDayAgg = {
   cmvCents?: number;
 };
 
+/** Daily revenue by product tipo (C5BBF0E2) — sales_category_day_agg. */
+export type SalesCategoryDayAgg = {
+  tenantId: string;
+  storeId: string;
+  day: string;
+  /** Millennium PRODUTO_TIPO_TIPO. */
+  categoryId: number;
+  categoryName: string;
+  brand: SalesBrand;
+  revenueCents: number;
+  itemCount: number;
+};
+
+/** Distinct PRODUTO_TIPO already seen for the store (histórico sync). */
+export type SalesCategoryRef = {
+  categoryId: number;
+  categoryName: string;
+  brand: SalesBrand;
+};
+
 /** Hourly bucket — matches sales_hour_agg (current local day). */
 export type SalesHourAgg = {
   tenantId: string;
