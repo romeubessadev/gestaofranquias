@@ -205,10 +205,6 @@ export default function OverviewPage() {
   );
 
   const canForce = canForceSyncRefresh(session.role);
-  const brandSplitAvailable = useMemo(
-    () => dayAggs.some((d) => d.brand === "WEPINK" || d.brand === "WPINK"),
-    [dayAggs],
-  );
 
   const topProdutosOrdenados = useMemo(() => {
     const dir = topProdDir === "asc" ? 1 : -1;
@@ -357,11 +353,7 @@ export default function OverviewPage() {
               size="sm"
               minDate={coverageFrom}
             />
-            <BrandPicker
-              value={escopo.divisao}
-              onChange={onMarcaChange}
-              brandSplitAvailable={brandSplitAvailable}
-            />
+            <BrandPicker value={escopo.divisao} onChange={onMarcaChange} />
 
           </>
         }
@@ -374,18 +366,7 @@ export default function OverviewPage() {
         ))}
       </div>
 
-      {!loading && view.brandFilterUnavailable && (
-        <Card className="mt-4">
-          <p className="py-6 text-center text-[13px] text-t2">
-            O sync atual ainda não separa <span className="font-semibold text-t1">WEPINK</span> e{" "}
-            <span className="font-semibold text-t1">WPINK</span> por venda — só o total da loja
-            (brand ALL). Escolha <span className="font-semibold text-t1">Todas as marcas</span> para
-            ver o faturamento. O filtro por marca volta quando o sync de produtos/divisão estiver ativo.
-          </p>
-        </Card>
-      )}
-
-      {!loading && dayAggs.length === 0 && !view.brandFilterUnavailable && (
+      {!loading && dayAggs.length === 0 && (
         <Card className="mt-4">
           <p className="py-6 text-center text-[13px] text-t2">
             Ainda não há vendas neste período. A carga inicial cobre o mês anterior e o atual; use Atualizar para buscar buracos + hoje.
@@ -397,19 +378,13 @@ export default function OverviewPage() {
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.6fr]">
         {(() => {
           const meta = view.gauges.find((g) => g.nome === "Meta") ?? view.gauges[0];
-          if (!meta) {
-            return (
-              <Card>
-                <div className="mb-4">
-                  <CardTitle>Atingimento da meta</CardTitle>
-                </div>
-                <span className="py-8 text-center text-[13px] text-t2">Nenhuma meta cadastrada para este período.</span>
-              </Card>
-            );
-          }
-          const pct = Math.round(meta.pct);
-          const faltamValor = Math.max(0, meta.alvo - meta.realizado);
-          const projecaoValor = view.projecaoFechamento?.replace(/^Projeção:\s*/i, "") ?? "—";
+          const pct = meta ? Math.round(meta.pct) : 0;
+          const realizado = meta?.realizado ?? 0;
+          const alvo = meta?.alvo ?? 0;
+          const faltamValor = meta ? Math.max(0, meta.alvo - meta.realizado) : 0;
+          const projecaoValor = meta
+            ? (view.projecaoFechamento?.replace(/^Projeção:\s*/i, "") ?? "—")
+            : "—";
           return (
             <Card>
               <div className="mb-4">
@@ -421,16 +396,18 @@ export default function OverviewPage() {
               <div className="flex flex-col gap-2.5">
                 <div className="flex justify-between">
                   <span className="text-[12.5px] text-t2">Faturamento</span>
-                  <span className="text-[13px] font-bold text-t0">{brlCent(meta.realizado)}</span>
+                  <span className="text-[13px] font-bold text-t0">{brlCent(realizado)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[12.5px] text-t2">Goal do mês</span>
-                  <span className={`text-[13px] font-bold ${pct < 100 ? "text-warn" : "text-ok"}`}>{brlCent(meta.alvo)}</span>
+                  <span className={`text-[13px] font-bold ${meta && pct < 100 ? "text-warn" : meta ? "text-ok" : "text-t0"}`}>
+                    {brlCent(alvo)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[12.5px] text-t2">Faltam</span>
-                  <span className={`text-[13px] font-bold ${faltamValor > 0 ? "text-warn" : "text-ok"}`}>
-                    {faltamValor > 0 ? brlCent(faltamValor) : "Meta atingida"}
+                  <span className={`text-[13px] font-bold ${meta && faltamValor > 0 ? "text-warn" : meta ? "text-ok" : "text-t0"}`}>
+                    {meta && faltamValor <= 0 ? "Meta atingida" : brlCent(faltamValor)}
                   </span>
                 </div>
                 <div className="flex justify-between">
