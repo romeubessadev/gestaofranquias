@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, DonutChart } from "@/components/charts";
@@ -27,7 +28,7 @@ import {
   periodActivePresetId,
   periodDisplayLabel,
 } from "@/pages/dashboard/periodPicker";
-
+import { paths } from "@/router/paths";
 type TopProdSort = "nome" | "itens" | "faturamento" | "variacao";
 
 const IconFat = () => (
@@ -378,8 +379,9 @@ export default function OverviewPage() {
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.6fr]">
         {(() => {
           const meta = view.gauges.find((g) => g.nome === "Meta") ?? view.gauges[0];
+          const fatAcum = view.evolucao[view.evolucao.length - 1]?.realizado ?? 0;
           const pct = meta ? Math.round(meta.pct) : 0;
-          const realizado = meta?.realizado ?? 0;
+          const realizado = meta?.realizado ?? fatAcum;
           const alvo = meta?.alvo ?? 0;
           const faltamValor = meta ? Math.max(0, meta.alvo - meta.realizado) : 0;
           const projecaoValor = meta
@@ -390,6 +392,15 @@ export default function OverviewPage() {
               <div className="mb-4">
                 <CardTitle>Atingimento da meta</CardTitle>
               </div>
+              {!meta && (
+                <div className="mb-3 rounded-[10px] border border-warn/30 bg-warn-soft px-3 py-2 text-[12px] font-semibold text-t1">
+                  Configure uma meta em{" "}
+                  <Link to={paths.goals} className="text-acc underline-offset-2 hover:underline">
+                    Metas
+                  </Link>{" "}
+                  para acompanhar o atingimento.
+                </div>
+              )}
               <div className="relative mx-auto mb-4 h-[150px] w-[150px]">
                 <RadialProgress value={pct} size={150} stroke={15} trackColor="var(--bg-inset)" label="da meta" />
               </div>
@@ -399,20 +410,20 @@ export default function OverviewPage() {
                   <span className="text-[13px] font-bold text-t0">{brlCent(realizado)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[12.5px] text-t2">Goal do mês</span>
-                  <span className={`text-[13px] font-bold ${meta && pct < 100 ? "text-warn" : meta ? "text-ok" : "text-t0"}`}>
-                    {brlCent(alvo)}
+                  <span className="text-[12.5px] text-t2">Meta do mês</span>
+                  <span className={`text-[13px] font-bold ${meta && pct < 100 ? "text-warn" : meta ? "text-ok" : "text-t2"}`}>
+                    {meta ? brlCent(alvo) : "—"}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[12.5px] text-t2">Faltam</span>
-                  <span className={`text-[13px] font-bold ${meta && faltamValor > 0 ? "text-warn" : meta ? "text-ok" : "text-t0"}`}>
-                    {meta && faltamValor <= 0 ? "Meta atingida" : brlCent(faltamValor)}
+                  <span className={`text-[13px] font-bold ${meta && faltamValor > 0 ? "text-warn" : meta ? "text-ok" : "text-t2"}`}>
+                    {!meta ? "—" : faltamValor <= 0 ? "Meta atingida" : brlCent(faltamValor)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[12.5px] text-t2">Projeção</span>
-                  <span className="text-[13px] font-bold text-t0">{projecaoValor}</span>
+                  <span className={`text-[13px] font-bold ${meta ? "text-t0" : "text-t2"}`}>{projecaoValor}</span>
                 </div>
               </div>
             </Card>
