@@ -862,6 +862,26 @@ export async function processOneJob(sb: SupabaseClient, erpSecret: string): Prom
     return true;
   }
 
+  // Só Atualizar (FORCE) + SEED do onboarding. RANGE/HISTORY/BACKFILL não rodam sozinhos.
+  if (
+    process.env.SYNC_MANUAL_ONLY !== "0" &&
+    job.kind !== "FORCE" &&
+    job.kind !== "FORCE_LIGHT" &&
+    job.kind !== "SEED"
+  ) {
+    await sb
+      .from("sync_job")
+      .update({
+        status: "FAILED",
+        error: `pausado — sync manual (só FORCE/SEED); kind=${job.kind}`,
+        finished_at: new Date().toISOString(),
+      })
+      .eq("id", job.id)
+      .in("status", ["QUEUED", "RUNNING"]);
+    console.log(`Job ${job.id.slice(0, 8)}… ${job.kind} ignorado (SYNC_MANUAL_ONLY)`);
+    return true;
+  }
+
   // Nunca compete com o wizard: onboarding usa a mesma sessão Millennium.
   const { data: onboarding } = await sb
     .from("membership")
