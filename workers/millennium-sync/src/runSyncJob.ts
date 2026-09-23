@@ -468,6 +468,16 @@ export type SyncJobDeps = {
     from: string;
     to: string;
   }) => Promise<string[]>;
+  /**
+   * Dias com forma de pagamento “completa”:
+   * tem linha em sales_payment_day_agg OU day_agg ALL com revenue 0.
+   */
+  listDaysPaymentComplete: (args: {
+    tenantId: string;
+    storeId: string;
+    from: string;
+    to: string;
+  }) => Promise<string[]>;
   /** Earliest day in sales_day_agg for store (any brand). */
   earliestSalesDay: (args: { tenantId: string; storeId: string }) => Promise<string | null>;
   login: (username: string, password: string) => Promise<LoginResult>;
@@ -934,7 +944,20 @@ async function windowsForStore(
     to: alwaysToday ? maxIso(rangeTo, today) : rangeTo,
   });
 
-  const days = missingDays(rangeFrom, rangeTo, existing, { today, alwaysToday });
+  // FORCE/RANGE: dia com venda mas sem CONDICAO = buraco (1º Atualizar backfill; 2º = só hoje).
+  let have = existing;
+  if (kind === "FORCE" || kind === "FORCE_LIGHT" || kind === "RANGE") {
+    const payDone = await deps.listDaysPaymentComplete({
+      tenantId: job.tenantId,
+      storeId: store.id,
+      from: alwaysToday ? minIso(rangeFrom, today) : rangeFrom,
+      to: alwaysToday ? maxIso(rangeTo, today) : rangeTo,
+    });
+    const paySet = new Set(payDone);
+    have = existing.filter((d) => paySet.has(d));
+  }
+
+  const days = missingDays(rangeFrom, rangeTo, have, { today, alwaysToday });
   // FORCE/RANGE: buracos — tenta meses; fallback dia a dia no loop se vazio.
   return collapseDaysToWindows(days).flatMap((w) => chunkByCalendarMonths(w.from, w.to));
 }

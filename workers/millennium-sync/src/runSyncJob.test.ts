@@ -63,6 +63,7 @@ function makeDeps(overrides: Partial<SyncJobDeps> = {}): SyncJobDeps & {
     listExistingDays: vi.fn().mockResolvedValue([]),
     listDaysWithCmv: vi.fn().mockResolvedValue([]),
     listDaysWithCategory: vi.fn().mockResolvedValue([]),
+    listDaysPaymentComplete: vi.fn().mockResolvedValue([]),
     earliestSalesDay: vi.fn().mockResolvedValue(null),
     login: vi.fn().mockImplementation(async () => {
       calls.login += 1;
@@ -387,6 +388,8 @@ describe("runSyncJob", () => {
     const windows: Array<{ from: string; to: string }> = [];
     const deps = makeDeps({
       listExistingDays: vi.fn().mockResolvedValue(["2026-09-01", "2026-09-02"]),
+      // Formas já syncadas nesses dias — não rebusca 01/02.
+      listDaysPaymentComplete: vi.fn().mockResolvedValue(["2026-09-01", "2026-09-02"]),
       fetchSalesLista: vi.fn().mockImplementation(async (p: { from: string; to: string }) => {
         windows.push({ from: p.from, to: p.to });
         return [];
@@ -402,9 +405,33 @@ describe("runSyncJob", () => {
     expect(windows.some((w) => w.from === "2026-09-03" && w.to === "2026-09-03")).toBe(true);
     expect(windows.some((w) => w.from === "2026-09-05" && w.to === "2026-09-05")).toBe(true);
     expect(windows.some((w) => w.from === "2026-09-19" && w.to === "2026-09-19")).toBe(true);
+    expect(windows.some((w) => w.from === "2026-09-01")).toBe(false);
     expect(deps.updateCredential).toHaveBeenCalledWith(
       expect.objectContaining({ lastLightSyncAt: expect.any(Date) }),
     );
+  });
+
+  it("FORCE rebusca dia com venda mas sem forma de pagamento", async () => {
+    const windows: Array<{ from: string; to: string }> = [];
+    const deps = makeDeps({
+      listExistingDays: vi.fn().mockResolvedValue(["2026-09-01", "2026-09-02", "2026-09-03"]),
+      // Só 02 tem CONDICAO — 01 e 03 são buracos de forma.
+      listDaysPaymentComplete: vi.fn().mockResolvedValue(["2026-09-02"]),
+      fetchSalesLista: vi.fn().mockImplementation(async (p: { from: string; to: string }) => {
+        windows.push({ from: p.from, to: p.to });
+        return [];
+      }),
+      now: () => new Date("2026-09-19T15:00:00.000Z"),
+    });
+    const result = await runSyncJob(
+      baseJob({ kind: "FORCE", payload: { from: "2026-09-01", to: "2026-09-03" } }),
+      deps,
+    );
+    expect(result.ok).toBe(true);
+    expect(windows.some((w) => w.from === "2026-09-01" && w.to === "2026-09-01")).toBe(true);
+    expect(windows.some((w) => w.from === "2026-09-03" && w.to === "2026-09-03")).toBe(true);
+    expect(windows.some((w) => w.from === "2026-09-02")).toBe(false);
+    expect(windows.some((w) => w.from === "2026-09-19")).toBe(true);
   });
 
   it("FORCE_LIGHT without payload stays today-only (compat)", async () => {

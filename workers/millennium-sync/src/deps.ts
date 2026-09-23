@@ -176,6 +176,38 @@ export function buildDeps(sb: SupabaseClient, erpSecret: string): SyncJobDeps {
       return [...days];
     },
 
+    async listDaysPaymentComplete({ tenantId, storeId, from, to }) {
+      const days = new Set<string>();
+      const { data: payRows, error: payErr } = await sb
+        .from("sales_payment_day_agg")
+        .select("day")
+        .eq("tenant_id", tenantId)
+        .eq("store_id", storeId)
+        .gte("day", from)
+        .lte("day", to);
+      if (payErr) throw payErr;
+      for (const r of payRows ?? []) {
+        const d = String((r as { day: string }).day).slice(0, 10);
+        if (d) days.add(d);
+      }
+      // Dia sem venda: nada a particionar por CONDICAO — considera completo.
+      const { data: zeroRows, error: zeroErr } = await sb
+        .from("sales_day_agg")
+        .select("day")
+        .eq("tenant_id", tenantId)
+        .eq("store_id", storeId)
+        .eq("brand", "ALL")
+        .eq("revenue_cents", 0)
+        .gte("day", from)
+        .lte("day", to);
+      if (zeroErr) throw zeroErr;
+      for (const r of zeroRows ?? []) {
+        const d = String((r as { day: string }).day).slice(0, 10);
+        if (d) days.add(d);
+      }
+      return [...days];
+    },
+
     async earliestSalesDay({ tenantId, storeId }) {
       const { data, error } = await sb
         .from("sales_day_agg")
