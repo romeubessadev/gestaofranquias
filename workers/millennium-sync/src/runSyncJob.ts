@@ -635,6 +635,37 @@ function kindLabel(kind: SyncJobKind): string {
   }
 }
 
+/** Janela de CMV: FORCE/RANGE usa o período do payload (não só buracos da Lista). */
+function cmvWindowForJob(
+  job: SyncJob,
+  today: string,
+): { from: string; to: string } | null {
+  const kind = job.kind;
+  if (kind === "LIGHT") return null;
+  if (kind === "FORCE_LIGHT" && !job.payload.from && !job.payload.to) return null;
+  if (kind === "SEED" || kind === "BACKFILL") return seedWindow(today);
+  if (kind === "HISTORY") return null; // usa as janelas já buscadas
+  const from = job.payload.from ?? today;
+  const to = job.payload.to ?? today;
+  let a = minIso(from, to);
+  let b = maxIso(from, to);
+  if (kind === "FORCE" || kind === "FORCE_LIGHT") {
+    a = minIso(a, today);
+    b = maxIso(b, today);
+  }
+  return { from: a, to: b };
+}
+
+function shouldSyncCmv(kind: SyncJobKind): boolean {
+  return (
+    kind === "SEED" ||
+    kind === "BACKFILL" ||
+    kind === "HISTORY" ||
+    kind === "FORCE" ||
+    kind === "RANGE"
+  );
+}
+
 async function windowsForStore(
   job: SyncJob,
   store: SyncStore,
@@ -800,8 +831,8 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
   );
 
   try {
-    // HISTORY sem janelas / RANGE sem buracos: não gasta sessão no Millennium.
-    if (job.kind === "RANGE" || job.kind === "HISTORY") {
+    // HISTORY sem janelas: não gasta sessão. RANGE sem buracos ainda precisa CMV.
+    if (job.kind === "HISTORY") {
       let previewStores = await deps.listStores(job.tenantId);
       if (job.payload.storeIds && job.payload.storeIds.length > 0) {
         const want = new Set(job.payload.storeIds);
@@ -817,11 +848,7 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
         }
       }
       if (!precisaMillennium) {
-        console.log(
-          job.kind === "HISTORY"
-            ? "Histórico completo até o teto/chão — nada a buscar"
-            : "Período já está no banco — nada a buscar no Millennium",
-        );
+        console.log("Histórico completo até o teto/chão — nada a buscar");
         const finishedAt = deps.now();
         await deps.markJobFinished({ jobId: job.id, status: "SUCCEEDED" });
         await deps.insertSyncRun({
@@ -1050,10 +1077,29 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
           throw new Error(`Nenhum EVENTO de venda para a loja ${store.code}`);
         }
         const windows = await windowsForStore(job, store, now, deps);
+        const todayStore = ymdInTz(now, store.timezone);
+        const cmvWin =
+          cmvWindowForJob(job, todayStore) ??
+          (windows.length > 0
+            ? {
+                from: windows.reduce((a, w) => (w.from < a ? w.from : a), windows[0]!.from),
+                to: windows.reduce((a, w) => (w.to > a ? w.to : a), windows[0]!.to),
+              }
+            : null);
+
         if (windows.length === 0) {
           console.log(
             `Loja ${i + 1}/${storeList.length} (${store.code}) — nada a buscar (já no banco)`,
           );
+          if (shouldSyncCmv(job.kind) && cmvWin) {
+            await syncCmvForRange(deps, {
+              session: session!,
+              tenantId: job.tenantId,
+              store,
+              from: cmvWin.from,
+              to: cmvWin.to,
+            });
+          }
           return 1;
         }
         console.log(
@@ -1225,20 +1271,15 @@ export async function runSyncJob(job: SyncJob, deps: SyncJobDeps): Promise<RunSy
           geradorMap,
           geradorIdsWithWpink,
         });
-        // CMV (RELATORIOMARGEM) — fora do LIGHT; imposto% = TODO Configurações > Custos.
-        if (
-          job.kind === "SEED" ||
-          job.kind === "BACKFILL" ||
-          job.kind === "HISTORY" ||
-          job.kind === "FORCE" ||
-          job.kind === "RANGE"
-        ) {
+        // CMV (RELATORIOMARGEM) — período do filtro no FORCE, não só buracos da Lista.
+        // imposto% = TODO Configurações > Custos.
+        if (shouldSyncCmv(job.kind) && cmvWin) {
           await syncCmvForRange(deps, {
             session: session!,
             tenantId: job.tenantId,
             store,
-            from: brandFrom,
-            to: brandTo,
+            from: cmvWin.from,
+            to: cmvWin.to,
           });
         }
         console.log(
