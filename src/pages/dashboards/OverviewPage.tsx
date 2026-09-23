@@ -1,13 +1,14 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { AreaLineChart, DonutChart } from "@/components/charts";
+import { AreaLineChart, BarChart, DonutChart } from "@/components/charts";
 import { useScope } from "@/pages/dashboard/useScope";
 import { BrandPicker } from "@/pages/dashboard/BrandPicker";
 import { buildOverviewView, resolvePeriod, type OverviewKpi } from "@/data/wedash/dashboard";
 import {
   fetchSalesDayAggs,
   fetchSalesHourAggs,
+  fetchSalesCategoryDayAggs,
   fetchSalesCoverage,
   fetchSyncWatermark,
   requestForceRefresh,
@@ -15,7 +16,7 @@ import {
   waitForSyncJob,
   waitForLatestForceJob,
 } from "@/data/wedash/salesRepo";
-import type { SalesDayAgg, SalesHourAgg } from "@/data/wedash/salesTypes";
+import type { SalesCategoryDayAgg, SalesDayAgg, SalesHourAgg } from "@/data/wedash/salesTypes";
 import { brlCent, deIso, tipRelacao } from "@/lib/format";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
 import { useActiveSession } from "@/session/SessionProvider";
@@ -88,6 +89,7 @@ export default function OverviewPage() {
   const { escopo, mudar } = useScope();
   const [dayAggs, setDayAggs] = useState<SalesDayAgg[]>([]);
   const [hourAggs, setHourAggs] = useState<SalesHourAgg[]>([]);
+  const [categoryDayAggs, setCategoryDayAggs] = useState<SalesCategoryDayAgg[]>([]);
   const [loading, setLoading] = useState(true);
   const [watermark, setWatermark] = useState<Date | null>(null);
   const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
@@ -118,31 +120,41 @@ export default function OverviewPage() {
   const reloadAggs = useCallback(async () => {
     const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
     const singleDay = periodo.inicio === periodo.fim;
-    const [days, hours, wm, cov] = await Promise.all([
-      fetchSalesDayAggs({
-        tenantId: session.tenantId,
-        storeIds: escopo.filialIds,
-        from: periodo.inicio,
-        to: periodo.fim,
-        // Busca todas as brands; o filtro WEPINK/WPINK é no buildOverviewViewFromAggs.
-        // (Hoje o sync só grava ALL — filtrar no SQL zera o painel.)
-        brand: null,
-      }),
-      singleDay
-        ? fetchSalesHourAggs({
-            tenantId: session.tenantId,
-            storeIds: escopo.filialIds,
-            day: periodo.inicio,
-            brand: null,
-          })
-        : Promise.resolve([] as SalesHourAgg[]),
-      fetchSyncWatermark(session.tenantId),
-      fetchSalesCoverage(session.tenantId, escopo.filialIds),
-    ]);
-    setDayAggs(days);
-    setHourAggs(hours);
-    setWatermark(wm);
-    setCoverageFrom(cov.from ? deIso(cov.from) : null);
+    try {
+      const [days, hours, cats, wm, cov] = await Promise.all([
+        fetchSalesDayAggs({
+          tenantId: session.tenantId,
+          storeIds: escopo.filialIds,
+          from: periodo.inicio,
+          to: periodo.fim,
+          brand: null,
+        }),
+        singleDay
+          ? fetchSalesHourAggs({
+              tenantId: session.tenantId,
+              storeIds: escopo.filialIds,
+              day: periodo.inicio,
+              brand: null,
+            })
+          : Promise.resolve([] as SalesHourAgg[]),
+        fetchSalesCategoryDayAggs({
+          tenantId: session.tenantId,
+          storeIds: escopo.filialIds,
+          from: periodo.inicio,
+          to: periodo.fim,
+          brand: null,
+        }),
+        fetchSyncWatermark(session.tenantId),
+        fetchSalesCoverage(session.tenantId, escopo.filialIds),
+      ]);
+      setDayAggs(days);
+      setHourAggs(hours);
+      setCategoryDayAggs(cats);
+      setWatermark(wm);
+      setCoverageFrom(cov.from ? deIso(cov.from) : null);
+    } catch (e) {
+      console.error("Overview reloadAggs:", e);
+    }
   }, [escopo, session.tenantId]);
 
   useEffect(() => {
@@ -199,8 +211,8 @@ export default function OverviewPage() {
   }, [escopo.periodo, loading, session.role, coverageFrom]);
 
   const view = useMemo(
-    () => buildOverviewView(escopo, { dayAggs, hourAggs }),
-    [escopo, dayAggs, hourAggs],
+    () => buildOverviewView(escopo, { dayAggs, hourAggs, categoryDayAggs }),
+    [escopo, dayAggs, hourAggs, categoryDayAggs],
   );
 
   const canForce = canForceSyncRefresh(session.role);
@@ -513,25 +525,40 @@ export default function OverviewPage() {
                 </div>
                 <div>
                   <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
-                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Goal
+                    <span
+                      className="inline-block w-3 border-t-2 border-dashed border-[var(--warn)]"
+                      aria-hidden
+                    />
+                    Goal
                   </span>
                   <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
-                    {brlCent(view.categoriaVsMeta.reduce((s, c) => s + c.meta, 0))}
+                    {(() => {
+                      const metaSum = view.categoriaVsMeta.reduce((s, c) => s + c.meta, 0);
+                      return metaSum > 0 ? brlCent(metaSum) : "—";
+                    })()}
                   </p>
                 </div>
               </div>
             </div>
             <BadgeVsAnterior delta={view.deltaFaturamento} />
           </div>
-          <AreaLineChart
-            data={view.categoriaVsMeta.map((c) => c.realizado)}
-            compareData={view.categoriaVsMeta.map((c) => c.meta)}
-            labels={view.categoriaVsMeta.map((c) => c.categoria)}
-            color="var(--acc)"
-            compareColor="var(--warn)"
-            formatValue={brlCent}
-            showAxisLabels
-          />
+          {view.categoriaVsMeta.length === 0 ? (
+            <p className="py-8 text-center text-sm text-t2">
+              Sem receita por categoria neste período. Confira o filtro (Hoje sem venda = vazio) ou rode Atualizar.
+            </p>
+          ) : (
+            <BarChart
+              data={view.categoriaVsMeta.map((c) => ({
+                label: c.categoria,
+                value: c.realizado,
+                goal: c.meta > 0 ? c.meta : undefined,
+              }))}
+              height={220}
+              color="var(--acc)"
+              goalColor="var(--warn)"
+              formatValue={brlCent}
+            />
+          )}
         </Card>
         {view.diaVsMeta.length > 0 && (
           <Card padding="lg">
@@ -556,7 +583,11 @@ export default function OverviewPage() {
                   </div>
                   <div>
                     <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
-                      <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Goal
+                      <span
+                        className="inline-block w-3 border-t-2 border-dashed border-[var(--warn)]"
+                        aria-hidden
+                      />
+                      Goal
                     </span>
                     <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
                       {brlCent(view.diaVsMeta.reduce((s, d) => s + d.meta, 0))}
@@ -566,14 +597,16 @@ export default function OverviewPage() {
               </div>
               <BadgeVsAnterior delta={view.deltaFaturamento} />
             </div>
-            <AreaLineChart
-              data={view.diaVsMeta.map((d) => d.realizado)}
-              compareData={view.diaVsMeta.map((d) => d.meta)}
-              labels={view.diaVsMeta.map((d) => d.dia)}
+            <BarChart
+              data={view.diaVsMeta.map((d) => ({
+                label: d.dia,
+                value: d.realizado,
+                goal: d.meta > 0 ? d.meta : undefined,
+              }))}
+              height={220}
               color="var(--info)"
-              compareColor="var(--warn)"
+              goalColor="var(--warn)"
               formatValue={brlCent}
-              showAxisLabels
             />
           </Card>
         )}
