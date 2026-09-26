@@ -1,6 +1,6 @@
 import { getSupabase } from "@/lib/supabase";
 import { validarSenha } from "@/lib/password";
-import { titleName } from "@/lib/format";
+import { companyNameCase, titleName } from "@/lib/format";
 import { tenant } from "@/data/wedash/tenant";
 import { stores } from "@/data/wedash/stores";
 import { userByEmail, type User } from "@/data/wedash/team";
@@ -335,7 +335,7 @@ async function hydrateSessionFromAuth(authUserId: string, email: string): Promis
     onboardingStep: memb.onboarding_step,
     temporaryPassword: Boolean(ident.temporary_password),
     tenantId: memb.tenant_id,
-    companyName: ten?.display_name ?? ten?.name ?? tenant.nomeExibicao,
+    companyName: companyNameCase(ten?.display_name ?? ten?.name ?? tenant.nomeExibicao),
     companySlug: ten?.slug ?? tenant.slug,
     companyLogoUrl: ten?.logo_url ?? null,
     appInstalled: false,
@@ -503,7 +503,7 @@ export async function saveTenantBrand(
 ): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
-  const name = brand.name.trim();
+  const name = companyNameCase(brand.name);
   const slug = brand.slug.trim().toLowerCase();
   if (!name) return;
   const { error } = await sb

@@ -279,6 +279,12 @@ function StoreDetailForm({
     };
   }, [tenantId, store.id]);
 
+  useEffect(() => {
+    if (window.location.hash !== "#custos") return;
+    const t = window.setTimeout(() => document.getElementById("custos")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    return () => window.clearTimeout(t);
+  }, []);
+
   function addShift() {
     const last = shifts[shifts.length - 1];
     const start = last?.end ?? "09:00";
@@ -564,7 +570,7 @@ function StoreDetailForm({
         </Card>
 
         {showCosts && (
-        <Card>
+        <Card id="custos" className="scroll-mt-20">
           <CardHeader>
             <div>
               <CardTitle>Custos da operação</CardTitle>

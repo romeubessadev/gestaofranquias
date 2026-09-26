@@ -1,6 +1,6 @@
 import { getSupabase } from "@/lib/supabase";
 import { stores as demoStores } from "@/data/wedash/stores";
-import { titleName } from "@/lib/format";
+import { companyNameCase, titleName } from "@/lib/format";
 
 /** Papéis de quem acessa o sistema (fora a equipe de vendas). */
 export type SystemRole = "OWNER" | "MANAGER";
@@ -182,7 +182,7 @@ export async function fetchInviteInfo(): Promise<{ ok: true; info: InviteInfo } 
   const { data, error } = await sb.functions.invoke("team-members", { body: { action: "invite_info" } });
   const res = data as ({ ok?: boolean; error?: string } & InviteInfo) | null;
   if (error || !res?.ok) return { ok: false, code: res?.error ?? "not_found" };
-  return { ok: true, info: { name: titleName(res.name), email: res.email, role: res.role, companyName: res.companyName } };
+  return { ok: true, info: { name: titleName(res.name), email: res.email, role: res.role, companyName: companyNameCase(res.companyName) } };
 }
 
 export async function acceptInvite(): Promise<boolean> {

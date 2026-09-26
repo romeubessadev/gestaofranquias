@@ -7,6 +7,7 @@ import { tenant } from "@/data/wedash/tenant";
 import { storeIdsFromErp } from "@/data/wedash/stores";
 import type { StoreErp } from "@/data/wedash/erp";
 import { padTopoEBase } from "@/lib/safeArea";
+import { companyNameCase } from "@/lib/format";
 import { getSupabase } from "@/lib/supabase";
 import { useSession, useActiveSession } from "@/session/SessionProvider";
 import {
@@ -165,7 +166,7 @@ export function Onboarding() {
       setConcluindo(true);
       const confirmed = filiaisConfirmadas ?? draft.stores ?? [];
       const empresa = draft.empresa;
-      const companyName = empresa.nome.trim() || session.companyName;
+      const companyName = companyNameCase(empresa.nome.trim() || session.companyName);
       // Logo blob local não persiste; gravamos só nome/slug por enquanto.
       await saveTenantBrand(session.tenantId, {
         name: companyName,

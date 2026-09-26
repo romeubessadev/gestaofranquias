@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useNavigate } from "react-router-dom";
 import type { User } from "@/data/wedash/team";
 import { getSupabase } from "@/lib/supabase";
-import { titleName } from "@/lib/format";
+import { companyNameCase, titleName } from "@/lib/format";
 import { paths } from "@/router/paths";
 import {
   emRecovery,
@@ -44,7 +44,7 @@ function migrateLegacySession(raw: Record<string, unknown>): Session {
     onboardingStep: (raw.onboardingStep ?? raw.onboardingEtapa ?? null) as number | null,
     temporaryPassword: Boolean(raw.temporaryPassword ?? raw.senhaTemporaria),
     tenantId: raw.tenantId as string,
-    companyName: (raw.companyName ?? raw.empresaNome ?? raw.name ?? raw.nome ?? "WeDash") as string,
+    companyName: companyNameCase((raw.companyName ?? raw.empresaNome ?? raw.name ?? raw.nome ?? "WeDash") as string),
     companySlug: (raw.companySlug ?? raw.empresaSlug ?? "wedash") as string,
     companyLogoUrl: (raw.companyLogoUrl ?? raw.empresaLogoUrl ?? null) as string | null,
     appInstalled: Boolean(raw.appInstalled ?? raw.appInstalado),

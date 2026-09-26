@@ -28,6 +28,11 @@ export function labelUpper(s: string): string {
 
 const NAME_PARTICLES = new Set(["de", "da", "do", "das", "dos", "e"]);
 
+/** Nome da empresa (tenant): caixa alta, igual ao nome das lojas vindo do ERP. */
+export function companyNameCase(s: string | null | undefined): string {
+  return (s ?? "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
+}
+
 /**
  * Nome de pessoa / turno: primeira letra de cada palavra maiúscula ("Ana Paula de Souza").
  * Partículas (de, da, do, das, dos, e) ficam minúsculas fora do início. Espelho SQL na migration

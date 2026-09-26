@@ -58,6 +58,21 @@ export const EMPTY_STORE_COSTS: StoreCosts = {
 };
 
 /** Campos obrigatórios da loja (WPINK só se a loja vende WPINK). */
+/** Algum custo da operação (royalties, marketing, aluguel) preenchido em Configurações > Lojas. */
+export function storeOperatingCostsConfigured(s: Store): boolean {
+  const c = s.custos;
+  if (!c) return false;
+  return [
+    c.royaltiesWepinkPct,
+    c.royaltiesWpinkPct,
+    c.marketingWepinkPct,
+    c.marketingWpinkPct,
+    c.rentWepinkPct,
+    c.rentWpinkPct,
+    c.rentFixed,
+  ].some((v) => v != null);
+}
+
 export function storeCostsPending(s: Store): boolean {
   const c = s.custos ?? EMPTY_STORE_COSTS;
   const base = [c.royaltiesWepinkPct, c.marketingWepinkPct, c.rentWepinkPct, c.rentFixed];

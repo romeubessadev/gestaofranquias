@@ -1,4 +1,6 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { paths } from "@/router/paths";
 import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, DataTable, Badge, type DataTableColumn } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, DonutChart } from "@/components/charts";
@@ -170,6 +172,7 @@ function estiloLinhaCusto(linha: FixedCostRow): { bold: boolean; indent: boolean
 
 export default function FinancePage() {
   const session = useActiveSession();
+  const navigate = useNavigate();
   const { escopo, mudar } = useScope();
   const [aggs, setAggs] = useState<FinanceAggInput>({ dayAggs: [] });
   const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
@@ -466,7 +469,27 @@ export default function FinancePage() {
               <TipHelp label="Detalha os custos descontados do lucro bruto para chegar ao resultado operacional." />
             </div>
           </CardHeader>
-          {view.custosFixosFranquia.every((l) => l.valor === 0) ? (
+          {!view.custosConfigurados ? (
+            <EmptyBlock
+              icon="🧾"
+              title="Custos não configurados"
+              description="Informe royalties, marketing e aluguel da loja para ver o resultado operacional."
+              action={
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    navigate(
+                      escopo.filialIds.length === 1
+                        ? `${paths.settings.storeDetail(escopo.filialIds[0]!)}#custos`
+                        : paths.settings.stores,
+                    )
+                  }
+                >
+                  Configurar custos
+                </Button>
+              }
+            />
+          ) : view.custosFixosFranquia.every((l) => l.valor === 0) ? (
             <EmptyBlock />
           ) : (
           <div className="px-4 pb-4">
