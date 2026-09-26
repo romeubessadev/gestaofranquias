@@ -18,6 +18,7 @@ import {
   Switch,
   useToast,
 } from "@/components/ui";
+import { FormCardsSkeleton, SkeletonRows } from "@/components/wedash/LoadingSkeletons";
 import { useActiveSession } from "@/session/SessionProvider";
 import { isGestor } from "@/layout/nav-wedash";
 import {
@@ -128,6 +129,7 @@ export function StoreDetailPage() {
   const [catalogTick, setCatalogTick] = useState(0);
   const [loading, setLoading] = useState(true);
   const [equipe, setEquipe] = useState<StoreSeller[]>([]);
+  const [equipeLoaded, setEquipeLoaded] = useState(false);
 
   const store = useMemo(
     () => storesForSession(session.stores).find((s) => s.id === id) ?? null,
@@ -153,9 +155,13 @@ export function StoreDetailPage() {
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
-    void fetchStoreSellers(session.tenantId, [id]).then((m) => {
-      if (!cancelled) setEquipe(m.get(id) ?? []);
-    });
+    void fetchStoreSellers(session.tenantId, [id])
+      .then((m) => {
+        if (!cancelled) setEquipe(m.get(id) ?? []);
+      })
+      .finally(() => {
+        if (!cancelled) setEquipeLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -167,9 +173,11 @@ export function StoreDetailPage() {
     return (
       <div>
         <DetailHeader nome="Loja" onBack={voltar} />
-        <span className="block py-6 text-center text-[12px] text-t2">
-          {loading ? "Carregando loja…" : "Loja não encontrada no seu escopo."}
-        </span>
+        {loading ? (
+          <FormCardsSkeleton cards={3} />
+        ) : (
+          <span className="block py-6 text-center text-[12px] text-t2">Loja não encontrada no seu escopo.</span>
+        )}
       </div>
     );
   }
@@ -180,6 +188,7 @@ export function StoreDetailPage() {
       tenantId={session.tenantId}
       store={store}
       equipe={equipe}
+      equipeLoaded={equipeLoaded}
       canEdit={session.role === "OWNER" || session.role === "MANAGER" || session.role === "ADMIN_GLOBAL"}
       showCosts={isGestor(session.role)}
       onBack={voltar}
@@ -204,6 +213,7 @@ function StoreDetailForm({
   tenantId,
   store,
   equipe,
+  equipeLoaded,
   canEdit,
   showCosts,
   onBack,
@@ -213,6 +223,7 @@ function StoreDetailForm({
   tenantId: string;
   store: Store;
   equipe: StoreSeller[];
+  equipeLoaded: boolean;
   canEdit: boolean;
   showCosts: boolean;
   onBack: () => void;
@@ -675,7 +686,9 @@ function StoreDetailForm({
               onChange={(v) => v && setTeamTab(v)}
             />
           </div>
-          {teamRows.length === 0 ? (
+          {!equipeLoaded ? (
+            <SkeletonRows rows={3} />
+          ) : teamRows.length === 0 ? (
             <span className="block pt-2 pb-6 text-center text-[12px] text-t2">
               {teamTab === "ativos" ? "Ninguém na equipe" : "Nenhum desligado"}
             </span>

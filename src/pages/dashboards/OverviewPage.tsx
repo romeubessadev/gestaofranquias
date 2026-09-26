@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
-import { Avatar, Badge, Card, CardHeader, CardTitle, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button, ThSort, type SortDir } from "@/components/ui";
+import { Avatar, Badge, Card, CardHeader, CardTitle, Popover, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, BarChart, DonutChart } from "@/components/charts";
 import { useScope } from "@/pages/dashboard/useScope";
@@ -13,11 +13,8 @@ import {
   fetchSalesSellerDayAggs,
   fetchSalesProductDayAggs,
   fetchSalesCoverage,
+  fetchSellerShifts,
   fetchSyncWatermark,
-  requestForceRefresh,
-  requestRangeSync,
-  waitForSyncJob,
-  waitForLatestForceJob,
 } from "@/data/wedash/salesRepo";
 import type {
   SalesCategoryDayAgg,
@@ -27,12 +24,17 @@ import type {
   SalesPaymentDayAgg,
   SalesSellerDayAgg,
   SalesProductDayAgg,
+  SellerShiftRef,
 } from "@/data/wedash/salesTypes";
-import { brlCent, deIso, tipRelacao } from "@/lib/format";
+import { brlCent, deIso, num, tipDelta } from "@/lib/format";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
 import { useActiveSession } from "@/session/SessionProvider";
-import { canForceSyncRefresh, formatSyncWatermarkLabel, forceCooldownForScopeSec, formatForceCooldownLabel, readForceAtMap, recordForceAt, lastForceAtFromRetryAfter, readPendingForce, writePendingForce, clearPendingForce, type ForceAtMap } from "@/data/wedash/syncUi";
+import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
+import { useMonthFill } from "@/pages/dashboard/useMonthFill";
+import { MonthFillNotice, monthFillTouches, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
+import { DashboardSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { calendarTodayIso } from "@/data/wedash/clock";
+import { goalHistoryDayRange, goalHistorySameWeekdays } from "@/data/wedash/goalCurve";
 import {
   applyPeriodDateChange,
   dateRangeFromPeriod,
@@ -41,6 +43,9 @@ import {
 } from "@/pages/dashboard/periodPicker";
 import { TINT, type TintKey } from "@/pages/dashboards/icons";
 type TopProdSort = "nome" | "itens" | "faturamento" | "variacao";
+
+/** Ouro / prata / bronze — mesmo padrão do Sales leaderboard (Vela). */
+const RANK_MEDAL = ["#f7b84e", "#c7cdd6", "#d99a5c"];
 
 const IconFat = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -74,6 +79,8 @@ const KPI_WPINK_ICONS = [IconFat, IconCmv, IconVendas, IconTicket];
 
 /** Cores fixas para as lojas no donut e barras do Ranking de Lojas. */
 const CORES_LOJAS = ["var(--acc)", "var(--info)", "var(--ok)", "var(--warn)", "var(--bad)"];
+/** Fatia neutra "Demais lojas" (1 loja no StorePicker) — não compete com a cor da loja. */
+const COR_DEMAIS_LOJAS = "color-mix(in srgb, var(--t2) 40%, transparent)";
 
 /** Cores distintas para cada KPI card (hero). */
 const KPI_COLORS = [
@@ -85,7 +92,7 @@ const KPI_COLORS = [
 const KPI_WPINK_TINTS: TintKey[] = ["acc", "warn", "ok", "info"];
 
 /** Badge de delta — só % no chip; base do comparativo no tooltip (igual StatCard). */
-function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; diff?: string } }) {
+function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; diff?: string; anterior?: string } }) {
   if (!delta) return null;
   const badge = (
     <Badge variant={delta.positive ? "success" : "danger"}>
@@ -93,9 +100,8 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
       {delta.value}
     </Badge>
   );
-  if (!delta.vs) return badge;
-  const tip = tipRelacao(delta.vs);
-  return <Tooltip label={tip}>{badge}</Tooltip>;
+  const tip = tipDelta(delta);
+  return tip ? <Tooltip label={tip}>{badge}</Tooltip> : badge;
 }
 
 export default function OverviewPage() {
@@ -107,45 +113,35 @@ export default function OverviewPage() {
   const [categoryCatalog, setCategoryCatalog] = useState<SalesCategoryRef[]>([]);
   const [paymentDayAggs, setPaymentDayAggs] = useState<SalesPaymentDayAgg[]>([]);
   const [sellerDayAggs, setSellerDayAggs] = useState<SalesSellerDayAgg[]>([]);
+  const [sellerShifts, setSellerShifts] = useState<SellerShiftRef[]>([]);
   const [productDayAggs, setProductDayAggs] = useState<SalesProductDayAgg[]>([]);
   const [loading, setLoading] = useState(true);
   const [watermark, setWatermark] = useState<Date | null>(null);
   const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
-  const [refreshing, setRefreshing] = useState(() => !!readPendingForce(session.tenantId));
-  const [forceError, setForceError] = useState<string | null>(null);
-  const [forceAtMap, setForceAtMap] = useState<ForceAtMap>(() =>
-    readForceAtMap(session.tenantId),
-  );
-  const [forceCooldownSec, setForceCooldownSec] = useState<number | null>(() =>
-    forceCooldownForScopeSec(readForceAtMap(session.tenantId), escopo.filialIds),
-  );
+  const [goalHistoryDayAggs, setGoalHistoryDayAggs] = useState<SalesDayAgg[]>([]);
+  const [goalHistoryHourAggs, setGoalHistoryHourAggs] = useState<SalesHourAgg[]>([]);
+  const [prevDayAggs, setPrevDayAggs] = useState<SalesDayAgg[]>([]);
+  const [prevHourAggs, setPrevHourAggs] = useState<SalesHourAgg[]>([]);
+  // Catálogo de lojas (horário/fuso) hidratado depois do 1º render → recalcula eixos.
+  const [storesTick, setStoresTick] = useState(0);
+  useEffect(() => {
+    const onStores = () => setStoresTick((n) => n + 1);
+    window.addEventListener("wedash:stores", onStores);
+    return () => window.removeEventListener("wedash:stores", onStores);
+  }, []);
   const [topProdSort, setTopProdSort] = useState<TopProdSort>("faturamento");
   const [topProdDir, setTopProdDir] = useState<SortDir>("desc");
-  /** Evita dois waitForSyncJob paralelos (remount + clique). */
-  const forceWaitLock = useRef<Promise<void> | null>(null);
   /** Só a leitura mais recente aplica setState (evita corrida stale sobrescrever pós-FORCE). */
   const reloadGen = useRef(0);
-
-  // Contador 5 min do FORCE — por loja (ou “Todas” = opção A).
-  useEffect(() => {
-    const tick = () =>
-      setForceCooldownSec(forceCooldownForScopeSec(forceAtMap, escopo.filialIds));
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [forceAtMap, escopo.filialIds]);
-
-  useEffect(() => {
-    setForceAtMap(readForceAtMap(session.tenantId));
-  }, [session.tenantId]);
 
   const reloadAggs = useCallback(async () => {
     const gen = ++reloadGen.current;
     const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
     const ant = previousPeriod(periodo);
     const singleDay = periodo.inicio === periodo.fim;
+    const goalDays = goalHistoryDayRange(periodo.inicio);
     try {
-      const [days, hours, cats, catalog, payments, sellers, products, wm, cov] = await Promise.all([
+      const [days, hours, cats, catalog, payments, sellers, products, wm, cov, goalHistDays, goalHistHours, prevDays, prevHours, shifts] = await Promise.all([
         fetchSalesDayAggs({
           tenantId: session.tenantId,
           // Sempre a rede: Ranking precisa do total/participação mesmo com 1 loja no StorePicker.
@@ -194,14 +190,50 @@ export default function OverviewPage() {
         }),
         fetchSyncWatermark(session.tenantId),
         fetchSalesCoverage(session.tenantId, escopo.filialIds),
+        fetchSalesDayAggs({
+          tenantId: session.tenantId,
+          storeIds: escopo.filialIds,
+          from: goalDays.from,
+          to: goalDays.to,
+          brand: "ALL",
+        }),
+        singleDay
+          ? fetchSalesHourAggs({
+              tenantId: session.tenantId,
+              storeIds: escopo.filialIds,
+              day: goalHistorySameWeekdays(periodo.inicio),
+              brand: "ALL",
+            })
+          : Promise.resolve([] as SalesHourAgg[]),
+        fetchSalesDayAggs({
+          tenantId: session.tenantId,
+          storeIds: escopo.filialIds,
+          from: ant.inicio,
+          to: ant.fim,
+          brand: null,
+        }),
+        periodo.terminaHoje
+          ? fetchSalesHourAggs({
+              tenantId: session.tenantId,
+              storeIds: escopo.filialIds,
+              day: ant.fim,
+              brand: null,
+            })
+          : Promise.resolve([] as SalesHourAgg[]),
+        fetchSellerShifts(session.tenantId),
       ]);
       if (gen !== reloadGen.current) return;
       setDayAggs(days);
       setHourAggs(hours);
+      setGoalHistoryDayAggs(goalHistDays);
+      setGoalHistoryHourAggs(goalHistHours);
+      setPrevDayAggs(prevDays);
+      setPrevHourAggs(prevHours);
       setCategoryDayAggs(cats);
       setCategoryCatalog(catalog);
       setPaymentDayAggs(payments);
       setSellerDayAggs(sellers);
+      setSellerShifts(shifts);
       setProductDayAggs(products);
       setWatermark(wm);
       setCoverageFrom(cov.from ? deIso(cov.from) : null);
@@ -211,87 +243,24 @@ export default function OverviewPage() {
     }
   }, [escopo, session.tenantId]);
 
-  const applyForceWaitResult = useCallback(
-    async (
-      wait: Awaited<ReturnType<typeof waitForSyncJob>>,
-      storeIds: string[],
-    ) => {
-      clearPendingForce(session.tenantId);
-      if (wait.status === "FAILED") {
-        setForceError("Falha ao atualizar — tente de novo em alguns minutos");
-        console.warn("FORCE job failed:", wait.error);
-      } else if (wait.status === "TIMEOUT") {
-        setForceError("Atualização ainda em andamento — os dados podem chegar em instantes");
-      } else if (wait.status === "CANCELLED") {
-        setRefreshing(false);
-        return;
-      } else if (wait.status === "SUCCEEDED") {
-        setForceAtMap(recordForceAt(session.tenantId, storeIds, new Date()));
-      }
-      try {
-        await reloadAggs();
-      } finally {
-        setRefreshing(false);
-      }
-    },
-    [session.tenantId, reloadAggs],
-  );
-
-  const resumeOrWaitForce = useCallback(
-    async (opts: { jobId?: string; storeIds: string[]; enqueuedAt: string }) => {
-      // Se já há wait em curso, reusa a mesma Promise (evita return vazio + UI “pronto” cedo).
-      if (forceWaitLock.current) {
-        await forceWaitLock.current;
-        return;
-      }
-      setRefreshing(true);
-      setForceError(null);
-      const run = (async () => {
-        try {
-          const wait = opts.jobId
-            ? await waitForSyncJob(opts.jobId)
-            : await waitForLatestForceJob(session.tenantId, {
-                sinceIso: opts.enqueuedAt,
-              });
-          await applyForceWaitResult(wait, opts.storeIds);
-        } finally {
-          forceWaitLock.current = null;
-        }
-      })();
-      forceWaitLock.current = run;
-      await run;
-    },
-    [session.tenantId, applyForceWaitResult],
-  );
-
-  // Reabre o PWA no meio do FORCE → mantém "Atualizando…" até o job terminar.
   useEffect(() => {
-    if (!canForceSyncRefresh(session.role)) return;
-    const pending = readPendingForce(session.tenantId);
-    if (!pending) return;
-    void resumeOrWaitForce(pending);
-  }, [session.tenantId, session.role, resumeOrWaitForce]);
+    const onSynced = () => void reloadAggs();
+    window.addEventListener(SALES_SYNCED_EVENT, onSynced);
+    return () => window.removeEventListener(SALES_SYNCED_EVENT, onSynced);
+  }, [reloadAggs]);
 
-  // Voltou do background: se ainda há pending e o poll parou, retoma.
-  useEffect(() => {
-    if (!canForceSyncRefresh(session.role)) return;
-    const onVis = () => {
-      if (document.visibilityState !== "visible") return;
-      if (forceWaitLock.current) return;
-      const pending = readPendingForce(session.tenantId);
-      if (!pending) return;
-      void resumeOrWaitForce(pending);
-    };
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, [session.tenantId, session.role, resumeOrWaitForce]);
-
+  // Só a 1ª carga usa `loading` (desabilita o botão). Re-fetch de escopo/aba
+  // atualiza os dados em silêncio — senão o Atualizar “pisca” (disabled:opacity-50).
+  const hasLoadedOnce = useRef(false);
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     void (async () => {
+      if (!hasLoadedOnce.current) setLoading(true);
       await reloadAggs();
-      if (!cancelled) setLoading(false);
+      if (!cancelled) {
+        hasLoadedOnce.current = true;
+        setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -317,28 +286,6 @@ export default function OverviewPage() {
     return () => window.clearInterval(id);
   }, [session.tenantId, escopo.filialIds]);
 
-  // Período maior que o cache: enfileira RANGE para buracos (dedupe no Edge).
-  useEffect(() => {
-    if (loading || !canForceSyncRefresh(session.role)) return;
-    const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
-    if (periodo.inicio === periodo.fim && periodo.inicio === calendarTodayIso()) return;
-    // Não pede RANGE além da cobertura já sincronizada.
-    if (coverageFrom) {
-      const covIso = (() => {
-        const d = coverageFrom;
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, "0");
-        const day = String(d.getDate()).padStart(2, "0");
-        return `${y}-${m}-${day}`;
-      })();
-      if (periodo.inicio < covIso) return;
-    }
-    const t = window.setTimeout(() => {
-      void requestRangeSync({ from: periodo.inicio, to: periodo.fim });
-    }, 800);
-    return () => window.clearTimeout(t);
-  }, [escopo.periodo, loading, session.role, coverageFrom]);
-
   const view = useMemo(
     () =>
       buildOverviewView(escopo, {
@@ -348,26 +295,31 @@ export default function OverviewPage() {
         categoryCatalog,
         paymentDayAggs,
         sellerDayAggs,
+        sellerShifts,
         productDayAggs,
+        goalHistoryDayAggs,
+        goalHistoryHourAggs,
+        prevDayAggs,
+        prevHourAggs,
       }),
-    [escopo, dayAggs, hourAggs, categoryDayAggs, categoryCatalog, paymentDayAggs, sellerDayAggs, productDayAggs],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [escopo, dayAggs, hourAggs, categoryDayAggs, categoryCatalog, paymentDayAggs, sellerDayAggs, sellerShifts, productDayAggs, goalHistoryDayAggs, goalHistoryHourAggs, prevDayAggs, prevHourAggs, storesTick],
   );
 
-  const canForce = canForceSyncRefresh(session.role);
-
+  // A métrica escolhe QUAIS 5 entram (sempre os maiores); a direção só reordena os 5.
+  // "Produto" (nome) reordena o Top 5 por faturamento.
   const topProdutosOrdenados = useMemo(() => {
-    const dir = topProdDir === "asc" ? 1 : -1;
-    const itensDe = (sub?: string) => {
-      if (!sub) return 0;
-      const n = Number(sub.replace(/[^\d]/g, ""));
-      return Number.isFinite(n) ? n : 0;
-    };
-    return [...view.topProdutos].sort((a, b) => {
-      if (topProdSort === "nome") return a.nome.localeCompare(b.nome) * dir;
-      if (topProdSort === "itens") return (itensDe(a.sub) - itensDe(b.sub)) * dir;
-      if (topProdSort === "variacao") return ((a.trend ?? -Infinity) - (b.trend ?? -Infinity)) * dir;
-      return (a.valor - b.valor) * dir;
-    });
+    type P = (typeof view.topProdutos)[number];
+    const metrica = (p: P) =>
+      topProdSort === "itens" ? (p.itens ?? 0) : topProdSort === "variacao" ? (p.trend ?? -Infinity) : p.valor;
+    const top5 = [...view.topProdutos]
+      .sort((a, b) => metrica(b) - metrica(a) || b.valor - a.valor)
+      .slice(0, 5);
+    if (topProdSort === "nome") {
+      const dir = topProdDir === "asc" ? 1 : -1;
+      return top5.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR") * dir);
+    }
+    return topProdDir === "asc" ? top5.reverse() : top5;
   }, [view.topProdutos, topProdSort, topProdDir]);
 
   function toggleTopProdSort(key: TopProdSort) {
@@ -381,60 +333,13 @@ export default function OverviewPage() {
 
   // Resolve o DateRange a partir do escopo — sempre mostra algo selecionado.
   const dateRange = useMemo(() => dateRangeFromPeriod(escopo.periodo), [escopo.periodo]);
+  const periodoAtual = resolvePeriod(escopo.periodo, calendarTodayIso());
+  const monthFill = useMonthFill();
+  const periodoCarregando = monthFillTouches(monthFill, periodoAtual.inicio, periodoAtual.fim);
 
   function onDateChange(r: DateRange, meta?: DateRangeChangeMeta) {
     mudar(applyPeriodDateChange(escopo, r, meta));
   }
-
-  const forcarAtualizacao = useCallback(async () => {
-    if (!canForce || refreshing || forceCooldownSec != null) return;
-    setRefreshing(true);
-    setForceError(null);
-    const enqueuedAt = new Date();
-    const storeIds = escopo.filialIds;
-    const today = calendarTodayIso();
-    const result = await requestForceRefresh({
-      from: today,
-      to: today,
-      storeIds,
-    });
-    if (!result.ok) {
-      if (result.error === "rate_limited") {
-        const at = lastForceAtFromRetryAfter(result.retryAfterSec ?? 300);
-        setForceAtMap(recordForceAt(session.tenantId, storeIds, at));
-        setForceError(null);
-      } else if (result.error === "forbidden") {
-        setForceError("Sem permissão para atualizar");
-      } else if (result.error === "credential_missing" || result.error === "credential_invalid") {
-        setForceError("Integração ERP indisponível — confira em Configurações");
-      } else {
-        setForceError("Não foi possível enfileirar a atualização");
-        console.warn("requestForceRefresh:", result.error);
-      }
-      setRefreshing(false);
-      return;
-    }
-
-    const pending = {
-      jobId: result.jobId,
-      storeIds,
-      enqueuedAt: enqueuedAt.toISOString(),
-    };
-    writePendingForce(session.tenantId, pending);
-    await resumeOrWaitForce(pending);
-  }, [
-    canForce,
-    refreshing,
-    forceCooldownSec,
-    escopo.periodo,
-    escopo.filialIds,
-    session.tenantId,
-    resumeOrWaitForce,
-  ]);
-
-  const minutosAtras =
-    watermark != null ? Math.floor((Date.now() - watermark.getTime()) / 60000) : null;
-  const rotuloAtualizacao = formatSyncWatermarkLabel(watermark, { loading });
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
@@ -445,68 +350,13 @@ export default function OverviewPage() {
         actions={
           <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
             <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
-              <span
-                className={`flex items-center gap-1.5 text-[12px] ${
-                  refreshing
-                    ? "text-warn"
-                    : minutosAtras != null && minutosAtras < 10
-                      ? "text-ok"
-                      : "text-t2"
-                }`}
-              >
-                <span
-                  className={`inline-block h-2 w-2 rounded-full ${
-                    refreshing
-                      ? "bg-warn"
-                      : minutosAtras != null && minutosAtras < 10
-                        ? "bg-ok"
-                        : "bg-warn"
-                  }`}
-                />
-                {rotuloAtualizacao}
-              </span>
-              {forceError && <span className="text-[12px] text-bad">{forceError}</span>}
-              {canForce && (
-                <Button
-                  size="sm"
-                  onClick={() => void forcarAtualizacao()}
-                  disabled={refreshing || loading || forceCooldownSec != null}
-                  title={
-                    refreshing
-                      ? "Buscando dados no ERP…"
-                      : forceCooldownSec != null
-                        ? `Próxima atualização em ${formatForceCooldownLabel(forceCooldownSec)} · protege o ERP (1× / 5 min)`
-                        : escopo.filialIds.length === 1
-                          ? "Atualiza só a loja selecionada · dados de hoje"
-                          : "Atualiza todas as lojas · dados de hoje"
-                  }
-                  icon={
-                    refreshing ? undefined : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 2v6h-6" />
-                        <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-                        <path d="M3 22v-6h6" />
-                        <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-                      </svg>
-                    )
-                  }
-                >
-                  {refreshing
-                    ? "Atualizando…"
-                    : forceCooldownSec != null
-                      ? `Aguarde ${formatForceCooldownLabel(forceCooldownSec)}`
-                      : "Atualizar"}
-                </Button>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
               <DateRangePicker
                 value={dateRange}
                 onChange={onDateChange}
                 displayLabel={periodDisplayLabel(escopo.periodo)}
                 activePresetId={periodActivePresetId(escopo.periodo)}
                 size="sm"
-                minDate={coverageFrom}
+                minDate={pickerMinDate(coverageFrom, monthFill)}
               />
               <Button
                 variant="secondary"
@@ -526,6 +376,13 @@ export default function OverviewPage() {
           </div>
         }
       />
+
+      <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
+
+      {loading ? (
+        <DashboardSkeleton />
+      ) : (
+      <>
 
       {/* KPI row — 4 cards */}
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -559,7 +416,10 @@ export default function OverviewPage() {
                       </Tooltip>
                     ) : null}
                   </p>
-                  <p className="mt-1 truncate font-mono text-lg font-extrabold text-t0">{kpi.valor}</p>
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
+                    <p className="truncate font-mono text-lg font-extrabold text-t0">{kpi.valor}</p>
+                    <BadgeVsAnterior delta={kpi.delta} />
+                  </div>
                   {kpi.sub ? <p className="text-[11px] text-t2">{kpi.sub}</p> : null}
                 </div>
               </Card>
@@ -568,10 +428,10 @@ export default function OverviewPage() {
         </div>
       )}
 
-      {!loading && dayAggs.length === 0 && (
+      {!loading && dayAggs.length === 0 && !periodoCarregando && (
         <Card className="mt-4">
           <p className="py-6 text-center text-[13px] text-t2">
-            Ainda não há vendas neste período. A carga inicial cobre o mês anterior e o atual; use Atualizar para buscar o dia de hoje.
+            Ainda não há vendas neste período. A carga inicial cobre o mês atual; use Atualizar para buscar o dia de hoje.
           </p>
         </Card>
       )}
@@ -652,7 +512,7 @@ export default function OverviewPage() {
             <div>
               <div className="flex items-center gap-1.5">
                 <CardTitle>Faturamento x meta</CardTitle>
-                <Tooltip label="Mostra se o faturamento acompanha o ritmo necessário para atingir a meta.">
+                <Tooltip label="Faturamento de cada hora/dia comparado à meta daquele ponto. A meta do mês é distribuída pelo peso histórico de cada dia da semana e de cada hora da loja.">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
@@ -670,7 +530,7 @@ export default function OverviewPage() {
                 </div>
                 <div>
                   <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
-                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Goal
+                    <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />Meta
                   </span>
                   <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
                     {brlCent(view.evolucao[view.evolucao.length - 1]?.meta ?? 0)}
@@ -680,15 +540,33 @@ export default function OverviewPage() {
             </div>
             <BadgeVsAnterior delta={view.deltaFaturamento} />
           </div>
-          <AreaLineChart
-            data={view.evolucao.map((e) => e.realizado)}
-            compareData={view.evolucao.map((e) => e.meta)}
-            labels={view.evolucao.map((e) => e.label)}
-            color="var(--ok)"
-            compareColor="var(--warn)"
-            formatValue={brlCent}
-            showAxisLabels
-          />
+          {(() => {
+            // evolucao vem acumulada; o gráfico mostra o valor de cada hora/dia/mês.
+            const serie = view.evolucao
+              .map((e, i) => {
+                const prev = view.evolucao[i - 1];
+                return {
+                  ...e,
+                  realizado: e.realizado - (prev?.realizado ?? 0),
+                  meta: e.meta - (prev?.meta ?? 0),
+                };
+              })
+              .filter((e) => !e.ancora);
+            if (serie.every((e) => e.realizado === 0 && e.meta === 0)) {
+              return <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>;
+            }
+            return (
+              <AreaLineChart
+                data={serie.map((e) => e.realizado)}
+                compareData={serie.map((e) => e.meta)}
+                labels={serie.map((e) => e.label)}
+                color="var(--ok)"
+                compareColor="var(--warn)"
+                formatValue={brlCent}
+                showAxisLabels
+              />
+            );
+          })()}
         </Card>
       </div>
 
@@ -709,9 +587,7 @@ export default function OverviewPage() {
             <BadgeVsAnterior delta={view.deltaFaturamento} />
           </div>
           {view.categoriaVsMeta.filter((c) => c.realizado > 0).length === 0 ? (
-            <p className="py-8 text-center text-sm text-t2">
-              Sem categorias no período — use Atualizar para sincronizar o dia.
-            </p>
+            <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
           ) : (
             <BarChart
               data={view.categoriaVsMeta
@@ -781,14 +657,14 @@ export default function OverviewPage() {
       {/* Linha: Ranking de Lojas + Formas de Pagamento */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="flex flex-col">
-          <div className="mb-1 flex items-center justify-between gap-2">
+          <CardHeader className="items-center">
             <CardTitle>Ranking de lojas</CardTitle>
             {escopo.filialIds.length === 1 && (
               <Badge variant="accent">
                 Rede: {brlCent(view.rankingRedeTotal ?? 0)}
               </Badge>
             )}
-          </div>
+          </CardHeader>
           {view.rankingLojas.length === 0 ? (
             <span className="py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
           ) : (
@@ -796,33 +672,46 @@ export default function OverviewPage() {
               const totalRede =
                 (view.rankingRedeTotal ?? view.rankingLojas.reduce((s, l) => s + l.valor, 0)) || 1;
               const umaLoja = escopo.filialIds.length === 1;
-              const donutSegments = view.rankingLojas.map((l, i) => ({
-                label: l.nome,
-                value: l.valor,
-                color: CORES_LOJAS[i % CORES_LOJAS.length],
-              }));
+              const valorLoja = view.rankingLojas[0]?.valor ?? 0;
+              const valorDemais = umaLoja ? Math.max(0, totalRede - valorLoja) : 0;
+              // 1 loja: fatia da loja × "Demais lojas" (resto da rede) — mostra o peso real na rede.
+              const demais: (typeof view.rankingLojas)[number] | null =
+                umaLoja && valorDemais > 0
+                  ? {
+                      nome: `Demais lojas${view.rankingDemaisLojas ? ` (${view.rankingDemaisLojas})` : ""}`,
+                      valor: valorDemais,
+                    }
+                  : null;
+              const donutSegments = [
+                ...view.rankingLojas.map((l, i) => ({
+                  label: l.nome,
+                  value: l.valor,
+                  color: CORES_LOJAS[i % CORES_LOJAS.length],
+                })),
+                ...(demais ? [{ label: demais.nome, value: demais.valor, color: COR_DEMAIS_LOJAS }] : []),
+              ];
               return (
                 <>
-                  <div className="flex flex-1 flex-col items-center justify-center">
+                  <div className="flex flex-1 flex-col items-center justify-center py-2">
                     <DonutChart
                       segments={donutSegments}
                       size={148}
                       thickness={20}
-                      centerLabel={umaLoja ? "Loja" : "Total"}
-                      centerValue={brlCent(
+                      centerLabel={umaLoja ? "da rede" : "Total"}
+                      centerValue={
                         umaLoja
-                          ? (view.rankingLojas[0]?.valor ?? 0)
-                          : totalRede,
-                      )}
+                          ? `${Math.round((valorLoja / totalRede) * 100)}%`
+                          : brlCent(totalRede)
+                      }
                     />
                   </div>
                   <div className="mt-4 flex flex-col gap-3">
-                    {view.rankingLojas.map((loja, idx) => {
+                    {[...view.rankingLojas, ...(demais ? [demais] : [])].map((loja, idx) => {
                       const pctRede = Math.round(
                         loja.pctRede ?? (totalRede > 0 ? (loja.valor / totalRede) * 100 : 0),
                       );
                       const pctBar = Math.min(100, Math.max(0, pctRede));
-                      const cor = CORES_LOJAS[idx % CORES_LOJAS.length];
+                      const cor = loja === demais ? COR_DEMAIS_LOJAS : CORES_LOJAS[idx % CORES_LOJAS.length];
                       return (
                         <div key={"id" in loja && loja.id ? String(loja.id) : `${loja.nome}-${idx}`} className="min-w-0 rounded-xl bg-bg-inset p-3">
                           <div className="mb-1.5 flex min-w-0 items-baseline gap-2">
@@ -897,7 +786,8 @@ export default function OverviewPage() {
         <Card>
           <CardHeader>
             <div className="flex w-full items-center justify-between gap-1.5">
-              <CardTitle>Top vendedoras</CardTitle>
+              <CardTitle>Destaques da equipe</CardTitle>
+              <Badge variant="accent">Top 5</Badge>
             </div>
           </CardHeader>
           <div className="flex flex-col gap-4 px-4 pb-4">
@@ -906,20 +796,55 @@ export default function OverviewPage() {
               const pct = v.pctMeta ?? 0;
               return (
                 <div key={v.nome} className="flex items-center gap-3">
-                  <span className="w-5 text-center text-sm font-extrabold text-t1">{idx + 1}</span>
+                  <span
+                    className="w-5 shrink-0 text-center text-[13px] font-extrabold"
+                    style={{ color: RANK_MEDAL[idx] ?? "var(--t2)" }}
+                  >
+                    {idx + 1}
+                  </span>
                   <Avatar name={v.nome} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex items-baseline justify-between">
-                      <span className="text-[13px] font-bold text-t0">{v.nome}</span>
-                      <span className="font-mono text-[13px] font-extrabold text-ok">{brlCent(v.valor)}</span>
+                    <div className="mb-1 flex items-baseline justify-between gap-2">
+                      <Popover
+                        className="min-w-0"
+                        trigger={
+                          <button
+                            type="button"
+                            className="block max-w-full cursor-pointer truncate text-left text-[13px] font-bold text-t0 decoration-dotted underline-offset-2 hover:underline"
+                          >
+                            {v.nome}
+                          </button>
+                        }
+                      >
+                        <div className="flex flex-col gap-2.5 text-[12px]">
+                          <div>
+                            <p className="text-[11px] font-semibold text-t2">{v.lojas.length > 1 ? "Lojas" : "Loja"}</p>
+                            <p className="font-bold text-t0">{v.lojas[0] ?? "—"}</p>
+                            {v.lojas.length > 1 && (
+                              <p className="text-t1">Também vendeu em {v.lojas.slice(1).join(", ")}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-semibold text-t2">Turno</p>
+                            <p className={v.turno ? "font-bold text-t0" : "text-t2"}>{v.turno ?? "Sem turno"}</p>
+                          </div>
+                        </div>
+                      </Popover>
+                      <span className="shrink-0 font-mono text-[13px] font-extrabold text-ok">{brlCent(v.valor)}</span>
                     </div>
                     {hasMeta && <ProgressBar value={pct} height={5} />}
-                    <div className={`flex items-center gap-1.5 text-[11px] text-t2 ${hasMeta ? "mt-0.5" : ""}`}>
+                    <div className={`flex flex-wrap items-center gap-x-1.5 text-[11px] text-t2 ${hasMeta ? "mt-0.5" : ""}`}>
                       <span>{v.sub?.split("·")[0]?.trim() ?? ""}</span>
                       {v.ticketMedio != null && v.ticketMedio > 0 && (
                         <>
                           <span>·</span>
                           <span>Ticket médio {brlCent(v.ticketMedio)}</span>
+                        </>
+                      )}
+                      {v.pa != null && (
+                        <>
+                          <span>·</span>
+                          <span>P.A. {num(v.pa, 2)}</span>
                         </>
                       )}
                       {hasMeta && (
@@ -942,6 +867,7 @@ export default function OverviewPage() {
           <CardHeader>
             <div className="flex w-full items-center justify-between gap-1.5">
               <CardTitle>Top produtos</CardTitle>
+              <Badge variant="accent">Top 5</Badge>
             </div>
           </CardHeader>
           <div className="overflow-x-auto">
@@ -997,7 +923,7 @@ export default function OverviewPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{p.sub?.replace(" itens", "") ?? "—"}</td>
+                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{p.itens != null ? p.itens.toLocaleString("pt-BR") : (p.sub?.replace(" itens", "") ?? "—")}</td>
                       <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.valor)}</td>
                       <td className="px-1 py-3 text-right text-xs font-bold" style={{ color: p.trend != null ? (p.trend >= 0 ? "var(--ok)" : "var(--bad)") : undefined }}>
                         {p.trend != null ? `${p.trend >= 0 ? "+" : ""}${p.trend}%` : "—"}
@@ -1013,6 +939,8 @@ export default function OverviewPage() {
           </div>
         </Card>
       </div>
+      </>
+      )}
     </div>
   );
 }

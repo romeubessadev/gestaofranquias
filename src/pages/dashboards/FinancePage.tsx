@@ -1,13 +1,40 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, DataTable, Badge, type DataTableColumn } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, DonutChart } from "@/components/charts";
-import { useEscopo } from "@/pages/dashboard/useEscopo";
-import { SeletorMarca } from "@/pages/dashboard/SeletorMarca";
-import { montarFinanceiroView, type FinanceiroKpi, type EvolucaoMensalLinha, type LinhaCustoFixo } from "@/data/gestao/dashboard";
-import { brl, brlK, deIso, tipRelacao } from "@/lib/formato";
+import { useScope } from "@/pages/dashboard/useScope";
+import {
+  buildFinanceView,
+  financeFetchRange,
+  resolvePeriod,
+  type FinanceAggInput,
+  type FinanceKpi,
+  type MonthlyEvolutionRow,
+  type FixedCostRow,
+} from "@/data/wedash/dashboard";
+import {
+  fetchSalesCoverage,
+  fetchSalesDayAggs,
+  fetchSalesHourAggs,
+  fetchSalesPaymentDayAggs,
+} from "@/data/wedash/salesRepo";
+import type { SalesHourAgg } from "@/data/wedash/salesTypes";
+import { calendarTodayIso } from "@/data/wedash/clock";
+import { useActiveSession } from "@/session/SessionProvider";
+import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
+import { useMonthFill } from "@/pages/dashboard/useMonthFill";
+import { MonthFillNotice, monthFillTouches, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
+import { DashboardSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { brlCent, deIso, tipDelta } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { DateRange } from "@/components/ui/DateRangePicker";
+import { TINT } from "@/pages/dashboards/icons";
+import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
+import {
+  applyPeriodDateChange,
+  dateRangeFromPeriod,
+  periodActivePresetId,
+  periodDisplayLabel,
+} from "@/pages/dashboard/periodPicker";
 
 /** Ícones dos KPIs — Faturamento/CMV iguais à Visão Geral; Lucro/Margem próprios. */
 const IconFat = () => (
@@ -45,7 +72,7 @@ const TipHelp = ({ label }: { label: string }) => (
 );
 
 /** Badge de delta — só % no chip; base do comparativo no tooltip (igual StatCard). */
-function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; diff?: string } }) {
+function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; diff?: string; anterior?: string } }) {
   if (!delta) return null;
   const badge = (
     <Badge variant={delta.positive ? "success" : "danger"}>
@@ -53,9 +80,8 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
       {delta.value}
     </Badge>
   );
-  if (!delta.vs) return badge;
-  const tip = tipRelacao(delta.vs);
-  return <Tooltip label={tip}>{badge}</Tooltip>;
+  const tip = tipDelta(delta);
+  return tip ? <Tooltip label={tip}>{badge}</Tooltip> : badge;
 }
 
 const KPI_ICONS = [IconFat, IconCmv, IconLucro, IconMargem];
@@ -68,7 +94,7 @@ const KPI_COLORS = [
   { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
 ];
 
-const evolucaoColumns: DataTableColumn<EvolucaoMensalLinha>[] = [
+const evolucaoColumns: DataTableColumn<MonthlyEvolutionRow>[] = [
   {
     key: "mes",
     header: "Mês",
@@ -82,7 +108,7 @@ const evolucaoColumns: DataTableColumn<EvolucaoMensalLinha>[] = [
     align: "right",
     sortable: true,
     sortValue: (r) => r.faturamento,
-    render: (r) => <span className="font-semibold tabular-nums">{brl(r.faturamento)}</span>,
+    render: (r) => <span className="font-semibold tabular-nums">{brlCent(r.faturamento)}</span>,
   },
   {
     key: "cmv",
@@ -91,7 +117,7 @@ const evolucaoColumns: DataTableColumn<EvolucaoMensalLinha>[] = [
     hideBelow: "sm",
     sortable: true,
     sortValue: (r) => r.custo,
-    render: (r) => <span className="tabular-nums text-t1">{brl(r.custo)}</span>,
+    render: (r) => <span className="tabular-nums text-t1">{brlCent(r.custo)}</span>,
   },
   {
     key: "lucro",
@@ -99,7 +125,7 @@ const evolucaoColumns: DataTableColumn<EvolucaoMensalLinha>[] = [
     align: "right",
     sortable: true,
     sortValue: (r) => r.lucro,
-    render: (r) => <span className="font-extrabold tabular-nums text-ok">{brl(r.lucro)}</span>,
+    render: (r) => <span className="font-extrabold tabular-nums text-ok">{brlCent(r.lucro)}</span>,
   },
   {
     key: "margem",
@@ -117,66 +143,96 @@ const evolucaoColumns: DataTableColumn<EvolucaoMensalLinha>[] = [
     hideBelow: "md",
     sortable: true,
     sortValue: (r) => r.ticketMedio,
-    render: (r) => <span className="tabular-nums text-t1">{brl(r.ticketMedio)}</span>,
+    render: (r) => <span className="tabular-nums text-t1">{brlCent(r.ticketMedio)}</span>,
   },
 ];
 
 /** Hierarquia visual no padrão Income statement (ProfitLoss). */
-function estiloLinhaCusto(linha: LinhaCustoFixo): { bold: boolean; indent: boolean; color?: string; valor: string } {
+function estiloLinhaCusto(linha: FixedCostRow): { bold: boolean; indent: boolean; color?: string; valor: string } {
   if (linha.ehResultado) {
     return {
       bold: true,
       indent: false,
       color: linha.valor < 0 ? "var(--bad)" : "var(--acc)",
-      valor: brl(linha.valor),
+      valor: brlCent(linha.valor),
     };
   }
   if (linha.ehTotal) {
-    return { bold: true, indent: false, valor: `−${brl(linha.valor)}` };
+    return { bold: true, indent: false, valor: `−${brlCent(linha.valor)}` };
   }
   if (linha.rotulo === "Lucro bruto") {
-    return { bold: true, indent: false, color: "var(--ok)", valor: brl(linha.valor) };
+    return { bold: true, indent: false, color: "var(--ok)", valor: brlCent(linha.valor) };
   }
-  return { bold: false, indent: true, valor: `−${brl(linha.valor)}` };
+  return { bold: false, indent: true, valor: `−${brlCent(linha.valor)}` };
 }
 
-export default function FinanceiroPage() {
-  const { escopo, mudar } = useEscopo();
-  const view = useMemo(() => montarFinanceiroView(escopo), [escopo]);
-  const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
-  const [refreshing, setRefreshing] = useState(false);
-
-  // Resolve o DateRange a partir do escopo — sempre mostra algo selecionado.
-  const dateRange: DateRange | null = useMemo(() => {
-    if (escopo.periodo.tipo === "personalizado" && escopo.periodo.inicio && escopo.periodo.fim) {
-      return [deIso(escopo.periodo.inicio), deIso(escopo.periodo.fim)];
-    }
-    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-    switch (escopo.periodo.tipo) {
-      case "hoje": return [hoje, hoje];
-      case "ontem": { const y = new Date(hoje); y.setDate(y.getDate() - 1); return [y, y]; }
-      case "7dias": { const s = new Date(hoje); s.setDate(s.getDate() - 6); return [s, hoje]; }
-      case "esteMes": return [new Date(hoje.getFullYear(), hoje.getMonth(), 1), hoje];
-      case "mesPassado": return [new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1), new Date(hoje.getFullYear(), hoje.getMonth(), 0)];
-      default: return null;
-    }
-  }, [escopo.periodo]);
-
-  function onDateChange(r: DateRange) {
-    mudar({ ...escopo, periodo: { tipo: "personalizado", inicio: r[0].toISOString().slice(0, 10), fim: r[1].toISOString().slice(0, 10) } });
-  }
-
-  function onMarcaChange(v: "WEPINK" | "WPINK" | null) {
-    mudar({ ...escopo, divisao: v });
-  }
-
-  const forcarAtualizacao = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => { setUltimaAtualizacao(new Date()); setRefreshing(false); }, 600);
+export default function FinancePage() {
+  const session = useActiveSession();
+  const { escopo, mudar } = useScope();
+  const [aggs, setAggs] = useState<FinanceAggInput>({ dayAggs: [] });
+  const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
+  const [loading, setLoading] = useState(true);
+  // Catálogo de lojas (horário/custos) hidratado depois do 1º render → recalcula.
+  const [storesTick, setStoresTick] = useState(0);
+  useEffect(() => {
+    const onStores = () => setStoresTick((n) => n + 1);
+    window.addEventListener("wedash:stores", onStores);
+    return () => window.removeEventListener("wedash:stores", onStores);
   }, []);
 
-  const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
-  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} min`;
+  /** Só a leitura mais recente aplica setState. */
+  const reloadGen = useRef(0);
+  const reload = useCallback(async () => {
+    const gen = ++reloadGen.current;
+    const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
+    const range = financeFetchRange(escopo);
+    const storeIds = escopo.filialIds;
+    try {
+      const [dayAggs, hourAggs, prevHourAggs, paymentDayAggs, cov] = await Promise.all([
+        fetchSalesDayAggs({ tenantId: session.tenantId, storeIds, from: range.from, to: range.to, brand: null }),
+        periodo.inicio === periodo.fim
+          ? fetchSalesHourAggs({ tenantId: session.tenantId, storeIds, day: periodo.inicio, brand: null })
+          : Promise.resolve([] as SalesHourAgg[]),
+        range.prevHourDay
+          ? fetchSalesHourAggs({ tenantId: session.tenantId, storeIds, day: range.prevHourDay, brand: null })
+          : Promise.resolve([] as SalesHourAgg[]),
+        fetchSalesPaymentDayAggs({ tenantId: session.tenantId, storeIds, from: periodo.inicio, to: periodo.fim }),
+        fetchSalesCoverage(session.tenantId, storeIds),
+      ]);
+      if (gen !== reloadGen.current) return;
+      setAggs({ dayAggs, hourAggs, prevHourAggs, paymentDayAggs });
+      setCoverageFrom(cov.from ? deIso(cov.from) : null);
+    } catch (e) {
+      if (gen !== reloadGen.current) return;
+      console.error("Finance reload:", e);
+    }
+  }, [escopo, session.tenantId]);
+
+  useEffect(() => {
+    void reload().finally(() => setLoading(false));
+  }, [reload]);
+
+  useEffect(() => {
+    const onSynced = () => void reload();
+    window.addEventListener(SALES_SYNCED_EVENT, onSynced);
+    return () => window.removeEventListener(SALES_SYNCED_EVENT, onSynced);
+  }, [reload]);
+
+  const view = useMemo(
+    () => buildFinanceView({ ...escopo, divisao: null }, aggs),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [escopo, aggs, storesTick],
+  );
+
+  // Resolve o DateRange a partir do escopo — sempre mostra algo selecionado.
+  const dateRange = useMemo(() => dateRangeFromPeriod(escopo.periodo), [escopo.periodo]);
+  const periodoAtual = resolvePeriod(escopo.periodo, calendarTodayIso());
+  const monthFill = useMonthFill();
+  const periodoCarregando = monthFillTouches(monthFill, periodoAtual.inicio, periodoAtual.fim);
+
+  function onDateChange(r: DateRange, meta?: DateRangeChangeMeta) {
+    mudar(applyPeriodDateChange(escopo, r, meta));
+  }
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
@@ -185,26 +241,41 @@ export default function FinanceiroPage() {
         title="Financeiro"
         subtitle="Receita, custos e margem da operação."
         actions={
-          <>
-            <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
-              <span className={`inline-block h-2 w-2 rounded-full ${minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
-              {rotuloAtualizacao}
-            </span>
-            <Button size="sm" onClick={forcarAtualizacao} disabled={refreshing}
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
-            >
-              Atualizar
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => window.print()}
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>}
-            >
-              Exportar
-            </Button>
-            <DateRangePicker value={dateRange} onChange={onDateChange} size="sm" />
-            <SeletorMarca value={escopo.divisao} onChange={onMarcaChange} />
-          </>
+          <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
+            <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+              <DateRangePicker
+                value={dateRange}
+                onChange={onDateChange}
+                displayLabel={periodDisplayLabel(escopo.periodo)}
+                activePresetId={periodActivePresetId(escopo.periodo)}
+                size="sm"
+                minDate={pickerMinDate(coverageFrom, monthFill)}
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => window.print()}
+                icon={
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                }
+              >
+                Exportar
+              </Button>
+            </div>
+          </div>
         }
       />
+
+      <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
+
+      {loading ? (
+        <DashboardSkeleton />
+      ) : (
+      <>
 
       {/* KPI row — 4 cards */}
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -212,6 +283,51 @@ export default function FinanceiroPage() {
           <KpiCard key={kpi.label} kpi={kpi} Icon={KPI_ICONS[i]} colorIdx={i} />
         ))}
       </div>
+
+      {/* Quick stats WPINK — só quando a loja (ou rede) tem a marca */}
+      {view.kpisWpink.length > 0 && (
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {view.kpisWpink.map((kpi, i) => {
+            const Icon = KPI_ICONS[i] ?? IconFat;
+            const tint = TINT[kpi.tint];
+            return (
+              <Card key={kpi.label} padding="sm" className="flex items-center gap-3.5">
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]"
+                  style={{ background: tint.bg, color: tint.fg }}
+                >
+                  <Icon />
+                </span>
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 text-[11.5px] font-semibold text-t2">
+                    {kpi.label}
+                    {kpi.tooltip ? (
+                      <Tooltip label={kpi.tooltip} side="bottom">
+                        <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+                          ?
+                        </span>
+                      </Tooltip>
+                    ) : null}
+                  </p>
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
+                    <p className="truncate font-mono text-lg font-extrabold text-t0">{kpi.valor}</p>
+                    <BadgeVsAnterior delta={kpi.delta} />
+                  </div>
+                  {kpi.sub ? <p className="text-[11px] text-t2">{kpi.sub}</p> : null}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {!loading && view.custoLucroMargem.every((p) => p.faturamento === 0) && !periodoCarregando && (
+        <Card className="mt-4">
+          <p className="py-6 text-center text-[13px] text-t2">
+            Ainda não há vendas neste período. A carga inicial cobre o mês atual; use Atualizar para buscar o dia de hoje.
+          </p>
+        </Card>
+      )}
 
       {/* Par: CMV/Lucro + Resultado operacional */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -224,11 +340,16 @@ export default function FinanceiroPage() {
           const deltaLucro = view.kpis.find((k) => k.label === "Lucro bruto")?.delta;
           return (
             <Card padding="lg">
-              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div className="mb-4">
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <CardTitle>CMV, lucro e margem</CardTitle>
-                    <TipHelp label="Mostra quanto do faturamento vira custo, lucro bruto e margem." />
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <CardTitle>CMV, lucro e margem</CardTitle>
+                      <TipHelp label="Mostra quanto do faturamento vira custo, lucro bruto e margem." />
+                    </div>
+                    <div className="shrink-0">
+                      <BadgeVsAnterior delta={deltaLucro} />
+                    </div>
                   </div>
                   <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloSerie}</p>
                   <div className="mt-2.5 flex flex-wrap gap-5">
@@ -236,13 +357,13 @@ export default function FinanceiroPage() {
                       <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
                         <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--ok)]" />Lucro bruto
                       </span>
-                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(totalLucro)}</p>
+                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlCent(totalLucro)}</p>
                     </div>
                     <div>
                       <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
                         <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--bad)]" />CMV
                       </span>
-                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(totalCmv)}</p>
+                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlCent(totalCmv)}</p>
                     </div>
                     <div>
                       <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">Margem</span>
@@ -250,17 +371,20 @@ export default function FinanceiroPage() {
                     </div>
                   </div>
                 </div>
-                <BadgeVsAnterior delta={deltaLucro} />
               </div>
-              <AreaLineChart
-                data={serie.map((m) => m.lucro)}
-                compareData={serie.map((m) => m.custo)}
-                labels={serie.map((m) => m.mes)}
-                color="var(--ok)"
-                compareColor="var(--bad)"
-                formatValue={brlK}
-                showAxisLabels
-              />
+              {totalFat === 0 ? (
+                <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+              ) : (
+                <AreaLineChart
+                  data={serie.map((m) => m.lucro)}
+                  compareData={serie.map((m) => m.custo)}
+                  labels={serie.map((m) => m.mes)}
+                  color="var(--ok)"
+                  compareColor="var(--bad)"
+                  formatValue={brlCent}
+                  showAxisLabels
+                />
+              )}
             </Card>
           );
         })()}
@@ -276,11 +400,16 @@ export default function FinanceiroPage() {
             : "Valor que permanece após descontar os custos da operação do lucro bruto.";
           return (
             <Card padding="lg">
-              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div className="mb-4">
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <CardTitle>Resultado operacional</CardTitle>
-                    <TipHelp label={tipResultado} />
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <CardTitle>Resultado operacional</CardTitle>
+                      <TipHelp label={tipResultado} />
+                    </div>
+                    <div className="shrink-0">
+                      <BadgeVsAnterior delta={view.deltaResultado} />
+                    </div>
                   </div>
                   <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloSerie}</p>
                   <div className="mt-2.5 flex flex-wrap gap-5">
@@ -288,13 +417,13 @@ export default function FinanceiroPage() {
                       <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
                         <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--ok)]" />Lucro bruto
                       </span>
-                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(totalLucro)}</p>
+                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlCent(totalLucro)}</p>
                     </div>
                     <div>
                       <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
                         <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--acc)]" />Resultado operacional
                       </span>
-                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlK(totalRes)}</p>
+                      <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{brlCent(totalRes)}</p>
                     </div>
                     <div>
                       <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">Margem operacional</span>
@@ -302,24 +431,27 @@ export default function FinanceiroPage() {
                     </div>
                   </div>
                 </div>
-                <BadgeVsAnterior delta={view.deltaResultado} />
               </div>
-              <AreaLineChart
-                data={serie.map((m) => m.lucro)}
-                compareData={serie.map((m) => m.resultado)}
-                labels={serie.map((m) => m.mes)}
-                color="var(--ok)"
-                compareColor="var(--acc)"
-                formatValue={brlK}
-                showAxisLabels
-              />
+              {totalFat === 0 ? (
+                <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+              ) : (
+                <AreaLineChart
+                  data={serie.map((m) => m.lucro)}
+                  compareData={serie.map((m) => m.resultado)}
+                  labels={serie.map((m) => m.mes)}
+                  color="var(--ok)"
+                  compareColor="var(--acc)"
+                  formatValue={brlCent}
+                  showAxisLabels
+                />
+              )}
             </Card>
           );
         })()}
       </div>
 
       {/* Custos antes de Formas (leitura natural após Resultado / margem op.).
-          Com todas as marcas: 3 colunas (Custos | Formas | Marcas). Com 1 marca: 2 colunas. */}
+          Com WPINK no escopo: 3 colunas (Custos | Formas | Marcas); senão 2. */}
       <div
         className={cn(
           "mt-4 grid grid-cols-1 gap-4",
@@ -377,7 +509,7 @@ export default function FinanceiroPage() {
                         color: f.cor,
                       }))}
                       centerLabel="Total"
-                      centerValue={brlK(total)}
+                      centerValue={brlCent(total)}
                     />
                   </div>
                   <div className="mt-2 flex flex-col gap-2">
@@ -387,7 +519,7 @@ export default function FinanceiroPage() {
                         <div key={f.forma} className="flex items-center gap-2.5">
                           <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: f.cor }} />
                           <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{f.forma}</span>
-                          <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlK(f.valor)}</span>
+                          <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlCent(f.valor)}</span>
                           <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
                         </div>
                       );
@@ -419,7 +551,7 @@ export default function FinanceiroPage() {
                           color: m.cor,
                         }))}
                         centerLabel="Total"
-                        centerValue={brlK(total)}
+                        centerValue={brlCent(total)}
                       />
                     </div>
                     <div className="mt-2 flex flex-col gap-2">
@@ -429,7 +561,7 @@ export default function FinanceiroPage() {
                           <div key={m.marca} className="flex items-center gap-2.5">
                             <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: m.cor }} />
                             <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-t1">{m.marca}</span>
-                            <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlK(m.valor)}</span>
+                            <span className="shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlCent(m.valor)}</span>
                             <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
                           </div>
                         );
@@ -465,7 +597,7 @@ export default function FinanceiroPage() {
         {/* Mobile — stack em cards (padrão Responsive Tables) */}
         <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
           {view.evolucaoMensal.length === 0 ? (
-            <p className="py-6 text-center text-sm text-t2">Sem dados nos últimos 6 meses.</p>
+            <p className="py-6 text-center text-[12px] text-t2">Sem dados nos últimos 6 meses.</p>
           ) : (
             view.evolucaoMensal.map((linha) => (
               <div key={linha.mes} className="rounded-xl border border-line bg-bg-inset p-3.5">
@@ -473,17 +605,17 @@ export default function FinanceiroPage() {
                   <p className="text-[13.5px] font-bold text-t0">{linha.mes}</p>
                   <div className="text-right">
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-t2">Lucro bruto</p>
-                    <span className="text-[13px] font-extrabold tabular-nums text-ok">{brl(linha.lucro)}</span>
+                    <span className="text-[13px] font-extrabold tabular-nums text-ok">{brlCent(linha.lucro)}</span>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-line pt-2.5 text-[11.5px]">
                   <div className="flex justify-between gap-2">
                     <span className="text-t2">Faturamento</span>
-                    <span className="font-semibold tabular-nums text-t0">{brl(linha.faturamento)}</span>
+                    <span className="font-semibold tabular-nums text-t0">{brlCent(linha.faturamento)}</span>
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-t2">CMV</span>
-                    <span className="font-semibold tabular-nums text-t0">{brl(linha.custo)}</span>
+                    <span className="font-semibold tabular-nums text-t0">{brlCent(linha.custo)}</span>
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-t2">Margem</span>
@@ -491,7 +623,7 @@ export default function FinanceiroPage() {
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-t2">Ticket médio</span>
-                    <span className="font-semibold tabular-nums text-t0">{brl(linha.ticketMedio)}</span>
+                    <span className="font-semibold tabular-nums text-t0">{brlCent(linha.ticketMedio)}</span>
                   </div>
                 </div>
               </div>
@@ -499,12 +631,14 @@ export default function FinanceiroPage() {
           )}
         </div>
       </Card>
+      </>
+      )}
     </div>
   );
 }
 
 /** StatCard wrapper com tooltip ? e sparkline de tendência. */
-function KpiCard({ kpi, Icon, colorIdx = 0 }: { kpi: FinanceiroKpi; Icon: () => React.JSX.Element; colorIdx?: number }) {
+function KpiCard({ kpi, Icon, colorIdx = 0 }: { kpi: FinanceKpi; Icon: () => React.JSX.Element; colorIdx?: number }) {
   const c = KPI_COLORS[colorIdx % KPI_COLORS.length];
   return (
     <StatCard

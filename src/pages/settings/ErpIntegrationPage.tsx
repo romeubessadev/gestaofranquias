@@ -1,49 +1,70 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Badge,
   Button,
   Card,
-  CardHeader,
-  CardTitle,
-  PageHeader,
+  Checkbox,
+  FormField,
+  Input,
+  Modal,
+  Skeleton,
   useToast,
 } from "@/components/ui";
-import { useActiveSession } from "@/session/SessionProvider";
+import { paths } from "@/router/paths";
+import { useSession, useActiveSession } from "@/session/SessionProvider";
+import { markAwaitingInitialSync } from "@/session/awaitingInitialSync";
 import {
+  applyErpCredentialChange,
+  cancelErpCredentialChange,
+  erpChangeNeedsConfirm,
   fetchErpIntegrationStatus,
+  prepareErpCredentialChange,
   releaseErpSession,
-  resumeErpSync,
+  type ErpCredentialChangeResult,
+  type PreparedErpChange,
   type ErpIntegrationStatus,
+  type ErpReportCheck,
 } from "@/data/wedash/erp";
+import { ErpReportChecks } from "@/components/wedash/ErpReportChecks";
+import { noAutofill, secretStyle } from "@/lib/noAutofill";
 
-function fmtWhen(iso: string | null): string {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
+type Estado = "desconectado" | "pausado" | "conectado" | "senha";
+
+function estadoDe(info: ErpIntegrationStatus | null): Estado {
+  if (!info || info.status === "NOT_CONFIGURED") return "desconectado";
+  if (info.syncPaused) return "pausado";
+  if (info.status === "INVALID") return "senha";
+  return "conectado";
 }
 
+const ESTADO_UI: Record<Estado, { label: string; cls: string; dot: string }> = {
+  conectado: { label: "Conectado", cls: "text-ok", dot: "bg-ok" },
+  pausado: { label: "Desconectado", cls: "text-t2", dot: "bg-t2" },
+  senha: { label: "Senha inválida", cls: "text-bad", dot: "bg-bad" },
+  desconectado: { label: "Não conectado", cls: "text-t2", dot: "bg-t2" },
+};
+
+const ERRO_CREDENCIAL: Record<Extract<ErpCredentialChangeResult, { ok: false }>["reason"], string> = {
+  password: "Usuário ou senha incorretos. Nada foi alterado.",
+  busy: "Este usuário já está logado no Millennium em outro lugar. Saia de lá e tente de novo.",
+  stores: "Conectou, mas não foi possível listar as lojas. Tente de novo.",
+  no_stores: "Esse usuário não enxerga nenhuma loja no Millennium. Nada foi alterado.",
+  other: "Não foi possível conectar ao Millennium. Tente novamente em alguns minutos.",
+  persist: "O login funcionou, mas não conseguimos salvar. Tente de novo.",
+  reports: "Este usuário não tem acesso a todos os relatórios que a WeDash usa. Nada foi alterado.",
+};
+
 /**
- * Configurações > Integração ERP — desconectar libera o Millennium;
- * logout WeDash NÃO faz isso.
+ * Configurações > Integrações — card Millennium (padrão Integrations do Vela).
+ * Desconectar libera o Millennium; logout WeDash NÃO faz isso.
  */
 export function ErpIntegrationPage() {
   const session = useActiveSession();
-  const { show } = useToast();
   const [info, setInfo] = useState<ErpIntegrationStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [aberto, setAberto] = useState(false);
 
   const reload = useCallback(async () => {
-    setLoading(true);
     const st = await fetchErpIntegrationStatus(session.tenantId);
     setInfo(st);
     setLoading(false);
@@ -53,15 +74,131 @@ export function ErpIntegrationPage() {
     void reload();
   }, [reload]);
 
+  const estado = estadoDe(info);
+  const ui = ESTADO_UI[estado];
   const canEdit = session.role === "OWNER" || session.role === "MANAGER";
 
-  async function disconnect() {
-    if (!canEdit || busy) return;
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <div className="mb-3.5 flex items-center gap-3">
+            <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[13px] border border-line bg-bg-inset">
+              <img src="/linx.png" alt="Linx" className="h-[26px] w-[26px] object-contain" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14.5px] font-bold text-t0">Millennium</p>
+              <p className="mt-0.5 text-[11.5px] text-t2">ERP Linx · vendas, custos e lojas</p>
+            </div>
+          </div>
+          {loading ? (
+            <div className="flex items-center justify-between border-t border-line pt-3" aria-busy="true" aria-label="Carregando">
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="h-8 w-24 rounded-[var(--radius-vela-sm)]" />
+            </div>
+          ) : (
+            <div className="flex items-center justify-between border-t border-line pt-3">
+              <span className={`flex items-center gap-1.5 text-xs font-bold ${ui.cls}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${ui.dot}`} />
+                {ui.label}
+              </span>
+              {estado === "conectado" ? (
+                <Button variant="outline" size="sm" onClick={() => setAberto(true)}>
+                  Configurar
+                </Button>
+              ) : (
+                <Button size="sm" onClick={() => setAberto(true)} disabled={!canEdit}>
+                  Conectar
+                </Button>
+              )}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <MillenniumModal
+        open={aberto}
+        onClose={() => setAberto(false)}
+        info={info}
+        estado={estado}
+        canEdit={canEdit}
+        onChanged={reload}
+      />
+    </>
+  );
+}
+
+/**
+ * Conectado → credenciais só leitura + Desconectar (danger).
+ * Não conectado / desconectado / senha inválida → formulário + Conectar
+ * (mesmos checks do onboarding). Trocar senha/usuário = desconectar e conectar de novo.
+ */
+function MillenniumModal({
+  open,
+  onClose,
+  info,
+  estado,
+  canEdit,
+  onChanged,
+}: {
+  open: boolean;
+  onClose: () => void;
+  info: ErpIntegrationStatus | null;
+  estado: Estado;
+  canEdit: boolean;
+  onChanged: () => Promise<void>;
+}) {
+  const session = useActiveSession();
+  const { update } = useSession();
+  const navigate = useNavigate();
+  const { show } = useToast();
+  const [busy, setBusy] = useState(false);
+  const [usuario, setUsuario] = useState("");
+  const [senha, setSenha] = useState("");
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [dedicada, setDedicada] = useState(false);
+  const [autorizo, setAutorizo] = useState(false);
+  const [aceiteTroca, setAceiteTroca] = useState(false);
+  const [relatorios, setRelatorios] = useState<ErpReportCheck[] | null>(null);
+  /** Login ok, mas a troca remove lojas — aguardando confirmação. */
+  const [pendente, setPendente] = useState<PreparedErpChange | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setRelatorios(null);
+    setPendente(null);
+    setUsuario(info?.username ?? "");
+    setSenha("");
+    setMostrarSenha(false);
+    setDedicada(info?.dedicated ?? false);
+    setAutorizo(false);
+    setAceiteTroca(false);
+  }, [open, info]);
+
+  const conectado = estado === "conectado";
+  const usuarioAnterior = (info?.username ?? "").trim().toUpperCase();
+  const usuarioNovo = usuario.trim().toUpperCase();
+  const podeConectar = canEdit && usuarioNovo.length > 0 && senha.length > 0 && autorizo && !busy;
+
+  function descartarPendente() {
+    if (!pendente) return;
+    void cancelErpCredentialChange(pendente);
+    setPendente(null);
+    setAceiteTroca(false);
+  }
+
+  function fechar() {
+    if (busy) return;
+    descartarPendente();
+    onClose();
+  }
+
+  async function desconectar() {
     setBusy(true);
     try {
       await releaseErpSession({ pauseSync: true });
-      show("Integração pausada. O Millennium foi liberado.", "success");
-      await reload();
+      show("Millennium desconectado.", "success");
+      await onChanged();
     } catch {
       show("Não foi possível desconectar. Tente de novo.", "danger");
     } finally {
@@ -69,114 +206,210 @@ export function ErpIntegrationPage() {
     }
   }
 
-  async function resume() {
-    if (!canEdit || busy) return;
+  async function conectar() {
+    if (!podeConectar) return;
     setBusy(true);
-    try {
-      await resumeErpSync();
-      show("Sincronização retomada.", "success");
-      await reload();
-    } catch {
-      show("Não foi possível retomar. Tente de novo.", "danger");
-    } finally {
+    setRelatorios(null);
+    const prep = await prepareErpCredentialChange({
+      tenantId: session.tenantId,
+      membershipId: session.membershipId,
+      currentUsername: info?.username ?? null,
+      username: usuario,
+      password: senha,
+      dedicated: dedicada,
+    });
+    if (!prep.ok) {
       setBusy(false);
+      if (prep.reason === "reports" && prep.reports) setRelatorios(prep.reports);
+      show(ERRO_CREDENCIAL[prep.reason], "danger");
+      return;
     }
+    if (erpChangeNeedsConfirm(prep.change.plan)) {
+      setBusy(false);
+      setAceiteTroca(false);
+      setPendente(prep.change);
+      return;
+    }
+    await aplicar(prep.change);
   }
 
-  const paused = info?.syncPaused ?? false;
-  const connected = Boolean(info) && info!.status !== "NOT_CONFIGURED";
+  async function aplicar(change: PreparedErpChange) {
+    setBusy(true);
+    const r = await applyErpCredentialChange(change);
+    setBusy(false);
+    setPendente(null);
+    if (!r.ok) {
+      show(ERRO_CREDENCIAL[r.reason], "danger");
+      return;
+    }
+    if (change.plan.kind === "partial") update({ stores: r.storeIds });
+    if (r.wiped) {
+      // Dados apagados + SEED enfileirado: mesma tela de carga inicial do onboarding.
+      markAwaitingInitialSync();
+      update({ stores: r.storeIds });
+      onClose();
+      navigate(paths.syncing, { replace: true });
+      return;
+    }
+    show("Millennium conectado.", "success");
+    await onChanged();
+    onClose();
+  }
+
+  const travado = conectado || busy || !canEdit;
 
   return (
-    <div>
-      <PageHeader
-        title="Integração ERP"
-        subtitle="Millennium — sincronização de vendas"
-        crumbs={[{ label: "Configurações" }, { label: "Integração ERP" }]}
-      />
-
-      <div className="mt-6 max-w-xl space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Status</CardTitle>
-          </CardHeader>
-          {loading ? (
-            <p className="px-5 pb-5 text-sm text-t2">Carregando…</p>
-          ) : !connected ? (
-            <p className="px-5 pb-5 text-sm text-t2">
-              Nenhuma credencial configurada. Conclua o onboarding ou reconecte o Millennium.
-            </p>
-          ) : (
-            <div className="space-y-3 px-5 pb-5 text-sm">
-              <Row label="Usuário Millennium" value={info!.username} />
-              <Row
-                label="Estado"
-                value={
-                  <Badge variant={paused ? "warning" : info!.status === "VALID" ? "success" : "danger"}>
-                    {paused
-                      ? "Pausada"
-                      : info!.status === "VALID"
-                        ? "Conectada"
-                        : info!.status === "INVALID"
-                          ? "Senha inválida"
-                          : info!.status}
-                  </Badge>
-                }
+    <Modal
+      open={open}
+      onClose={fechar}
+      title="Millennium"
+      footer={
+        <>
+          <Button variant="outline" onClick={fechar} disabled={busy}>
+            Cancelar
+          </Button>
+          {canEdit &&
+            (conectado ? (
+              <Button variant="danger" onClick={() => void desconectar()} disabled={busy}>
+                {busy ? "Desconectando…" : "Desconectar"}
+              </Button>
+            ) : pendente ? (
+              <Button variant="danger" onClick={() => void aplicar(pendente)} disabled={!aceiteTroca || busy}>
+                {busy ? "Trocando…" : "Confirmar troca"}
+              </Button>
+            ) : (
+              <Button onClick={() => void conectar()} disabled={!podeConectar}>
+                {busy ? "Testando conexão e relatórios…" : "Conectar"}
+              </Button>
+            ))}
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3.5">
+        <p className={`text-[13.5px] leading-relaxed ${estado === "senha" ? "text-bad" : "text-t1"}`}>
+          {conectado
+            ? `A WeDash está sincronizando vendas, custos e lojas com o usuário ${usuarioAnterior}. Desconectar libera o Millennium e pausa a sincronização.`
+            : estado === "senha"
+              ? "A senha salva não funciona mais. Informe a senha atual do ERP para voltar a sincronizar."
+              : "Informe um usuário e uma senha do ERP. Antes de salvar, testamos a conexão e o acesso aos relatórios que a WeDash usa."}
+        </p>
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          <FormField label="Usuário do Millennium" required>
+            <Input
+              value={usuario}
+              onChange={(e) => {
+                setUsuario(e.target.value.toUpperCase());
+                descartarPendente();
+              }}
+              placeholder="Ex.: ESSENCIA.INTEGRACAO"
+              name="erp-user"
+              {...noAutofill}
+              className="uppercase"
+              disabled={travado}
+            />
+          </FormField>
+          <FormField label="Senha do Millennium" required>
+            <div className="relative">
+              <Input
+                type="text"
+                value={conectado ? "••••••••" : senha}
+                onChange={(e) => {
+                  setSenha(e.target.value);
+                  descartarPendente();
+                }}
+                placeholder="Digite a senha do ERP"
+                name="erp-secret"
+                {...noAutofill}
+                style={secretStyle(mostrarSenha && !conectado)}
+                disabled={travado}
+                className="pr-12"
               />
-              <Row
-                label="Tipo de usuário"
-                value={info!.dedicated ? "Dedicado (sync a cada ~2 min)" : "Compartilhado (~30 min)"}
-              />
-              <Row label="Último sucesso" value={fmtWhen(info!.lastSuccessAt)} />
-              <Row label="Último sync do dia" value={fmtWhen(info!.lastLightSyncAt)} />
-              {info!.lastError ? (
-                <Row
-                  label="Último erro"
-                  value={
-                    <span className="text-bad">
-                      {info!.lastError}
-                      {info!.lastErrorAt ? ` · ${fmtWhen(info!.lastErrorAt)}` : ""}
-                    </span>
-                  }
-                />
-              ) : null}
-            </div>
-          )}
-        </Card>
-
-        {connected && canEdit ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Ações</CardTitle>
-            </CardHeader>
-            <div className="flex flex-wrap gap-3 px-5 pb-5">
-              {paused ? (
-                <Button onClick={() => void resume()} disabled={busy}>
-                  Retomar sincronização
-                </Button>
-              ) : (
-                <Button variant="secondary" onClick={() => void disconnect()} disabled={busy}>
-                  Desconectar
-                </Button>
+              {!conectado && (
+                <button
+                  type="button"
+                  onClick={() => setMostrarSenha((m) => !m)}
+                  aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+                  disabled={busy}
+                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-t2 hover:bg-bg-3 hover:text-t0"
+                >
+                  {mostrarSenha ? (
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" />
+                    </svg>
+                  ) : (
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
               )}
             </div>
-            <p className="border-t border-line px-5 py-3 text-xs text-t2">
-              Desconectar encerra a sessão no Millennium e pausa o sync. Sair da WeDash{" "}
-              <strong className="font-semibold text-t1">não</strong> desconecta o ERP — use este
-              botão quando precisar liberar o usuário no Millennium.
-            </p>
-          </Card>
-        ) : null}
+          </FormField>
+        </div>
+        <Checkbox
+          className="items-start"
+          label={
+            <span>
+              Este usuário será exclusivo da WeDash
+              <span className="mt-0.5 block text-xs text-t2">
+                O Millennium aceita uma sessão por usuário: se alguém entrar com ele no sistema, um derruba o outro e a
+                sincronização para. Use um usuário criado só para a WeDash.
+              </span>
+            </span>
+          }
+          checked={dedicada}
+          onChange={(e) => setDedicada(e.target.checked)}
+          disabled={travado}
+        />
+        <Checkbox
+          label="Autorizo a WeDash a usar estes dados para realizar a sincronização"
+          checked={conectado || autorizo}
+          onChange={(e) => setAutorizo(e.target.checked)}
+          disabled={travado}
+        />
+        {pendente && (pendente.plan.kind === "partial" || pendente.plan.kind === "full") && (
+          <div className="rounded-xl px-4 py-3.5" style={{ background: "var(--bad-soft)" }}>
+            {pendente.plan.kind === "partial" ? (
+              <>
+                <p className="text-[13px] font-bold text-bad">
+                  {pendente.username} não enxerga {pendente.plan.removed.length === 1 ? "1 loja" : `${pendente.plan.removed.length} lojas`}
+                </p>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-t1">
+                  Elas deixam de ser sincronizadas e os dados delas saem da WeDash. As demais lojas continuam como estão.
+                </p>
+                <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[12.5px] font-semibold text-t0">
+                  {pendente.plan.removed.map((s) => (
+                    <li key={s.storeId}>{s.name}</li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <>
+                <p className="text-[13px] font-bold text-bad">{pendente.username} não enxerga nenhuma das lojas atuais</p>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-t1">
+                  Os dados sincronizados serão apagados, as lojas recriadas (fuso e horário voltam ao padrão) e a carga
+                  inicial refeita.
+                </p>
+              </>
+            )}
+            <Checkbox
+              className="mt-3 items-start text-bad"
+              label={
+                pendente.plan.kind === "partial"
+                  ? `Entendo — remover essas lojas e trocar para ${pendente.username}`
+                  : `Entendo — apagar os dados e trocar para ${pendente.username}`
+              }
+              checked={aceiteTroca}
+              onChange={(e) => setAceiteTroca(e.target.checked)}
+              disabled={busy}
+            />
+          </div>
+        )}
+        {relatorios && !conectado && <ErpReportChecks reports={relatorios} username={usuarioNovo} />}
+        {!canEdit && <p className="text-xs text-t2">Só o dono ou o gerente da rede pode alterar a integração.</p>}
       </div>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <span className="shrink-0 text-t2">{label}</span>
-      <span className="text-right font-medium text-t0">{value}</span>
-    </div>
+    </Modal>
   );
 }
 

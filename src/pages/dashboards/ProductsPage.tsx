@@ -1,18 +1,58 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { Badge, Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Pagination, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { MOBILE_QUERY, useMediaQuery } from "@/lib/useMediaQuery";
 import { BarChart, DonutChart } from "@/components/charts";
-import { useEscopo } from "@/pages/dashboard/useEscopo";
-import { SeletorMarca } from "@/pages/dashboard/SeletorMarca";
-import { montarProdutosView, type ProdutosKpi, type ProdutoLinha, type ClasseAbc } from "@/data/gestao/dashboard";
-import { brl, brlK, deIso, num, tipRelacao } from "@/lib/formato";
+import { useScope } from "@/pages/dashboard/useScope";
+import {
+  buildProductsView,
+  financeFetchRange,
+  productsFetchRange,
+  resolvePeriod,
+  type AbcClass,
+  type ProductItemRow,
+  type ProductLineRow,
+  type ProductsAggInput,
+  type ProductsKpi,
+} from "@/data/wedash/dashboard";
+import {
+  fetchProductCatalogDescriptions,
+  fetchSalesCategoryDayAggs,
+  fetchSalesCoverage,
+  fetchSalesDayAggs,
+  fetchSalesHourAggs,
+  fetchSalesProductCostDayAggs,
+  fetchSalesProductDayAggs,
+} from "@/data/wedash/salesRepo";
+import type { SalesHourAgg } from "@/data/wedash/salesTypes";
+import { calendarTodayIso } from "@/data/wedash/clock";
+import { useActiveSession } from "@/session/SessionProvider";
+import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
+import { useMonthFill } from "@/pages/dashboard/useMonthFill";
+import { MonthFillNotice, monthFillTouches, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
+import { DashboardSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { brlCent, deIso, num, tipDelta, tipRelacao } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { DateRange } from "@/components/ui/DateRangePicker";
+import { TINT } from "@/pages/dashboards/icons";
+import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
+import {
+  applyPeriodDateChange,
+  dateRangeFromPeriod,
+  periodActivePresetId,
+  periodDisplayLabel,
+} from "@/pages/dashboard/periodPicker";
 
 /** Ícones dos KPIs — Fat/Lucro/Margem iguais ao Financeiro; Itens próprio da tela. */
 const IconFat = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  </svg>
+);
+const IconCmv = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="8" cy="21" r="1" />
+    <circle cx="19" cy="21" r="1" />
+    <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
   </svg>
 );
 const IconLucro = () => (
@@ -36,12 +76,22 @@ const IconItens = () => (
   </svg>
 );
 const KPI_ICONS = [IconFat, IconLucro, IconMargem, IconItens];
+/** Faixa WPINK = mesma do Financeiro (Faturamento · CMV · Lucro · Margem). */
+const WPINK_ICONS = [IconFat, IconCmv, IconLucro, IconMargem];
 
-type SortKey = "nome" | "categoria" | "faturamento" | "cmv" | "lucro" | "margemPct" | "cmvPct" | "qtdVendas" | "ticketMedio" | "itens";
+/** Heroes por métrica: Fat/Lucro/Margem iguais ao Financeiro; Itens = warn. */
+const KPI_COLORS = [
+  { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
+  { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },
+  { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
+  { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
+];
+
+type SortKey = "nome" | "faturamento" | "itens" | "precoMedio" | "cmv" | "lucro" | "margemPct" | "participacaoPct" | "variacaoPct";
 type TopProdSort = "nome" | "itens" | "faturamento" | "margem";
-type TopLinhaSort = "nome" | "faturamento" | "participacao";
 
 const PAGE_SIZE = 10;
+const PAGE_SIZE_MOBILE = 5;
 
 const TipHelp = ({ label }: { label: string }) => (
   <Tooltip label={label}>
@@ -51,14 +101,14 @@ const TipHelp = ({ label }: { label: string }) => (
   </Tooltip>
 );
 
-const CORES_ABC: Record<ClasseAbc, string> = {
+const CORES_ABC: Record<AbcClass, string> = {
   A: "var(--bad)",
   B: "var(--warn)",
   C: "var(--ok)",
 };
 
-/** Badge de delta — só % no chip; base do comparativo no tooltip (igual Visão Geral / Ecommerce). */
-function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string } }) {
+/** Badge de delta — só % no chip; base do comparativo no tooltip (igual StatCard). */
+function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; anterior?: string } }) {
   if (!delta) return null;
   const badge = (
     <Badge variant={delta.positive ? "success" : "danger"}>
@@ -66,19 +116,11 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
       {delta.value}
     </Badge>
   );
-  if (!delta.vs) return badge;
-  return <Tooltip label={tipRelacao(delta.vs)}>{badge}</Tooltip>;
+  const tip = tipDelta(delta);
+  return tip ? <Tooltip label={tip}>{badge}</Tooltip> : badge;
 }
 
-/** Heroes por métrica (não por índice): Fat/Lucro/Margem iguais ao Financeiro; Itens = warn. */
-const KPI_COLORS = [
-  { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },       // Faturamento
-  { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },         // Lucro bruto
-  { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" }, // Margem
-  { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" }, // Itens vendidos
-];
-
-const filtroSelectClass =
+const filtroInputClass =
   "h-8 rounded-[var(--radius-vela-sm)] border border-line bg-bg-3 px-3 text-xs font-semibold text-t0 transition-colors hover:border-acc focus:border-acc focus:outline-none";
 
 const CORES_RANK = ["var(--ok)", "var(--info)", "var(--warn)", "var(--acc)", "var(--bad)"];
@@ -96,127 +138,113 @@ function AvatarIniciais({ nome, idx }: { nome: string; idx: number }) {
   );
 }
 
-export default function ProdutosPage() {
-  const { escopo, mudar } = useEscopo();
-  const [catTabela, setCatTabela] = useState<number | null>(null);
-  const [buscaTabela, setBuscaTabela] = useState("");
+const pctFmt = (v: number | null, casas = 1) => (v == null ? "—" : `${v.toFixed(casas).replace(".", ",")}%`);
+const moneyOrDash = (v: number | null) => (v == null ? "—" : brlCent(v));
+
+function Variacao({ v }: { v: number | null }) {
+  if (v == null) return <span className="text-t2">—</span>;
+  const r = Math.round(v);
+  return (
+    <span className="font-bold" style={{ color: r >= 0 ? "var(--ok)" : "var(--bad)" }}>
+      {r >= 0 ? "+" : ""}
+      {r}%
+    </span>
+  );
+}
+
+export default function ProductsPage() {
+  const session = useActiveSession();
+  const { escopo, mudar } = useScope();
+  const [aggs, setAggs] = useState<ProductsAggInput>({ dayAggs: [] });
+  const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busca, setBusca] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("faturamento");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [topProdSort, setTopProdSort] = useState<TopProdSort>("faturamento");
   const [topProdDir, setTopProdDir] = useState<SortDir>("desc");
-  const [topLinhaSort, setTopLinhaSort] = useState<TopLinhaSort>("faturamento");
+  const [topLinhaSort, setTopLinhaSort] = useState<TopProdSort>("faturamento");
   const [topLinhaDir, setTopLinhaDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
-  const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
-  const [refreshing, setRefreshing] = useState(false);
-
-  // Sem filtro de categoria na view — filtro fica só no card da tabela.
-  const view = useMemo(() => montarProdutosView(escopo, null), [escopo]);
-
-  const dateRange: DateRange | null = useMemo(() => {
-    if (escopo.periodo.tipo === "personalizado" && escopo.periodo.inicio && escopo.periodo.fim) {
-      return [deIso(escopo.periodo.inicio), deIso(escopo.periodo.fim)];
-    }
-    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-    switch (escopo.periodo.tipo) {
-      case "hoje": return [hoje, hoje];
-      case "ontem": { const y = new Date(hoje); y.setDate(y.getDate() - 1); return [y, y]; }
-      case "7dias": { const s = new Date(hoje); s.setDate(s.getDate() - 6); return [s, hoje]; }
-      case "esteMes": return [new Date(hoje.getFullYear(), hoje.getMonth(), 1), hoje];
-      case "mesPassado": return [new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1), new Date(hoje.getFullYear(), hoje.getMonth(), 0)];
-      default: return null;
-    }
-  }, [escopo.periodo]);
-
-  function onDateChange(r: DateRange) {
-    mudar({ ...escopo, periodo: { tipo: "personalizado", inicio: r[0].toISOString().slice(0, 10), fim: r[1].toISOString().slice(0, 10) } });
-  }
-  function onMarcaChange(v: "WEPINK" | "WPINK" | null) {
-    mudar({ ...escopo, divisao: v });
-  }
-
-  const forcarAtualizacao = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => { setUltimaAtualizacao(new Date()); setRefreshing(false); }, 600);
+  const isMobile = useMediaQuery(MOBILE_QUERY);
+  // Catálogo de lojas (custos/impostos) hidratado depois do 1º render → recalcula.
+  const [storesTick, setStoresTick] = useState(0);
+  useEffect(() => {
+    const onStores = () => setStoresTick((n) => n + 1);
+    window.addEventListener("wedash:stores", onStores);
+    return () => window.removeEventListener("wedash:stores", onStores);
   }, []);
 
-  const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
-  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} min`;
-
-  const topProdutos = useMemo(() => {
-    const dir = topProdDir === "asc" ? 1 : -1;
-    return [...view.produtos]
-      .sort((a, b) => {
-        if (topProdSort === "nome") return a.nome.localeCompare(b.nome) * dir;
-        if (topProdSort === "itens") return (a.itens - b.itens) * dir;
-        if (topProdSort === "margem") return (a.margemPct - b.margemPct) * dir;
-        return (a.receita - b.receita) * dir;
-      })
-      .slice(0, 6);
-  }, [view.produtos, topProdSort, topProdDir]);
-
-  const topLinhas = useMemo(() => {
-    const base = view.topLinhas.slice(0, 6);
-    const totalFat = base.reduce((s, l) => s + l.faturamento, 0) || 1;
-    const comPct = base.map((l) => ({ ...l, participacao: Math.round((l.faturamento / totalFat) * 100) }));
-    const dir = topLinhaDir === "asc" ? 1 : -1;
-    return [...comPct].sort((a, b) => {
-      if (topLinhaSort === "nome") return a.nome.localeCompare(b.nome) * dir;
-      if (topLinhaSort === "participacao") return (a.participacao - b.participacao) * dir;
-      return (a.faturamento - b.faturamento) * dir;
-    });
-  }, [view.topLinhas, topLinhaSort, topLinhaDir]);
-
-  const linhasTabela = useMemo(() => {
-    let lista = view.produtos;
-    if (catTabela !== null) {
-      const nomeCat = view.categorias.find((c) => c.categoriaId === catTabela)?.nome;
-      if (nomeCat) lista = lista.filter((p) => p.categoriaNome === nomeCat);
+  /** Só a leitura mais recente aplica setState. */
+  const reloadGen = useRef(0);
+  const reload = useCallback(async () => {
+    const gen = ++reloadGen.current;
+    const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
+    const range = financeFetchRange(escopo);
+    const prodRange = productsFetchRange(escopo);
+    const storeIds = escopo.filialIds;
+    const tenantId = session.tenantId;
+    try {
+      const [dayAggs, hourAggs, prevHourAggs, categoryDayAggs, productDayAggs, productCostDayAggs, cov, catalogDescriptions] = await Promise.all([
+        fetchSalesDayAggs({ tenantId, storeIds, from: range.from, to: range.to, brand: null }),
+        periodo.inicio === periodo.fim
+          ? fetchSalesHourAggs({ tenantId, storeIds, day: periodo.inicio, brand: null })
+          : Promise.resolve([] as SalesHourAgg[]),
+        range.prevHourDay
+          ? fetchSalesHourAggs({ tenantId, storeIds, day: range.prevHourDay, brand: null })
+          : Promise.resolve([] as SalesHourAgg[]),
+        fetchSalesCategoryDayAggs({ tenantId, storeIds, from: prodRange.from, to: prodRange.to, brand: null }),
+        fetchSalesProductDayAggs({ tenantId, storeIds, from: prodRange.from, to: prodRange.to }),
+        fetchSalesProductCostDayAggs({ tenantId, storeIds, from: periodo.inicio, to: periodo.fim }),
+        fetchSalesCoverage(tenantId, storeIds),
+        fetchProductCatalogDescriptions(),
+      ]);
+      if (gen !== reloadGen.current) return;
+      setAggs({ dayAggs, hourAggs, prevHourAggs, categoryDayAggs, productDayAggs, productCostDayAggs, catalogDescriptions });
+      setCoverageFrom(cov.from ? deIso(cov.from) : null);
+    } catch (e) {
+      if (gen !== reloadGen.current) return;
+      console.error("Products reload:", e);
     }
-    if (buscaTabela.trim()) {
-      const q = buscaTabela.toLowerCase();
-      lista = lista.filter(
-        (p) => p.nome.toLowerCase().includes(q) || p.categoriaNome.toLowerCase().includes(q),
-      );
-    }
-    const enriched = lista.map((p) => ({ ...p, ...metricasDeProduto(p) }));
-    return [...enriched].sort((a, b) => {
-      const dir = sortDir === "asc" ? 1 : -1;
-      if (sortKey === "nome") return a.nome.localeCompare(b.nome) * dir;
-      if (sortKey === "categoria") return a.categoriaNome.localeCompare(b.categoriaNome) * dir;
-      if (sortKey === "faturamento") return (a.faturamento - b.faturamento) * dir;
-      if (sortKey === "cmv") return (a.cmv - b.cmv) * dir;
-      if (sortKey === "lucro") return (a.lucro - b.lucro) * dir;
-      if (sortKey === "margemPct") return (a.margemPct - b.margemPct) * dir;
-      if (sortKey === "cmvPct") return (a.cmvPct - b.cmvPct) * dir;
-      if (sortKey === "qtdVendas") return (a.qtdVendas - b.qtdVendas) * dir;
-      if (sortKey === "ticketMedio") return (a.ticketMedio - b.ticketMedio) * dir;
-      return (a.itens - b.itens) * dir;
-    });
-  }, [view.produtos, view.categorias, catTabela, buscaTabela, sortKey, sortDir]);
-
-  const totalTabela = useMemo(() => metricasDeProdutos(linhasTabela), [linhasTabela]);
-
-  const totalPages = Math.max(1, Math.ceil(linhasTabela.length / PAGE_SIZE));
-  const pageSafe = Math.min(page, totalPages);
-  const pageRows = linhasTabela.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
+  }, [escopo, session.tenantId]);
 
   useEffect(() => {
-    setPage(1);
-  }, [catTabela, buscaTabela, sortKey, sortDir]);
+    void reload().finally(() => setLoading(false));
+  }, [reload]);
 
   useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+    const onSynced = () => void reload();
+    window.addEventListener(SALES_SYNCED_EVENT, onSynced);
+    return () => window.removeEventListener(SALES_SYNCED_EVENT, onSynced);
+  }, [reload]);
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir(key === "nome" || key === "categoria" ? "asc" : "desc");
-    }
+  const view = useMemo(
+    () => buildProductsView(escopo, aggs),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [escopo, aggs, storesTick],
+  );
+
+  const dateRange = useMemo(() => dateRangeFromPeriod(escopo.periodo), [escopo.periodo]);
+  const periodoAtual = resolvePeriod(escopo.periodo, calendarTodayIso());
+  const monthFill = useMonthFill();
+  const periodoCarregando = monthFillTouches(monthFill, periodoAtual.inicio, periodoAtual.fim);
+
+  function onDateChange(r: DateRange, meta?: DateRangeChangeMeta) {
+    mudar(applyPeriodDateChange(escopo, r, meta));
   }
+
+  // A métrica escolhe QUAIS 5 entram (sempre os maiores); a direção só reordena os 5.
+  // "Produto" (nome) reordena o Top 5 por faturamento.
+  const topProdutos = useMemo(() => {
+    const metrica = (p: ProductItemRow) =>
+      topProdSort === "itens" ? p.itens : topProdSort === "margem" ? (p.margemPct ?? -Infinity) : p.faturamento;
+    const top5 = [...view.produtos].sort((a, b) => metrica(b) - metrica(a) || b.faturamento - a.faturamento).slice(0, 5);
+    if (topProdSort === "nome") {
+      const dir = topProdDir === "asc" ? 1 : -1;
+      return top5.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR") * dir);
+    }
+    return topProdDir === "asc" ? top5.reverse() : top5;
+  }, [view.produtos, topProdSort, topProdDir]);
 
   function toggleTopProdSort(key: TopProdSort) {
     if (topProdSort === key) {
@@ -227,7 +255,19 @@ export default function ProdutosPage() {
     }
   }
 
-  function toggleTopLinhaSort(key: TopLinhaSort) {
+  // Mesma regra do Top produtos: a métrica escolhe as 5 linhas; a direção só reordena.
+  const topLinhas = useMemo(() => {
+    const metrica = (l: ProductLineRow) =>
+      topLinhaSort === "itens" ? l.itens : topLinhaSort === "margem" ? (l.margemPct ?? -Infinity) : l.faturamento;
+    const top5 = [...view.linhas].sort((a, b) => metrica(b) - metrica(a) || b.faturamento - a.faturamento).slice(0, 5);
+    if (topLinhaSort === "nome") {
+      const dir = topLinhaDir === "asc" ? 1 : -1;
+      return top5.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR") * dir);
+    }
+    return topLinhaDir === "asc" ? top5.reverse() : top5;
+  }, [view.linhas, topLinhaSort, topLinhaDir]);
+
+  function toggleTopLinhaSort(key: TopProdSort) {
     if (topLinhaSort === key) {
       setTopLinhaDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
@@ -236,42 +276,88 @@ export default function ProdutosPage() {
     }
   }
 
+  const linhasTabela = useMemo(() => {
+    let lista = view.produtos;
+    const q = busca.trim().toLowerCase();
+    if (q) lista = lista.filter((p) => p.nome.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q));
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...lista].sort((a, b) => {
+      if (sortKey === "nome") return a.nome.localeCompare(b.nome, "pt-BR") * dir;
+      const va = a[sortKey];
+      const vb = b[sortKey];
+      // Sem dado ("—") sempre no fim, nas duas direções.
+      if (va == null && vb == null) return b.faturamento - a.faturamento;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      return (va - vb) * dir;
+    });
+  }, [view.produtos, busca, sortKey, sortDir]);
+
+  const totalTabela = useMemo(() => {
+    const faturamento = linhasTabela.reduce((s, p) => s + p.faturamento, 0);
+    const itens = linhasTabela.reduce((s, p) => s + p.itens, 0);
+    const completo = linhasTabela.length > 0 && linhasTabela.every((p) => p.cmv != null);
+    const cmv = completo ? linhasTabela.reduce((s, p) => s + (p.cmv ?? 0), 0) : null;
+    const lucro = completo ? linhasTabela.reduce((s, p) => s + (p.lucro ?? 0), 0) : null;
+    return {
+      faturamento,
+      itens,
+      precoMedio: itens > 0 ? faturamento / itens : 0,
+      cmv,
+      lucro,
+      margemPct: lucro != null && faturamento > 0 ? (lucro / faturamento) * 100 : null,
+      participacaoPct: linhasTabela.reduce((s, p) => s + p.participacaoPct, 0),
+    };
+  }, [linhasTabela]);
+
+  const pageSize = isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE;
+  const totalPages = Math.max(1, Math.ceil(linhasTabela.length / pageSize));
+  const pageSafe = Math.min(page, totalPages);
+  const pageRows = linhasTabela.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [busca, sortKey, sortDir, escopo, isMobile]);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "nome" ? "asc" : "desc");
+    }
+  }
+
   function exportCsv() {
-    const header = [
-      "Produto",
-      "Categoria",
-      "Faturamento",
-      "CMV",
-      "Lucro bruto",
-      "Margem",
-      "CMV %",
-      "Nº de vendas",
-      "Ticket médio",
-      "Itens vendidos",
-    ];
+    const header = ["Código", "Produto", "Faturamento", "Itens vendidos", "Preço médio", "CMV", "Lucro bruto", "Margem %", "Participação %", "Variação %"];
+    const dec = (v: number | null, casas = 2) => (v == null ? "" : v.toFixed(casas).replace(".", ","));
     const rows = linhasTabela.map((p) => [
+      csvCell(p.codigo),
       csvCell(p.nome),
-      csvCell(p.categoriaNome),
-      p.faturamento.toFixed(2),
-      p.cmv.toFixed(2),
-      p.lucro.toFixed(2),
-      p.margemPct.toFixed(1),
-      p.cmvPct.toFixed(1),
-      String(p.qtdVendas),
-      p.ticketMedio.toFixed(2),
+      dec(p.faturamento),
       String(p.itens),
+      dec(p.precoMedio),
+      dec(p.cmv),
+      dec(p.lucro),
+      dec(p.margemPct, 1),
+      dec(p.participacaoPct, 1),
+      dec(p.variacaoPct, 1),
     ]);
     const csv = [header.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "tabela-produtos.csv";
+    a.download = "produtos.csv";
     a.click();
     URL.revokeObjectURL(url);
   }
 
-  const catsDisponiveis = view.categorias.map((c) => ({ label: c.nome, value: c.categoriaId }));
+  const totalCategorias = view.categorias.reduce((s, c) => s + c.faturamento, 0);
+  const tipVariacao = `Faturamento do produto ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}.`;
+  const tipCmvProduto = view.temCustoProduto
+    ? "CMV e lucro bruto por produto vêm do relatório de margem do ERP. “—” = algum dia com venda do produto ainda sem custo."
+    : "CMV por produto aparece depois do próximo Atualizar (relatório de margem do ERP).";
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
@@ -280,55 +366,115 @@ export default function ProdutosPage() {
         title="Produtos"
         subtitle="Desempenho, margem e composição do mix de produtos."
         actions={
-          <>
-            <span className={`flex items-center gap-1.5 text-[12px] ${minutosAtras < 10 ? "text-ok" : "text-t2"}`}>
-              <span className={`inline-block h-2 w-2 rounded-full ${minutosAtras < 10 ? "bg-ok" : "bg-warn"}`} />
-              {rotuloAtualizacao}
-            </span>
-            <Button size="sm" onClick={forcarAtualizacao} disabled={refreshing}
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? "animate-spin" : ""}><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>}
-            >
-              Atualizar
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => window.print()}
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>}
-            >
-              Exportar
-            </Button>
-            <DateRangePicker value={dateRange} onChange={onDateChange} size="sm" />
-            <SeletorMarca value={escopo.divisao} onChange={onMarcaChange} />
-          </>
+          <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
+            <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+              <DateRangePicker
+                value={dateRange}
+                onChange={onDateChange}
+                displayLabel={periodDisplayLabel(escopo.periodo)}
+                activePresetId={periodActivePresetId(escopo.periodo)}
+                size="sm"
+                minDate={pickerMinDate(coverageFrom, monthFill)}
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => window.print()}
+                icon={
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                }
+              >
+                Exportar
+              </Button>
+            </div>
+          </div>
         }
       />
 
+      <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
+
+      {loading ? (
+        <DashboardSkeleton />
+      ) : (
+      <>
+
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {view.kpis.map((kpi, i) => (
-          <KpiCard key={kpi.label} kpi={kpi} Icon={KPI_ICONS[i]} colorIdx={i} />
+          <KpiCard key={kpi.label} kpi={kpi} Icon={KPI_ICONS[i] ?? IconFat} colorIdx={i} />
         ))}
       </div>
+
+      {/* Quick stats WPINK — só quando a loja (ou rede) tem a marca */}
+      {view.kpisWpink.length > 0 && (
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {view.kpisWpink.map((kpi, i) => {
+            const Icon = WPINK_ICONS[i] ?? IconFat;
+            const tint = TINT[kpi.tint];
+            return (
+              <Card key={kpi.label} padding="sm" className="flex items-center gap-3.5">
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]"
+                  style={{ background: tint.bg, color: tint.fg }}
+                >
+                  <Icon />
+                </span>
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 text-[11.5px] font-semibold text-t2">
+                    {kpi.label}
+                    {kpi.tooltip ? (
+                      <Tooltip label={kpi.tooltip} side="bottom">
+                        <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
+                          ?
+                        </span>
+                      </Tooltip>
+                    ) : null}
+                  </p>
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
+                    <p className="truncate font-mono text-lg font-extrabold text-t0">{kpi.valor}</p>
+                    <BadgeVsAnterior delta={kpi.delta} />
+                  </div>
+                  {kpi.sub ? <p className="text-[11px] text-t2">{kpi.sub}</p> : null}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {!loading && !view.temVendas && !periodoCarregando && (
+        <Card className="mt-4">
+          <p className="py-6 text-center text-[13px] text-t2">
+            Ainda não há vendas neste período. A carga inicial cobre o mês atual; use Atualizar para buscar o dia de hoje.
+          </p>
+        </Card>
+      )}
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card padding="lg">
           <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <div className="flex items-center gap-1.5">
-                <CardTitle>Faturamento por categoria</CardTitle>
+              <CardTitle>Faturamento por categoria</CardTitle>
+              <p className="mt-1.5 font-mono text-2xl font-extrabold text-t0">{brlCent(totalCategorias)}</p>
+            </div>
+            <BadgeVsAnterior delta={view.deltaCategorias} />
+          </div>
+          {view.categorias.length === 0 ? (
+            <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+          ) : (
+            <div className="overflow-x-auto">
+              <div className="min-w-[420px]">
+                <BarChart
+                  data={view.categorias.map((c) => ({ label: c.nome, value: c.faturamento }))}
+                  height={220}
+                  formatValue={brlCent}
+                />
               </div>
-              <p className="mt-1.5 text-2xl font-extrabold text-t0">
-                {view.kpis[0]?.valor ?? brlK(view.categorias.reduce((s, c) => s + c.faturamento, 0))}
-              </p>
             </div>
-            <BadgeVsAnterior delta={view.kpis[0]?.delta} />
-          </div>
-          <div className="overflow-x-auto">
-            <div className="min-w-[420px]">
-              <BarChart
-                data={view.categorias.map((c) => ({ label: c.nome, value: c.faturamento }))}
-                height={220}
-                formatValue={brlK}
-              />
-            </div>
-          </div>
+          )}
         </Card>
 
         <Card padding="lg" className="flex flex-col">
@@ -352,22 +498,20 @@ export default function ProdutosPage() {
                         color: CORES_ABC[r.classe],
                       }))}
                       centerLabel="Total"
-                      centerValue={brlK(total)}
+                      centerValue={brlCent(total)}
                     />
                   </div>
                   <div className="mt-2 flex flex-col gap-3">
                     {classes.map((r) => {
                       const pct = Math.round((r.faturamento / total) * 100);
-                      const nomes = view.curvaAbcCategorias.itens
-                        .filter((i) => i.classe === r.classe)
-                        .map((i) => i.nome);
+                      const nomes = view.curvaAbcCategorias.itens.filter((i) => i.classe === r.classe).map((i) => i.nome);
                       return (
                         <div key={r.classe} className="flex items-start gap-2.5">
                           <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: CORES_ABC[r.classe] }} />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-baseline gap-2">
                               <span className="text-[12.5px] font-semibold text-t1">Classe {r.classe}</span>
-                              <span className="ml-auto shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlK(r.faturamento)}</span>
+                              <span className="ml-auto shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlCent(r.faturamento)}</span>
                               <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
                             </div>
                             <p className="mt-0.5 text-[11.5px] leading-snug text-t2">{nomes.join(" · ")}</p>
@@ -384,119 +528,98 @@ export default function ProdutosPage() {
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
-            <CardTitle>Top linhas de produto</CardTitle>
-          </CardHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[420px] border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
-                  <th className="px-1 pb-3 text-left font-bold">#</th>
-                  <ThSort
-                    label="Linha"
-                    active={topLinhaSort === "nome"}
-                    dir={topLinhaDir}
-                    onClick={() => toggleTopLinhaSort("nome")}
-                    align="left"
-                    className="px-1 pb-3"
-                  />
-                  <ThSort
-                    label="Faturamento"
-                    active={topLinhaSort === "faturamento"}
-                    dir={topLinhaDir}
-                    onClick={() => toggleTopLinhaSort("faturamento")}
-                    className="px-1 pb-3"
-                  />
-                  <ThSort
-                    label="Participação"
-                    active={topLinhaSort === "participacao"}
-                    dir={topLinhaDir}
-                    onClick={() => toggleTopLinhaSort("participacao")}
-                    className="px-1 pb-3"
-                  />
-                </tr>
-              </thead>
-              <tbody>
-                {topLinhas.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-1 py-6 text-center text-[13px] text-t2">Sem dados no período selecionado.</td>
-                  </tr>
-                ) : (
-                  topLinhas.map((l, idx) => (
-                    <tr key={l.nome} className="border-b border-line last:border-b-0">
-                      <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
-                      <td className="px-1 py-3">
-                        <div className="flex min-w-0 items-center gap-2.5">
-                          <AvatarIniciais nome={l.nome} idx={idx} />
-                          <p className="truncate text-[13px] font-bold text-t0">{l.nome}</p>
-                        </div>
-                      </td>
-                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlK(l.faturamento)}</td>
-                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t1">{l.participacao}%</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Top produtos</CardTitle>
+            <div className="flex items-center gap-1.5">
+              <CardTitle>Top linhas de produto</CardTitle>
+              <TipHelp label="Soma a mesma fragrância em todos os tipos (desodorante colônia, body splash, body cream, roll-on…). Ex.: Obsessed, Obsessed Deluxe e Obsessed Intense entram na linha OBSESSED." />
+            </div>
+            <Badge variant="accent">Top 5</Badge>
           </CardHeader>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
                   <th className="px-1 pb-3 text-left font-bold">#</th>
-                  <ThSort
-                    label="Produto"
-                    active={topProdSort === "nome"}
-                    dir={topProdDir}
-                    onClick={() => toggleTopProdSort("nome")}
-                    align="left"
-                    className="px-1 pb-3"
-                  />
-                  <ThSort
-                    label="Itens vendidos"
-                    active={topProdSort === "itens"}
-                    dir={topProdDir}
-                    onClick={() => toggleTopProdSort("itens")}
-                    className="px-1 pb-3"
-                  />
-                  <ThSort
-                    label="Faturamento"
-                    active={topProdSort === "faturamento"}
-                    dir={topProdDir}
-                    onClick={() => toggleTopProdSort("faturamento")}
-                    className="px-1 pb-3"
-                  />
-                  <ThSort
-                    label="Margem"
-                    active={topProdSort === "margem"}
-                    dir={topProdDir}
-                    onClick={() => toggleTopProdSort("margem")}
-                    className="px-1 pb-3"
-                  />
+                  <ThSort label="Linha" active={topLinhaSort === "nome"} dir={topLinhaDir} onClick={() => toggleTopLinhaSort("nome")} align="left" className="px-1 pb-3" />
+                  <ThSort label="Itens vendidos" active={topLinhaSort === "itens"} dir={topLinhaDir} onClick={() => toggleTopLinhaSort("itens")} className="px-1 pb-3" />
+                  <ThSort label="Faturamento" active={topLinhaSort === "faturamento"} dir={topLinhaDir} onClick={() => toggleTopLinhaSort("faturamento")} className="px-1 pb-3" />
+                  <ThSort label="Margem" active={topLinhaSort === "margem"} dir={topLinhaDir} onClick={() => toggleTopLinhaSort("margem")} className="px-1 pb-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {topLinhas.map((l, idx) => (
+                  <tr key={l.nome} className="border-b border-line last:border-b-0">
+                    <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
+                    <td className="px-1 py-3">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <AvatarIniciais nome={l.nome} idx={idx} />
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-bold text-t0">{l.nome}</p>
+                          <Tooltip label={l.tipos.join(" · ")}>
+                            <p className="truncate text-[11px] text-t2">
+                              {l.produtos} produto{l.produtos === 1 ? "" : "s"} · {l.tipos.length} tipo{l.tipos.length === 1 ? "" : "s"}
+                            </p>
+                          </Tooltip>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(l.itens)}</td>
+                    <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(l.faturamento)}</td>
+                    <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", l.margemPct == null ? "text-t2" : "text-ok")}>
+                      {pctFmt(l.margemPct, 0)}
+                    </td>
+                  </tr>
+                ))}
+                {topLinhas.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-1 py-6 text-center text-[13px] text-t2">Sem dados no período selecionado.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {topLinhas.length > 0 && view.semLinhaFaturamento > 0 && (
+            <p className="mt-3 text-[11.5px] text-t2">
+              Fora das linhas: {brlCent(view.semLinhaFaturamento)} em skincare, cabelo, maquiagem, suplementos e kits.
+            </p>
+          )}
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Top produtos</CardTitle>
+            <Badge variant="accent">Top 5</Badge>
+          </CardHeader>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-line text-[11px] uppercase tracking-wide text-t2">
+                  <th className="px-1 pb-3 text-left font-bold">#</th>
+                  <ThSort label="Produto" active={topProdSort === "nome"} dir={topProdDir} onClick={() => toggleTopProdSort("nome")} align="left" className="px-1 pb-3" />
+                  <ThSort label="Itens vendidos" active={topProdSort === "itens"} dir={topProdDir} onClick={() => toggleTopProdSort("itens")} className="px-1 pb-3" />
+                  <ThSort label="Faturamento" active={topProdSort === "faturamento"} dir={topProdDir} onClick={() => toggleTopProdSort("faturamento")} className="px-1 pb-3" />
+                  <ThSort label="Margem" active={topProdSort === "margem"} dir={topProdDir} onClick={() => toggleTopProdSort("margem")} className="px-1 pb-3" />
                 </tr>
               </thead>
               <tbody>
                 {topProdutos.map((p, idx) => (
-                  <tr key={p.codProduto} className="border-b border-line last:border-b-0">
+                  <tr key={p.codigo || p.nome} className="border-b border-line last:border-b-0">
                     <td className="px-1 py-3 text-center text-[13px] font-extrabold text-t2">{idx + 1}</td>
                     <td className="px-1 py-3">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <AvatarIniciais nome={p.nome} idx={idx} />
                         <div className="min-w-0">
                           <p className="truncate text-[13px] font-bold text-t0">{p.nome}</p>
-                          <p className="text-[11px] text-t2">{p.categoriaNome}</p>
+                          {p.codigo && <p className="text-[11px] text-t2">{p.codigo}</p>}
                         </div>
                       </div>
                     </td>
                     <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{num(p.itens)}</td>
-                    <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlK(p.receita)}</td>
-                    <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-ok">{p.margemPct.toFixed(0)}%</td>
+                    <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.faturamento)}</td>
+                    <td className={cn("px-1 py-3 text-right font-mono text-[13px] font-bold", p.margemPct == null ? "text-t2" : "text-ok")}>
+                      {pctFmt(p.margemPct, 0)}
+                    </td>
                   </tr>
                 ))}
                 {topProdutos.length === 0 && (
@@ -510,30 +633,21 @@ export default function ProdutosPage() {
         </Card>
       </div>
 
-      {/* Tabela de Produtos — Data Table flat + Total + cards mobile */}
+      {/* Desempenho por produto — tabela flat + Total + cards mobile */}
       <Card className="mt-4" padding="none">
         <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex items-center gap-1.5">
             <CardTitle>Desempenho por produto</CardTitle>
+            <TipHelp label={tipCmvProduto} />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="search"
-              placeholder="Buscar produto…"
-              value={buscaTabela}
-              onChange={(e) => setBuscaTabela(e.target.value)}
-              className={cn(filtroSelectClass, "sm:w-48")}
+              placeholder="Buscar produto ou código…"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className={cn(filtroInputClass, "sm:w-56")}
             />
-            <select
-              value={catTabela ?? ""}
-              onChange={(e) => setCatTabela(e.target.value ? Number(e.target.value) : null)}
-              className={filtroSelectClass}
-            >
-              <option value="">Todas as categorias</option>
-              {catsDisponiveis.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
             <Button variant="secondary" size="sm" onClick={exportCsv} disabled={linhasTabela.length === 0}>
               Exportar CSV
             </Button>
@@ -543,40 +657,49 @@ export default function ProdutosPage() {
         {/* Desktop */}
         <div className="hidden overflow-x-auto p-4 md:block">
           {linhasTabela.length === 0 ? (
-            <p className="py-10 text-center text-sm text-t2">Nenhum produto encontrado.</p>
+            <p className="py-10 text-center text-sm text-t2">
+              {view.produtos.length === 0 ? "Sem dados no período selecionado." : "Nenhum produto encontrado."}
+            </p>
           ) : (
-            <table className="w-full min-w-[1100px] border-collapse text-[13px]">
+            <table className="w-full min-w-[1000px] border-collapse text-[13px]">
               <thead>
                 <tr className="border-b-2 border-line">
                   <ThSort label="Produto" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" />
-                  <ThSort label="Categoria" active={sortKey === "categoria"} dir={sortDir} onClick={() => toggleSort("categoria")} align="left" />
                   <ThSort label="Faturamento" active={sortKey === "faturamento"} dir={sortDir} onClick={() => toggleSort("faturamento")} />
+                  <ThSort label="Itens vendidos" active={sortKey === "itens"} dir={sortDir} onClick={() => toggleSort("itens")} />
+                  <ThSort label="Preço médio" active={sortKey === "precoMedio"} dir={sortDir} onClick={() => toggleSort("precoMedio")} />
                   <ThSort label="CMV" active={sortKey === "cmv"} dir={sortDir} onClick={() => toggleSort("cmv")} />
                   <ThSort label="Lucro bruto" active={sortKey === "lucro"} dir={sortDir} onClick={() => toggleSort("lucro")} />
                   <ThSort label="Margem" active={sortKey === "margemPct"} dir={sortDir} onClick={() => toggleSort("margemPct")} />
-                  <ThSort label="CMV %" active={sortKey === "cmvPct"} dir={sortDir} onClick={() => toggleSort("cmvPct")} />
-                  <ThSort label="Nº de vendas" active={sortKey === "qtdVendas"} dir={sortDir} onClick={() => toggleSort("qtdVendas")} />
-                  <ThSort label="Ticket médio" active={sortKey === "ticketMedio"} dir={sortDir} onClick={() => toggleSort("ticketMedio")} />
-                  <ThSort label="Itens vendidos" active={sortKey === "itens"} dir={sortDir} onClick={() => toggleSort("itens")} />
+                  <ThSort label="Participação" active={sortKey === "participacaoPct"} dir={sortDir} onClick={() => toggleSort("participacaoPct")} />
+                  <ThSort label="Variação" active={sortKey === "variacaoPct"} dir={sortDir} onClick={() => toggleSort("variacaoPct")} />
                 </tr>
               </thead>
               <tbody>
                 {pageRows.map((p) => (
-                  <tr key={p.codProduto} className="border-b border-line hover:bg-bg-3">
-                    <td className="px-3 py-2.5 text-[13px] font-bold text-t0">{p.nome}</td>
-                    <td className="px-3 py-2.5 text-t1">{p.categoriaNome}</td>
-                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-t0">{brl(p.faturamento)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-t1">{brl(p.cmv)}</td>
-                    <td className="px-3 py-2.5 text-right font-extrabold tabular-nums text-ok">{brl(p.lucro)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-t1">{p.margemPct.toFixed(0)}%</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-t1">{p.cmvPct.toFixed(0)}%</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-t1">{num(p.qtdVendas)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-t1">{brl(p.ticketMedio)}</td>
+                  <tr key={p.codigo || p.nome} className="border-b border-line hover:bg-bg-3">
+                    <td className="px-3 py-2.5">
+                      <p className="text-[13px] font-bold text-t0">{p.nome}</p>
+                      {p.codigo && <p className="text-[11px] text-t2">{p.codigo}</p>}
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-t0">{brlCent(p.faturamento)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-t1">{num(p.itens)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-t1">{brlCent(p.precoMedio)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-t1">{moneyOrDash(p.cmv)}</td>
+                    <td className={cn("px-3 py-2.5 text-right font-extrabold tabular-nums", p.lucro == null ? "text-t2" : "text-ok")}>{moneyOrDash(p.lucro)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-t1">{pctFmt(p.margemPct)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-t1">{pctFmt(p.participacaoPct)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">
+                      <Tooltip label={tipVariacao}>
+                        <span>
+                          <Variacao v={p.variacaoPct} />
+                        </span>
+                      </Tooltip>
+                    </td>
                   </tr>
                 ))}
                 <tr className="border-t-2 border-line bg-bg-inset">
-                  <td colSpan={2} className="px-3 py-3 text-[13.5px] font-extrabold text-t0">
+                  <td className="px-3 py-3 text-[13.5px] font-extrabold text-t0">
                     <span className="inline-flex items-center gap-1">
                       Total do filtro
                       <TipHelp label="Soma todos os produtos do filtro, inclusive os que não aparecem nesta página." />
@@ -585,14 +708,16 @@ export default function ProdutosPage() {
                       ({num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"})
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-right text-[14px] font-extrabold tabular-nums text-t0">{brl(totalTabela.faturamento)}</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{brl(totalTabela.cmv)}</td>
-                  <td className="px-3 py-3 text-right text-[14px] font-extrabold tabular-nums text-ok">{brl(totalTabela.lucro)}</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-extrabold tabular-nums text-t0">{totalTabela.margemPct.toFixed(0)}%</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{totalTabela.cmvPct.toFixed(0)}%</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{num(totalTabela.qtdVendas)}</td>
-                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{brl(totalTabela.ticketMedio)}</td>
+                  <td className="px-3 py-3 text-right text-[14px] font-extrabold tabular-nums text-t0">{brlCent(totalTabela.faturamento)}</td>
                   <td className="px-3 py-3 text-right text-[13.5px] font-extrabold tabular-nums text-t0">{num(totalTabela.itens)}</td>
+                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{brlCent(totalTabela.precoMedio)}</td>
+                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{moneyOrDash(totalTabela.cmv)}</td>
+                  <td className={cn("px-3 py-3 text-right text-[14px] font-extrabold tabular-nums", totalTabela.lucro == null ? "text-t2" : "text-ok")}>
+                    {moneyOrDash(totalTabela.lucro)}
+                  </td>
+                  <td className="px-3 py-3 text-right text-[13.5px] font-extrabold tabular-nums text-t0">{pctFmt(totalTabela.margemPct)}</td>
+                  <td className="px-3 py-3 text-right text-[13.5px] font-bold tabular-nums text-t1">{pctFmt(totalTabela.participacaoPct)}</td>
+                  <td className="px-3 py-3" />
                 </tr>
               </tbody>
             </table>
@@ -602,12 +727,21 @@ export default function ProdutosPage() {
         {/* Mobile — card por produto */}
         <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
           {pageRows.length === 0 ? (
-            <p className="py-8 text-center text-sm text-t2">Nenhum produto encontrado.</p>
+            <p className="py-8 text-center text-sm text-t2">
+              {view.produtos.length === 0 ? "Sem dados no período selecionado." : "Nenhum produto encontrado."}
+            </p>
           ) : (
             pageRows.map((p) => (
-              <div key={p.codProduto} className="rounded-xl border border-line bg-bg-inset p-3.5">
-                <p className="text-[13.5px] font-bold text-t0">{p.nome}</p>
-                <p className="mt-0.5 text-[11px] font-semibold text-t2">{p.categoriaNome}</p>
+              <div key={p.codigo || p.nome} className="rounded-xl border border-line bg-bg-inset p-3.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[13.5px] font-bold text-t0">{p.nome}</p>
+                    {p.codigo && <p className="mt-0.5 text-[11px] font-semibold text-t2">{p.codigo}</p>}
+                  </div>
+                  <span className="shrink-0 text-xs">
+                    <Variacao v={p.variacaoPct} />
+                  </span>
+                </div>
                 <GradeMetricas m={p} className="mt-2.5 border-t border-line pt-2.5" />
               </div>
             ))
@@ -631,11 +765,13 @@ export default function ProdutosPage() {
           </div>
         )}
       </Card>
+      </>
+      )}
     </div>
   );
 }
 
-function KpiCard({ kpi, Icon, colorIdx = 0 }: { kpi: ProdutosKpi; Icon: () => React.JSX.Element; colorIdx?: number }) {
+function KpiCard({ kpi, Icon, colorIdx = 0 }: { kpi: ProductsKpi; Icon: () => React.JSX.Element; colorIdx?: number }) {
   const c = KPI_COLORS[colorIdx % KPI_COLORS.length];
   return (
     <StatCard
@@ -651,77 +787,23 @@ function KpiCard({ kpi, Icon, colorIdx = 0 }: { kpi: ProdutosKpi; Icon: () => Re
   );
 }
 
-function estimarVendas(itens: number): number {
-  return Math.max(itens > 0 ? 1 : 0, Math.round(itens / 1.4));
-}
-
-interface MetricasLinha {
-  faturamento: number;
-  cmv: number;
-  lucro: number;
-  margemPct: number;
-  cmvPct: number;
-  qtdVendas: number;
-  ticketMedio: number;
-  itens: number;
-}
-
-function metricasDeProduto(p: ProdutoLinha): MetricasLinha {
-  const qtdVendas = estimarVendas(p.itens);
-  return {
-    faturamento: p.receita,
-    cmv: p.cmv,
-    lucro: p.margem,
-    margemPct: p.margemPct,
-    cmvPct: p.cmvPct,
-    qtdVendas,
-    ticketMedio: qtdVendas > 0 ? p.receita / qtdVendas : 0,
-    itens: p.itens,
-  };
-}
-
-function metricasDeProdutos(prods: Array<Pick<MetricasLinha, "faturamento" | "cmv" | "lucro" | "itens">>): MetricasLinha {
-  const faturamento = prods.reduce((s, p) => s + p.faturamento, 0);
-  const cmv = prods.reduce((s, p) => s + p.cmv, 0);
-  const lucro = prods.reduce((s, p) => s + p.lucro, 0);
-  const itens = prods.reduce((s, p) => s + p.itens, 0);
-  const qtdVendas = estimarVendas(itens);
-  return {
-    faturamento,
-    cmv,
-    lucro,
-    margemPct: faturamento > 0 ? (lucro / faturamento) * 100 : 0,
-    cmvPct: faturamento > 0 ? (cmv / faturamento) * 100 : 0,
-    qtdVendas,
-    ticketMedio: qtdVendas > 0 ? faturamento / qtdVendas : 0,
-    itens,
-  };
-}
-
 function csvCell(v: string): string {
   if (/[";\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
   return v;
 }
 
-function GradeMetricas({
-  m,
-  className,
-  destaque = false,
-}: {
-  m: MetricasLinha;
-  className?: string;
-  destaque?: boolean;
-}) {
+type MetricasLinha = Pick<ProductItemRow, "faturamento" | "itens" | "precoMedio" | "cmv" | "lucro" | "margemPct" | "participacaoPct">;
+
+function GradeMetricas({ m, className, destaque = false }: { m: MetricasLinha; className?: string; destaque?: boolean }) {
   const val = destaque ? "font-extrabold tabular-nums text-t0" : "font-semibold tabular-nums text-t0";
   const rows: { label: string; value: React.ReactNode }[] = [
-    { label: "Faturamento", value: <span className={val}>{brl(m.faturamento)}</span> },
-    { label: "CMV", value: <span className={val}>{brl(m.cmv)}</span> },
-    { label: "Lucro bruto", value: <span className={cn(val, "text-ok")}>{brl(m.lucro)}</span> },
-    { label: "Margem", value: <span className={val}>{m.margemPct.toFixed(0)}%</span> },
-    { label: "CMV %", value: <span className={val}>{m.cmvPct.toFixed(0)}%</span> },
-    { label: "Nº de vendas", value: <span className={val}>{num(m.qtdVendas)}</span> },
-    { label: "Ticket médio", value: <span className={val}>{brl(m.ticketMedio)}</span> },
+    { label: "Faturamento", value: <span className={val}>{brlCent(m.faturamento)}</span> },
     { label: "Itens vendidos", value: <span className={val}>{num(m.itens)}</span> },
+    { label: "Preço médio", value: <span className={val}>{brlCent(m.precoMedio)}</span> },
+    { label: "CMV", value: <span className={val}>{moneyOrDash(m.cmv)}</span> },
+    { label: "Lucro bruto", value: <span className={cn(val, m.lucro != null && "text-ok")}>{moneyOrDash(m.lucro)}</span> },
+    { label: "Margem", value: <span className={val}>{pctFmt(m.margemPct)}</span> },
+    { label: "Participação", value: <span className={val}>{pctFmt(m.participacaoPct)}</span> },
   ];
   return (
     <div className={cn("grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11.5px]", className)}>

@@ -602,6 +602,8 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  - Tabela `store_shift` (loja × turno); RLS leitura tenant, escrita OWNER/MANAGER/ADMIN_GLOBAL.
  - **Equipe de vendas** ganhou coluna **Turno** (Select "Sem turno" + turnos da loja) — grava na hora em `store_seller.shift_id`. Excluir turno → vendedoras dele ficam sem turno (FK `on delete set null`). Sync do Millennium não mexe na coluna.
 
+40. ✅ **Carregamento com Skeleton** (2026-09-26) — nada de texto "Carregando…" nas telas do Dashboard e de Configurações. Formatos em `src/components/wedash/LoadingSkeletons.tsx`: `DashboardSkeleton` (Visão Geral, Financeiro, Produtos — só na 1ª carga; recargas seguem silenciosas), `SkeletonRows` (Usuários, Logs, Equipe da loja), `CardGridSkeleton` (Lojas), `FormCardsSkeleton` (detalhe da loja); card Millennium com linha de skeleton.
+
 40. ✅ **Configurações > Usuários (acesso ao sistema)** (2026-09-26) — `/settings/users`, só **Gestor** (OWNER/ADMIN_GLOBAL) vê e gerencia. Equipe de vendas **não** entra aqui (vem do Millennium; acesso de vendedor = TODO #29).
  - **Papéis simples:** **Gestor** (OWNER — sócio, administrativo, dono) e **Gerente** (MANAGER). Sem Supervisor. Lojas escolhidas no convite, editáveis depois; "Todas as lojas" = `membership_store` vazio = todas, **inclusive lojas novas** (sessão busca as lojas ativas do tenant).
  - **Permissões:** Gestor = tudo das lojas dele. Gerente = Dashboard **sem Financeiro** (Visão geral · Produtos · Equipe) + Ao vivo + Metas + Configurações > Lojas **sem o card Custos**. Integrações, Logs, Usuários e Financeiro = só Gestor (`GESTOR_ROLES` / `RequireRole`). Dados no banco seguem RLS por tenant (escopo de loja é da UI).
