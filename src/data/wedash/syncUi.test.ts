@@ -2,7 +2,6 @@ import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import {
   canForceSyncRefresh,
   FORCE_ALL_KEY,
-  FORCE_COOLDOWN_MS,
   forceCooldownForScopeSec,
   forcePendingStorageKey,
   forceRefreshRetryAfterSec,
@@ -21,17 +20,24 @@ describe("syncUi watermark label (SYNC-10)", () => {
     expect(formatSyncWatermarkLabel(null, { loading: true })).toBe("Sincronizando dados…");
   });
 
-  it("shows relative age from last_light_sync_at", () => {
+  it("shows clock time of last_light_sync_at (same day)", () => {
     const now = new Date("2026-09-19T12:10:00.000Z");
-    const wm = new Date("2026-09-19T12:00:00.000Z");
-    expect(formatSyncWatermarkLabel(wm, { now })).toBe("Atualizado há 10 min");
-    expect(formatSyncWatermarkLabel(wm, { now: new Date("2026-09-19T12:00:30.000Z") })).toBe(
-      "Atualizado agora",
+    const wm = new Date("2026-09-19T10:19:00.000Z");
+    expect(formatSyncWatermarkLabel(wm, { now, timeZone: "America/Sao_Paulo" })).toBe("Atualizado às 07:19");
+  });
+
+  it("adds the date when the sync was on another day", () => {
+    const now = new Date("2026-09-19T12:10:00.000Z");
+    const wm = new Date("2026-09-18T21:40:00.000Z");
+    expect(formatSyncWatermarkLabel(wm, { now, timeZone: "America/Sao_Paulo" })).toBe(
+      "Atualizado em 18/09 às 18:40",
     );
   });
 });
 
 describe("force refresh role + rate limit (SYNC-11)", () => {
+  const FIVE_MIN = 5 * 60 * 1000;
+
   it("allows OWNER/MANAGER only", () => {
     expect(canForceSyncRefresh("OWNER")).toBe(true);
     expect(canForceSyncRefresh("MANAGER")).toBe(true);
@@ -39,11 +45,17 @@ describe("force refresh role + rate limit (SYNC-11)", () => {
     expect(canForceSyncRefresh("ADMIN_GLOBAL")).toBe(false);
   });
 
-  it("rejects second force within 5 minutes", () => {
+  it("rejects second force within 5 minutes (when cooldown on)", () => {
     const last = new Date("2026-09-19T12:00:00.000Z");
-    expect(forceRefreshRetryAfterSec(last, new Date("2026-09-19T12:02:00.000Z"))).toBe(180);
-    expect(forceRefreshRetryAfterSec(last, new Date("2026-09-19T12:05:00.000Z"))).toBeNull();
-    expect(forceRefreshRetryAfterSec(null, new Date())).toBeNull();
+    expect(forceRefreshRetryAfterSec(last, new Date("2026-09-19T12:02:00.000Z"), FIVE_MIN)).toBe(180);
+    expect(forceRefreshRetryAfterSec(last, new Date("2026-09-19T12:05:00.000Z"), FIVE_MIN)).toBeNull();
+    expect(forceRefreshRetryAfterSec(null, new Date(), FIVE_MIN)).toBeNull();
+  });
+
+  it("cooldown off (FORCE_COOLDOWN_MS=0) never blocks", () => {
+    const last = new Date();
+    expect(forceRefreshRetryAfterSec(last, new Date(), 0)).toBeNull();
+    expect(forceCooldownForScopeSec({ [FORCE_ALL_KEY]: last.toISOString() }, [], new Date(), 0)).toBeNull();
   });
 
   it("per-store cooldown: other stores stay free; Todas blocked by any (option A)", () => {
@@ -51,16 +63,16 @@ describe("force refresh role + rate limit (SYNC-11)", () => {
     const map = {
       s010: "2026-09-19T12:00:00.000Z",
     };
-    expect(forceCooldownForScopeSec(map, ["s010"], now)).toBe(180);
-    expect(forceCooldownForScopeSec(map, ["s020"], now)).toBeNull();
-    expect(forceCooldownForScopeSec(map, [], now)).toBe(180); // Todas
+    expect(forceCooldownForScopeSec(map, ["s010"], now, FIVE_MIN)).toBe(180);
+    expect(forceCooldownForScopeSec(map, ["s020"], now, FIVE_MIN)).toBeNull();
+    expect(forceCooldownForScopeSec(map, [], now, FIVE_MIN)).toBe(180); // Todas
   });
 
   it("FORCE Todas (__all__) blocks every store", () => {
     const now = new Date("2026-09-19T12:02:00.000Z");
     const map = { [FORCE_ALL_KEY]: "2026-09-19T12:00:00.000Z" };
-    expect(forceCooldownForScopeSec(map, ["s010"], now)).toBe(180);
-    expect(forceCooldownForScopeSec(map, [], now)).toBe(180);
+    expect(forceCooldownForScopeSec(map, ["s010"], now, FIVE_MIN)).toBe(180);
+    expect(forceCooldownForScopeSec(map, [], now, FIVE_MIN)).toBe(180);
   });
 
   it("formats cooldown mm:ss", () => {
@@ -71,9 +83,9 @@ describe("force refresh role + rate limit (SYNC-11)", () => {
 
   it("hydrates lastForceAt from retryAfterSec", () => {
     const now = new Date("2026-09-19T12:05:00.000Z");
-    const last = lastForceAtFromRetryAfter(120, now);
-    expect(forceRefreshRetryAfterSec(last, now)).toBe(120);
-    expect(now.getTime() - last.getTime()).toBe(FORCE_COOLDOWN_MS - 120_000);
+    const last = lastForceAtFromRetryAfter(120, now, FIVE_MIN);
+    expect(forceRefreshRetryAfterSec(last, now, FIVE_MIN)).toBe(120);
+    expect(now.getTime() - last.getTime()).toBe(FIVE_MIN - 120_000);
   });
 });
 

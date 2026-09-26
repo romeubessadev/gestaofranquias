@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { montarAoVivoView } from "./aoVivo";
-import type { Escopo } from "./dashboard";
+import { buildLiveView } from "./live";
+import type { Scope } from "./dashboard";
 
-function escopo(filialIds: string[] = []): Escopo {
+function escopo(filialIds: string[] = []): Scope {
   return { filialIds, periodo: { tipo: "esteMes" }, divisao: null };
 }
 
 describe("montarAoVivoView", () => {
   it("mostra KPIs do mês e strip do dia", () => {
-    const v = montarAoVivoView(escopo(["f1"]));
+    const v = buildLiveView(escopo(["f1"]));
     expect(v.kpis).toHaveLength(4);
     expect(v.kpis[0].label).toBe("Faturamento");
     expect(v.kpis[1].label).toBe("Nº de vendas");
@@ -24,7 +24,7 @@ describe("montarAoVivoView", () => {
   });
 
   it("ranking do mês ordenado por faturamento decrescente", () => {
-    const v = montarAoVivoView(escopo(["f1"]));
+    const v = buildLiveView(escopo(["f1"]));
     expect(v.ranking.length).toBeGreaterThan(0);
     for (let i = 1; i < v.ranking.length; i++) {
       expect(v.ranking[i - 1].faturamento).toBeGreaterThanOrEqual(v.ranking[i].faturamento);
@@ -33,27 +33,27 @@ describe("montarAoVivoView", () => {
   });
 
   it("agrega Todas as lojas no ranking", () => {
-    const uma = montarAoVivoView(escopo(["f1"]));
-    const todas = montarAoVivoView(escopo([]));
+    const uma = buildLiveView(escopo(["f1"]));
+    const todas = buildLiveView(escopo([]));
     expect(todas.ranking.length).toBeGreaterThanOrEqual(uma.ranking.length);
   });
 
   it("lista desafios ativos da competência", () => {
-    const v = montarAoVivoView(escopo(["f1"]));
+    const v = buildLiveView(escopo(["f1"]));
     // Body Cream e P.A. estão ativos em 15/09; ticket começa dia 20; perfumaria encerrou dia 10
-    expect(v.desafios.every((d) => d.prazoRotulo !== "Encerrado")).toBe(true);
-    expect(v.desafios.length).toBeGreaterThan(0);
+    expect(v.challenges.every((d) => d.prazoRotulo !== "Encerrado")).toBe(true);
+    expect(v.challenges.length).toBeGreaterThan(0);
   });
 
   it("meta da competência: 1 loja = meta da loja; Todas = meta somada", () => {
-    const uma = montarAoVivoView(escopo(["f1"]));
+    const uma = buildLiveView(escopo(["f1"]));
     expect(uma.meta).not.toBeNull();
     expect(uma.meta!.alvo).toBeGreaterThan(0);
     expect(uma.meta!.porVendedor.length).toBeGreaterThan(0);
     expect(uma.meta!.porGrupo.length).toBeGreaterThan(0);
     expect(uma.meta!.niveis.length).toBe(4);
 
-    const todas = montarAoVivoView(escopo([]));
+    const todas = buildLiveView(escopo([]));
     expect(todas.meta).not.toBeNull();
     expect(todas.meta!.alvo).toBeGreaterThan(uma.meta!.alvo);
   });

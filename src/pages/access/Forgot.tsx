@@ -1,76 +1,87 @@
-import { Button } from "@/components/ui";
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui";
 import { paths } from "@/router/paths";
-import { AcessoPagina, AvisoCard, CampoCpf, IconeCard, Rotulo } from "./AcessoKit";
-import { cpfValido, somenteDigitos } from "@/lib/cpf";
+import { AuthGlow } from "@/pages/auth/authKit";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { requestPasswordReset } from "@/session/authApi";
+import {
+  CampoEmail,
+  acessoBotao,
+  acessoLink,
+  acessoRodape,
+  acessoSubtitulo,
+  acessoTitulo,
+} from "./AccessKit";
+import { cn } from "@/lib/cn";
 
-export function Recuperar() {
-  const [cpf, setCpf] = useState("");
-  const [erroCpf, setErroCpf] = useState<string | null>(null);
+function emailValido(v: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+}
+
+const mailIcon = (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6" />
+  </svg>
+);
+
+/** Recuperação de senha por OTP — tipografia unificada com o Login. */
+export function Forgot() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { show } = useToast();
+  const emailInicial = (location.state as { email?: string } | null)?.email ?? "";
+  const [email, setEmail] = useState(emailInicial);
   const [carregando, setCarregando] = useState(false);
-  const [enviado, setEnviado] = useState(false);
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
-    const d = somenteDigitos(cpf);
-    if (!cpfValido(d)) {
-      setErroCpf("CPF inválido. Confira os dígitos.");
+    if (!emailValido(email)) {
+      show("Informe um e-mail válido.", "danger");
       return;
     }
     setCarregando(true);
-    // Mesmo tempo e mesma resposta, exista ou não a conta.
-    await new Promise((r) => setTimeout(r, 900));
+    await requestPasswordReset(email);
     setCarregando(false);
-    setEnviado(true);
-  }
-
-  if (enviado) {
-    return (
-      <AcessoPagina>
-        <IconeCard tom="ok">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6" />
-          </svg>
-        </IconeCard>
-        <h1 className="mb-2 text-[22px] font-extrabold tracking-tight text-t0">Verifique seu e-mail</h1>
-        <p className="mb-6 text-[13.5px] leading-relaxed text-t1">Se houver uma conta com esse CPF, enviamos um link para o e-mail cadastrado. O link vale por 2 horas.</p>
-        <Link to={paths.acesso.entrar} className="block text-center text-[13px] font-bold text-acc">
-          Voltar para o login
-        </Link>
-      </AcessoPagina>
-    );
+    // Mesma tela de sucesso para qualquer e-mail (anti-enumeration); segue para digitar o OTP.
+    navigate(paths.access.reset, {
+      replace: true,
+      state: { email: email.trim().toLowerCase() },
+    });
   }
 
   return (
-    <AcessoPagina>
-      <IconeCard tom="acc">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
-      </IconeCard>
-      <h1 className="mb-2 text-[22px] font-extrabold tracking-tight text-t0">Esqueci minha senha</h1>
-      <p className="mb-6 text-[13.5px] leading-relaxed text-t1">Informe seu CPF. Se houver uma conta, o link de recuperação vai para o e-mail cadastrado.</p>
-      <form onSubmit={enviar} className="flex flex-col gap-4" noValidate>
-        <div>
-          <Rotulo>CPF</Rotulo>
-          <CampoCpf
-            value={cpf}
-            onChange={(v) => {
-              setCpf(v);
-              setErroCpf(null);
-            }}
-            erro={erroCpf}
-            autoFocus
-          />
+    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-bg-0 p-10">
+      <AuthGlow />
+      <div className="relative w-full max-w-[420px]">
+        <div className="rounded-[22px] border border-line bg-bg-2 p-9 text-center" style={{ boxShadow: "0 20px 60px -20px rgba(0,0,0,.6)" }}>
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[18px] bg-acc-soft">{mailIcon}</div>
+          <h2 className={acessoTitulo}>Recupere sua senha</h2>
+          <p className={acessoSubtitulo}>
+            Informe seu e-mail. Se existir uma conta, enviaremos um código de 6 dígitos.
+          </p>
+          <form onSubmit={enviar} className="text-left" noValidate>
+            <CampoEmail label="E-mail" value={email} onChange={setEmail} autoFocus />
+            <div className="mb-4 mt-3.5">
+              <button
+                type="submit"
+                disabled={email.trim().length === 0 || carregando}
+                className={acessoBotao}
+              >
+                {carregando ? "Enviando…" : "Enviar código"}
+              </button>
+            </div>
+          </form>
+          {!isSupabaseConfigured() && (
+            <p className={cn(acessoRodape, "mb-3")}>Demo sem Supabase — use qualquer código de 6 dígitos em seguida.</p>
+          )}
+          <p className={acessoRodape}>
+            <Link to={paths.access.login} className={acessoLink}>
+              Voltar ao login
+            </Link>
+          </p>
         </div>
-        <Button type="submit" size="lg" fullWidth disabled={somenteDigitos(cpf).length < 11 || carregando}>{carregando ? "Aguarde…" : "Enviar link"}</Button>
-        <AvisoCard tom="info">Por segurança, a resposta é a mesma exista ou não a conta, e o e-mail nunca é mostrado.</AvisoCard>
-      </form>
-      <Link to={paths.acesso.entrar} className="mt-6 block text-center text-[13px] font-bold text-acc">
-        Voltar para o login
-      </Link>
-    </AcessoPagina>
+      </div>
+    </div>
   );
 }

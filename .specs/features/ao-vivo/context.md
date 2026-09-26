@@ -82,7 +82,7 @@ Tela **Ao vivo** no app do gestor (menu abaixo de Dashboard, antes de Configura�
 ## Specific References
 
 - Screenshots SAAS (pódio, desafios, metas, evolução, IA) — extrair informação, não o dark.
-- Menu: `nav-gestao.ts`; escopo: `useEscopo` / SeletorLoja.
+- Menu: `nav-wedash.ts`; escopo: `useScope` / StorePicker.
 
 ---
 

@@ -1,33 +1,33 @@
 /**
  * Camada de visão — Ao vivo (competência do mês + pulso do dia).
  */
-import { brl, brlK, fimDoMes, intervaloDias, num, pct, rotuloDias } from "@/lib/formato";
-import { type Escopo } from "./dashboard";
-import { colaboradores, vendedorElegivel, type Colaborador } from "./equipe";
-import { desafiosNoEscopo, desafioEhIndice, progressoIndividual, type Desafio } from "./desafios";
-import { filiais, grupos, type Filial } from "./filiais";
-import { metaDaFilial, degrausPadrao } from "./metas";
-import { HOJE_ISO, HORA_ATUAL } from "./relogio";
-import { diaVendas, type Agregado, agregadoDoDia, somarAgregados } from "./vendas";
+import { brl, brlK, fimDoMes, intervaloDias, num, pct, rotuloDias } from "@/lib/format";
+import { type Scope } from "./dashboard";
+import { collaborators, eligibleSeller, type Collaborator } from "./team";
+import { challengesInScope, challengeIsIndex, individualProgress, type Challenge } from "./challenges";
+import { stores, grupos, type Store } from "./stores";
+import { goalOfStore, defaultTiers } from "./goals";
+import { TODAY_ISO, CURRENT_HOUR } from "./clock";
+import { salesDay, type Aggregate, dayAggregate, sumAggregates } from "./sales";
 
-function filiaisDoEscopo(escopo: Escopo): Filial[] {
-  return escopo.filialIds.length === 0 ? filiais : filiais.filter((f) => escopo.filialIds.includes(f.id));
+function storesInScope(escopo: Scope): Store[] {
+  return escopo.filialIds.length === 0 ? stores : stores.filter((f) => escopo.filialIds.includes(f.id));
 }
 
-export interface AoVivoKpi {
+export interface LiveKpi {
   label: string;
   valor: string;
   sub?: string;
 }
 
-export interface AoVivoKpiHoje {
+export interface LiveKpiToday {
   label: string;
   valor: string;
   sub?: string;
   tint: "acc" | "ok" | "warn" | "info";
 }
 
-export interface RankingLinha {
+export interface RankingRow {
   posicao: number;
   colaboradorId: string;
   nome: string;
@@ -35,21 +35,21 @@ export interface RankingLinha {
   faturamento: number;
 }
 
-export interface RankingLojaLinha {
+export interface StoreRankingRow {
   id: string;
   nome: string;
   valor: number;
   pctMeta?: number;
 }
 
-export interface DesafioTop {
+export interface ChallengeTop {
   colaboradorId: string;
   nome: string;
   valor: number;
   pct: number;
 }
 
-export interface DesafioAoVivo {
+export interface LiveChallenge {
   id: string;
   nome: string;
   objetivo: string;
@@ -57,15 +57,15 @@ export interface DesafioAoVivo {
   premio: number;
   acumuladoRotulo: string;
   progressoPct: number;
-  top3: DesafioTop[];
+  top3: ChallengeTop[];
 }
 
-export interface MetaNivel {
+export interface GoalLevel {
   nome: string;
   atingimentoMinPct: number;
 }
 
-export interface MetaPessoaLinha {
+export interface PersonGoalRow {
   posicao: number;
   id: string;
   nome: string;
@@ -74,7 +74,7 @@ export interface MetaPessoaLinha {
   nivelNome: string | null;
 }
 
-export interface MetaGrupoLinha {
+export interface GroupGoalRow {
   id: string;
   nome: string;
   faturamento: number;
@@ -84,66 +84,66 @@ export interface MetaGrupoLinha {
   top3: { nome: string; faturamento: number; pct: number }[];
 }
 
-export interface MetaAoVivo {
+export interface LiveGoal {
   competencia: string;
   competenciaRotulo: string;
   realizado: number;
   alvo: number;
   pct: number;
-  niveis: MetaNivel[];
-  porVendedor: MetaPessoaLinha[];
-  porGrupo: MetaGrupoLinha[];
+  niveis: GoalLevel[];
+  porVendedor: PersonGoalRow[];
+  porGrupo: GroupGoalRow[];
 }
 
-export interface AoVivoView {
+export interface LiveView {
   competencia: string;
-  kpis: AoVivoKpi[];
+  kpis: LiveKpi[];
   /** Pulso do dia — strip compacto abaixo dos KPIs mensais. */
-  kpisHoje: AoVivoKpiHoje[];
-  ranking: RankingLinha[];
-  rankingLojas: RankingLojaLinha[];
-  desafios: DesafioAoVivo[];
+  kpisHoje: LiveKpiToday[];
+  ranking: RankingRow[];
+  rankingLojas: StoreRankingRow[];
+  challenges: LiveChallenge[];
   /** Meta do escopo: somada na rede, ou da loja filtrada. */
-  meta: MetaAoVivo | null;
+  meta: LiveGoal | null;
 }
 
 function competenciaAtual(): string {
-  return HOJE_ISO.slice(0, 7);
+  return TODAY_ISO.slice(0, 7);
 }
 
-function agregadoFiliais(fs: { id: string }[], inicio: string, fim: string): Agregado {
-  return somarAgregados(
+function agregadoFiliais(fs: { id: string }[], inicio: string, fim: string): Aggregate {
+  return sumAggregates(
     fs.flatMap((f) =>
       intervaloDias(inicio, fim).map((iso) => {
-        const dia = diaVendas(f.id, iso);
+        const dia = salesDay(f.id, iso);
         if (!dia) return { faturamento: 0, atendimentos: 0, itens: 0 };
-        return agregadoDoDia(dia, null, iso === HOJE_ISO ? HORA_ATUAL : undefined);
+        return dayAggregate(dia, null, iso === TODAY_ISO ? CURRENT_HOUR : undefined);
       }),
     ),
   );
 }
 
-function vendedoresNoEscopo(filialIds: string[]): Colaborador[] {
-  return colaboradores.filter(
+function vendedoresNoEscopo(filialIds: string[]): Collaborator[] {
+  return collaborators.filter(
     (c) =>
       (filialIds.length === 0 || filialIds.includes(c.filialId)) &&
-      vendedorElegivel(c) &&
+      eligibleSeller(c) &&
       !c.excluirDeRanking,
   );
 }
 
-function fatVendedorNoPeriodo(c: Colaborador, inicio: string, fim: string): Agregado {
-  return somarAgregados(
+function fatVendedorNoPeriodo(c: Collaborator, inicio: string, fim: string): Aggregate {
+  return sumAggregates(
     intervaloDias(inicio, fim).map((iso) => {
-      const dia = diaVendas(c.filialId, iso);
+      const dia = salesDay(c.filialId, iso);
       if (!dia) return { faturamento: 0, atendimentos: 0, itens: 0 };
       const raw = dia.porVendedora[c.id];
       if (!raw) return { faturamento: 0, atendimentos: 0, itens: 0 };
-      if (iso === HOJE_ISO) {
+      if (iso === TODAY_ISO) {
         // Aproxima truncamento horário pela fração do dia decorrido.
         const diaFull = dia.total.atendimentos || 1;
         const ateAgora = Object.entries(dia.porHora)
-          .filter(([h]) => Number(h) <= HORA_ATUAL)
+          .filter(([h]) => Number(h) <= CURRENT_HOUR)
           .reduce((s, [, a]) => s + a.atendimentos, 0);
         const fr = Math.min(1, ateAgora / diaFull);
         return {
@@ -157,50 +157,50 @@ function fatVendedorNoPeriodo(c: Colaborador, inicio: string, fim: string): Agre
   );
 }
 
-function desafioAtivoAgora(d: Desafio): boolean {
-  return HOJE_ISO >= d.inicio && HOJE_ISO <= d.fim;
+function desafioAtivoAgora(d: Challenge): boolean {
+  return TODAY_ISO >= d.inicio && TODAY_ISO <= d.fim;
 }
 
-function diasRestantesRotulo(d: Desafio): string {
-  if (HOJE_ISO > d.fim) return "Encerrado";
-  if (HOJE_ISO < d.inicio) {
-    const n = intervaloDias(HOJE_ISO, d.inicio).length - 1;
+function diasRestantesRotulo(d: Challenge): string {
+  if (TODAY_ISO > d.fim) return "Encerrado";
+  if (TODAY_ISO < d.inicio) {
+    const n = intervaloDias(TODAY_ISO, d.inicio).length - 1;
     return n <= 0 ? "Hoje" : `Em ${rotuloDias(n)}`;
   }
-  const n = intervaloDias(HOJE_ISO, d.fim).length;
+  const n = intervaloDias(TODAY_ISO, d.fim).length;
   return rotuloDias(n);
 }
 
 function nivelPorPct(pctVal: number): string | null {
   let atual: string | null = null;
-  for (const d of degrausPadrao) {
+  for (const d of defaultTiers) {
     if (pctVal >= d.atingimentoMinPct) atual = d.nome;
   }
   return atual;
 }
 
 /** Re-export helper used by tests when Escopo type needs filiais list. */
-export { filiaisDoEscopo };
+export { storesInScope };
 
-export function montarAoVivoView(escopo: Escopo): AoVivoView {
+export function buildLiveView(escopo: Scope): LiveView {
   const competencia = competenciaAtual();
-  const fs = filiaisDoEscopo(escopo);
+  const fs = storesInScope(escopo);
   const filialIds = fs.map((f) => f.id);
   const mesInicio = `${competencia}-01`;
-  const mesFim = HOJE_ISO < fimDoMes(mesInicio) ? HOJE_ISO : fimDoMes(mesInicio);
+  const mesFim = TODAY_ISO < fimDoMes(mesInicio) ? TODAY_ISO : fimDoMes(mesInicio);
 
   const mes = agregadoFiliais(fs, mesInicio, mesFim);
-  const hoje = agregadoFiliais(fs, HOJE_ISO, HOJE_ISO);
+  const hoje = agregadoFiliais(fs, TODAY_ISO, TODAY_ISO);
 
   const metaAlvo =
     filialIds.length === 1
-      ? metaDaFilial(filialIds[0], competencia)?.valorLoja ?? 0
-      : filialIds.reduce((s, id) => s + (metaDaFilial(id, competencia)?.valorLoja ?? 0), 0);
+      ? goalOfStore(filialIds[0], competencia)?.valorLoja ?? 0
+      : filialIds.reduce((s, id) => s + (goalOfStore(id, competencia)?.valorLoja ?? 0), 0);
 
   const atingimentoPct = metaAlvo > 0 ? (mes.faturamento / metaAlvo) * 100 : 0;
   const ticketHoje = hoje.atendimentos > 0 ? hoje.faturamento / hoje.atendimentos : 0;
 
-  const kpis: AoVivoKpi[] = [
+  const kpis: LiveKpi[] = [
     {
       label: "Faturamento",
       valor: brlK(mes.faturamento),
@@ -223,7 +223,7 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     },
   ];
 
-  const kpisHoje: AoVivoKpiHoje[] = [
+  const kpisHoje: LiveKpiToday[] = [
     {
       label: "Faturamento hoje",
       valor: brlK(hoje.faturamento),
@@ -255,7 +255,7 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     .filter((x) => x.ag.faturamento > 0 || x.ag.atendimentos > 0)
     .sort((a, b) => b.ag.faturamento - a.ag.faturamento);
 
-  const ranking: RankingLinha[] = rankingRaw.map((x, i) => ({
+  const ranking: RankingRow[] = rankingRaw.map((x, i) => ({
     posicao: i + 1,
     colaboradorId: x.c.id,
     nome: x.c.nome,
@@ -263,35 +263,35 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     faturamento: x.ag.faturamento,
   }));
 
-  const rankingLojas: RankingLojaLinha[] = fs
+  const rankingLojas: StoreRankingRow[] = fs
     .map((f) => {
       const fat = agregadoFiliais([f], mesInicio, mesFim).faturamento;
-      const metaFilial = metaDaFilial(f.id, competencia);
+      const metaFilial = goalOfStore(f.id, competencia);
       const pctMeta = metaFilial && metaFilial.valorLoja > 0 ? (fat / metaFilial.valorLoja) * 100 : undefined;
       return { id: f.id, nome: f.fantasia, valor: fat, pctMeta };
     })
     .sort((a, b) => b.valor - a.valor);
 
-  const escopoFiliais = filialIds.length ? filialIds : filiais.map((f) => f.id);
-  const desafiosSrc = desafiosNoEscopo(competencia, escopoFiliais).filter(desafioAtivoAgora);
-  const desafios: DesafioAoVivo[] = desafiosSrc.map((d) => {
+  const escopoFiliais = filialIds.length ? filialIds : stores.map((f) => f.id);
+  const desafiosSrc = challengesInScope(competencia, escopoFiliais).filter(desafioAtivoAgora);
+  const challenges: LiveChallenge[] = desafiosSrc.map((d) => {
     const parts = d.participantes
       .map((id) => {
-        const c = colaboradores.find((x) => x.id === id);
+        const c = collaborators.find((x) => x.id === id);
         if (!c) return null;
         if (filialIds.length && !filialIds.includes(c.filialId)) return null;
-        const valor = progressoIndividual(d, id);
+        const valor = individualProgress(d, id);
         const alvo = d.alvoIndividual || 1;
         const p = d.unidade === "un" || d.unidade === "R$" ? (valor / alvo) * 100 : (valor / alvo) * 100;
         return { colaboradorId: id, nome: c.nome, valor, pct: Math.min(100, p) };
       })
-      .filter((x): x is DesafioTop => x != null)
+      .filter((x): x is ChallengeTop => x != null)
       .sort((a, b) => b.valor - a.valor);
 
     const top3 = parts.slice(0, 3);
     const soma = parts.reduce((s, p) => s + p.valor, 0);
     const media = parts.length ? soma / parts.length : 0;
-    const usaMedia = desafioEhIndice(d);
+    const usaMedia = challengeIsIndex(d);
     const realizado = usaMedia ? media : soma;
     const alvoAgg = usaMedia ? d.alvoIndividual : d.alvoIndividual * Math.max(1, parts.length);
     return {
@@ -311,12 +311,12 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     };
   });
 
-  let meta: MetaAoVivo | null = null;
+  let meta: LiveGoal | null = null;
   if (metaAlvo > 0) {
-    const porVendedor: MetaPessoaLinha[] = rankingRaw.map((x, i) => {
+    const porVendedor: PersonGoalRow[] = rankingRaw.map((x, i) => {
       const metaInd =
         filialIds.length === 1
-          ? (metaDaFilial(x.c.filialId, competencia)?.valorLoja ?? metaAlvo) / Math.max(1, rankingRaw.length)
+          ? (goalOfStore(x.c.filialId, competencia)?.valorLoja ?? metaAlvo) / Math.max(1, rankingRaw.length)
           : metaAlvo / Math.max(1, rankingRaw.length);
       const p = metaInd > 0 ? (x.ag.faturamento / metaInd) * 100 : 0;
       return {
@@ -330,7 +330,7 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     });
 
     const gruposEscopo = grupos.filter((g) => !filialIds.length || filialIds.includes(g.filialId));
-    const porGrupo: MetaGrupoLinha[] = gruposEscopo.map((g) => {
+    const porGrupo: GroupGoalRow[] = gruposEscopo.map((g) => {
       const membros = vendedores.filter((c) => c.grupoId === g.id);
       const fat = membros.reduce((s, c) => s + fatVendedorNoPeriodo(c, mesInicio, mesFim).faturamento, 0);
       const peso = membros.length / Math.max(1, vendedores.length);
@@ -361,7 +361,7 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
       realizado: mes.faturamento,
       alvo: metaAlvo,
       pct: atingimentoPct,
-      niveis: degrausPadrao.map((d) => ({ nome: d.nome, atingimentoMinPct: d.atingimentoMinPct })),
+      niveis: defaultTiers.map((d) => ({ nome: d.nome, atingimentoMinPct: d.atingimentoMinPct })),
       porVendedor,
       porGrupo,
     };
@@ -373,7 +373,7 @@ export function montarAoVivoView(escopo: Escopo): AoVivoView {
     kpisHoje,
     ranking,
     rankingLojas,
-    desafios,
+    challenges,
     meta,
   };
 }
@@ -385,6 +385,6 @@ function competenciaRotulo(ym: string): string {
 }
 
 /** Test helper — empty ranking when forcing a future empty window is not needed; use Escopo with period. */
-export function __testOnly_agregadoFiliais(fs: { id: string }[], inicio: string, fim: string) {
+export function __testOnly_aggregateStores(fs: { id: string }[], inicio: string, fim: string) {
   return agregadoFiliais(fs, inicio, fim);
 }

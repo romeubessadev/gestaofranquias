@@ -17,7 +17,10 @@ export function Timeline({ events }: { events: TimelineEvent[] }) {
           <div className="flex flex-col items-center">
             <span
               className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs"
-              style={{ background: (event.color ?? "var(--acc)") + "22", color: event.color ?? "var(--acc)" }}
+              style={{
+                background: `color-mix(in srgb, ${event.color ?? "var(--acc)"} 14%, transparent)`,
+                color: event.color ?? "var(--acc)",
+              }}
             >
               {event.icon ?? "●"}
             </span>

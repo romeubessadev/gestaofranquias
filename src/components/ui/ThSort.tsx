@@ -32,7 +32,7 @@ export function ThSort({
         type="button"
         onClick={onClick}
         className={cn(
-          "inline-flex items-center gap-1 hover:text-t0",
+          "inline-flex items-center gap-1 uppercase tracking-wide hover:text-t0",
           active ? "text-t0" : "text-t2",
           align === "right" && "flex-row-reverse",
           align === "center" && "justify-center",

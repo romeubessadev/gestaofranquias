@@ -15,6 +15,10 @@ export type SaleRow = {
   brand?: SalesBrand;
   /** CONDICAO da Lista (meio de pagamento), já normalizado p/ UI. */
   paymentMethod?: string | null;
+  /** VENDEDOR_MILLENNIUM da Lista (nome; vazio = fora do ranking). */
+  sellerName?: string | null;
+  /** FUNCIONARIO_GERADOR_GERADOR do relatório de cupom (código estável da vendedora). */
+  sellerGeradorId?: number | null;
 };
 
 /** Daily bucket — matches sales_day_agg natural key. */
@@ -35,7 +39,7 @@ export type SalesDayAgg = {
   cmvCents?: number;
 };
 
-/** Daily revenue by product tipo (C5BBF0E2) — sales_category_day_agg. */
+/** Daily revenue by product tipo — sales_category_day_view (top produtos × product_catalog). */
 export type SalesCategoryDayAgg = {
   tenantId: string;
   storeId: string;
@@ -66,6 +70,66 @@ export type SalesPaymentDayAgg = {
   revenueCents: number;
   /** Distinct COD_OPERACAO count. */
   salesCount: number;
+};
+
+/** Turno cadastrado da funcionária (store_seller.shift_id → store_shift), p/ ligar às linhas do ranking. */
+export type SellerShiftRef = {
+  storeId: string;
+  employeeId: number | null;
+  geradorId: number | null;
+  /** Nomes normalizados (mesma chave de `sellerKey`). */
+  nameKeys: string[];
+  name: string;
+  /** HH:MM local da loja. */
+  start: string;
+  end: string;
+};
+
+/** Daily revenue by seller (VENDEDOR_MILLENNIUM) — sales_seller_day_agg. */
+export type SalesSellerDayAgg = {
+  tenantId: string;
+  storeId: string;
+  day: string;
+  /** Nome normalizado (chave estável sem acento). */
+  sellerKey: string;
+  /** Rótulo de UI (title-case). */
+  sellerName: string;
+  /** Código da funcionária no Millennium (FUNCIONARIO) — resolvido pelo nome na gravação; null = só nome. */
+  sellerEmployeeId?: number | null;
+  /** Gerador da vendedora no Millennium (relatório de cupom); null = só pelo nome. */
+  sellerGeradorId?: number | null;
+  brand: SalesBrand;
+  revenueCents: number;
+  /** Distinct COD_OPERACAO count. */
+  salesCount: number;
+  /** Σ QUANTIDADE (itens). 0 em linhas gravadas antes de 2026-09-26. */
+  itemCount?: number;
+};
+
+/** Daily cost by COD_PRODUTO (RELATORIOMARGEM) — sales_product_cost_day_agg. */
+export type SalesProductCostDayAgg = {
+  tenantId: string;
+  storeId: string;
+  day: string;
+  /** COD_PRODUTO — join com SalesProductDayAgg.productCode. */
+  productCode: string;
+  itemCount: number;
+  revenueCents: number;
+  cmvCents: number;
+};
+
+/** Daily revenue by SKU ({E7A5C5C7}) — sales_product_day_agg. */
+export type SalesProductDayAgg = {
+  tenantId: string;
+  storeId: string;
+  day: string;
+  /** Millennium produto.produto.produto. */
+  productId: number;
+  productCode: string;
+  productName: string;
+  brand: SalesBrand;
+  revenueCents: number;
+  itemCount: number;
 };
 
 /** Hourly bucket — matches sales_hour_agg (current local day). */

@@ -7,18 +7,18 @@
  * Tipos: quantidade | produto | faturamento | pa | ticket.
  * Progresso individual é fixture explícita (régua vermelho/amarelo/verde).
  */
-import { colaboradores, vendedorElegivel } from "./equipe";
-import { HOJE_ISO } from "./relogio";
+import { collaborators, eligibleSeller } from "./team";
+import { TODAY_ISO } from "./clock";
 
-export type TipoDesafio = "produto" | "quantidade" | "faturamento" | "pa" | "ticket";
-export type UnidadeDesafio = "un" | "x" | "R$";
+export type ChallengeType = "produto" | "quantidade" | "faturamento" | "pa" | "ticket";
+export type ChallengeUnit = "un" | "x" | "R$";
 
-export interface Desafio {
+export interface Challenge {
   id: string;
   nome: string;
   /** Frase curta do objetivo (o que precisa fazer). */
   objetivo: string;
-  tipo: TipoDesafio;
+  tipo: ChallengeType;
   /** Loja dona do desafio. `null` = desafio de rede (todas as lojas). */
   filialId: string | null;
   /** Alvo / piso por participante (un, índice ou R$). */
@@ -28,7 +28,7 @@ export interface Desafio {
    * Em "vender mais", é o piso para concorrer; o ranking ordena pelo realizado.
    */
   minimo: number | null;
-  unidade: UnidadeDesafio;
+  unidade: ChallengeUnit;
   /** R$ por participante (vendedora) que fechar o desafio. */
   premio: number;
   /**
@@ -53,11 +53,11 @@ export interface Desafio {
 }
 
 function ativasDaFilial(filialId: string): string[] {
-  return colaboradores
+  return collaborators
     .filter(
       (c) =>
         c.filialId === filialId &&
-        vendedorElegivel(c) &&
+        eligibleSeller(c) &&
         c.dataAdmissao <= "2026-09-01" &&
         (!c.dataInatividade || c.dataInatividade > "2026-09-15"),
     )
@@ -75,7 +75,7 @@ const ATIVAS_F2 = ativasDaFilial("f2");
  * - Três Lagoas: Body Cream (ativo, amarelo) + Ticket (a começar)
  * Cores na lista vigente: amarelo (body) + verde (pa). Vermelho some ao filtrar.
  */
-export const desafios: Desafio[] = [
+export const challenges: Challenge[] = [
   {
     id: "d-perfumaria",
     nome: "Perfumaria — 3 acima de R$ 150",
@@ -188,22 +188,22 @@ const PROGRESSO_FIXO: Record<string, Record<string, number>> = {
 };
 
 /** Desafios da competência. Sem desafios: lista vazia (a tela segue). */
-export function desafiosAtivos(competencia: string): Desafio[] {
-  return desafios.filter((d) => d.competencia === competencia);
+export function activeChallenges(competencia: string): Challenge[] {
+  return challenges.filter((d) => d.competencia === competencia);
 }
 
 /** Desafios da competência visíveis no escopo de lojas (loja própria + rede). */
-export function desafiosNoEscopo(competencia: string, filiaisIds: string[]): Desafio[] {
-  return desafiosAtivos(competencia).filter((d) => d.filialId == null || filiaisIds.includes(d.filialId));
+export function challengesInScope(competencia: string, filiaisIds: string[]): Challenge[] {
+  return activeChallenges(competencia).filter((d) => d.filialId == null || filiaisIds.includes(d.filialId));
 }
 
 /** Piso efetivo: minimo configurado ou o próprio alvo. */
-export function pisoDoDesafio(d: Desafio): number {
+export function challengeFloor(d: Challenge): number {
   return d.minimo ?? d.alvoIndividual;
 }
 
 /** P.A. e ticket são índices — agregação por média, não por soma. */
-export function desafioEhIndice(d: Pick<Desafio, "tipo">): boolean {
+export function challengeIsIndex(d: Pick<Challenge, "tipo">): boolean {
   return d.tipo === "pa" || d.tipo === "ticket";
 }
 
@@ -212,22 +212,22 @@ export function desafioEhIndice(d: Pick<Desafio, "tipo">): boolean {
  * No escopo filtrado, N nunca passa do nº de participantes visíveis.
  * Para índices (pa/ticket), a UI usa o próprio piso como alvo da média.
  */
-export function alvoGerenteDoDesafio(d: Desafio, participantesNoEscopo: number): number {
-  if (desafioEhIndice(d)) return pisoDoDesafio(d);
+export function challengeManagerTarget(d: Challenge, participantesNoEscopo: number): number {
+  if (challengeIsIndex(d)) return challengeFloor(d);
   const n = Math.min(d.minimoVendedorasAtingindo, Math.max(0, participantesNoEscopo));
-  return pisoDoDesafio(d) * n;
+  return challengeFloor(d) * n;
 }
 
 /**
  * Progresso rumo à meta do gerente (regra A, tipos un/R$): cada vendedora
  * contribui no máximo até o piso individual — uma não “carrega” as outras.
  */
-export function progressoGerenteCapped(progressos: number[], piso: number): number {
+export function cappedManagerProgress(progressos: number[], piso: number): number {
   return progressos.reduce((s, p) => s + Math.min(Math.max(0, p), piso), 0);
 }
 
 /** Média aritmética (índices pa/ticket). */
-export function mediaProgressos(progressos: number[]): number {
+export function averageProgress(progressos: number[]): number {
   if (progressos.length === 0) return 0;
   return progressos.reduce((s, p) => s + Math.max(0, p), 0) / progressos.length;
 }
@@ -236,9 +236,9 @@ export function mediaProgressos(progressos: number[]): number {
  * Progresso individual do participante no desafio.
  * Antes do início da janela → 0. Determinístico via fixture.
  */
-export function progressoIndividual(d: Desafio, colaboradorId: string): number {
+export function individualProgress(d: Challenge, colaboradorId: string): number {
   if (!d.participantes.includes(colaboradorId)) return 0;
-  if (HOJE_ISO < d.inicio) return 0;
+  if (TODAY_ISO < d.inicio) return 0;
   const fixo = PROGRESSO_FIXO[d.id]?.[colaboradorId];
   if (fixo != null) return fixo;
   return 0;

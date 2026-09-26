@@ -2,17 +2,18 @@ import { Navigate } from "react-router-dom";
 import { lazyPage } from "@/lib/lazyPage";
 import type { RouteObject } from "react-router-dom";
 import { paths } from "@/router/paths";
-import { RequirePapel } from "@/session/RequireSession";
+import { RequireRole } from "@/session/RequireSession";
 
-const MetasPage = lazyPage(() => import("./MetasPage"), "default");
+const GoalsPage = lazyPage(() => import("./GoalsPage"), "default");
 
 export const metasRoutes: RouteObject[] = [
   {
-    element: <RequirePapel papeis={["GESTOR", "GERENTE", "ADMIN_GLOBAL"]} />,
+    element: <RequireRole roles={["OWNER", "MANAGER", "ADMIN_GLOBAL"]} />,
     children: [
-      { path: paths.metas, element: <MetasPage /> },
-      /** Legado: Metas vivia em Configurações. */
-      { path: paths.configuracoes.metas, element: <Navigate to={paths.metas} replace /> },
+      { path: paths.goals, element: <GoalsPage /> },
+      /** Legado: Metas vivia em Configurações + /metas. */
+      { path: paths.legacy.goals, element: <Navigate to={paths.goals} replace /> },
+      { path: paths.legacy.goalsInSettings, element: <Navigate to={paths.goals} replace /> },
     ],
   },
 ];

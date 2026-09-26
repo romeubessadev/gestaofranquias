@@ -11,19 +11,19 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 ## Test Coverage Matrix
 
-> Guidelines found: existing Vitest under `src/data/gestao/*.test.ts`. Strong defaults for domain; UI pages build-gate only.
+> Guidelines found: existing Vitest under `src/data/wedash/*.test.ts`. Strong defaults for domain; UI pages build-gate only.
 
 | Code Layer | Required Test Type | Coverage Expectation | Location Pattern | Run Command |
 | --- | --- | --- | --- | --- |
-| Domain `montarAoVivoView` | unit | Dual KPI month+today; ranking month; empty; Todas aggregate | `src/data/gestao/aoVivo.test.ts` | `npm test` |
+| Domain `buildLiveView` | unit | Dual KPI month+today; ranking month; empty; Todas aggregate | `src/data/wedash/live.test.ts` | `npm test` |
 | Routes / pages UI | none | build gate | `src/pages/ao-vivo/**` | `npm run build` |
-| Nav / paths | none | build gate | `paths.ts`, `nav-gestao.ts` | `npm run build` |
+| Nav / paths | none | build gate | `paths.ts`, `nav-wedash.ts` | `npm run build` |
 
 ## Gate Check Commands
 
 | Gate Level | When | Command |
 | --- | --- | --- |
-| Quick | After domain tasks | `npm test -- src/data/gestao/aoVivo.test.ts` |
+| Quick | After domain tasks | `npm test -- src/data/wedash/live.test.ts` |
 | Build | After UI / wiring | `npm run build` |
 | Full | Phase end | `npm test` && `npm run build` |
 
@@ -63,12 +63,12 @@ T1 → T2 → T3 → T4 → T5 → T6 → T7
 
 ---
 
-### T2: Implement `montarAoVivoView` with unit tests
+### T2: Implement `buildLiveView` with unit tests
 
 **What**: Domain view for KPIs (mês+hoje), ranking mês, desafios, meta, evolução, insight mock.  
-**Where**: `src/data/gestao/aoVivo.ts`  
+**Where**: `src/data/wedash/live.ts`  
 **Depends on**: T1  
-**Reuses**: `dashboard.ts` aggregates, `desafios.ts`, `metas.ts`, `equipe.ts`  
+**Reuses**: `dashboard.ts` aggregates, `challenges.ts`, `goals.ts`, `equipe.ts`  
 **Requirement**: AOVIVO-02, AOVIVO-03, AOVIVO-04, AOVIVO-05  
 
 **Status**: done

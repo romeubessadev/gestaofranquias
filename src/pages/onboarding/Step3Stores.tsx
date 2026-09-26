@@ -23,15 +23,24 @@ function CardFilial({ f }: { f: StoreErp }) {
   );
 }
 
-/** Etapa 3 — confirma lojas. Ao Voltar, logout ERP; ao confirmar, mantém token p/ SEED. */
+/**
+ * Etapa 3 — confirma lojas. Ao Voltar, logout ERP; ao confirmar, mantém token e o botão fica
+ * "Sincronizando…" até as vendas de hoje chegarem (Atualizar de todas as lojas, segundos).
+ */
 export function Step3Stores({
   session,
   filiaisPre,
+  sincronizando = false,
+  erroSync = null,
+  onTentarSync,
   onConcluir,
   onVoltar,
 }: {
   session?: string;
   filiaisPre?: StoreErp[];
+  sincronizando?: boolean;
+  erroSync?: string | null;
+  onTentarSync?: () => void;
   onConcluir: (stores: StoreErp[]) => void;
   onVoltar: () => void;
 }) {
@@ -78,33 +87,43 @@ export function Step3Stores({
       </p>
 
       <div className="flex flex-col gap-3.5">
-        {stores === null ? (
-          <div className="flex flex-col gap-2.5">
-            {[1, 2].map((i) => (
-              <div key={i} className="flex items-center gap-3 rounded-[13px] border border-line bg-bg-inset px-4 py-3.5">
-                <Skeleton className="h-[38px] w-[38px] shrink-0 rounded-[11px]" />
-                <div className="min-w-0 flex-1">
-                  <Skeleton className="mb-2 h-4 w-1/2" />
-                  <Skeleton className="h-3 w-1/3" />
+        <div className="mb-3.5">
+          {stores === null ? (
+            <div className="flex flex-col gap-2.5">
+              {[1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-3 rounded-[13px] border border-line bg-bg-inset px-4 py-3.5">
+                  <Skeleton className="h-[38px] w-[38px] shrink-0 rounded-[11px]" />
+                  <div className="min-w-0 flex-1">
+                    <Skeleton className="mb-2 h-4 w-1/2" />
+                    <Skeleton className="h-3 w-1/3" />
+                  </div>
                 </div>
-              </div>
-            ))}
-            <p className="text-center text-[12px] text-t2">Buscando lojas no Millennium…</p>
-          </div>
-        ) : vazio ? (
-          <div className="rounded-xl border border-warn/30 bg-warn-soft p-4 text-[13px] text-t0">
-            Este usuário não possui lojas vinculadas no Millennium. Verifique os vínculos no ERP e tente novamente.
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2.5">
-            {stores.map((f) => (
-              <CardFilial key={f.storeId} f={f} />
-            ))}
-          </div>
-        )}
+              ))}
+              <p className="text-center text-[12px] text-t2">Buscando lojas no Millennium…</p>
+            </div>
+          ) : vazio ? (
+            <div className="rounded-xl border border-warn/30 bg-warn-soft p-4 text-[13px] text-t0">
+              Este usuário não possui lojas vinculadas no Millennium. Verifique os vínculos no ERP e tente novamente.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {stores.map((f) => (
+                <CardFilial key={f.storeId} f={f} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {erroSync ? (
+          <div className="rounded-xl border border-bad/30 bg-bad-soft p-4 text-[13px] text-t0">{erroSync}</div>
+        ) : null}
 
         {vazio ? (
           <button type="button" disabled={salvando} onClick={carregar} className={btnPrimario} style={{ boxShadow: "0 8px 24px -8px var(--acc)" }}>
+            Tentar novamente
+          </button>
+        ) : erroSync ? (
+          <button type="button" onClick={onTentarSync} className={btnPrimario} style={{ boxShadow: "0 8px 24px -8px var(--acc)" }}>
             Tentar novamente
           </button>
         ) : (
@@ -115,12 +134,18 @@ export function Step3Stores({
             className={btnPrimario}
             style={{ boxShadow: "0 8px 24px -8px var(--acc)" }}
           >
-            {salvando ? "Finalizando…" : "Confirmar e continuar"}
+            {salvando || sincronizando ? "Sincronizando…" : "Confirmar e continuar"}
           </button>
         )}
-        <button type="button" onClick={voltar} disabled={salvando} className="text-center text-[13px] font-semibold text-t2 hover:text-t0 disabled:opacity-60">
-          Voltar
-        </button>
+        {sincronizando ? (
+          <p className="text-center text-[12px] text-t2">
+            Buscando as vendas de hoje no Millennium. Os dias anteriores do mês continuam carregando depois que você entrar.
+          </p>
+        ) : !salvando && !erroSync ? (
+          <button type="button" onClick={voltar} className="text-center text-[13px] font-semibold text-t2 hover:text-t0">
+            Voltar
+          </button>
+        ) : null}
       </div>
     </div>
   );

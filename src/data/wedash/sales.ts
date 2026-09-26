@@ -3,26 +3,26 @@
  * filial. Faz o papel do sync do ERP: as telas nunca leem daqui diretamente,
  * só através da camada de visões (loja.ts), que devolve números prontos.
  */
-import { categorias, filiais, meiosPagamento, type Divisao, type Filial, type MeioPagamento } from "./filiais";
-import { colaboradoresDaFilial } from "./equipe";
-import { HOJE_ISO, HORA_ATUAL } from "./relogio";
-import { deIso, intervaloDias } from "@/lib/formato";
+import { categorias, stores, paymentMethods, type Division, type Store, type PaymentMethod } from "./stores";
+import { collaboratorsOfStore } from "./team";
+import { TODAY_ISO, CURRENT_HOUR } from "./clock";
+import { deIso, intervaloDias } from "@/lib/format";
 
-export interface Agregado {
+export interface Aggregate {
   faturamento: number;
   atendimentos: number;
   itens: number;
 }
 
-export interface DiaVendas {
+export interface SalesDay {
   data: string;
   filialId: string;
-  total: Agregado;
-  porHora: Record<number, Agregado>;
-  porVendedora: Record<string, Agregado>;
+  total: Aggregate;
+  porHora: Record<number, Aggregate>;
+  porVendedora: Record<string, Aggregate>;
   porCategoria: Record<number, { faturamento: number; itens: number; cmv: number }>;
-  porMeio: Record<MeioPagamento, number>;
-  porDivisao: Record<Divisao, Agregado>;
+  porMeio: Record<PaymentMethod, number>;
+  porDivisao: Record<Division, Aggregate>;
 }
 
 interface ParametrosFilial {
@@ -37,7 +37,7 @@ interface ParametrosFilial {
   tendencia: Record<string, number>;
   /** Participação de cada categoria no faturamento. */
   categorias: Record<number, number>;
-  meios: Record<MeioPagamento, number>;
+  meios: Record<PaymentMethod, number>;
 }
 
 const PARAMETROS: Record<string, ParametrosFilial> = {
@@ -90,18 +90,18 @@ function ruido(r: () => number, amp: number): number {
   return 1 + (r() * 2 - 1) * amp;
 }
 
-export function pesoDia(filial: Filial, iso: string): number {
+export function dayWeight(filial: Store, iso: string): number {
   return PARAMETROS[filial.id].pesosSemana[deIso(iso).getDay()];
 }
 
-export function lojaAberta(filial: Filial, iso: string): boolean {
+export function storeOpen(filial: Store, iso: string): boolean {
   return !filial.diasFechados.includes(deIso(iso).getDay());
 }
 
-function gerarDia(filial: Filial, iso: string): DiaVendas {
+function gerarDia(filial: Store, iso: string): SalesDay {
   const p = PARAMETROS[filial.id];
   const r = prng(hash(`${filial.id}|${iso}`));
-  const vazio: DiaVendas = {
+  const vazio: SalesDay = {
     data: iso,
     filialId: filial.id,
     total: { faturamento: 0, atendimentos: 0, itens: 0 },
@@ -111,25 +111,25 @@ function gerarDia(filial: Filial, iso: string): DiaVendas {
     porMeio: { Pix: 0, "Cartão de crédito": 0, "Cartão de débito": 0, Dinheiro: 0 },
     porDivisao: { WEPINK: { faturamento: 0, atendimentos: 0, itens: 0 }, WPINK: { faturamento: 0, atendimentos: 0, itens: 0 } },
   };
-  if (!lojaAberta(filial, iso)) return vazio;
+  if (!storeOpen(filial, iso)) return vazio;
 
   const mes = iso.slice(0, 7);
   const tendencia = p.tendencia[mes] ?? 1;
-  const totalDiaCheio = p.baseDia * pesoDia(filial, iso) * tendencia * ruido(r, 0.14);
+  const totalDiaCheio = p.baseDia * dayWeight(filial, iso) * tendencia * ruido(r, 0.14);
   const ticketDia = p.ticket * ruido(r, 0.06);
   const paDia = p.pa * ruido(r, 0.05);
 
   // Distribui por hora e trunca o dia de hoje na hora atual.
-  const horas = intervaloHoras(filial);
+  const horas = hourRange(filial);
   const somaPesos = p.pesosHora.reduce((s, x) => s + x, 0);
-  const porHora: Record<number, Agregado> = {};
+  const porHora: Record<number, Aggregate> = {};
   let faturamento = 0;
   let atendimentos = 0;
   let itens = 0;
   horas.forEach((h, i) => {
-    if (iso === HOJE_ISO && h > HORA_ATUAL) return;
+    if (iso === TODAY_ISO && h > CURRENT_HOUR) return;
     let fracao = (p.pesosHora[i] / somaPesos) * ruido(r, 0.25);
-    if (iso === HOJE_ISO && h === HORA_ATUAL) fracao *= 0.55;
+    if (iso === TODAY_ISO && h === CURRENT_HOUR) fracao *= 0.55;
     const fat = Math.round(totalDiaCheio * fracao);
     const atend = Math.max(fat > 0 ? 1 : 0, Math.round(fat / (ticketDia * ruido(r, 0.1))));
     const it = Math.max(atend, Math.round(atend * paDia * ruido(r, 0.08)));
@@ -138,7 +138,7 @@ function gerarDia(filial: Filial, iso: string): DiaVendas {
     atendimentos += atend;
     itens += it;
   });
-  const total: Agregado = { faturamento, atendimentos, itens };
+  const total: Aggregate = { faturamento, atendimentos, itens };
 
   // Categorias: faturamento por participação, itens pelo índice de preço, CMV pela categoria.
   const porCategoria: Record<number, { faturamento: number; itens: number; cmv: number }> = {};
@@ -157,7 +157,7 @@ function gerarDia(filial: Filial, iso: string): DiaVendas {
   });
 
   // Divisão: WPINK = categorias da divisão WPINK; o resto é WEPINK.
-  const porDivisao: Record<Divisao, Agregado> = {
+  const porDivisao: Record<Division, Aggregate> = {
     WEPINK: { faturamento: 0, atendimentos: 0, itens: 0 },
     WPINK: { faturamento: 0, atendimentos: 0, itens: 0 },
   };
@@ -167,22 +167,22 @@ function gerarDia(filial: Filial, iso: string): DiaVendas {
     porDivisao[cat.divisao].faturamento += c.faturamento;
     porDivisao[cat.divisao].itens += c.itens;
   }
-  for (const d of ["WEPINK", "WPINK"] as Divisao[]) {
+  for (const d of ["WEPINK", "WPINK"] as Division[]) {
     const fr = faturamento > 0 ? porDivisao[d].faturamento / faturamento : 0;
     porDivisao[d].atendimentos = Math.round(atendimentos * fr);
   }
 
   // Meios de pagamento.
   const porMeio = { ...vazio.porMeio };
-  const meiosRuido = meiosPagamento.map((m) => p.meios[m] * ruido(r, 0.15));
+  const meiosRuido = paymentMethods.map((m) => p.meios[m] * ruido(r, 0.15));
   const somaMeios = meiosRuido.reduce((s, x) => s + x, 0);
-  meiosPagamento.forEach((m, i) => {
+  paymentMethods.forEach((m, i) => {
     porMeio[m] = Math.round((faturamento * meiosRuido[i]) / somaMeios);
   });
 
   // Vendedoras: peso relativo, respeitando admissão e inatividade.
-  const porVendedora: Record<string, Agregado> = {};
-  const equipe = colaboradoresDaFilial(filial.id).filter((c) => {
+  const porVendedora: Record<string, Aggregate> = {};
+  const equipe = collaboratorsOfStore(filial.id).filter((c) => {
     if (c.dataAdmissao > iso) return false;
     if (c.dataInatividade && c.dataInatividade <= iso) return false;
     return true;
@@ -201,7 +201,7 @@ function gerarDia(filial: Filial, iso: string): DiaVendas {
   return { data: iso, filialId: filial.id, total, porHora, porVendedora, porCategoria, porMeio, porDivisao };
 }
 
-export function intervaloHoras(filial: Filial): number[] {
+export function hourRange(filial: Store): number[] {
   const out: number[] = [];
   for (let h = filial.abertura; h < filial.fechamento; h++) out.push(h);
   return out;
@@ -210,49 +210,49 @@ export function intervaloHoras(filial: Filial): number[] {
 const INICIO_HISTORICO = "2026-06-01";
 
 /** Índice puro de vendas por filial+data, parametrizável para testes isolados. */
-export class DiaVendasStore {
-  private readonly indice: Map<string, DiaVendas>;
+export class SalesDayStore {
+  private readonly indice: Map<string, SalesDay>;
   readonly inicio: string;
   readonly fim: string;
 
   /** Popula do histórico deterministicamente gerado. */
-  constructor(inicio: string = INICIO_HISTORICO, fim: string = HOJE_ISO) {
+  constructor(inicio: string = INICIO_HISTORICO, fim: string = TODAY_ISO) {
     this.inicio = inicio;
     this.fim = fim;
-    this.indice = new Map<string, DiaVendas>();
-    for (const f of filiais) {
+    this.indice = new Map<string, SalesDay>();
+    for (const f of stores) {
       for (const iso of intervaloDias(inicio, fim)) {
         this.indice.set(`${f.id}|${iso}`, gerarDia(f, iso));
       }
     }
   }
 
-  dia(filialId: string, iso: string): DiaVendas | undefined {
+  dia(filialId: string, iso: string): SalesDay | undefined {
     return this.indice.get(`${filialId}|${iso}`);
   }
 
-  dias(filialId: string, inicio: string, fim: string): DiaVendas[] {
+  dias(filialId: string, inicio: string, fim: string): SalesDay[] {
     return intervaloDias(inicio, fim)
       .map((iso) => this.indice.get(`${filialId}|${iso}`))
-      .filter((d): d is DiaVendas => Boolean(d));
+      .filter((d): d is SalesDay => Boolean(d));
   }
 }
 
 /** Instância padrão usada pela aplicação. */
-export const store = new DiaVendasStore();
+export const store = new SalesDayStore();
 
-export function diaVendas(filialId: string, iso: string): DiaVendas | undefined {
+export function salesDay(filialId: string, iso: string): SalesDay | undefined {
   return store.dia(filialId, iso);
 }
 
-export function diasVendas(filialId: string, inicio: string, fim: string): DiaVendas[] {
+export function salesDays(filialId: string, inicio: string, fim: string): SalesDay[] {
   return store.dias(filialId, inicio, fim);
 }
 
 /** Agregado de um dia, opcionalmente recortado por divisão e por faixa de horas. */
-export function agregadoDoDia(dia: DiaVendas, divisao: Divisao | null, horaMax?: number): Agregado {
+export function dayAggregate(dia: SalesDay, divisao: Division | null, horaMax?: number): Aggregate {
   if (horaMax !== undefined) {
-    const out: Agregado = { faturamento: 0, atendimentos: 0, itens: 0 };
+    const out: Aggregate = { faturamento: 0, atendimentos: 0, itens: 0 };
     for (const [h, a] of Object.entries(dia.porHora)) {
       if (Number(h) > horaMax) continue;
       out.faturamento += a.faturamento;
@@ -269,7 +269,7 @@ export function agregadoDoDia(dia: DiaVendas, divisao: Divisao | null, horaMax?:
   return { ...dia.total };
 }
 
-export function somarAgregados(lista: Agregado[]): Agregado {
+export function sumAggregates(lista: Aggregate[]): Aggregate {
   return lista.reduce(
     (acc, a) => ({ faturamento: acc.faturamento + a.faturamento, atendimentos: acc.atendimentos + a.atendimentos, itens: acc.itens + a.itens }),
     { faturamento: 0, atendimentos: 0, itens: 0 },

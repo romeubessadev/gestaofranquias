@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { Button, Card, CardTitle, PageHeader, ThSort, type SortDir } from "@/components/ui";
-import { metas } from "@/data/gestao/metas";
-import { filiais } from "@/data/gestao/filiais";
-import { brl } from "@/lib/formato";
+import { Button, Card, CardTitle, PageHeader, Pagination, ThSort, type SortDir } from "@/components/ui";
+import { goals } from "@/data/wedash/goals";
+import { stores } from "@/data/wedash/stores";
+import { brl } from "@/lib/format";
+import { usePagedRows } from "@/lib/usePagedRows";
 
 function nomeFilial(filialId: string) {
-  return filiais.find((f) => f.id === filialId)?.fantasia ?? filialId;
+  return stores.find((f) => f.id === filialId)?.fantasia ?? filialId;
 }
 
 type SortKey = "competencia" | "loja" | "nome" | "valor" | "niveis";
@@ -14,13 +15,13 @@ type SortKey = "competencia" | "loja" | "nome" | "valor" | "niveis";
  * CRUD de Metas (fora do Dashboard).
  * Esqueleto para evolução — listagem a partir do fixture; formulário/plano do mês amanhã.
  */
-export default function MetasPage() {
+export default function GoalsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("competencia");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const ordenadas = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
-    return [...metas].sort((a, b) => {
+    return [...goals].sort((a, b) => {
       if (sortKey === "loja") return nomeFilial(a.filialId).localeCompare(nomeFilial(b.filialId)) * dir;
       if (sortKey === "nome") return a.nome.localeCompare(b.nome) * dir;
       if (sortKey === "valor") return (a.valorLoja - b.valorLoja) * dir;
@@ -29,6 +30,7 @@ export default function MetasPage() {
       return a.competencia.localeCompare(b.competencia) * dir || nomeFilial(a.filialId).localeCompare(nomeFilial(b.filialId));
     });
   }, [sortKey, sortDir]);
+  const paged = usePagedRows(ordenadas, `${sortKey}|${sortDir}`);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -43,7 +45,7 @@ export default function MetasPage() {
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
         title="Metas"
-        subtitle="Metas mensais, níveis de premiação e distribuição por vendedora."
+        subtitle="Metas mensais, níveis de premiação e distribuição individual."
         actions={
           <Button size="sm" disabled title="Em breve">
             Nova meta
@@ -80,7 +82,7 @@ export default function MetasPage() {
                   </td>
                 </tr>
               ) : (
-                ordenadas.map((m) => (
+                paged.pageRows.map((m) => (
                   <tr key={m.id} className="border-b border-line last:border-b-0">
                     <td className="px-1 py-3 font-mono text-[13px] font-semibold text-t1">{m.competencia}</td>
                     <td className="px-1 py-3 text-[13px] font-bold text-t0">{nomeFilial(m.filialId)}</td>
@@ -93,6 +95,14 @@ export default function MetasPage() {
             </tbody>
           </table>
         </div>
+        {paged.totalPages > 1 && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3.5">
+            <span className="text-[12.5px] text-t2">
+              Mostrando {paged.pageRows.length} de {paged.total} metas
+            </span>
+            <Pagination page={paged.page} totalPages={paged.totalPages} onChange={paged.setPage} />
+          </div>
+        )}
       </Card>
     </div>
   );

@@ -12,9 +12,10 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createAdminClient, disconnectTenantSessions, enqueueDueLightJobs, processOneJob, recoverOnStartup, recoverStaleRunningJobs } from "./deps.ts";
+import { installAsciiConsole } from "./consoleAscii.ts";
+import { createAdminClient, deepHistoryEnabled, disconnectTenantSessions, enqueueDueAutoRefreshJobs, enqueueDueCloseJobs, enqueueDueDeepHistoryJobs, enqueueDueLightJobs, processOneJob, purgeOldSyncLogs, recoverOnStartup, SYNC_LOG_RETENTION_DAYS, recoverStaleRunningJobs } from "./deps.ts";
 import { logoutMillennium } from "./millenniumAuth.ts";
-import { releaseActiveMillenniumSession } from "./runSyncJob.ts";
+import { closeHour, dailyCloseEnabled, describeSyncHistory, releaseActiveMillenniumSession } from "./runSyncJob.ts";
 import { isWorkerPaused } from "./workerPause.ts";
 import { acquireWorkerLock, releaseWorkerLock } from "./workerLock.ts";
 
@@ -58,6 +59,7 @@ function sleep(ms: number) {
 }
 
 async function main() {
+  installAsciiConsole();
   loadDotEnv();
   acquireWorkerLock();
 
@@ -71,9 +73,16 @@ async function main() {
 
   const sb = createAdminClient();
   await recoverOnStartup(sb);
-        console.log(
-          `Worker Millennium · poll ${Math.round(pollMs / 1000)}s · só Atualizar (FORCE)${process.env.LIGHT_AUTO === "1" ? " · LIGHT_AUTO=1" : ""} · desconectar em Configurações > Integração ERP`,
-        );
+  console.log("Worker Millennium");
+  console.log(`  Histórico pós-onboarding : ${describeSyncHistory()} (SYNC_HISTORY)`);
+  console.log(
+    `  Fechamento de ontem      : ${dailyCloseEnabled() ? `a partir das ${closeHour()}h (CLOSE_HOUR)` : "desligado (CLOSE_HOUR=off)"}`,
+  );
+  console.log("  Atualização automática   : por integração (Configurações > Integrações)");
+  console.log(
+    `  Histórico antigo         : ${deepHistoryEnabled() ? "ligado na madrugada, até a inauguração (DEEP_HISTORY=1)" : "desligado (DEEP_HISTORY=1 liga)"}`,
+  );
+  if (process.env.LIGHT_AUTO === "1") console.log("  Sync automático (LIGHT)  : ligado (LIGHT_AUTO=1)");
   if (isWorkerPaused()) {
     console.log("⚠ Pausado local (.millennium-pause) — npm run erp -- resume");
   }
@@ -81,6 +90,51 @@ async function main() {
   let stopping = false;
   let wasPaused = isWorkerPaused();
   let lastIdleLog = 0;
+  let lastLogPurge = 0;
+  const purgeLogsIfDue = async () => {
+    if (Date.now() - lastLogPurge < 6 * 60 * 60_000) return;
+    lastLogPurge = Date.now();
+    try {
+      const n = await purgeOldSyncLogs(sb);
+      if (n > 0) console.log(`Logs: ${n} registro(s) com mais de ${SYNC_LOG_RETENTION_DAYS} dias removidos`);
+    } catch (e) {
+      console.warn(`Logs: limpeza falhou: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+  await purgeLogsIfDue();
+  let lastCloseScan = 0;
+  const enqueueCloseIfDue = async () => {
+    if (!dailyCloseEnabled() || Date.now() - lastCloseScan < 10 * 60_000) return 0;
+    lastCloseScan = Date.now();
+    try {
+      return await enqueueDueCloseJobs(sb);
+    } catch (e) {
+      console.warn(`Fechamento: varredura falhou: ${e instanceof Error ? e.message : String(e)}`);
+      return 0;
+    }
+  };
+  let lastAutoScan = 0;
+  const enqueueAutoIfDue = async () => {
+    if (Date.now() - lastAutoScan < 60_000) return 0;
+    lastAutoScan = Date.now();
+    try {
+      return await enqueueDueAutoRefreshJobs(sb);
+    } catch (e) {
+      console.warn(`Atualização automática: varredura falhou: ${e instanceof Error ? e.message : String(e)}`);
+      return 0;
+    }
+  };
+  let lastDeepScan = 0;
+  const enqueueDeepIfDue = async () => {
+    if (!deepHistoryEnabled() || Date.now() - lastDeepScan < 60_000) return 0;
+    lastDeepScan = Date.now();
+    try {
+      return await enqueueDueDeepHistoryJobs(sb);
+    } catch (e) {
+      console.warn(`Histórico antigo: varredura falhou: ${e instanceof Error ? e.message : String(e)}`);
+      return 0;
+    }
+  };
   const stop = () => {
     if (stopping) return;
     stopping = true;
@@ -112,19 +166,27 @@ async function main() {
       if (!paused) {
         const stale = await recoverStaleRunningJobs(sb);
         if (stale > 0) console.log(`Recuperados ${stale} job(s) travados`);
+        await purgeLogsIfDue();
         let worked = false;
         for (let i = 0; i < 5; i++) {
           const did = await processOneJob(sb, erpSecret);
           if (!did) break;
           worked = true;
         }
-        const n = await enqueueDueLightJobs(sb);
-        if (n > 0) console.log(`+${n} sync do dia (LIGHT)`);
+        const closes = await enqueueCloseIfDue();
+        if (closes > 0) console.log(`+${closes} fechamento de ontem`);
+        const autos = await enqueueAutoIfDue();
+        if (autos > 0) console.log(`+${autos} atualização automática`);
+        const deeps = await enqueueDeepIfDue();
+        if (deeps > 0) console.log(`+${deeps} mês do histórico antigo`);
+        const light = await enqueueDueLightJobs(sb);
+        if (light > 0) console.log(`+${light} sync do dia (LIGHT)`);
+        const n = closes + autos + deeps + light;
+        // "Aguardando" só na transição para ocioso (não repete a cada poll).
         if (!worked && n === 0) {
-          const now = Date.now();
-          if (now - lastIdleLog > 5 * 60_000) {
-            console.log("Aguardando… (sem job na fila)");
-            lastIdleLog = now;
+          if (lastIdleLog === 0) {
+            console.log(`Aguardando jobs… (desde ${new Date().toLocaleTimeString("pt-BR", { hour12: false })})`);
+            lastIdleLog = Date.now();
           }
         } else {
           lastIdleLog = 0;

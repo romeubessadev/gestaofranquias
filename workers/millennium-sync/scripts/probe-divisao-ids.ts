@@ -68,11 +68,13 @@ async function main() {
   const map = await fetchProductBrandMap({ session, geradorIds });
   let wepink = 0;
   let wpink = 0;
-  for (const b of map.values()) {
+  for (const b of map.map.values()) {
     if (b === "WEPINK") wepink += 1;
     else if (b === "WPINK") wpink += 1;
   }
-  console.log(`mapa: total=${map.size} WEPINK=${wepink} WPINK=${wpink}`);
+  console.log(
+    `mapa: total=${map.map.size} WEPINK=${wepink} WPINK=${wpink} · geradores c/ WPINK=${[...map.geradorIdsWithWpink].join(",") || "(nenhum)"}`,
+  );
   console.log(wepink > 0 && wpink > 0 ? "OK: ambas divisões populadas" : "AVISO: alguma divisão vazia");
 }
 

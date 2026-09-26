@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  excludeNonSalesPeople,
+  fetchMonthFill,
   fetchSalesDayAggs,
   fetchSalesHourAggs,
   fetchSyncWatermark,
+  monthFillProgress,
+  seedCoverageWindow,
   type SalesQueryClient,
 } from "./salesRepo";
-import type { SalesDayAgg, SalesHourAgg } from "./salesTypes";
+import type { SalesDayAgg, SalesHourAgg, SalesSellerDayAgg } from "./salesTypes";
 
 function mockClient(opts: {
   days?: SalesDayAgg[];
@@ -47,9 +51,10 @@ function mockClient(opts: {
         maybeSingle: async () => {
           if (table === "erp_credential") {
             return {
-              data: opts.watermark
-                ? { last_light_sync_at: opts.watermark }
-                : { last_light_sync_at: null },
+              data: {
+                last_light_sync_at: opts.watermark ?? null,
+                last_success_at: null,
+              },
               error: null,
             };
           }
@@ -112,6 +117,49 @@ function mockClient(opts: {
     },
   };
 }
+
+describe("carga do mês", () => {
+  it("onboarding espera só hoje", () => {
+    expect(seedCoverageWindow("2026-09-24")).toEqual({ from: "2026-09-24", to: "2026-09-24", expectedDays: 1 });
+  });
+
+  it("conta hoje + dias depois do que está carregando", () => {
+    expect(monthFillProgress({ currentDay: "2026-09-23", fillUntil: "2026-09-01" }, "2026-09-24")).toEqual({
+      done: 1,
+      total: 24,
+    });
+    expect(monthFillProgress({ currentDay: "2026-09-01", fillUntil: "2026-09-01" }, "2026-09-24")).toEqual({
+      done: 23,
+      total: 24,
+    });
+  });
+
+  it("job em período: progresso vem do último dia concluído (progressDay), não do fim do bloco", async () => {
+    const jobClient = (payload: Record<string, unknown>) =>
+      ({
+        from() {
+          const b = {
+            select: () => b,
+            eq: () => b,
+            in: () => b,
+            not: () => b,
+            is: () => b,
+            order: () => b,
+            limit: () => b,
+            maybeSingle: async () => ({ data: { payload }, error: null }),
+          };
+          return b;
+        },
+      }) as unknown as SalesQueryClient;
+
+    const block = { from: "2026-08-31", to: "2026-08-31", fillUntil: "2026-08-01" };
+    expect(await fetchMonthFill("t1", jobClient(block))).toEqual({ currentDay: "2026-08-31", fillUntil: "2026-08-01" });
+    const mid = await fetchMonthFill("t1", jobClient({ ...block, progressDay: "2026-08-15" }));
+    expect(mid).toEqual({ currentDay: "2026-08-14", fillUntil: "2026-08-01" });
+    // 25/09, carga desde 01/08: 56 dias; faltam 01–14/08.
+    expect(monthFillProgress(mid!, "2026-09-25")).toEqual({ done: 42, total: 56 });
+  });
+});
 
 describe("salesRepo", () => {
   it("filters day aggs by tenant, store, date range and brand", async () => {
@@ -184,5 +232,43 @@ describe("salesRepo", () => {
       new Date("2026-09-19T12:00:00.000Z"),
     );
     await expect(fetchSyncWatermark("t1", empty)).resolves.toBeNull();
+  });
+});
+
+describe("excludeNonSalesPeople", () => {
+  const row = (over: Partial<SalesSellerDayAgg>): SalesSellerDayAgg => ({
+    tenantId: "t1",
+    storeId: "s114",
+    day: "2026-08-02",
+    sellerKey: "X",
+    sellerName: "X",
+    sellerEmployeeId: null,
+    sellerGeradorId: null,
+    brand: "ALL",
+    revenueCents: 100,
+    salesCount: 1,
+    ...over,
+  });
+
+  it("drops non-sales people by employee id, gerador or store+name; keeps the team", () => {
+    const rows = [
+      row({ sellerKey: "NORTE.SUL", sellerEmployeeId: 40587 }),
+      row({ sellerKey: "NORTE.SUL", sellerGeradorId: 42345 }),
+      row({ sellerKey: "NORTE.SUL" }),
+      row({ sellerKey: "NORTE.SUL", storeId: "s010" }),
+      row({ sellerKey: "DALINNE", sellerEmployeeId: 162457 }),
+    ];
+    const out = excludeNonSalesPeople(rows, {
+      employeeIds: new Set([40587]),
+      geradorIds: new Set([42345]),
+      storeNameKeys: new Set(["s114|NORTE.SUL"]),
+    });
+    expect(out.map((r) => `${r.storeId}:${r.sellerKey}`)).toEqual(["s010:NORTE.SUL", "s114:DALINNE"]);
+  });
+
+  it("returns rows untouched when everyone is sales", () => {
+    const rows = [row({})];
+    const empty = { employeeIds: new Set<number>(), geradorIds: new Set<number>(), storeNameKeys: new Set<string>() };
+    expect(excludeNonSalesPeople(rows, empty)).toBe(rows);
   });
 });

@@ -6,6 +6,7 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
+    "erp": "tsx scripts/erp-session.ts",
     "test": "cd ../.. && npm test -- workers/millennium-sync"
   },
   "dependencies": {

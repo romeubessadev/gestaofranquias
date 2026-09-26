@@ -171,11 +171,14 @@ export function milleniumDayBoundIso(ymd: string): string {
   return `${ymd}T04:00:00.000Z`;
 }
 
-/** Inclusive [from,to] → UI DATAI / exclusive DATAF. */
+/**
+ * Inclusive [from,to] → DATAI / DATAF. A API filtra pela coluna DATA com DATAF **inclusivo**:
+ * mandar a meia-noite do dia seguinte trazia o dia seguinte inteiro junto.
+ */
 export function milleniumDataRange(from: string, to: string): { datai: string; dataf: string } {
   return {
     datai: milleniumDayBoundIso(from),
-    dataf: milleniumDayBoundIso(addDaysYmd(to, 1)),
+    dataf: milleniumDayBoundIso(to),
   };
 }
 
@@ -207,6 +210,17 @@ export function mapVendasListaPayload(
         : asStr(nfRaw);
     const tipoOperacao = asStr(pick(o, "TIPO_OPERACAO", "tipo_operacao")) || null;
     const condicaoRaw = asStr(pick(o, "CONDICAO", "condicao", "TIPO_PAGTO", "tipo_pagto"));
+    const sellerRaw = asStr(
+      pick(
+        o,
+        "VENDEDOR_MILLENNIUM",
+        "vendedor_millennium",
+        "VENDEDOR",
+        "vendedor",
+        "FUNCIONARIO_NOME",
+        "funcionario_nome",
+      ),
+    );
     out.push({
       operationCode,
       occurredAt,
@@ -215,6 +229,7 @@ export function mapVendasListaPayload(
       storeId: opts.storeId,
       brand: "ALL",
       paymentMethod: condicaoRaw || null,
+      sellerName: sellerRaw || null,
       millenniumFilial,
       millenniumOpCode,
       nf,
@@ -315,7 +330,9 @@ export async function fetchSalesLista(params: FetchSalesListaParams): Promise<Sa
 
   const base = (params.baseUrl ?? defaultBaseUrl()).replace(/\/$/, "");
   const fetchImpl = params.fetchImpl ?? fetch;
-  const timeoutMs = Number(process.env.MILLENNIUM_FETCH_TIMEOUT_MS ?? "300000") || 300_000;
+  // 1 dia responde em ~1s; se travar, desiste em 60s e o dia vai para Logs (a carga segue).
+  const defaultTimeoutMs = params.from === params.to ? 60_000 : 300_000;
+  const timeoutMs = Number(process.env.MILLENNIUM_FETCH_TIMEOUT_MS ?? defaultTimeoutMs) || defaultTimeoutMs;
   const session = params.session;
   const body = uiBody(params);
   const bodyJson = JSON.stringify(body);

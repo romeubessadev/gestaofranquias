@@ -1,0 +1,5 @@
+# Edge Functions — WeDash
+# https://supabase.com/docs/guides/functions
+
+[functions.millennium-onboarding]
+verify_jwt = true

@@ -4,6 +4,7 @@ import { Badge, Button, Card, CardHeader, CardTitle, PageHeader, TabNav, Switch 
 import { FormField, Input, Select } from "@/components/ui";
 import { paths } from "@/router/paths";
 import { CheckIcon } from "@/pages/utility/icons";
+import { ACCENTS } from "@/lib/accents";
 import { BrandLogo } from "@/components/BrandLogo";
 import { CONNECTIONS, API_KEYS, NOTIF_ROWS, NotifDot } from "@/pages/account/AccountPage";
 
@@ -153,8 +154,6 @@ function CompanyTab() {
     </div>
   );
 }
-
-const ACCENTS = ["#7c5cff", "#56a8ff", "#2fd48f", "#ff7a5c", "#f7b84e", "#f76d7d"];
 
 function ThemeTab() {
   const [active, setActive] = useState(0);

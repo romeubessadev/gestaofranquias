@@ -17,7 +17,7 @@ export function PageHeader({ crumbs, title, subtitle, actions }: PageHeaderProps
           <h1 className="truncate text-xl font-extrabold text-t0 sm:text-[26px]">{title}</h1>
           {subtitle && <p className="mt-1 text-[13px] text-t1">{subtitle}</p>}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+        {actions && <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">{actions}</div>}
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-﻿import { Navigate, useRoutes, type RouteObject } from "react-router-dom";
+import { Navigate, useRoutes, type RouteObject } from "react-router-dom";
 import { AppShell } from "@/layout/AppShell";
 import { AuthLayout } from "@/layout/AuthLayout";
 import { paths } from "./paths";
@@ -43,7 +43,9 @@ const TrocarSenha = lazyPage(() => import("@/pages/access/ChangePassword"), "Cha
 
 /** Raiz: sem sessão → login; com sessão → senha temp → onboarding → app. */
 function Raiz() {
-  const { session } = useSession();
+  const { session, ready } = useSession();
+  // PWA start_url = ./ — sem esperar ready bounce pro login e “desloga”.
+  if (!ready) return null;
   if (!session) return <Navigate to={paths.access.login} replace />;
   return <Navigate to={destinationAfterAuth(session)} replace />;
 }
@@ -81,6 +83,7 @@ const routeTree: RouteObject[] = [
           ...equipeRoutes,
           ...aoVivoRoutes,
           ...metasRoutes,
+          ...settingsRoutes,
           ...emBreveRoutes,
           ...dashboardsRoutes,
           ...usersRoutes,
@@ -98,7 +101,6 @@ const routeTree: RouteObject[] = [
           ...accountRoutes,
           ...marketingRoutes,
           ...reportsRoutes,
-          ...settingsRoutes,
           ...utilityRoutes,
           ...miscRoutes,
         ],

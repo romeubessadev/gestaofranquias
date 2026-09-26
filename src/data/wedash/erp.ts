@@ -5,6 +5,8 @@
  */
 import { stores, type Store } from "./stores";
 import { getSupabase } from "@/lib/supabase";
+import { persistErpCredentialAndStores } from "@/session/authApi";
+import { parseStoreHours, type WeekHours } from "./autoRefresh";
 
 function esperar(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms));
@@ -24,15 +26,24 @@ export interface StoreErp {
   openedAt: string;
 }
 
+/** Resultado do teste de cada relatório personalizado do Millennium que o sync usa. */
+export type ErpReportCheck = { key: string; name: string; ok: boolean; error?: string };
+
+export type ErpLoginFailReason = "password" | "busy" | "other" | "stores" | "reports";
+
 export type ErpLoginResult =
   | { ok: true; session?: string; stores: StoreErp[] }
-  | { ok: false; reason: "password" | "busy" | "other" | "stores" };
+  | { ok: false; reason: ErpLoginFailReason; reports?: ErpReportCheck[] };
 
 type EdgeResponse =
   | { ok: true; session: string; stores?: StoreErp[] }
-  | { ok: false; reason: "password" | "busy" | "other" | "stores" }
+  | { ok: false; reason: ErpLoginFailReason; reports?: ErpReportCheck[] }
   | { ok: true }
   | { error: string };
+
+const REPORTS_MOCK: ErpReportCheck[] = [
+  { key: "cupom", name: "WE PINK - PRODUTOS POR CUPOM E VENDEDOR", ok: false, error: "Tipo de documento não suportado" },
+];
 
 function storesMock(): StoreErp[] {
   return stores.map(
@@ -53,9 +64,10 @@ function storesMock(): StoreErp[] {
 }
 
 /**
- * Login + FILIAIS.Lista no ERP.
+ * Login + FILIAIS.Lista + acesso aos relatórios personalizados no ERP.
  * Antes de logar, a Edge libera sessão WeDash salva (reclaim) — busy do nosso sync some sem o usuário ver.
- * Demo (sem Edge): senha "errada" | "ocupado" | "falha"; qualquer outra → ok + mock.
+ * Sem acesso a algum relatório → `reason: "reports"` + lista (Edge já deslogou).
+ * Demo (sem Edge): senha "errada" | "ocupado" | "falha" | "relatorio"; qualquer outra → ok + mock.
  */
 export async function testErpLogin(usuario: string, senha: string): Promise<ErpLoginResult> {
   const u = usuario.trim();
@@ -73,7 +85,7 @@ export async function testErpLogin(usuario: string, senha: string): Promise<ErpL
 
     const attempt = async () =>
       sb.functions.invoke<EdgeResponse>("millennium-onboarding", {
-        body: { username: u, password: senha, includeStores: true, keepSession: true },
+        body: { username: u, password: senha, includeStores: true, keepSession: true, checkReports: true },
       });
 
     let { data, error } = await attempt();
@@ -95,7 +107,9 @@ export async function testErpLogin(usuario: string, senha: string): Promise<ErpL
           stores: Array.isArray(data.stores) ? data.stores : [],
         };
       }
-      if (data.ok === false) return { ok: false, reason: data.reason };
+      if (data.ok === false) {
+        return { ok: false, reason: data.reason, reports: Array.isArray(data.reports) ? data.reports : undefined };
+      }
     }
     console.warn("millennium-onboarding:", error?.message ?? data);
     return { ok: false, reason: "other" };
@@ -106,6 +120,7 @@ export async function testErpLogin(usuario: string, senha: string): Promise<ErpL
   if (s === "errada") return { ok: false, reason: "password" };
   if (s === "ocupado") return { ok: false, reason: "busy" };
   if (s === "falha") return { ok: false, reason: "other" };
+  if (s === "relatorio") return { ok: false, reason: "reports", reports: REPORTS_MOCK };
   return { ok: true, session: "mock-session", stores: storesMock() };
 }
 
@@ -155,6 +170,7 @@ export type ErpIntegrationStatus = {
   lastError: string | null;
   lastErrorAt: string | null;
   lastLightSyncAt: string | null;
+  autoRefreshEnabled: boolean;
 };
 
 /** Lê estado da integração (sem senha) para Configurações > Integração ERP. */
@@ -166,7 +182,7 @@ export async function fetchErpIntegrationStatus(
   const { data, error } = await sb
     .from("erp_credential")
     .select(
-      "username, status, sync_paused, dedicated, last_success_at, last_error, last_error_at, last_light_sync_at",
+      "username, status, sync_paused, dedicated, last_success_at, last_error, last_error_at, last_light_sync_at, auto_refresh_enabled",
     )
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -184,6 +200,7 @@ export async function fetchErpIntegrationStatus(
     last_error?: string | null;
     last_error_at?: string | null;
     last_light_sync_at?: string | null;
+    auto_refresh_enabled?: boolean | null;
   };
   return {
     username: row.username,
@@ -194,7 +211,184 @@ export async function fetchErpIntegrationStatus(
     lastError: row.last_error ?? null,
     lastErrorAt: row.last_error_at ?? null,
     lastLightSyncAt: row.last_light_sync_at ?? null,
+    autoRefreshEnabled: row.auto_refresh_enabled ?? true,
   };
+}
+
+export type StoreSyncState = {
+  id: string;
+  timezone: string;
+  hours: WeekHours;
+};
+
+/** Horário e fuso de cada loja (tooltip "Próxima atualização" do Atualizar). */
+export async function fetchStoresSyncState(tenantId: string): Promise<StoreSyncState[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const { data, error } = await sb
+    .from("store")
+    .select("id, timezone, hours")
+    .eq("tenant_id", tenantId)
+    .eq("active", true);
+  if (error) {
+    console.warn("fetchStoresSyncState:", error.message);
+    return [];
+  }
+  return ((data ?? []) as Array<{ id: string; timezone: string | null; hours: unknown }>).map((r) => ({
+    id: r.id,
+    timezone: r.timezone || "America/Campo_Grande",
+    hours: parseStoreHours(r.hours),
+  }));
+}
+
+/** Quando foi enfileirada a última rodada automática (base da próxima). */
+export async function fetchLastAutoRefreshAt(tenantId: string): Promise<Date | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const { data, error } = await sb
+    .from("sync_job")
+    .select("created_at")
+    .eq("tenant_id", tenantId)
+    .eq("kind", "FORCE")
+    .eq("payload->>auto", "true")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.warn("fetchLastAutoRefreshAt:", error.message);
+    return null;
+  }
+  const at = (data as { created_at?: string | null } | null)?.created_at;
+  return at ? new Date(at) : null;
+}
+
+export type ErpCredentialChangeResult =
+  | { ok: true; wiped: boolean; storeIds: string[] }
+  | { ok: false; reason: ErpLoginFailReason | "no_stores" | "persist"; reports?: ErpReportCheck[] };
+
+/** Lojas ativas do tenant (id Millennium + nome) — base da comparação ao trocar usuário. */
+async function tenantErpStores(tenantId: string): Promise<{ storeId: number; name: string }[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const { data } = await sb
+    .from("store")
+    .select("millennium_store_id, trade_name, name")
+    .eq("tenant_id", tenantId)
+    .eq("active", true);
+  return ((data as { millennium_store_id: number; trade_name: string | null; name: string | null }[] | null) ?? []).map(
+    (r) => ({ storeId: Number(r.millennium_store_id), name: r.trade_name || r.name || String(r.millennium_store_id) }),
+  );
+}
+
+/**
+ * Impacto de trocar a credencial:
+ * - `credential`: mesmo usuário (troca de senha) — só grava.
+ * - `keep`: outro usuário que enxerga todas as lojas atuais — só grava, dados ficam.
+ * - `partial`: outro usuário sem algumas lojas — remove só essas (pede confirmação).
+ * - `full`: nenhuma loja em comum / tenant sem lojas — recria lojas + carga inicial
+ *   (pede confirmação se já havia lojas).
+ */
+export type ErpChangePlan =
+  | { kind: "credential" }
+  | { kind: "keep" }
+  | { kind: "partial"; removed: { storeId: number; name: string }[] }
+  | { kind: "full"; hadStores: boolean };
+
+export type PreparedErpChange = {
+  tenantId: string;
+  membershipId: string;
+  username: string;
+  password: string;
+  dedicated: boolean;
+  session?: string;
+  loginStores: StoreErp[];
+  plan: ErpChangePlan;
+};
+
+export function erpChangeNeedsConfirm(plan: ErpChangePlan): boolean {
+  return plan.kind === "partial" || (plan.kind === "full" && plan.hadStores);
+}
+
+/**
+ * Passo 1 — testa login + relatórios e calcula o impacto (nada gravado ainda).
+ * Se o chamador desistir, chamar `cancelErpCredentialChange`.
+ */
+export async function prepareErpCredentialChange(input: {
+  tenantId: string;
+  membershipId: string;
+  currentUsername: string | null;
+  username: string;
+  password: string;
+  dedicated: boolean;
+}): Promise<{ ok: true; change: PreparedErpChange } | Extract<ErpCredentialChangeResult, { ok: false }>> {
+  const username = input.username.trim().toUpperCase();
+  const login = await testErpLogin(username, input.password);
+  if (!login.ok) return { ok: false, reason: login.reason, reports: login.reports };
+
+  const base = {
+    tenantId: input.tenantId,
+    membershipId: input.membershipId,
+    username,
+    password: input.password,
+    dedicated: input.dedicated,
+    session: login.session,
+    loginStores: login.stores,
+  };
+  if ((input.currentUsername ?? "").trim().toUpperCase() === username) {
+    return { ok: true, change: { ...base, plan: { kind: "credential" } } };
+  }
+
+  const prev = await tenantErpStores(input.tenantId);
+  const visible = new Set(login.stores.map((s) => s.storeId));
+  const kept = prev.filter((s) => visible.has(s.storeId));
+  let plan: ErpChangePlan;
+  if (prev.length > 0 && kept.length === prev.length) plan = { kind: "keep" };
+  else if (kept.length > 0) plan = { kind: "partial", removed: prev.filter((s) => !visible.has(s.storeId)) };
+  else plan = { kind: "full", hadStores: prev.length > 0 };
+
+  if (plan.kind === "full" && login.stores.length === 0) {
+    await logoutErp(login.session);
+    return { ok: false, reason: "no_stores" };
+  }
+  return { ok: true, change: { ...base, plan } };
+}
+
+/** Desistiu da troca após o teste — encerra a sessão aberta no teste. */
+export async function cancelErpCredentialChange(change: PreparedErpChange): Promise<void> {
+  await logoutErp(change.session);
+}
+
+/** Passo 2 — grava a credencial conforme o plano. `wiped` = recriou lojas + SEED. */
+export async function applyErpCredentialChange(change: PreparedErpChange): Promise<ErpCredentialChangeResult> {
+  const { plan } = change;
+  const persisted = await persistErpCredentialAndStores({
+    tenantId: change.tenantId,
+    membershipId: change.membershipId,
+    username: change.username,
+    password: change.password,
+    dedicated: change.dedicated,
+    stores: plan.kind === "full" ? change.loginStores : [],
+    millenniumSession: change.session,
+    ...(plan.kind === "keep" || plan.kind === "partial"
+      ? {
+          userChange: {
+            mode: "keep" as const,
+            removeMillenniumStoreIds: plan.kind === "partial" ? plan.removed.map((s) => s.storeId) : [],
+          },
+        }
+      : {}),
+  });
+  if (!persisted.ok) return { ok: false, reason: "persist" };
+
+  if (plan.kind === "full") {
+    const sb = getSupabase();
+    try {
+      await sb?.functions.invoke("erp-sync-enqueue", { body: { action: "seed" } });
+    } catch (e) {
+      console.warn("erp-sync-enqueue seed:", e);
+    }
+  }
+  return { ok: true, wiped: plan.kind === "full", storeIds: persisted.storeIds };
 }
 
 /** Marca presença WeDash (heartbeat). Worker só synca com presença recente. */

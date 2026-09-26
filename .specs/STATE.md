@@ -4,28 +4,34 @@
 
 | ID | Decision | Rationale | Date |
 | --- | --- | --- | --- |
-| AD-001 | Ao vivo is a top-level menu item (not under Dashboard) | Operational/live board ≠ analytical dashboard | 2026-09-18 |
+| AD-001 | Ao vivo is a top-level menu item (not under Dashboard) | Operational/live board ? analytical dashboard | 2026-09-18 |
 | AD-002 | No company block in Ao vivo header | User: remove empresa; store via Topbar selector | 2026-09-18 |
-| AD-003 | KPIs show month primary + today secondary; no global Hoje\|Mês | Preserves live feel; dual readout on cards | 2026-09-18 |
-| AD-004 | Ranking/Desafios/Metas always month; no Semestre/Ano on Ranking | Historical periods ≠ Ao vivo | 2026-09-18 |
+| AD-003 | KPIs show month primary + today secondary; no global Hoje\|M�s | Preserves live feel; dual readout on cards | 2026-09-18 |
+| AD-004 | Ranking/Desafios/Metas always month; no Semestre/Ano on Ranking | Historical periods ? Ao vivo | 2026-09-18 |
 | AD-005 | Vela components only; idea from SAAS refs | Product theme strict | 2026-09-18 |
 | AD-006 | Share/TV/external page deferred | Implement in-app Ao vivo first | 2026-09-18 |
 | AD-007 | IA Insights only in gestor app (mock MVP) | Not on TV; no real LLM yet | 2026-09-18 |
-| AD-008 | Ao vivo header: Compartilhar + Modo TV (functional → shell routes) | Next feature builds full external/TV UI | 2026-09-18 |
-| AD-009 | Login = e-mail + senha (não CPF); Supabase Auth | Padrão de apps; CPF fica para ERP | 2026-09-19 |
-| AD-010 | Sessão PWA sticky; multi-device; F5 não desloga | App instalável + push depois | 2026-09-19 |
-| AD-012 | Produto chama-se WeDash (não Vela Franquias) | Nome do dash / projeto Supabase | 2026-09-19 |
-| AD-013 | Schema/auth/edge em inglês (`identity`, `membership`, roles OWNER/MANAGER/SELLER) | Padrão profissional; UI copy permanece PT | 2026-09-21 |
-| AD-014 | Tenant URL = `wedash.app/{slug}` (path), não subdomínio | Ops simples; slug auto do nome | 2026-09-21 |
-| AD-015 | Dashboard lê Postgres; Millennium só via sync (worker BR) | Sessão única ERP + IP + performance | 2026-09-21 |
-| AD-016 | Backfill 3 meses; agregados diários (+ hora no dia); VG v1 = VENDAS.Lista | Custo/perf; CMV no pesado depois | 2026-09-21 |
-| AD-017 | Canonical dashboard sales read model = `sales_day_agg` / `sales_hour_agg` | Overview e telas seguintes não leem Millennium | 2026-09-21 |
+| AD-008 | Ao vivo header: Compartilhar + Modo TV (functional ? shell routes) | Next feature builds full external/TV UI | 2026-09-18 |
+| AD-009 | Login = e-mail + senha (n�o CPF); Supabase Auth | Padr�o de apps; CPF fica para ERP | 2026-09-19 |
+| AD-010 | Sess�o PWA sticky; multi-device; F5 n�o desloga | App instal�vel + push depois | 2026-09-19 |
+| AD-012 | Produto chama-se WeDash (n�o Vela Franquias) | Nome do dash / projeto Supabase | 2026-09-19 |
+| AD-013 | Schema/auth/edge em ingl�s (`identity`, `membership`, roles OWNER/MANAGER/SELLER) | Padr�o profissional; UI copy permanece PT | 2026-09-21 |
+| AD-014 | Tenant URL = `wedash.app/{slug}` (path), n�o subdom�nio | Ops simples; slug auto do nome | 2026-09-21 |
+| AD-015 | Dashboard l� Postgres; Millennium s� via sync (worker BR) | Sess�o �nica ERP + IP + performance | 2026-09-21 |
+| AD-016 | Backfill 3 meses; agregados di�rios (+ hora no dia); VG v1 = VENDAS.Lista | Custo/perf; CMV no pesado depois | 2026-09-21 |
+| AD-017 | Canonical dashboard sales read model = `sales_day_agg` / `sales_hour_agg` | Overview e telas seguintes n�o leem Millennium | 2026-09-21 |
+| AD-018 | Onboarding keeps Millennium session through SEED (no logout on store confirm) | Single ERP login slot; worker reuses token | 2026-09-21 |
+| AD-019 | Atualizar (FORCE) = filtered period gaps + always today (not LIGHT) | LIGHT = auto today; FORCE = manual repair | 2026-09-21 |
+| AD-020 | MVP worker gated by WeDash presence (heartbeat 5 min) | Solid path first; 24/7 later | 2026-09-21 | **superseded by AD-021** |
+| AD-021 | Millennium disconnect only via Settings > Integra��o ERP; WeDash logout keeps ERP session | Allows HISTORY while gestor offline; explicit release for ERP desktop use | 2026-09-22 |
+| AD-022 | SEED = previous calendar month ? today; LIGHT = today without filial; HISTORY monthly with filial sequential | Probe: multi-day without filial times out; dashboard needs MoM | 2026-09-22 |
 
 ## Handoff
 
-- **Feature:** `erp-sync-overview`
-- **Phase:** Execute complete (T1�T14 ?) � Verifier pending
-- **Artifacts:** context, spec, design, tasks (all done)
-- **Next:** Independent Verifier ? validation.md; apply migration + deploy Edge/worker BR (needs explicit go-ahead)
-- **Latest commit:** 872ee4d feat(overview): load aggregates with watermark and force refresh
-- **Blockers:** Remote DB migration / Edge deploy / BR worker not applied yet
+- **Feature:** `.specs/features/erp-integration`
+- **Phase:** Execute complete (T1�T14 committed)
+- **Completed:** spec, context, design, tasks, implementation
+- **In-progress:** none
+- **Next step:** Deploy Edge `erp-credential-persist` if not live; UAT onboarding ? SyncingPage ? Integra��o ERP; optional Verifier pass
+- **Blockers:** none
+- **Branch:** master (ahead of origin; push when ready)

@@ -2,14 +2,16 @@ import { lazyPage } from "@/lib/lazyPage";
 import type { RouteObject } from "react-router-dom";
 import { Navigate } from "react-router-dom";
 import { paths } from "@/router/paths";
+import { RequireRole } from "@/session/RequireSession";
+import { GESTOR_ROLES } from "@/layout/nav-wedash";
 const AnalyticsDashboardPage = lazyPage(() => import("./AnalyticsDashboardPage"), "AnalyticsDashboardPage");
 const SalesDashboardPage = lazyPage(() => import("./SalesDashboardPage"), "SalesDashboardPage");
 const ProjectDashboardPage = lazyPage(() => import("./ProjectDashboardPage"), "ProjectDashboardPage");
 const SaasDashboardPage = lazyPage(() => import("./SaasDashboardPage"), "SaasDashboardPage");
 const BiDashboardPage = lazyPage(() => import("./BiDashboardPage"), "BiDashboardPage");
-const FinanceiroPage = lazyPage(() => import("./FinanceiroPage"), "default");
-const ProdutosPage = lazyPage(() => import("./ProdutosPage"), "default");
-const VisaoGeralPage = lazyPage(() => import("./VisaoGeralPage"), "default");
+const FinancePage = lazyPage(() => import("./FinancePage"), "default");
+const ProductsPage = lazyPage(() => import("./ProductsPage"), "default");
+const OverviewPage = lazyPage(() => import("./OverviewPage"), "default");
 
 /**
  * NOTE: paths.dashboards.{crm,ecommerce,finance,logistics} and the marketing
@@ -24,10 +26,15 @@ export const dashboardsRoutes: RouteObject[] = [
   { path: paths.dashboards.projects, element: <ProjectDashboardPage /> },
   { path: paths.dashboards.saas, element: <SaasDashboardPage /> },
   { path: paths.dashboards.bi, element: <BiDashboardPage /> },
-  { path: paths.financeiro, element: <FinanceiroPage /> },
-  { path: paths.produtos, element: <ProdutosPage /> },
-  /** Dashboard > Grupos pausado (2026-09-17) — código em GruposPage.tsx para retomar depois. */
-  { path: paths.grupos, element: <Navigate to={paths.visaoGeral} replace /> },
-  { path: paths.turnosLegado, element: <Navigate to={paths.visaoGeral} replace /> },
-  { path: paths.visaoGeral, element: <VisaoGeralPage /> },
+  { element: <RequireRole roles={GESTOR_ROLES} />, children: [{ path: paths.financial, element: <FinancePage /> }] },
+  { path: paths.products, element: <ProductsPage /> },
+  /** Dashboard > Groups paused — code in GroupsPage.tsx for later. */
+  { path: paths.groups, element: <Navigate to={paths.overview} replace /> },
+  { path: paths.overview, element: <OverviewPage /> },
+  /* PT legacy → EN */
+  { path: paths.legacy.finance, element: <Navigate to={paths.financial} replace /> },
+  { path: paths.legacy.products, element: <Navigate to={paths.products} replace /> },
+  { path: paths.legacy.groups, element: <Navigate to={paths.overview} replace /> },
+  { path: paths.legacy.shifts, element: <Navigate to={paths.overview} replace /> },
+  { path: paths.legacy.overview, element: <Navigate to={paths.overview} replace /> },
 ];

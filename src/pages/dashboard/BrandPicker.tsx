@@ -1,7 +1,7 @@
 import { Dropdown } from "@/components/ui";
-import type { Divisao } from "@/data/gestao/filiais";
+import type { Division } from "@/data/wedash/stores";
 
-const OPCOES: { value: Divisao | null; label: string }[] = [
+const OPCOES: { value: Division | null; label: string }[] = [
   { value: null, label: "Todas as marcas" },
   { value: "WEPINK", label: "WEPINK" },
   { value: "WPINK", label: "WPINK" },
@@ -11,12 +11,12 @@ const OPCOES: { value: Divisao | null; label: string }[] = [
  * Filtro de marca (WEPINK / WPINK / todas) — usa o `Dropdown` do Vela
  * (painel com opções estilizadas), não o `<select>` nativo do SO.
  */
-export function SeletorMarca({
+export function BrandPicker({
   value,
   onChange,
 }: {
-  value: Divisao | null;
-  onChange: (v: Divisao | null) => void;
+  value: Division | null;
+  onChange: (v: Division | null) => void;
 }) {
   const rotulo = OPCOES.find((o) => o.value === value)?.label ?? "Todas as marcas";
 

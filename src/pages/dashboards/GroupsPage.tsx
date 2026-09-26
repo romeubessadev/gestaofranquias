@@ -2,12 +2,18 @@ import { useMemo, useState, useCallback } from "react";
 import { Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Badge, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { Heatmap, BarChart } from "@/components/charts";
-import { useEscopo } from "@/pages/dashboard/useEscopo";
-import { SeletorMarca } from "@/pages/dashboard/SeletorMarca";
-import { montarGruposView } from "@/data/gestao/dashboard";
-import { brl, brlK, num } from "@/lib/formato";
-import { deIso } from "@/lib/formato";
-import type { DateRange } from "@/components/ui/DateRangePicker";
+import { useScope } from "@/pages/dashboard/useScope";
+import { BrandPicker } from "@/pages/dashboard/BrandPicker";
+import { buildGroupsView } from "@/data/wedash/dashboard";
+import { formatUpdatedAtLabel } from "@/data/wedash/syncUi";
+import { brl, brlK, num, deIso } from "@/lib/format";
+import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
+import {
+  applyPeriodDateChange,
+  dateRangeFromPeriod,
+  periodActivePresetId,
+  periodDisplayLabel,
+} from "@/pages/dashboard/periodPicker";
 
 type HoraSort = "hora" | "faturamento" | "atendimentos" | "ticket" | "pctFat" | "acumulado" | "delta";
 
@@ -60,18 +66,18 @@ const TipHelp = ({ label }: { label: string }) => (
   </Tooltip>
 );
 
-export default function GruposPage() {
-  const { escopo, mudar } = useEscopo();
+export default function GroupsPage() {
+  const { escopo, mudar, showBrandPicker } = useScope();
   const [grupoFiltro, setGrupoFiltro] = useState<string | null>(null);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
   const [horaSort, setHoraSort] = useState<HoraSort | null>(null);
   const [horaDir, setHoraDir] = useState<SortDir>("asc");
 
-  const gruposDisponiveis = useMemo(() => montarGruposView(escopo, null).gruposDisponiveis, [escopo]);
+  const gruposDisponiveis = useMemo(() => buildGroupsView(escopo, null).gruposDisponiveis, [escopo]);
   // Se a loja mudar e o grupo sumir da lista, volta para "Todos".
   const grupoAtivo = grupoFiltro && gruposDisponiveis.some((g) => g.nome === grupoFiltro) ? grupoFiltro : null;
-  const view = useMemo(() => montarGruposView(escopo, grupoAtivo), [escopo, grupoAtivo]);
+  const view = useMemo(() => buildGroupsView(escopo, grupoAtivo), [escopo, grupoAtivo]);
 
   const indicadoresOrdenados = useMemo(() => {
     const rows = view.indicadoresPorHora ?? [];
@@ -107,23 +113,10 @@ export default function GruposPage() {
     }
   }
 
-  const dateRange: DateRange | null = useMemo(() => {
-    if (escopo.periodo.tipo === "personalizado" && escopo.periodo.inicio && escopo.periodo.fim) {
-      return [deIso(escopo.periodo.inicio), deIso(escopo.periodo.fim)];
-    }
-    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-    switch (escopo.periodo.tipo) {
-      case "hoje": return [hoje, hoje];
-      case "ontem": { const y = new Date(hoje); y.setDate(y.getDate() - 1); return [y, y]; }
-      case "7dias": { const s = new Date(hoje); s.setDate(s.getDate() - 6); return [s, hoje]; }
-      case "esteMes": return [new Date(hoje.getFullYear(), hoje.getMonth(), 1), hoje];
-      case "mesPassado": return [new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1), new Date(hoje.getFullYear(), hoje.getMonth(), 0)];
-      default: return null;
-    }
-  }, [escopo.periodo]);
+  const dateRange = useMemo(() => dateRangeFromPeriod(escopo.periodo), [escopo.periodo]);
 
-  function onDateChange(r: DateRange) {
-    mudar({ ...escopo, periodo: { tipo: "personalizado", inicio: r[0].toISOString().slice(0, 10), fim: r[1].toISOString().slice(0, 10) } });
+  function onDateChange(r: DateRange, meta?: DateRangeChangeMeta) {
+    mudar(applyPeriodDateChange(escopo, r, meta));
   }
   function onMarcaChange(v: "WEPINK" | "WPINK" | null) {
     mudar({ ...escopo, divisao: v });
@@ -135,7 +128,7 @@ export default function GruposPage() {
   }, []);
 
   const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
-  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} min`;
+  const rotuloAtualizacao = formatUpdatedAtLabel(ultimaAtualizacao);
 
   // Barras por dia da semana (padrão Sales this week) — média do período; respeita filtro de grupo
   const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -263,8 +256,16 @@ export default function GruposPage() {
             >
               Exportar
             </Button>
-            <DateRangePicker value={dateRange} onChange={onDateChange} size="sm" />
-            <SeletorMarca value={escopo.divisao} onChange={onMarcaChange} />
+            <DateRangePicker
+              value={dateRange}
+              onChange={onDateChange}
+              displayLabel={periodDisplayLabel(escopo.periodo)}
+              activePresetId={periodActivePresetId(escopo.periodo)}
+              size="sm"
+            />
+            {showBrandPicker && (
+              <BrandPicker value={escopo.divisao} onChange={onMarcaChange} />
+            )}
             <select
               value={grupoAtivo ?? ""}
               onChange={(e) => setGrupoFiltro(e.target.value || null)}
@@ -380,8 +381,8 @@ export default function GruposPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-1.5">
-              <CardTitle>Vendedoras por Hora</CardTitle>
-              <TipHelp label="Quantas vendedoras ativas em cada hora vs. mínimo ideal. Barra cheia = staff suficiente." />
+              <CardTitle>Equipe por hora</CardTitle>
+              <TipHelp label="Quantas pessoas da equipe estão trabalhando em cada hora vs. mínimo ideal. Barra cheia = equipe suficiente." />
             </div>
           </CardHeader>
           <div className="px-4 pb-4">

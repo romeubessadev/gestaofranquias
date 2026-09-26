@@ -1,5 +1,9 @@
 /**
- * Faturamento por marca via wtsreports (CATALOG_GUID 70F9DE61…).
+ * Faturamento por marca via wtsreports.
+ *
+ * ERP UI: **TOTAL VENDA POR DIA**
+ * CATALOG_GUID: {70F9DE61-9CA7-4798-864F-B40B74E61BE5}
+ *
  * VENDAS.Lista não traz marca — este relatório popula sales_day_agg WEPINK/WPINK.
  */
 import type { SalesBrand, SalesDayAgg } from "../../../src/data/wedash/salesTypes.ts";

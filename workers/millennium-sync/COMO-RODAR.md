@@ -131,7 +131,7 @@ Pronto: o sync reinicia sozinho se o servidor reiniciar.
 |---------|----------------|
 | `Missing SUPABASE_SERVICE_ROLE_KEY` | `.env` sem a chave secret |
 | `Missing ERP_SECRET_KEY` | Copiar a mesma do `.env` da raiz |
-| Job falha `busy` | Outra sessão Millennium aberta; o worker tenta de novo no próximo ciclo |
+| Job falha `busy` | Outra sessão Millennium aberta. Libere com `npm run erp -- pause` (ou `logout`), use o ERP, depois `resume` |
 | Job falha `password` / status INVALID | Re-salvar senha no onboarding |
 | Visão Geral vazia com worker ligado | Olhar o terminal: tem `[sync] start`? Tem lojas em `store`? |
 | Millennium `other` / timeout | IP fora do Brasil ou firewall do VPS |

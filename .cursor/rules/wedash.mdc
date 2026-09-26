@@ -1,12 +1,14 @@
 ---
-description: Projeto Gestão (Wepink/Wpink) — seguir CLAUDE.md e regras de implementação
+description: WeDash (Wepink/Wpink) — seguir CLAUDE.md e regras de implementação
 alwaysApply: true
 ---
 
-# Gestão — regras Cursor
+# WeDash — regras Cursor
 
 ## Fonte de verdade
 - Ler e seguir **`CLAUDE.md`** (arquitetura, filtros, mocks, decisões, glossário, ordem de build).
+- Código/pastas/rotas do produto em **inglês**; UI (copy) em português; comentários podem ser PT.
+- Dados do produto: `src/data/wedash/`. Componentes de produto: `src/components/wedash/`.
 - Registrar decisões de produto relevantes em `CLAUDE.md` para não perder contexto entre sessões.
 - Referências visuais: `docs/referencias/`.
 
@@ -16,7 +18,7 @@ alwaysApply: true
 - Tema **Vela** estrito: reutilizar `src/components/ui` e `src/components/charts` antes de criar componente novo. Sem libs de chart externas.
 
 ## Filtros
-- Loja: global no Topbar, single-select (1 loja ou todas) via `useEscopo` — padrão Select with avatars (Avatar + nome + CNPJ).
+- Loja: global no Topbar, single-select (1 loja ou todas) via `useScope` — padrão Select with avatars (Avatar + nome + CNPJ).
 - Período + Marca (WEPINK/WPINK): internos por subtela.
 - Granularidade: **1 dia → hora**; **>1 dia → dia** (não depende da marca).
 

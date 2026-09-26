@@ -15,15 +15,38 @@ export type BrandSplitHeader = {
   storeId: string;
 };
 
-/** Soma linhas por marca (ignora produto fora do mapa). */
+/** Soma linhas por marca. Fora do mapa: infere pela descrição; senão WEPINK. */
+export function inferBrandFromDesc(desc: string): SalesBrand | null {
+  const t = desc.trim().toUpperCase();
+  if (!t) return null;
+  // Código WP* / rótulo WPINK
+  if (/\bWPINK\b/.test(t) || /^WP[\dA-Z]/.test(t) || t.startsWith("WP ")) return "WPINK";
+  if (/\bWEPINK\b/.test(t) || /\bWE\s*PINK\b/.test(t)) return "WEPINK";
+  // Prefixo do COD no DESC (ex.: "BSVHG-ATH-001-BODY…")
+  const cod = /^([A-Z0-9][A-Z0-9._-]*)/.exec(t)?.[1] ?? "";
+  if (/^WP[\dA-Z]/.test(cod)) return "WPINK";
+  return null;
+}
+
+export function resolveLineBrand(
+  productId: number,
+  descProduto: string,
+  productMap: ProductBrandMap,
+): SalesBrand {
+  const mapped = productMap.get(productId);
+  if (mapped === "WEPINK" || mapped === "WPINK") return mapped;
+  return inferBrandFromDesc(descProduto) ?? "WEPINK";
+}
+
+/** Soma linhas por marca (mapa → desc → default WEPINK). */
 export function splitLinesByBrand(
   lines: DetMovLine[],
   productMap: ProductBrandMap,
 ): Map<SalesBrand, { revenueCents: number; itemCount: number }> {
   const out = new Map<SalesBrand, { revenueCents: number; itemCount: number }>();
   for (const line of lines) {
-    const brand = productMap.get(line.productId);
-    if (!brand || brand === "ALL") continue;
+    const brand = resolveLineBrand(line.productId, line.descProduto, productMap);
+    if (brand === "ALL") continue;
     const prev = out.get(brand) ?? { revenueCents: 0, itemCount: 0 };
     prev.revenueCents += line.revenueCents;
     prev.itemCount += line.qty;
@@ -39,7 +62,7 @@ export function uniqueBrandSplitHeaders(rows: SaleRowWithFilial[]): BrandSplitHe
   for (const row of rows) {
     if (row.millenniumOpCode == null || !row.nf) continue;
     const tipo = (row.tipoOperacao ?? "S").trim() || "S";
-    const key = `${row.millenniumOpCode}|${row.nf}|${tipo}`;
+    const key = couponKey({ millenniumOpCode: row.millenniumOpCode, nf: row.nf, tipoOperacao: tipo });
     if (seen.has(key)) continue;
     seen.add(key);
     out.push({
@@ -49,6 +72,65 @@ export function uniqueBrandSplitHeaders(rows: SaleRowWithFilial[]): BrandSplitHe
       tipoOperacao: tipo,
       occurredAt: row.occurredAt,
       storeId: row.storeId,
+    });
+  }
+  return out;
+}
+
+/** Resumo WEPINK/WPINK de um cupom (cache `sales_coupon_brand`). */
+export type CouponBrand = {
+  couponKey: string;
+  day: string;
+  occurredAt: Date;
+  wepinkCents: number;
+  wepinkItems: number;
+  wpinkCents: number;
+  wpinkItems: number;
+  /** Itens do DetMov (top produtos sem nova chamada). null = cache antigo, sem itens. */
+  items?: DetMovLine[] | null;
+};
+
+export function couponKey(header: Pick<BrandSplitHeader, "millenniumOpCode" | "nf" | "tipoOperacao">): string {
+  return `${header.millenniumOpCode}|${header.nf}|${header.tipoOperacao}`;
+}
+
+export function couponBrandFromLines(
+  header: BrandSplitHeader,
+  lines: DetMovLine[],
+  productMap: ProductBrandMap,
+  day: string,
+): CouponBrand {
+  const byBrand = splitLinesByBrand(lines, productMap);
+  const we = byBrand.get("WEPINK");
+  const wp = byBrand.get("WPINK");
+  return {
+    couponKey: couponKey(header),
+    day,
+    occurredAt: header.occurredAt,
+    wepinkCents: we?.revenueCents ?? 0,
+    wepinkItems: we?.itemCount ?? 0,
+    wpinkCents: wp?.revenueCents ?? 0,
+    wpinkItems: wp?.itemCount ?? 0,
+    items: lines,
+  };
+}
+
+/** Cupom do cache → 0..2 SaleRows (hora = a da Lista). */
+export function saleRowsFromCouponBrand(header: BrandSplitHeader, coupon: CouponBrand): SaleRow[] {
+  const out: SaleRow[] = [];
+  const parts: Array<[SalesBrand, number, number]> = [
+    ["WEPINK", coupon.wepinkCents, coupon.wepinkItems],
+    ["WPINK", coupon.wpinkCents, coupon.wpinkItems],
+  ];
+  for (const [brand, revenueCents, itemQty] of parts) {
+    if (revenueCents === 0 && itemQty === 0) continue;
+    out.push({
+      operationCode: header.operationCode,
+      occurredAt: header.occurredAt,
+      revenueCents,
+      itemQty,
+      storeId: header.storeId,
+      brand,
     });
   }
   return out;

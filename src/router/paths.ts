@@ -91,6 +91,7 @@ export const paths = {
       costs: "/configuracoes/custos",
       brand: "/configuracoes/marca",
       erp: "/configuracoes/erp",
+      stores: "/configuracoes/lojas",
       users: "/configuracoes/usuarios",
     },
     seller: {
@@ -294,6 +295,10 @@ export const paths = {
     costs: "/settings/costs",
     brand: "/settings/brand",
     erp: "/settings/erp",
+    stores: "/settings/stores",
+    storeDetail: (id: string) => `/settings/stores/${id}`,
+    /** Erros e avisos do sync ERP (worker). */
+    logs: "/settings/logs",
     users: "/settings/users",
   },
 

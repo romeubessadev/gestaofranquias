@@ -1,10 +1,14 @@
 /**
- * RELATORIOMARGEM — fonte de CMV (custo de mercadoria).
- * Path UI: MILLENIUM!FRANQUIAS.RELATORIOS.RELATORIOMARGEM
+ * RELATORIOMARGEM — fonte de CMV (custo de mercadoria) e split WEPINK/WPINK (COD WP*).
+ *
+ * ERP UI / path: **FRANQUIAS > RELATORIOS > RELATORIOMARGEM**
+ * API: MILLENIUM!FRANQUIAS.RELATORIOS.RELATORIOMARGEM
  *
  * CMV v1 = Σ CUSTO_TOTAL (= CUSTO_FRANQUIAS × QTDE_VENDIDA), imposto% = 0.
+ * Marca = COD_PRODUTO WP* → WPINK; senão WEPINK (TOTALVENDA). Substitui TOTAL VENDA POR DIA.
  * TODO(Configurações>Custos): aplicar imposto_sobre_custo_pct por loja.
  */
+import type { SalesDayAgg, SalesProductCostDayAgg } from "../../../src/data/wedash/salesTypes.ts";
 import { millenniumBaseUrl } from "./millenniumAuth.ts";
 import { milleniumDayBoundIso } from "./millenniumSales.ts";
 
@@ -12,9 +16,8 @@ export const RELATORIO_MARGEM_PATH = "MILLENIUM!FRANQUIAS.RELATORIOS.RELATORIOMA
 
 /**
  * RELATORIOMARGEM trata DATAI/DATAF como **datas de calendário inclusivas**
- * (UI: Data Inicial → Data Final). Não usar `milleniumDataRange` (DATAF exclusivo
- * da VENDAS.Lista / +1 dia) — isso puxa o dia seguinte e dobra o CMV no somatório
- * dia a dia.
+ * (UI: Data Inicial → Data Final). DATAF = meia-noite do dia seguinte puxa o dia
+ * seguinte e dobra o CMV no somatório dia a dia.
  */
 export function milleniumMargemDataRange(
   from: string,
@@ -109,6 +112,93 @@ export function cmvCentsFromMargemLines(lines: MargemLine[]): number {
     reais += line.custoTotal;
   }
   return Math.round(reais * 100);
+}
+
+/**
+ * COD_PRODUTO → marca. WPINK = prefixo WP* (ex.: WP002, WP055).
+ * Validado vs TOTAL VENDA POR DIA (diff 0% em 00205 set/26).
+ */
+export function brandFromCodProduto(cod: string): "WEPINK" | "WPINK" {
+  const t = cod.trim().toUpperCase();
+  if (/^WP[\dA-Z]/.test(t) || t === "WP" || t.startsWith("WP ")) return "WPINK";
+  return "WEPINK";
+}
+
+/**
+ * Linhas da margem de 1 dia → sales_day_agg WEPINK/WPINK
+ * (receita = TOTALVENDA, CMV = CUSTO_TOTAL; counts = 0).
+ */
+export function brandDayAggsFromMargemLines(
+  lines: MargemLine[],
+  opts: { tenantId: string; storeId: string; day: string },
+): SalesDayAgg[] {
+  let wepinkRev = 0;
+  let wpinkRev = 0;
+  let wepinkCmv = 0;
+  let wpinkCmv = 0;
+  for (const line of lines) {
+    const rev = Math.round(line.totalVenda * 100);
+    const cmv = Math.round(line.custoTotal * 100);
+    if (brandFromCodProduto(line.codProduto) === "WPINK") {
+      wpinkRev += rev;
+      wpinkCmv += cmv;
+    } else {
+      wepinkRev += rev;
+      wepinkCmv += cmv;
+    }
+  }
+  const out: SalesDayAgg[] = [];
+  if (wepinkRev > 0 || wepinkCmv > 0) {
+    out.push({
+      tenantId: opts.tenantId,
+      storeId: opts.storeId,
+      day: opts.day,
+      brand: "WEPINK",
+      revenueCents: wepinkRev,
+      salesCount: 0,
+      itemCount: 0,
+      cmvCents: wepinkCmv,
+    });
+  }
+  if (wpinkRev > 0 || wpinkCmv > 0) {
+    out.push({
+      tenantId: opts.tenantId,
+      storeId: opts.storeId,
+      day: opts.day,
+      brand: "WPINK",
+      revenueCents: wpinkRev,
+      salesCount: 0,
+      itemCount: 0,
+      cmvCents: wpinkCmv,
+    });
+  }
+  return out;
+}
+
+/** Linhas da margem de 1 dia → CMV por COD_PRODUTO (sales_product_cost_day_agg). */
+export function productCostDayAggsFromMargemLines(
+  lines: MargemLine[],
+  opts: { tenantId: string; storeId: string; day: string },
+): SalesProductCostDayAgg[] {
+  const map = new Map<string, { qty: number; rev: number; cmv: number }>();
+  for (const line of lines) {
+    const code = line.codProduto.trim();
+    if (!code) continue;
+    const acc = map.get(code) ?? { qty: 0, rev: 0, cmv: 0 };
+    acc.qty += line.qty;
+    acc.rev += line.totalVenda;
+    acc.cmv += line.custoTotal;
+    map.set(code, acc);
+  }
+  return [...map.entries()].map(([productCode, v]) => ({
+    tenantId: opts.tenantId,
+    storeId: opts.storeId,
+    day: opts.day,
+    productCode,
+    itemCount: v.qty,
+    revenueCents: Math.round(v.rev * 100),
+    cmvCents: Math.round(v.cmv * 100),
+  }));
 }
 
 export async function fetchRelatorioMargem(

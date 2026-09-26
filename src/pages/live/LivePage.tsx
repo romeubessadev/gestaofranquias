@@ -1,15 +1,16 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Card, CardTitle, EmptyState, PageHeader, StatCard, Tabs } from "@/components/ui";
-import { useEscopo } from "@/pages/dashboard/useEscopo";
-import { montarAoVivoView } from "@/data/gestao/aoVivo";
-import { montarEquipeView } from "@/data/gestao/equipeVisoes";
+import { useScope } from "@/pages/dashboard/useScope";
+import { buildLiveView } from "@/data/wedash/live";
+import { buildTeamView } from "@/data/wedash/teamViews";
+import { formatUpdatedAtLabel } from "@/data/wedash/syncUi";
 import { paths } from "@/router/paths";
 import { FlameIcon, TargetIcon, TrophyIcon, TINT, type TintKey } from "@/pages/dashboards/icons";
 import {
   BlocoDesafios as BlocoDesafiosEquipe,
   CardMeta,
-} from "@/pages/equipe/blocos";
+} from "@/pages/team/blocos";
 import { BlocoRanking, BlocoRankingGeral, BlocoRankingLojas } from "./blocos";
 
 const IconVendas = () => (
@@ -70,7 +71,7 @@ function AbaMetas({
   metasCards,
   metaAtiva,
 }: {
-  metasCards: ReturnType<typeof montarEquipeView>["metasCards"];
+  metasCards: ReturnType<typeof buildTeamView>["metasCards"];
   metaAtiva: boolean;
 }) {
   if (!metasCards.length) {
@@ -91,8 +92,8 @@ function AbaMetas({
   );
 }
 
-export default function AoVivoPage() {
-  const { escopo } = useEscopo();
+export default function LivePage() {
+  const { escopo } = useScope();
   const navigate = useNavigate();
   const [tick, setTick] = useState(0);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
@@ -100,13 +101,13 @@ export default function AoVivoPage() {
 
   const view = useMemo(() => {
     void tick;
-    return montarAoVivoView(escopo);
+    return buildLiveView(escopo);
   }, [escopo, tick]);
 
   /** Mesma visão de Equipe (desafios + meta + escada) — componentes compartilhados. */
   const equipeView = useMemo(() => {
     void tick;
-    return montarEquipeView({ ...escopo, divisao: null });
+    return buildTeamView({ ...escopo, divisao: null });
   }, [escopo, tick]);
 
   const forcarAtualizacao = useCallback(() => {
@@ -119,7 +120,7 @@ export default function AoVivoPage() {
   }, []);
 
   const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
-  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} min`;
+  const rotuloAtualizacao = formatUpdatedAtLabel(ultimaAtualizacao);
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
@@ -162,7 +163,7 @@ export default function AoVivoPage() {
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => navigate(paths.aoVivo.compartilhar)}
+              onClick={() => navigate(paths.live.share)}
               icon={
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="18" cy="5" r="3" />
@@ -237,7 +238,7 @@ export default function AoVivoPage() {
               icon: <FlameIcon size={14} />,
               content: (
                 <BlocoDesafiosEquipe
-                  desafios={(equipeView.desafios ?? []).filter((d) => d.statusLabel === "Ativo")}
+                  challenges={(equipeView.challenges ?? []).filter((d) => d.statusLabel === "Ativo")}
                   embedded
                 />
               ),
@@ -264,7 +265,7 @@ export default function AoVivoPage() {
         <Card className="flex max-h-[min(520px,70vh)] flex-col overflow-hidden" padding="lg">
           <div className="mb-4 flex shrink-0 items-center gap-2">
             <TrophyIcon size={16} className="text-acc" />
-            <CardTitle>Ranking de vendedoras</CardTitle>
+            <CardTitle>Ranking da equipe</CardTitle>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             <BlocoRankingGeral ranking={view.ranking} vendedoras={equipeView.vendedoras} />

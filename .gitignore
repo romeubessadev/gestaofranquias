@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Env (secrets) — keep example only
+.env
+.env.*
+!.env.example
+
+# Worker: tokens Millennium em disco (logout de sessão órfã)
+workers/millennium-sync/.millennium-sessions.json
+workers/millennium-sync/.millennium-pause
+workers/millennium-sync/.millennium-worker.lock
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

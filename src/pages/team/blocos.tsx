@@ -1,17 +1,17 @@
 /**
  * Blocos visuais da aba Equipe. A página só monta; nada calcula aqui.
  * Reusa os componentes do tema: StatCard, DataTable, Card, ProgressBar,
- * Badge, Avatar, EmptyState e o padrão EstadoBloco compartilhado.
+ * Badge, Avatar, EmptyState e o padrão BlockState compartilhado.
  */
 import type { ReactNode } from "react";
 import { Avatar, Badge, Card, CardTitle, DataTable, EmptyState, ProgressBar, progressColor, progressTextClass, StatCard, type DataTableColumn } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { brl, brlK, intervaloDias, num, rotuloDias } from "@/lib/formato";
-import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
-import { EstadoBloco } from "@/pages/dashboard/EstadoBloco";
-import type { DesafioView, EquipeView, MetaCardView, RedeMetaGlobal, VendedoraLinha } from "@/data/gestao/equipeVisoes";
-import { degrausPadrao } from "@/data/gestao/metas";
-import { HOJE_ISO } from "@/data/gestao/relogio";
+import { brl, brlK, intervaloDias, num, rotuloDias } from "@/lib/format";
+import type { BlockState as BlockStateTipo } from "@/data/wedash/dashboard";
+import { BlockState } from "@/pages/dashboard/BlockState";
+import type { ChallengeView, TeamView, GoalCardView, NetworkGlobalGoal, SellerRow } from "@/data/wedash/teamViews";
+import { defaultTiers } from "@/data/wedash/goals";
+import { TODAY_ISO } from "@/data/wedash/clock";
 import { cn } from "@/lib/cn";
 import { ICONS, FlameIcon } from "@/pages/dashboards/icons";
 
@@ -79,10 +79,10 @@ export function BlocoKpisEquipe({
   ticket,
   pa,
 }: {
-  faturamento: EquipeView["kpiFaturamento"];
-  atendimentos: EquipeView["kpiAtendimentos"];
-  ticket: EquipeView["kpiTicket"];
-  pa: EquipeView["kpiPA"];
+  faturamento: TeamView["kpiFaturamento"];
+  atendimentos: TeamView["kpiAtendimentos"];
+  ticket: TeamView["kpiTicket"];
+  pa: TeamView["kpiPA"];
 }) {
   const kpis = [
     {
@@ -141,7 +141,7 @@ export function BlocoKpisEquipe({
 
 /* ------------------------- Tabela de vendedoras ------------------------- */
 
-type LinhaRank = VendedoraLinha & { posicao: number };
+type LinhaRank = SellerRow & { posicao: number };
 
 function CelulaVendedora({ l }: { l: LinhaRank }) {
   return (
@@ -269,7 +269,7 @@ function CardMobileVendedora({ l, metaAtiva }: { l: LinhaRank; metaAtiva: boolea
   );
 }
 
-export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[]; metaAtiva: boolean }) {
+export function BlocoVendedoras({ lista, metaAtiva }: { lista: SellerRow[]; metaAtiva: boolean }) {
   const ranked: LinhaRank[] = lista.map((l, i) => ({ ...l, posicao: i + 1 }));
 
   const colunas: DataTableColumn<LinhaRank>[] = [
@@ -283,7 +283,7 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[];
     },
     {
       key: "vendedora",
-      header: "Vendedora",
+      header: "Nome",
       sortable: true,
       sortValue: (l) => l.nome,
       render: (l) => <CelulaVendedora l={l} />,
@@ -376,7 +376,8 @@ export function BlocoVendedoras({ lista, metaAtiva }: { lista: VendedoraLinha[];
           columns={colunas}
           data={ranked}
           rowKey={(l) => `${l.filialId}-${l.colaboradorId}`}
-          emptyMessage="Nenhuma vendedora elegível para esta competência."
+          paginate="pessoas"
+          emptyMessage="Ninguém da equipe é elegível nesta competência."
         />
       </div>
       <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
@@ -395,8 +396,8 @@ export function CardVendedoras({
   metaAtiva,
   embedded = false,
 }: {
-  estado: EstadoBlocoTipo;
-  lista: VendedoraLinha[] | null;
+  estado: BlockStateTipo;
+  lista: SellerRow[] | null;
   metaAtiva: boolean;
   /** Sem Card externo — bloco contínuo após a projeção (CardMeta). */
   embedded?: boolean;
@@ -408,14 +409,14 @@ export function CardVendedoras({
       </div>
     ) : (
       <div className={embedded ? "py-2" : "p-5"}>
-        <EmptyState icon="👤" title="Sem vendedoras elegíveis" description="Nenhuma vendedora elegível para esta competência." />
+        <EmptyState icon="👤" title="Ninguém elegível" description="Ninguém da equipe é elegível nesta competência." />
       </div>
     );
 
   if (embedded) {
     return (
       <div className="mt-4 min-w-0">
-        <EstadoBloco estado={estado}>{tabela}</EstadoBloco>
+        <BlockState estado={estado}>{tabela}</BlockState>
       </div>
     );
   }
@@ -424,9 +425,9 @@ export function CardVendedoras({
     <Card padding="none">
       <div className="flex shrink-0 items-center gap-1.5 px-5 py-4">
         <CardTitle>Escada de premiação</CardTitle>
-        <TipHelp label="Mostra o nível atual, quanto falta para o próximo e a premiação estimada de cada vendedora." />
+        <TipHelp label="Mostra o nível atual, quanto falta para o próximo e a premiação estimada de cada pessoa da equipe." />
       </div>
-      <EstadoBloco estado={estado}>{tabela}</EstadoBloco>
+      <BlockState estado={estado}>{tabela}</BlockState>
     </Card>
   );
 }
@@ -435,7 +436,7 @@ export function CardVendedoras({
  * Projeção só depois de 50% do período da meta (inicio→fim).
  * Antes disso o ritmo ainda oscila demais para cravar fechamento.
  */
-function metaLiberouProjecao(inicio: string, fim: string, hojeIso: string = HOJE_ISO): boolean {
+function metaLiberouProjecao(inicio: string, fim: string, hojeIso: string = TODAY_ISO): boolean {
   if (hojeIso < inicio) return false;
   if (hojeIso >= fim) return true;
   const total = intervaloDias(inicio, fim).length;
@@ -452,9 +453,9 @@ export function FaixaMetaGlobal({
   meta,
   embedded = false,
   hideTitle = false,
-  degraus = degrausPadrao,
+  degraus = defaultTiers,
 }: {
-  meta: RedeMetaGlobal;
+  meta: NetworkGlobalGoal;
   embedded?: boolean;
   /** Quando o título da meta já está no CardMeta. */
   hideTitle?: boolean;
@@ -503,6 +504,11 @@ export function FaixaMetaGlobal({
         </p>
         <p className={`font-mono text-[26px] font-extrabold leading-none sm:text-[28px] ${corPct}`}>{num(meta.pct, 1)}%</p>
       </div>
+      {meta.foraDaEquipe ? (
+        <p className="mt-1 text-[12px] text-t2">
+          Inclui <span className="font-mono">{brl(meta.foraDaEquipe)}</span> de vendas sem vendedora ou de gerência (fora do ranking).
+        </p>
+      ) : null}
 
       {/*
         Rótulos na mesma linha, alinhados à proporção da barra (mesmo % dos ticks).
@@ -548,7 +554,7 @@ export function FaixaMetaGlobal({
                   const gapPts = proximo ? proximo.atingimentoMinPct - d.atingimentoMinPct : Infinity;
                   // Intervalo apertado: texto termina no tick (não centra), liberando o vão até o N4.
                   const ancoraDireitaNoTick = !isLast && gapPts <= 15;
-                  const rotuloCurto = d.nome.replace(/^Meta\s+/i, "");
+                  const rotuloCurto = d.nome.replace(/^Goal\s+/i, "");
                   return (
                     <p
                       key={d.nome}
@@ -664,7 +670,7 @@ export function CardMeta({
   card,
   metaAtiva,
 }: {
-  card: MetaCardView;
+  card: GoalCardView;
   metaAtiva: boolean;
 }) {
   const tipoLabel = card.tipo === "individual" ? "Individual" : "Grupo";
@@ -693,7 +699,7 @@ export function CardMeta({
         </Badge>
         <Badge variant="neutral" className="gap-1">
           <IconVendedoras />
-          {card.qtdVendedoras} {card.qtdVendedoras === 1 ? "vendedora" : "vendedoras"}
+          {card.qtdVendedoras} na equipe
         </Badge>
         <Badge variant="neutral" className="gap-1">
           <IconNiveis />
@@ -720,7 +726,7 @@ export function CardMetasEquipe({
   cards,
   metaAtiva,
 }: {
-  cards: MetaCardView[];
+  cards: GoalCardView[];
   metaAtiva: boolean;
 }) {
   if (cards.length === 0) return null;
@@ -741,21 +747,21 @@ export function CardMetasEquipe({
 
 /* ------------------------- Desafios ------------------------- */
 
-function fmtMinimo(v: number, unidade: DesafioView["unidade"], tipo: DesafioView["tipo"]): string {
+function fmtMinimo(v: number, unidade: ChallengeView["unidade"], tipo: ChallengeView["tipo"]): string {
   if (tipo === "ticket" || tipo === "faturamento" || unidade === "R$") return brlK(v);
   if (tipo === "pa" || unidade === "x") return num(v, v % 1 !== 0 ? 2 : 0);
   return `${num(Math.round(v), 0)} un`;
 }
 
 export function BlocoDesafios({
-  desafios,
+  challenges,
   embedded = false,
 }: {
-  desafios: DesafioView[];
+  challenges: ChallengeView[];
   /** Sem Card externo (ex.: aba dentro do Ao vivo). */
   embedded?: boolean;
 }) {
-  if (desafios.length === 0) {
+  if (challenges.length === 0) {
     const empty = (
       <EmptyState
         icon="🎯"
@@ -766,7 +772,7 @@ export function BlocoDesafios({
     return embedded ? empty : <Card>{empty}</Card>;
   }
 
-  const cards = desafios.map((d) => {
+  const cards = challenges.map((d) => {
     const pctAgg = Math.min(100, d.progressoPct);
     const corAgg = progressColor(pctAgg);
     return (
@@ -798,7 +804,7 @@ export function BlocoDesafios({
 
       <div className="mb-3.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-t2">
         <span>
-          Meta: <span className="font-bold text-t0">{d.metaRotulo}</span>
+          Goal: <span className="font-bold text-t0">{d.metaRotulo}</span>
         </span>
         {d.temMinimo && d.minimo != null && (
           <span>
@@ -873,7 +879,7 @@ export function BlocoDesafios({
   const grade = embedded ? (
     <div className="max-h-[min(520px,70vh)] min-w-0 space-y-4 overflow-x-hidden overflow-y-auto pr-1">{cards}</div>
   ) : (
-    <div className={`grid min-w-0 grid-cols-1 gap-4 ${desafios.length >= 2 ? "md:grid-cols-2" : ""}`}>{cards}</div>
+    <div className={`grid min-w-0 grid-cols-1 gap-4 ${challenges.length >= 2 ? "md:grid-cols-2" : ""}`}>{cards}</div>
   );
 
   if (embedded) return grade;

@@ -1,10 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
+  inferBrandFromDesc,
+  resolveLineBrand,
   saleRowsFromDetLines,
   splitLinesByBrand,
   uniqueBrandSplitHeaders,
 } from "./brandSplitFromDetalhe";
 import type { SaleRowWithFilial } from "./millenniumSales";
+
+describe("inferBrandFromDesc", () => {
+  it("detects WPINK from code/label", () => {
+    expect(inferBrandFromDesc("WP003-THE SUPPLY CABELOS")).toBe("WPINK");
+    expect(inferBrandFromDesc("LACTASE - WP - WPINK SUPLEMENTOS")).toBe("WPINK");
+  });
+  it("detects WEPINK from label", () => {
+    expect(inferBrandFromDesc("BSVHG-ATH-001-BODY SPLASH - WEPINK")).toBe("WEPINK");
+  });
+  it("returns null when unknown", () => {
+    expect(inferBrandFromDesc("PRODUTO GENÉRICO")).toBeNull();
+  });
+});
 
 describe("splitLinesByBrand", () => {
   it("splits mixed cart by product map", () => {
@@ -20,9 +35,24 @@ describe("splitLinesByBrand", () => {
       ],
       map,
     );
-    expect(by.get("WEPINK")).toEqual({ revenueCents: 5290, itemCount: 1 });
+    expect(by.get("WEPINK")).toEqual({ revenueCents: 5390, itemCount: 2 }); // 999 → default WEPINK
     expect(by.get("WPINK")).toEqual({ revenueCents: 8990, itemCount: 2 });
-    expect(by.has("ALL" as never)).toBe(false);
+  });
+
+  it("infers WPINK from desc when map misses", () => {
+    const map = new Map<number, "WEPINK" | "WPINK">();
+    const by = splitLinesByBrand(
+      [{ productId: 1, revenueCents: 5000, qty: 1, descProduto: "WP070-POTE POWER PINK" }],
+      map,
+    );
+    expect(by.get("WPINK")?.revenueCents).toBe(5000);
+  });
+});
+
+describe("resolveLineBrand", () => {
+  it("map wins over desc", () => {
+    const map = new Map<number, "WEPINK" | "WPINK">([[1, "WEPINK"]]);
+    expect(resolveLineBrand(1, "WP001-something", map)).toBe("WEPINK");
   });
 });
 

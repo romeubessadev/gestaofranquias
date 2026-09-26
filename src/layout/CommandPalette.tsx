@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { isNavGroup } from "./nav-config";
-import { navDoPapel } from "./nav-gestao";
-import { useSessaoAtiva } from "@/session/SessionProvider";
+import { navDoPapel } from "./nav-wedash";
+import { useActiveSession } from "@/session/SessionProvider";
 
 interface FlatItem {
   label: string;
@@ -16,11 +16,11 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const [activeIdx, setActiveIdx] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
-  const sessao = useSessaoAtiva();
+  const session = useActiveSession();
 
   const flatItems = useMemo<FlatItem[]>(
-    () => navDoPapel(sessao.papel).flatMap((entry) => (isNavGroup(entry) ? entry.items.map((i) => ({ label: i.label, to: i.to, group: entry.label })) : [{ label: entry.label, to: entry.to, group: "Principal" }])),
-    [sessao.papel],
+    () => navDoPapel(session.role).flatMap((entry) => (isNavGroup(entry) ? entry.items.map((i) => ({ label: i.label, to: i.to, group: entry.label })) : [{ label: entry.label, to: entry.to, group: "Principal" }])),
+    [session.role],
   );
 
   const results = useMemo(() => {

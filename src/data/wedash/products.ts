@@ -1,7 +1,7 @@
 /** Produtos mockados por categoria, para o drill de margem por categoria. */
-import { categorias } from "./filiais";
+import { categorias } from "./stores";
 
-export interface ProdutoResumo {
+export interface ProductSummary {
   codProduto: string;
   nome: string;
   receita: number;
@@ -35,7 +35,7 @@ function prng(seed: number) {
 }
 
 /** Distribui a receita e a margem da categoria entre produtos, de forma determinística. */
-export function produtosDaCategoria(categoriaId: number, escopo: string, receita: number, margem: number, itens: number): ProdutoResumo[] {
+export function productsOfCategory(categoriaId: number, escopo: string, receita: number, margem: number, itens: number): ProductSummary[] {
   const cat = categorias.find((c) => c.id === categoriaId);
   const nomes = NOMES[categoriaId] ?? [];
   if (!cat || nomes.length === 0) return [];

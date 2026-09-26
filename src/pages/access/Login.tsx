@@ -1,67 +1,81 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui";
 import { paths } from "@/router/paths";
 import { BrandMark } from "@/pages/auth/authKit";
-import { tenant } from "@/data/gestao/tenant";
-import { usuarios } from "@/data/gestao/equipe";
+import { tenant } from "@/data/wedash/tenant";
+import { users } from "@/data/wedash/team";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { loginComEmail, MENSAGEM_LOGIN } from "@/session/authApi";
-import { rotuloPapel, useSessao } from "@/session/SessionProvider";
-import { inicioDoPapel } from "@/session/RequireSession";
-import { cn } from "@/lib/cn";
+import { loginWithEmail, MENSAGEM_LOGIN, destinationAfterAuth } from "@/session/authApi";
+import { roleLabel, useSession } from "@/session/SessionProvider";
+import { acessoBotao, CampoEmail, CampoSenha, Checkbox } from "./AccessKit";
 
 function emailValido(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 }
 
-const inputClass =
-  "h-[46px] w-full rounded-xl border border-line bg-bg-inset px-[15px] text-sm text-t0 outline-none focus:border-acc";
+/** Evita toast duplicado (React StrictMode remonta o effect). */
+const avisosJaExibidos = new Set<string>();
 
 export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { aplicarSessao, entrar } = useSessao();
-  const aviso = (location.state as { aviso?: string } | null)?.aviso ?? null;
+  const { show } = useToast();
+  const { session, ready, applySession, signIn } = useSession();
 
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [lembrar, setLembrar] = useState(true);
-  const [erroEmail, setErroEmail] = useState<string | null>(null);
-  const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [mostrarDemo, setMostrarDemo] = useState(false);
 
   const podeEnviar = email.trim().length > 0 && senha.length > 0 && !carregando;
 
+  // Se a sessão voltou depois (race PWA) ou já estava logado, não fica na tela.
+  useEffect(() => {
+    if (!ready || !session) return;
+    const destino = (location.state as { de?: string } | null)?.de;
+    navigate(destinationAfterAuth(session, destino), { replace: true });
+  }, [ready, session, location.state, navigate]);
+
+  useEffect(() => {
+    const state = location.state as { aviso?: string; avisoId?: string; de?: string } | null;
+    if (!state?.aviso) return;
+    const id = state.avisoId ?? state.aviso;
+    const de = state.de;
+    // Limpa o state antes de qualquer coisa — o 2º run do StrictMode não reprocessa.
+    navigate(location.pathname, { replace: true, state: de ? { de } : {} });
+    if (avisosJaExibidos.has(id)) return;
+    avisosJaExibidos.add(id);
+    show(state.aviso, "success");
+  }, [location.state, location.pathname, navigate, show]);
+
   useEffect(() => {
     const como = new URLSearchParams(location.search).get("como");
     if (!como || isSupabaseConfigured()) return;
-    const usuario = usuarios.find((u) => u.vinculoId === como);
+    const usuario = users.find((u) => u.membershipId === como);
     if (!usuario) return;
-    const sessao = entrar(usuario);
-    navigate(sessao.onboardingEtapa !== null ? paths.onboarding : inicioDoPapel(sessao.papel), { replace: true });
-  }, [location.search, entrar, navigate]);
+    const session = signIn(usuario);
+    navigate(destinationAfterAuth(session), { replace: true });
+  }, [location.search, signIn, navigate]);
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
     if (!podeEnviar) return;
     if (!emailValido(email)) {
-      setErroEmail("Informe um e-mail válido.");
+      show("Informe um e-mail válido.", "danger");
       return;
     }
-    setErro(null);
-    setErroEmail(null);
     setCarregando(true);
-    const r = await loginComEmail(email, senha);
+    const r = await loginWithEmail(email, senha);
     setCarregando(false);
     if (!r.ok) {
-      setErro(r.erro || MENSAGEM_LOGIN);
+      show(`${r.error || MENSAGEM_LOGIN} Confira os dados e tente novamente.`, "danger");
       return;
     }
-    aplicarSessao(r.sessao);
+    applySession(r.session);
     const destino = (location.state as { de?: string } | null)?.de;
-    if (r.sessao.onboardingEtapa !== null) navigate(paths.onboarding, { replace: true });
-    else navigate(destino && destino !== "/" ? destino : inicioDoPapel(r.sessao.papel), { replace: true });
+    navigate(destinationAfterAuth(r.session, destino), { replace: true });
   }
 
   return (
@@ -81,12 +95,12 @@ export function Login() {
         </div>
         <div className="relative">
           <h2 className="mb-3.5 text-[30px] font-extrabold leading-[1.25] tracking-tight text-white">
-            Suas lojas, os números
+            Todas as suas lojas.
             <br />
-            certos, no bolso.
+            Uma gestão mais clara.
           </h2>
           <p className="max-w-[400px] text-[15px] leading-relaxed text-white/70">
-            Faturamento, meta, comissão e margem de todas as unidades — com a mesma conta em toda tela.
+            Acompanhe faturamento, goals, premiações e margens de todas as unidades em um só lugar.
           </p>
         </div>
         <div className="relative flex gap-2">
@@ -104,74 +118,29 @@ export function Login() {
         </div>
 
         <div className="w-full max-w-[380px]">
-          <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-t0">Bem-vindo de volta</h1>
-          <p className="mb-7 text-sm text-t2">Entre com o e-mail e a senha da sua conta {tenant.nomeExibicao}.</p>
-
-          {aviso && (
-            <p className="mb-4 rounded-xl border border-ok/30 bg-ok/10 px-3.5 py-2.5 text-[12.5px] font-semibold text-ok">{aviso}</p>
-          )}
+          <h1 className="mb-2 text-[26px] font-extrabold tracking-tight text-t0">Acesse sua conta</h1>
+          <p className="mb-7 text-sm text-t1">Entre com seu e-mail e senha.</p>
 
           <form onSubmit={enviar} className="flex flex-col gap-3.5" noValidate>
-            <label className="block">
-              <span className="mb-1.5 block text-[12.5px] font-bold text-t0">E-mail</span>
-              <input
-                type="email"
-                autoComplete="username"
-                autoFocus
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setErro(null);
-                  if (erroEmail) setErroEmail(null);
-                }}
-                className={cn(inputClass, erroEmail && "border-bad")}
-                placeholder="seu@email.com"
-              />
-              {erroEmail && <p className="mt-1.5 text-[11.5px] font-medium text-bad">{erroEmail}</p>}
-            </label>
-
-            <label className="block">
-              <span className="mb-1.5 block text-[12.5px] font-bold text-t0">Senha</span>
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={senha}
-                onChange={(e) => {
-                  setSenha(e.target.value);
-                  setErro(null);
-                }}
-                className={inputClass}
-                placeholder="Sua senha"
-              />
-            </label>
+            <CampoEmail label="E-mail" value={email} onChange={setEmail} autoFocus />
+            <CampoSenha label="Senha" value={senha} onChange={setSenha} />
 
             <div className="flex items-center justify-between">
-              <label className="flex cursor-pointer items-center gap-2 text-[12.5px] text-t1">
-                <input type="checkbox" checked={lembrar} onChange={(e) => setLembrar(e.target.checked)} style={{ accentColor: "var(--acc)" }} />
-                Manter conectado
-              </label>
-              <Link to={paths.acesso.recuperar} className="text-[12.5px] font-bold text-acc">
+              <Checkbox label="Manter conectado" checked={lembrar} onChange={(e) => setLembrar(e.target.checked)} />
+              <Link to={paths.access.forgot} className="text-xs font-semibold text-acc">
                 Esqueci minha senha
               </Link>
             </div>
 
-            {erro && (
-              <p className="rounded-xl border border-bad/30 bg-bad/10 px-3.5 py-2.5 text-[12.5px] text-bad">
-                <span className="font-bold">{erro}.</span> Confira os dados e tente de novo.
-              </p>
-            )}
-
             <button
               type="submit"
               disabled={!podeEnviar || carregando}
-              className="mt-1 h-[46px] w-full rounded-xl bg-acc text-sm font-bold text-white transition-colors hover:bg-acc-2 disabled:opacity-60"
-              style={{ boxShadow: "0 8px 24px -8px var(--acc)" }}
+              className={`mt-1 ${acessoBotao}`}
+              style={{ boxShadow: "0 10px 24px -10px var(--acc)" }}
             >
-              {carregando ? "Aguarde…" : "Entrar"}
+              {carregando ? "Entrando…" : "Entrar"}
             </button>
           </form>
-
-          <p className="mt-[22px] text-center text-[13px] text-t2">Acesso somente por convite — não há cadastro público.</p>
 
           {!isSupabaseConfigured() && (
             <div className="mt-6 rounded-[16px] border border-dashed border-line bg-bg-2/60 p-4">
@@ -181,23 +150,21 @@ export function Login() {
               </button>
               {mostrarDemo && (
                 <div className="mt-3 flex flex-col gap-1.5">
-                  {usuarios
-                    .filter((u) => u.onboardingEtapa === null)
+                  {users
+                    .filter((u) => u.onboardingStep === null)
                     .map((u) => (
                       <button
-                        key={u.vinculoId}
+                        key={u.membershipId}
                         type="button"
                         onClick={() => {
                           setEmail(u.email);
                           setSenha("demonstracao");
-                          setErro(null);
-                          setErroEmail(null);
                         }}
                         className="flex items-center justify-between gap-2 rounded-[10px] border border-line bg-bg-2 px-3 py-2 text-left hover:bg-bg-3"
                       >
                         <span className="min-w-0 truncate text-[12.5px] font-bold text-t0">
-                          {u.nome}
-                          <span className="ml-1 font-normal text-t2">· {rotuloPapel[u.papel]}</span>
+                          {u.name}
+                          <span className="ml-1 font-normal text-t2">· {roleLabel[u.role]}</span>
                         </span>
                       </button>
                     ))}

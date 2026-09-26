@@ -1,29 +1,40 @@
 import type { ReactNode, InputHTMLAttributes } from "react";
+import { useId } from "react";
 
-/** Vela brand mark used across auth screens. */
-export function BrandMark({ size = 34, light = false }: { size?: number; light?: boolean }) {
+/** Marca WeDash — quadrado com gradiente + “WE” na fonte do tema. */
+export function BrandMark({ size = 34, light: _light = false }: { size?: number; light?: boolean }) {
+  const uid = useId().replace(/:/g, "");
+  const gradId = `wedashGradient-${uid}`;
+
   return (
     <span
-      className="flex items-center justify-center rounded-[10px]"
-      style={{
-        width: size,
-        height: size,
-        background: "linear-gradient(135deg,var(--acc),var(--acc-2))",
-      }}
+      className="flex shrink-0 items-center justify-center overflow-hidden rounded-[10px]"
+      style={{ width: size, height: size }}
+      aria-hidden
     >
-      <svg
-        width={size * 0.56}
-        height={size * 0.56}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke={light ? "#fff" : "#fff"}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M12 2 4 7v10l8 5 8-5V7z" />
-        <path d="M12 22V12" />
-        <path d="m4 7 8 5 8-5" />
+      <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id={gradId} x1="4" y1="4" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#B01CFF" />
+            <stop offset="0.5" stopColor="#7A3FFF" />
+            <stop offset="1" stopColor="#2C9CFF" />
+          </linearGradient>
+        </defs>
+        <rect width="40" height="40" rx="10" fill={`url(#${gradId})`} />
+        <text
+          x="20"
+          y="25.5"
+          textAnchor="middle"
+          fill="#FFFFFF"
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: 15.5,
+            fontWeight: 800,
+            letterSpacing: "-0.06em",
+          }}
+        >
+          WE
+        </text>
       </svg>
     </span>
   );
@@ -38,7 +49,7 @@ export function AuthInput({
   return (
     <label className="block">
       {label && (
-        <span className="mb-1.5 block text-[12.5px] font-bold text-t1">{label}</span>
+        <span className="mb-1.5 block text-xs font-semibold text-t1">{label}</span>
       )}
       <input
         {...props}

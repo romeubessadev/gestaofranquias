@@ -1,4 +1,4 @@
-# Gestão de Franquias — Definição Completa do Produto
+# WeDash — Definição Completa do Produto
 
 Tudo que foi decidido, sem especificação visual. Campos, fluxos, regras,
 fórmulas, integração e comportamento de cada tela.
@@ -13,7 +13,7 @@ fórmulas, integração e comportamento de cada tela.
 4. Acesso — login, senha, criar conta, convite
 5. Tenant e endereço próprio
 6. Onboarding
-7. Integração com o ERP Millenium
+7. Integração com o ERP Millennium
 8. Modelo de dados
 9. Métricas
 10. Meta e comissão
@@ -40,7 +40,7 @@ dia, CMV somando royalties. A causa é cada tela montar a própria consulta.
 O produto resolve isso com **uma camada de métricas**: cada fórmula existe uma
 vez e todas as telas leem dela. Nenhuma tela calcula nada.
 
-Dados de vendas, custos, estoque e funcionários vêm do ERP Millenium por
+Dados de vendas, custos, estoque e funcionários vêm do ERP Millennium por
 sincronização. Metas, comissão, desafios, turnos, tarefas, mensagens e toda a
 gestão são do produto.
 
@@ -57,7 +57,7 @@ tem endereço próprio e identidade própria.
 | **vínculo** | O acesso de uma identidade a **uma** franquia. N por identidade. Carrega papel e escopo de filiais |
 | **tenant** | A conta do franqueado. Id interno próprio. **Nunca chaveado por CNPJ** |
 | **filial** | Uma loja. Vem do ERP, nunca cadastrada à mão. Tem `tipo_ponto`: SHOPPING ou RUA |
-| **credencial_erp** | Usuário e senha do Millenium. Uma por tenant, cifrada |
+| **credencial_erp** | Usuário e senha do Millennium. Uma por tenant, cifrada |
 | **colaborador** | A pessoa no ERP. Nem todo colaborador vira usuário do app |
 | **caixa central** | Cadastro genérico usado para lançar venda sem vendedora identificada |
 | **divisão** | Linha de produto: WEPINK (102) ou WPINK SUPLEMENTOS (101) |
@@ -238,7 +238,7 @@ etapa do onboarding.
 **Vendedora** — nasce de um colaborador já sincronizado do ERP. O CPF vem do ERP
 (`GERADORES[0].CPF`); o gestor preenche o e-mail. Busca identidade pelo CPF: não
 existe → cria identidade PENDENTE + vínculo + token ATIVACAO; já existe → cria
-**só o vínculo** + token de aceite. O vínculo com `millenium_funcionario` liga a
+**só o vínculo** + token de aceite. O vínculo com `millennium_funcionario` liga a
 pessoa às vendas dela.
 
 **Gerente e gestor** — não existem no ERP. Cadastro manual: CPF, nome, e-mail,
@@ -277,7 +277,7 @@ independentes (raízes diferentes) ou mistura. **Nunca validar raiz compartilhad
 de CNPJ** — rejeitaria cadastros válidos. `filial.cnpj` e `filial.tipo` (M
 matriz, F filial) são informativos.
 
-**Uma credencial do ERP por tenant.** Um login do Millenium enxerga todas as
+**Uma credencial do ERP por tenant.** Um login do Millennium enxerga todas as
 filiais abaixo dele, inclusive com raízes diferentes. O esquema guarda
 `credencial_id` na filial para permitir mais de uma no futuro, mas a v1 não
 oferece cadastrar uma segunda.
@@ -300,7 +300,7 @@ subdomínio** e o restante acontece lá.
 
 ### Etapa 2 — Credencial do ERP (obrigatória)
 
-Campos: usuário e senha do Millenium. Checkbox "Este é um usuário exclusivo para
+Campos: usuário e senha do Millennium. Checkbox "Este é um usuário exclusivo para
 integração" — define o intervalo de sync (2 min se dedicada, 30 se
 compartilhada). Texto explicando que o ERP aceita um login por vez e que,
 enquanto o sistema sincroniza, aquele usuário não acessa. Checkbox de aceite
@@ -311,7 +311,7 @@ Ao confirmar, **testa o login de verdade** no ERP:
 ```
 POST http://{host}/api/login
 WTS-Authorization: {usuario}/{senha}
-WTS-AppName: millenium · WTS-LicenceType: retag
+WTS-AppName: Millennium · WTS-LicenceType: retag
 → 200 { session, ... }
 ```
 
@@ -320,15 +320,15 @@ Sucesso: cifra com AES-256-GCM e grava; **mantém a sessão aberta** para a etap
 
 | Contém | Mensagem | Ação |
 |---|---|---|
-| `Senha inválida` | "Usuário ou senha do Millenium incorretos" | Não grava |
-| `ultrapassado o máximo` | "Seu usuário está conectado ao Millenium. Saia de lá e tente de novo" | Não grava, botão tentar de novo |
+| `Senha inválida` | "Usuário ou senha do Millennium incorretos" | Não grava |
+| `ultrapassado o máximo` | "Seu usuário está conectado ao Millennium. Saia de lá e tente de novo" | Não grava, botão tentar de novo |
 | outro | "Não foi possível conectar" | Não grava |
 
 Nunca retentar automaticamente com senha inválida.
 
 ### Etapa 3 — Confirmar filiais (obrigatória)
 
-Com a sessão aberta, chama `millenium.FILIAIS.Lista`. Exibe cada filial com
+Com a sessão aberta, chama `Millennium.FILIAIS.Lista`. Exibe cada filial com
 código, nome, franquia, cidade/UF, e para cada uma pede o **tipo de ponto**:
 Rua ou Shopping — obrigatório, não vem do ERP, define o modelo de aluguel.
 Selo "WPINK" quando `WPINK = true`.
@@ -338,7 +338,7 @@ Todas vêm marcadas; desmarcar exclui. Persiste incluindo `cnpj`, `tipo`,
 
 Ao concluir, faz logout do ERP e agenda o primeiro sync.
 
-Zero filiais: "Este usuário do Millenium não tem lojas vinculadas."
+Zero filiais: "Este usuário do Millennium não tem lojas vinculadas."
 
 ### Etapa 4 — Equipe (pulável)
 
@@ -352,7 +352,7 @@ Duas seções:
 
 **Precisam de atenção** — quem está com cargo VENDEDOR mas parece caixa central
 (botão "Marcar como caixa central", grava só do nosso lado), e quem está
-desativado no ERP ainda com cargo VENDEDOR (botão "Corrigir no Millenium",
+desativado no ERP ainda com cargo VENDEDOR (botão "Corrigir no Millennium",
 escreve no ERP).
 
 **Darão acesso ao app** — para cada vendedora: checkbox, CPF (vem do ERP, só
@@ -379,7 +379,7 @@ rascunho de WhatsApp.
 
 ---
 
-## 7. Integração com o ERP Millenium
+## 7. Integração com o ERP Millennium
 
 ### 7.1 Fundamentos
 
@@ -442,8 +442,15 @@ Nunca retentar credencial inválida — pode bloquear a conta no ERP.
 faturamento, atendimentos, itens, ticket, PA, preço médio, ranking, hora a
 hora, meios de pagamento e turno.
 
-Parâmetros: `DATAI`, `DATAF` (meia-noite local em UTC), `FILIAL`, `CANCELADA:
-false`, `GERADOR: "C"`, `GERADOR_COM: "V"`.
+Parâmetros: `DATAI`, `DATAF` (meia-noite local em UTC — MS = `T04:00:00.000Z`),
+`FILIAL` (int `FILIAL`/`COD`, não o `COD_FILIAL` display), `CANCELADA: false`,
+`GERADOR: "C"`, `GERADOR_COM: "V"`, e **`EVENTO: "(id1,id2,…)"`**.
+
+*Armadilha — EVENTO:* sem filtro a Lista traz transferência e outros movimentos e
+**infla o faturamento** vs a tela de vendas da franquia. A UI filtra eventos
+`S-X`, `S-03`, `S-100` e `S-{COD_FILIAL sem zero à esquerda}` (ex.: filial
+`00010` → `S-10`). IDs vêm de `EVENTOS.ListaTodos`. Exemplo filial 8:
+`EVENTO: "(17,24,22,107)"`.
 
 Campos: `COD_OPERACAO` (chave), `DATA_H` (**timestamp real**), `DATA` (nominal,
 **não usar em cálculo**), `VALOR_FINAL` (faturamento), `QUANTIDADE` (**itens da
@@ -626,13 +633,13 @@ vinculo            id, identidade_id, tenant_id, papel, status,
 vinculo_filial     vinculo_id, filial_id
 
 filial             id, tenant_id, credencial_id,
-                   millenium_filial (int, CHAVE), cod_filial (display),
+                   millennium_filial (int, CHAVE), cod_filial (display),
                    nome, fantasia, cnpj, cidade, uf, franquia,
                    tipo (M|F, informativo), tipo_ponto (SHOPPING|RUA),
                    tem_wpink, fuso_horario, horario_abertura,
                    horario_fechamento, data_inauguracao, ativa
 
-credencial_erp     id, tenant_id, usuario_millenium, senha_cifrada (AES-256-GCM),
+credencial_erp     id, tenant_id, usuario_millennium, senha_cifrada (AES-256-GCM),
                    dedicada, status, ultimo_sucesso, ultimo_erro
                    status: VALIDA | INVALIDA | NAO_CONFIGURADA
 
@@ -653,7 +660,7 @@ config_filial      filial_id, vigencia_desde,
 turno              id, filial_id, nome, hora_inicio, hora_fim, ativo
 
 colaborador        id, tenant_id, filial_id,
-                   millenium_funcionario (int, CHAVE), cod_funcionario,
+                   millennium_funcionario (int, CHAVE), cod_funcionario,
                    nome, cargo, data_admissao,
                    desativado, nao_mostrar_evento, afastado, inativo,
                    ─── só do nosso lado ───

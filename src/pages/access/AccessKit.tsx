@@ -1,17 +1,27 @@
 import { useState, type InputHTMLAttributes, type ReactNode } from "react";
-import { padTopoEBase } from "@/lib/areaSegura";
+import { padTopoEBase } from "@/lib/safeArea";
 import { cn } from "@/lib/cn";
-import { AuthGlow, AuthInput } from "@/pages/auth/authKit";
-import { Marca } from "@/components/gestao/Marca";
-import { tenant } from "@/data/gestao/tenant";
+import { SENHA_MIN, dicaForcaSenha, senhaTemEspecial } from "@/lib/password";
+import { Checkbox, FormField, Input } from "@/components/ui";
+import { AuthGlow } from "@/pages/auth/authKit";
+import { Marca } from "@/components/wedash/TenantBrand";
+import { tenant } from "@/data/wedash/tenant";
 import { mascararCpf } from "@/lib/cpf";
 
 /**
- * Complementos das telas de acesso. Tudo que o template já resolve
- * (AuthInput, AuthButton, AuthGlow, o card centralizado das telas de senha)
- * vem de `@/pages/auth/authKit` e é só reexportado aqui.
+ * Complementos das telas de acesso.
+ * Labels/inputs = FormField + Input do Vela (`FormElementsPage`).
  */
 export { AuthGlow } from "@/pages/auth/authKit";
+export { Checkbox, FormField, Input };
+
+/** Escala tipográfica unificada com o Login. */
+export const acessoTitulo = "mb-2 text-[26px] font-extrabold tracking-tight text-t0";
+export const acessoSubtitulo = "mb-6 text-sm leading-relaxed text-t1";
+export const acessoBotao =
+  "h-[46px] w-full rounded-xl bg-acc text-sm font-bold text-white transition-colors hover:bg-acc-2 disabled:opacity-60";
+export const acessoLink = "text-[13px] font-bold text-acc";
+export const acessoRodape = "text-[13px] text-t2";
 
 /** Moldura das telas de acesso, no mesmo formato de ForgotPassword/ResetPassword do template. */
 export function AcessoPagina({ children, rodape, largura = 420, marca = true }: { children: ReactNode; rodape?: ReactNode; largura?: number; marca?: boolean }) {
@@ -30,7 +40,7 @@ export function AcessoPagina({ children, rodape, largura = 420, marca = true }: 
                 {tenant.nomeExibicao}
                 <span className="text-acc">.</span>
               </p>
-              <p className="text-[11.5px] text-t2">{tenant.slug}.gestaofranquias.com.br</p>
+              <p className="text-[11.5px] text-t2">wedash.app/{tenant.slug}</p>
             </div>
           </div>
         )}
@@ -43,43 +53,119 @@ export function AcessoPagina({ children, rodape, largura = 420, marca = true }: 
   );
 }
 
-export function Rotulo({ children, acao }: { children: ReactNode; acao?: ReactNode }) {
+const inputErro = "!border-2 !border-bad bg-bad-soft";
+
+const olhoBtn =
+  "absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-t2 hover:bg-bg-3 hover:text-t0";
+
+function BotaoRevelarSenha({ mostrar, onToggle }: { mostrar: boolean; onToggle: () => void }) {
   return (
-    <div className="mb-1.5 flex items-center justify-between">
-      <span className="text-[12.5px] font-bold text-t1">{children}</span>
-      {acao}
-    </div>
+    <button type="button" onClick={onToggle} aria-label={mostrar ? "Ocultar senha" : "Mostrar senha"} className={olhoBtn}>
+      {mostrar ? (
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" />
+        </svg>
+      ) : (
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      )}
+    </button>
   );
 }
 
-/** CPF com máscara e teclado numérico, sobre o AuthInput do template. */
-export function CampoCpf({ value, onChange, erro, ...props }: { value: string; onChange: (v: string) => void; erro?: string | null } & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
+/** E-mail — FormField + Input (Vela). */
+export function CampoEmail({
+  label = "E-mail",
+  value,
+  onChange,
+  erro,
+  className,
+  ...props
+}: {
+  label?: string;
+  value: string;
+  onChange: (v: string) => void;
+  erro?: string | null;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type">) {
   return (
-    <div className={cn("[&_input]:font-mono [&_input]:tracking-wide", erro && "[&_input]:border-bad")}>
-      <AuthInput {...props} value={value} onChange={(e) => onChange(mascararCpf(e.target.value))} inputMode="numeric" autoComplete="username" placeholder="000.000.000-00" hint={erro ? <p className="mt-1.5 text-[11.5px] font-medium text-bad">{erro}</p> : undefined} />
-    </div>
+    <FormField label={label} error={erro ?? undefined}>
+      <Input
+        {...props}
+        type="email"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        inputMode="email"
+        autoComplete={props.autoComplete ?? "username"}
+        placeholder={props.placeholder ?? "seu@email.com"}
+        className={cn(erro && inputErro, className)}
+      />
+    </FormField>
   );
 }
 
-/** Senha com botão de revelar, sobre o AuthInput do template. */
-export function CampoSenha({ value, onChange, placeholder = "Sua senha", autoComplete = "current-password", erro, ...props }: { value: string; onChange: (v: string) => void; erro?: string | null } & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type">) {
+/** CPF com máscara — FormField + Input (Vela). */
+export function CampoCpf({
+  label = "CPF",
+  value,
+  onChange,
+  erro,
+  className,
+  ...props
+}: {
+  label?: string;
+  value: string;
+  onChange: (v: string) => void;
+  erro?: string | null;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
+  return (
+    <FormField label={label} error={erro ?? undefined}>
+      <Input
+        {...props}
+        value={value}
+        onChange={(e) => onChange(mascararCpf(e.target.value))}
+        inputMode="numeric"
+        autoComplete={props.autoComplete ?? "username"}
+        placeholder={props.placeholder ?? "000.000.000-00"}
+        className={cn("font-mono tracking-wide", erro && inputErro, className)}
+      />
+    </FormField>
+  );
+}
+
+/** Senha com revelar — FormField + Input (Vela). */
+export function CampoSenha({
+  label = "Senha",
+  value,
+  onChange,
+  placeholder = "Digite sua senha",
+  autoComplete = "current-password",
+  erro,
+  className,
+  ...props
+}: {
+  label?: string;
+  value: string;
+  onChange: (v: string) => void;
+  erro?: string | null;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type">) {
   const [mostrar, setMostrar] = useState(false);
   return (
-    <div className={cn("relative [&_input]:pr-12", erro && "[&_input]:border-bad")}>
-      <AuthInput {...props} type={mostrar ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoComplete={autoComplete} hint={erro ? <p className="mt-1.5 text-[11.5px] font-medium text-bad">{erro}</p> : undefined} />
-      <button type="button" onClick={() => setMostrar((m) => !m)} aria-label={mostrar ? "Ocultar senha" : "Mostrar senha"} className="absolute right-2 top-[5px] flex h-8 w-8 items-center justify-center rounded-lg text-t2 hover:bg-bg-3 hover:text-t0">
-        {mostrar ? (
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" />
-          </svg>
-        ) : (
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-        )}
-      </button>
-    </div>
+    <FormField label={label} error={erro ?? undefined}>
+      <div className="relative">
+        <Input
+          {...props}
+          type={mostrar ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          className={cn("pr-12", erro && inputErro, className)}
+        />
+        <BotaoRevelarSenha mostrar={mostrar} onToggle={() => setMostrar((m) => !m)} />
+      </div>
+    </FormField>
   );
 }
 
@@ -91,7 +177,7 @@ export function AvisoCard({ tom = "info", children }: { tom?: "info" | "ok" | "b
     bad: "border-bad/30 bg-bad-soft",
     warn: "border-warn/30 bg-warn-soft",
   };
-  return <div className={cn("rounded-xl border px-3.5 py-3 text-[13px] leading-relaxed text-t0", cores[tom])}>{children}</div>;
+  return <div className={cn("rounded-xl border px-3.5 py-3 text-sm leading-relaxed text-t0", cores[tom])}>{children}</div>;
 }
 
 /** Ícone redondo no topo do card, como em ForgotPassword/ResetPassword do template. */
@@ -105,10 +191,11 @@ export function IconeCard({ tom = "acc", centralizado = false, children }: { tom
   );
 }
 
-/** Medidor de força da senha, no formato de barras do ResetPassword do template. */
+/** Medidor de força da senha (barras Vela). */
 export function ForcaSenha({ senha }: { senha: string }) {
   const n = senha.length;
-  const nivel = n === 0 ? 0 : n < 10 ? 1 : n < 14 ? 2 : n < 20 ? 3 : 4;
+  const temEspecial = senhaTemEspecial(senha);
+  const nivel = n === 0 ? 0 : n < SENHA_MIN ? 1 : !temEspecial ? 2 : n < 12 ? 3 : 4;
   const cor = nivel <= 1 ? "bg-bad" : nivel === 2 ? "bg-warn" : "bg-ok";
   return (
     <div>
@@ -117,7 +204,7 @@ export function ForcaSenha({ senha }: { senha: string }) {
           <span key={i} className={cn("h-[5px] flex-1 rounded-sm", i <= nivel ? cor : "bg-bg-inset")} />
         ))}
       </div>
-      <p className="mt-1.5 text-[11.5px] text-t2">{n === 0 ? "Mínimo de 10 caracteres. Uma frase fácil de lembrar vale mais que símbolos." : n < 10 ? `Faltam ${10 - n} caracteres.` : "Boa. Não precisa de número nem símbolo."}</p>
+      <p className="mt-1.5 text-[11.5px] text-t2">{dicaForcaSenha(senha)}</p>
     </div>
   );
 }

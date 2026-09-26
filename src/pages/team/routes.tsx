@@ -2,16 +2,16 @@ import { Navigate } from "react-router-dom";
 import { lazyPage } from "@/lib/lazyPage";
 import type { RouteObject } from "react-router-dom";
 import { paths } from "@/router/paths";
-import { RequirePapel } from "@/session/RequireSession";
+import { RequireRole } from "@/session/RequireSession";
 
-const EquipePage = lazyPage(() => import("./EquipePage"), "EquipePage");
+const TeamPage = lazyPage(() => import("./TeamPage"), "TeamPage");
 
 export const equipeRoutes: RouteObject[] = [
   {
-    element: <RequirePapel papeis={["GESTOR", "GERENTE", "ADMIN_GLOBAL"]} />,
+    element: <RequireRole roles={["OWNER", "MANAGER", "ADMIN_GLOBAL"]} />,
     children: [
-      { path: paths.equipe, element: <EquipePage /> },
-      { path: paths.equipeLegado, element: <Navigate to={paths.equipe} replace /> },
+      { path: paths.team, element: <TeamPage /> },
+      { path: paths.legacy.teamRoot, element: <Navigate to={paths.team} replace /> },
     ],
   },
 ];

@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { paths } from "@/router/paths";
-import { AcessoPagina, AvisoCard, IconeCard } from "./AcessoKit";
+import { AcessoPagina, AvisoCard, IconeCard, acessoTitulo } from "./AccessKit";
 import { useToast, Button } from "@/components/ui";
-import { useSessao } from "@/session/SessionProvider";
-import { inicioDoPapel } from "@/session/RequireSession";
+import { useSession } from "@/session/SessionProvider";
+import { homeForRole } from "@/session/RequireSession";
 import { cn } from "@/lib/cn";
 
 type Plataforma = "ios" | "android" | "desktop";
@@ -21,17 +21,17 @@ const passos: Record<Exclude<Plataforma, "desktop">, string[]> = {
   android: ["Toque no aviso \"Instalar app\" que aparece embaixo, ou nos três pontos do Chrome.", "Escolha \"Instalar aplicativo\" e confirme.", "Abra pelo ícone e aceite as notificações quando pedir."],
 };
 
-export function Instalar() {
+export function Install() {
   const navigate = useNavigate();
-  const { sessao, atualizar } = useSessao();
+  const { session, update } = useSession();
   const { show } = useToast();
   const detectada = useMemo(detectarPlataforma, []);
   const [plataforma, setPlataforma] = useState<Plataforma>(detectada);
 
-  const destino = sessao ? (sessao.onboardingEtapa !== null ? paths.onboarding : inicioDoPapel(sessao.papel)) : paths.acesso.entrar;
+  const destino = session ? (session.onboardingStep !== null ? paths.onboarding : homeForRole(session.role)) : paths.access.login;
 
   function concluir(instalou: boolean) {
-    if (sessao && instalou) atualizar({ appInstalado: true });
+    if (session && instalou) update({ appInstalled: true });
     navigate(destino, { replace: true });
   }
 
@@ -43,12 +43,12 @@ export function Instalar() {
           <path d="M12 18h.01" />
         </svg>
       </IconeCard>
-      <h1 className="mb-2 text-[22px] font-extrabold tracking-tight text-t0">Instale o app no celular</h1>
-      <p className="mb-5 text-[13.5px] leading-relaxed text-t1">Com o app instalado você recebe o aviso na hora em que cruzar um degrau da meta. Sem ele, o aviso não chega.</p>
+      <h1 className={acessoTitulo}>Instale o app no celular</h1>
+      <p className="mb-5 text-sm leading-relaxed text-t1">Com o app instalado você recebe o aviso na hora em que cruzar um degrau da meta. Sem ele, o aviso não chega.</p>
 
       <div className="mb-5 flex gap-1 rounded-[var(--radius-vela-md)] bg-bg-3 p-1">
         {(["ios", "android", "desktop"] as Plataforma[]).map((p) => (
-          <button key={p} onClick={() => setPlataforma(p)} className={cn("flex-1 rounded-[10px] px-3 py-1.5 text-[12.5px] font-semibold transition-colors", plataforma === p ? "bg-bg-1 text-t0 shadow-[var(--shadow-vela)]" : "text-t1 hover:text-t0")}>
+          <button key={p} onClick={() => setPlataforma(p)} className={cn("flex-1 rounded-[10px] px-3 py-1.5 text-xs font-semibold transition-colors", plataforma === p ? "bg-bg-1 text-t0 shadow-[var(--shadow-vela)]" : "text-t1 hover:text-t0")}>
             {p === "ios" ? "iPhone" : p === "android" ? "Android" : "Computador"}
           </button>
         ))}
@@ -57,25 +57,26 @@ export function Instalar() {
       {plataforma === "desktop" ? (
         <div className="flex flex-col gap-3">
           <AvisoCard tom="info">O app funciona melhor no celular. Mande o link para você mesma e instale por lá.</AvisoCard>
-          <Button size="lg" fullWidth onClick={() => show("Link enviado para o seu e-mail.", "success")}>Enviar link pro meu e-mail</Button>
-          <Button size="lg" fullWidth variant="outline" onClick={() => concluir(false)}>Continuar no computador</Button>
+          <Button size="lg" fullWidth className="!h-[46px] font-bold" onClick={() => show("Link enviado para o seu e-mail.", "success")}>Enviar link pro meu e-mail</Button>
+          <Button size="lg" fullWidth variant="outline" className="!h-[46px] font-bold" onClick={() => concluir(false)}>Continuar no computador</Button>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
           <ol className="flex flex-col gap-3">
             {passos[plataforma].map((p, i) => (
               <li key={i} className="flex gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-acc-soft text-[12px] font-extrabold text-acc">{i + 1}</span>
-                <span className="text-[13.5px] leading-relaxed text-t0">{p}</span>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-acc-soft text-xs font-extrabold text-acc">{i + 1}</span>
+                <span className="text-sm leading-relaxed text-t0">{p}</span>
               </li>
             ))}
           </ol>
           {plataforma === "ios" && <AvisoCard tom="warn">No iPhone, as notificações só funcionam com o app instalado pela tela de início.</AvisoCard>}
-          <Button size="lg" fullWidth onClick={() => concluir(true)}>Já instalei</Button>
-          <Button size="lg" fullWidth variant="outline" onClick={() => concluir(false)}>Pular por agora</Button>
-          <p className="text-center text-[11.5px] text-t2">Este guia fica sempre disponível no seu perfil.</p>
+          <Button size="lg" fullWidth className="!h-[46px] font-bold" onClick={() => concluir(true)}>Já instalei</Button>
+          <Button size="lg" fullWidth variant="outline" className="!h-[46px] font-bold" onClick={() => concluir(false)}>Pular por agora</Button>
+          <p className="text-center text-xs text-t2">Este guia fica sempre disponível no seu perfil.</p>
         </div>
       )}
     </AcessoPagina>
   );
 }
+

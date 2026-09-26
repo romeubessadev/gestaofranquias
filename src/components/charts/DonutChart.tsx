@@ -48,9 +48,13 @@ export function DonutChart({ segments, size = 160, thickness = 24, centerLabel, 
             })}
           </svg>
           {(centerLabel || centerValue) && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              {centerValue && <span className="text-lg font-extrabold text-t0">{centerValue}</span>}
-              {centerLabel && <span className="text-[11px] text-t1">{centerLabel}</span>}
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+              {centerValue && (
+                <span className="whitespace-nowrap text-[15px] font-extrabold leading-tight text-t0 tabular-nums">
+                  {centerValue}
+                </span>
+              )}
+              {centerLabel && <span className="mt-0.5 text-[11px] text-t1">{centerLabel}</span>}
             </div>
           )}
         </div>
@@ -59,7 +63,7 @@ export function DonutChart({ segments, size = 160, thickness = 24, centerLabel, 
           {segments.map((seg) => (
             <div key={seg.label} className="flex items-center gap-2.5 text-[12.5px]">
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: seg.color }} />
-              <span className="text-t1">{seg.label}</span>
+              <span className="uppercase text-t1">{seg.label}</span>
               {showLegendValue && <span className="font-bold text-t0">{formatValue ? formatValue(seg.value) : seg.value.toLocaleString("pt-BR")}</span>}
               <span className="text-[11.5px] font-bold text-t0">{Math.round((seg.value / total) * 100)}%</span>
             </div>

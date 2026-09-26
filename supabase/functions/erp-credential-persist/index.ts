@@ -13,6 +13,7 @@ type StoreIn = {
   tradeName?: string;
   taxId?: string;
   openedAt?: string;
+  hasWpink?: boolean;
 };
 
 function json(body: unknown, status = 200) {
@@ -94,6 +95,12 @@ Deno.serve(async (req) => {
     dedicated?: boolean;
     millenniumSession?: string;
     stores?: StoreIn[];
+    /**
+     * Troca de usuário ERP com lojas em comum (Configurações > Integrações):
+     * mantém dados/lojas e remove só as lojas que o usuário novo não enxerga.
+     * Ausente = comportamento antigo (troca de usuário apaga tudo).
+     */
+    userChange?: { mode?: string; removeMillenniumStoreIds?: number[] };
   };
   try {
     body = await req.json();
@@ -145,12 +152,34 @@ Deno.serve(async (req) => {
     .trim()
     .toUpperCase();
   const usernameChanged = Boolean(prevUser && prevUser !== username);
-  if (usernameChanged) {
-    await wipeTenantErpSync(
-      admin,
-      tenantId,
-      (existing as { millennium_session?: string | null })?.millennium_session ?? null,
-    );
+  const keepOnChange = usernameChanged && body.userChange?.mode === "keep";
+  // O teste de login já gravou o token NOVO na credencial — não deslogar ele.
+  const oldSessionRaw = (existing as { millennium_session?: string | null })?.millennium_session ?? null;
+  const oldSession = oldSessionRaw && oldSessionRaw !== millenniumSession ? oldSessionRaw : null;
+  if (keepOnChange) {
+    if (oldSession?.trim()) {
+      try {
+        await logoutMillennium(oldSession.trim());
+      } catch {
+        /* best-effort */
+      }
+    }
+    const remove = (body.userChange?.removeMillenniumStoreIds ?? []).map(Number).filter(Number.isFinite);
+    if (remove.length > 0) {
+      const { data: gone } = await admin
+        .from("store")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .in("millennium_store_id", remove);
+      const goneIds = (gone ?? []).map((s) => s.id as string);
+      if (goneIds.length > 0) {
+        await admin.from("membership_store").delete().in("store_id", goneIds);
+        // Agregados de venda/categoria/forma/vendedora/produto saem em cascata.
+        await admin.from("store").delete().in("id", goneIds);
+      }
+    }
+  } else if (usernameChanged) {
+    await wipeTenantErpSync(admin, tenantId, oldSession);
   }
 
   const ciphertext = await encryptPassword(password, erpSecret);
@@ -198,6 +227,7 @@ Deno.serve(async (req) => {
           tax_id: s.taxId?.trim() || null,
           timezone: "America/Campo_Grande",
           active: true,
+          has_wpink: Boolean(s.hasWpink),
           ...(s.openedAt && /^\d{4}-\d{2}-\d{2}/.test(s.openedAt)
             ? { opened_at: s.openedAt.slice(0, 10) }
             : {}),
@@ -226,11 +256,19 @@ Deno.serve(async (req) => {
     }
   }
 
+  if (keepOnChange && stores.length === 0) {
+    const { data: links } = await admin
+      .from("membership_store")
+      .select("store_id")
+      .eq("membership_id", membershipId);
+    for (const l of links ?? []) storeIds.push(l.store_id as string);
+  }
+
   return json({
     ok: true,
     credentialId: cred.id,
     storeIds,
     lightIntervalMin: lightInterval,
-    wiped: usernameChanged,
+    wiped: usernameChanged && !keepOnChange,
   });
 });

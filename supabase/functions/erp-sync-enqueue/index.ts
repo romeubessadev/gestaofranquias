@@ -1,11 +1,14 @@
 /**
  * erp-sync-enqueue — JWT OWNER/MANAGER enfileira SEED | LIGHT | FORCE | RANGE.
- * Rate limit: FORCE at most once per 5 minutes per tenant.
+ * Rate limit FORCE: ver FORCE_COOLDOWN_MS (0 = off p/ teste).
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 
 type JobKind = "SEED" | "LIGHT" | "FORCE" | "FORCE_LIGHT" | "RANGE" | "BACKFILL";
+
+/** 0 = off (sem cooldown no Atualizar). Religar: 5 * 60 * 1000. */
+const FORCE_COOLDOWN_MS = 0;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -66,7 +69,13 @@ Deno.serve(async (req) => {
   if (!kind) return json({ error: "invalid_action" }, 400);
 
   const payload: { from?: string; to?: string; storeIds?: string[] } = {};
-  if (kind === "FORCE" || kind === "FORCE_LIGHT" || kind === "RANGE") {
+  if (kind === "FORCE" || kind === "FORCE_LIGHT") {
+    // Só hoje — client pode mandar from=to=hoje (audit); worker usa fuso da loja.
+    if (isIsoDay(body.from) && isIsoDay(body.to) && body.from === body.to) {
+      payload.from = body.from;
+      payload.to = body.to;
+    }
+  } else if (kind === "RANGE") {
     if (!isIsoDay(body.from) || !isIsoDay(body.to)) {
       return json({ error: "from_to_required" }, 400);
     }
@@ -130,16 +139,18 @@ Deno.serve(async (req) => {
 
   const { data: credential, error: credErr } = await admin
     .from("erp_credential")
-    .select("id, status")
+    .select("id, status, sync_paused")
     .eq("tenant_id", tenantId)
     .maybeSingle();
   if (credErr || !credential) return json({ error: "credential_missing" }, 400);
   if (credential.status === "INVALID" || credential.status === "NOT_CONFIGURED") {
     return json({ error: "credential_invalid" }, 400);
   }
+  // Desconectado: o worker não pega jobs de integração pausada — job ficaria QUEUED para sempre.
+  if (credential.sync_paused) return json({ error: "integration_paused" }, 409);
 
-  if (kind === "FORCE" || kind === "FORCE_LIGHT") {
-    const windowMs = 5 * 60 * 1000;
+  if ((kind === "FORCE" || kind === "FORCE_LIGHT") && FORCE_COOLDOWN_MS > 0) {
+    const windowMs = FORCE_COOLDOWN_MS;
     const since = new Date(Date.now() - windowMs).toISOString();
     // Abertos: pela criação. Concluídos: pelo finished_at (5 min contam a partir do fim do job).
     const [openRes, doneRes] = await Promise.all([
@@ -207,6 +218,33 @@ Deno.serve(async (req) => {
     if (blocking) {
       const retryAfterSec = Math.max(1, Math.ceil((blockingAnchor + windowMs - Date.now()) / 1000));
       return json({ ok: false, error: "rate_limited", retryAfterSec }, 429);
+    }
+  }
+
+  // Atualizar repetido (outra pessoa do tenant clicou antes): acompanha o job aberto que já cobre
+  // as lojas pedidas em vez de chamar o ERP de novo. "Todas" cobre qualquer loja; loja não cobre
+  // "Todas". Rodada automática fica de fora (sessão caída nela falha sem relogin).
+  if (kind === "FORCE") {
+    const { data: open, error: openErr } = await admin
+      .from("sync_job")
+      .select("id, kind, status, created_at, payload")
+      .eq("tenant_id", tenantId)
+      .eq("kind", "FORCE")
+      .in("status", ["QUEUED", "RUNNING"])
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (openErr) return json({ error: "dedupe_check_failed" }, 500);
+    const requested = payload.storeIds ?? null;
+    const covering = (open ?? []).find((row) => {
+      const p = (row.payload ?? {}) as { auto?: unknown; storeIds?: unknown };
+      if (p.auto) return false;
+      const ids = Array.isArray(p.storeIds) && p.storeIds.length > 0 ? (p.storeIds as string[]) : null;
+      if (ids == null) return true;
+      return requested != null && requested.every((id) => ids.includes(id));
+    });
+    if (covering) {
+      const { payload: _p, ...job } = covering;
+      return json({ ok: true, job, deduped: true });
     }
   }
 

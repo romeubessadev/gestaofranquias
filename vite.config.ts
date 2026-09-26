@@ -13,9 +13,7 @@ import path from 'node:path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  // GitHub Pages publica em <user>.github.io/<repo>/; todos os assets devem
-  // ser referenciados a partir desse subpath.
-  base: "/gestaofranquias/",
+  base: "/",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
@@ -27,6 +25,6 @@ export default defineConfig({
   // - fora de casa: cloudflared tunnel --url http://localhost:5173
   server: {
     host: true,
-    allowedHosts: ['.trycloudflare.com'],
+    allowedHosts: ['.trycloudflare.com', '.ngrok-free.app', '.ngrok.io'],
   },
 })

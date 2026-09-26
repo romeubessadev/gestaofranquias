@@ -1,36 +1,61 @@
 /** Pure helpers for Overview sync watermark / force UI (testable without React). */
 
-export const FORCE_COOLDOWN_MS = 5 * 60 * 1000;
+/**
+ * Cooldown do botão Atualizar.
+ * **0 = off** (decisão 2026-09-23 — sem espera entre cliques).
+ * Para religar no futuro: `5 * 60 * 1000`.
+ */
+export const FORCE_COOLDOWN_MS = 0;
 
 /** Sentinel key: FORCE em "Todas as lojas" (rede). */
 export const FORCE_ALL_KEY = "__all__";
 
 export type ForceAtMap = Record<string, string>;
 
-export function formatSyncWatermarkLabel(
-  watermark: Date | null,
-  opts: { loading?: boolean; now?: Date } = {},
+/** "Atualizado às 06:19" (mesmo dia) ou "Atualizado em 23/09 às 18:40". */
+export function formatUpdatedAtLabel(
+  at: Date,
+  opts: { now?: Date; timeZone?: string } = {},
 ): string {
   const now = opts.now ?? new Date();
+  const hora = new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: opts.timeZone,
+  }).format(at);
+  const dia = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: opts.timeZone,
+  });
+  const diaAt = dia.format(at);
+  if (diaAt === dia.format(now)) return `Atualizado às ${hora}`;
+  return `Atualizado em ${diaAt.slice(0, 5)} às ${hora}`;
+}
+
+export function formatSyncWatermarkLabel(
+  watermark: Date | null,
+  opts: { loading?: boolean; now?: Date; timeZone?: string } = {},
+): string {
   if (watermark == null) {
     return opts.loading ? "Sincronizando dados…" : "Aguardando primeiro sync";
   }
-  const minutosAtras = Math.floor((now.getTime() - watermark.getTime()) / 60000);
-  if (minutosAtras < 1) return "Atualizado agora";
-  return `Atualizado há ${minutosAtras} min`;
+  return formatUpdatedAtLabel(watermark, opts);
 }
 
 export function canForceSyncRefresh(role: string): boolean {
   return role === "OWNER" || role === "MANAGER";
 }
 
-/** Client-side mirror of Edge 5-min FORCE window for one timestamp. */
+/** Client-side mirror of Edge FORCE window for one timestamp. */
 export function forceRefreshRetryAfterSec(
   lastForceAt: Date | null,
   now: Date = new Date(),
   windowMs = FORCE_COOLDOWN_MS,
 ): number | null {
-  if (!lastForceAt) return null;
+  if (!lastForceAt || windowMs <= 0) return null;
   const elapsed = now.getTime() - lastForceAt.getTime();
   if (elapsed >= windowMs) return null;
   return Math.max(1, Math.ceil((windowMs - elapsed) / 1000));
@@ -47,6 +72,7 @@ export function forceCooldownForScopeSec(
   now: Date = new Date(),
   windowMs = FORCE_COOLDOWN_MS,
 ): number | null {
+  if (windowMs <= 0) return null;
   const parse = (iso: string | undefined): Date | null => {
     if (!iso) return null;
     const d = new Date(iso);

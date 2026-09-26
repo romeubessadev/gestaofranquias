@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { buildStoreView, buildOverviewView, revenueCurve, type ComparisonView, type Scope, type TrackStatus } from "./dashboard";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { buildStoreView, buildOverviewView, buildFinanceView, buildProductsView, monthlyEvolutionMonths, previousPeriod, resolvePeriod, revenueCurve, seriesAxisForPeriod, type ComparisonView, type Period, type Scope, type TrackStatus } from "./dashboard";
 import { goalOfStore } from "./goals";
-import { stores, storeById } from "./stores";
+import { EMPTY_STORE_COSTS, stores, storeById } from "./stores";
 import { TODAY_ISO } from "./clock";
 import { dayAggregate, salesDay, storeOpen, dayWeight } from "./sales";
 import { fimDoMes, intervaloDias, somarDias } from "@/lib/format";
@@ -459,6 +459,73 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
     expect(v.formasPagamento).toEqual([]);
   });
 
+  it("topProdutos from productDayAggs", () => {
+    const day = "2026-09-23";
+    const v = buildOverviewView(escopo("f1"), {
+      dayAggs: [
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day,
+          brand: "ALL",
+          revenueCents: 100_00,
+          salesCount: 2,
+          itemCount: 3,
+        },
+      ],
+      productDayAggs: [
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day,
+          productId: 430,
+          productCode: "271",
+          productName: "BODY SPLASH VF GOLDEN",
+          brand: "ALL",
+          revenueCents: 109_80,
+          itemCount: 2,
+        },
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day,
+          productId: 145,
+          productCode: "DCOB",
+          productName: "DESOD COL OBSESSED",
+          brand: "ALL",
+          revenueCents: 54_90,
+          itemCount: 1,
+        },
+      ],
+    });
+    expect(v.topProdutos).toHaveLength(2);
+    expect(v.topProdutos[0]?.nome).toMatch(/BODY SPLASH/i);
+    expect(v.topProdutos[0]?.valor).toBeCloseTo(109.8);
+    expect(v.topProdutos[0]?.sub).toMatch(/2 itens/);
+    expect(v.topProdutos[0]?.itens).toBe(2);
+  });
+
+  it("topProdutos traz o ranking completo (tela corta o Top 5 pela métrica escolhida)", () => {
+    const day = "2026-09-23";
+    // 6 produtos: o 6º em faturamento é o 1º em quantidade.
+    const productDayAggs = [
+      ...[1, 2, 3, 4, 5].map((i) => ({
+        tenantId: "t1", storeId: "f1", day, productId: i, productCode: `P${i}`, productName: `CARO ${i}`,
+        brand: "ALL" as const, revenueCents: (200 - i) * 100, itemCount: 1,
+      })),
+      { tenantId: "t1", storeId: "f1", day, productId: 99, productCode: "P99", productName: "BARATO",
+        brand: "ALL" as const, revenueCents: 50_00, itemCount: 9 },
+    ];
+    const v = buildOverviewView(escopo("f1"), {
+      dayAggs: [{ tenantId: "t1", storeId: "f1", day, brand: "ALL", revenueCents: 1_000_00, salesCount: 10, itemCount: 14 }],
+      productDayAggs,
+    });
+    expect(v.topProdutos).toHaveLength(6);
+    expect(v.topProdutos[0]?.nome).toBe("CARO 1");
+    const porQtd = [...v.topProdutos].sort((a, b) => (b.itens ?? 0) - (a.itens ?? 0));
+    expect(porQtd[0]).toMatchObject({ nome: "BARATO", itens: 9 });
+  });
+
   it("sums revenue and sales_count from day aggs into KPIs", () => {
     const v = buildOverviewView(escopo("f1"), {
       dayAggs: [
@@ -592,6 +659,122 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
     expect(v.formasPagamento[1]?.valor).toBe(50);
   });
 
+  it("fills topVendedoras from sellerDayAggs without pctMeta", () => {
+    const v = buildOverviewView(escopo("f1"), {
+      dayAggs: [
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day: "2026-09-10",
+          brand: "ALL",
+          revenueCents: 230_00,
+          salesCount: 3,
+          itemCount: 3,
+        },
+      ],
+      sellerDayAggs: [
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day: "2026-09-10",
+          sellerKey: "ANA SILVA",
+          sellerName: "Ana Silva",
+          brand: "ALL",
+          revenueCents: 150_00,
+          salesCount: 2,
+        },
+        {
+          tenantId: "t1",
+          storeId: "f1",
+          day: "2026-09-10",
+          sellerKey: "CARLA",
+          sellerName: "Carla",
+          brand: "ALL",
+          revenueCents: 80_00,
+          salesCount: 1,
+        },
+        {
+          tenantId: "t1",
+          storeId: "f2",
+          day: "2026-09-10",
+          sellerKey: "OUTRA LOJA",
+          sellerName: "Outra Loja",
+          brand: "ALL",
+          revenueCents: 999_00,
+          salesCount: 5,
+        },
+      ],
+    });
+    expect(v.topVendedoras).toHaveLength(2);
+    expect(v.topVendedoras[0]?.nome).toBe("Ana Silva");
+    expect(v.topVendedoras[0]?.valor).toBe(150);
+    expect(v.topVendedoras[0]?.ticketMedio).toBe(75);
+    expect(v.topVendedoras[0]?.pctMeta).toBeUndefined();
+    expect(v.topVendedoras[0]?.sub).toBe("2 vendas");
+    expect(v.topVendedoras[1]?.nome).toBe("Carla");
+  });
+
+  it("topVendedoras junta a mesma funcionária (código do ERP) mesmo com nome trocado", () => {
+    const base = { tenantId: "t1", storeId: "f1", brand: "ALL" as const, salesCount: 1 };
+    const v = buildOverviewView(escopo("f1"), {
+      dayAggs: [{ ...base, day: "2026-09-10", revenueCents: 300_00, itemCount: 3 }],
+      sellerDayAggs: [
+        { ...base, day: "2026-09-09", sellerKey: "ANA SILVA", sellerName: "Ana Silva", sellerEmployeeId: 7, revenueCents: 100_00 },
+        { ...base, day: "2026-09-10", sellerKey: "ANA SOUZA", sellerName: "Ana Souza", sellerEmployeeId: 7, revenueCents: 120_00 },
+        { ...base, day: "2026-09-10", sellerKey: "CARLA", sellerName: "Carla", revenueCents: 150_00 },
+      ],
+    });
+    expect(v.topVendedoras).toHaveLength(2);
+    expect(v.topVendedoras[0]).toMatchObject({ nome: "Ana Souza", valor: 220, sub: "2 vendas" });
+    expect(v.topVendedoras[1]?.nome).toBe("Carla");
+  });
+
+  it("topVendedoras: P.A. só com itens em todos os dias; lojas da maior para a menor", () => {
+    const base = { tenantId: "t1", brand: "ALL" as const, day: "2026-09-10" };
+    const sellerDayAggs = [
+      { ...base, storeId: "f1", sellerKey: "ANA", sellerName: "Ana", sellerEmployeeId: 1, revenueCents: 300_00, salesCount: 3, itemCount: 5 },
+      { ...base, storeId: "f2", sellerKey: "ANA", sellerName: "Ana", sellerEmployeeId: 1, revenueCents: 100_00, salesCount: 1, itemCount: 1 },
+      { ...base, storeId: "f2", sellerKey: "BIA", sellerName: "Bia", revenueCents: 200_00, salesCount: 2, itemCount: 0 },
+    ];
+    const dayAggs = [{ ...base, storeId: "f1", revenueCents: 600_00, salesCount: 6, itemCount: 6 }];
+    const rede = buildOverviewView(escopo("todas"), { dayAggs, sellerDayAggs });
+    expect(rede.topVendedoras[0]).toMatchObject({
+      nome: "Ana",
+      pa: 1.5,
+      lojas: ["Shopping Campo Grande", "Shopping Três Lagoas"],
+    });
+    expect(rede.topVendedoras[1]?.pa).toBeUndefined();
+    expect(rede.topVendedoras[1]?.lojas).toEqual(["Shopping Três Lagoas"]);
+
+    const umaLoja = buildOverviewView(escopo("f1"), { dayAggs, sellerDayAggs });
+    expect(umaLoja.topVendedoras[0]?.lojas).toEqual(["Shopping Campo Grande"]);
+  });
+
+  it("topVendedoras: turno cadastrado pelo código da funcionária, gerador ou nome", () => {
+    const base = { tenantId: "t1", brand: "ALL" as const, day: "2026-09-10", storeId: "f1", salesCount: 1 };
+    const turno = { storeId: "f1", employeeId: null, geradorId: null, nameKeys: [] as string[] };
+    const v = buildOverviewView(escopo("f1"), {
+      dayAggs: [{ ...base, revenueCents: 600_00 }],
+      sellerDayAggs: [
+        { ...base, sellerKey: "ANA", sellerName: "Ana", sellerEmployeeId: 7, revenueCents: 300_00 },
+        { ...base, sellerKey: "BIA", sellerName: "Bia", sellerGeradorId: 55, revenueCents: 200_00 },
+        { ...base, sellerKey: "CARLA", sellerName: "Carla", revenueCents: 150_00 },
+        { ...base, sellerKey: "DORA", sellerName: "Dora", revenueCents: 100_00 },
+      ],
+      sellerShifts: [
+        { ...turno, employeeId: 7, name: "Manhã", start: "09:00", end: "15:00" },
+        { ...turno, geradorId: 55, name: "Tarde", start: "15:00", end: "22:00" },
+        { ...turno, nameKeys: ["CARLA"], name: "Tarde", start: "15:00", end: "22:00" },
+      ],
+    });
+    expect(v.topVendedoras.map((s) => s.turno)).toEqual([
+      "Manhã · 09:00–15:00",
+      "Tarde · 15:00–22:00",
+      "Tarde · 15:00–22:00",
+      undefined,
+    ]);
+  });
+
   it("fills rankingLojas from dayAggs by store", () => {
     const v = buildOverviewView(escopo("todas"), {
       dayAggs: [
@@ -649,6 +832,7 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
     expect(v.rankingRedeTotal).toBe(400);
     expect(v.rankingLojas[0]?.pctRede).toBe(75);
     expect(v.rankingLojas[0]?.nome).toMatch(/Campo Grande|f1/i);
+    expect(v.rankingDemaisLojas).toBe(1);
   });
 
   it("rankingLojas rede omits stores with zero revenue (no ghost cards)", () => {
@@ -670,7 +854,7 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
     expect(v.rankingLojas[0]?.valor).toBe(300);
   });
 
-  it("brand filter uses WEPINK sales_count and ticket (not ALL)", () => {
+  it("Overview ignores brand filter — KPIs use ALL; WPINK goes to kpisWpink strip", () => {
     const base = {
       tenantId: "t1",
       storeId: "f1",
@@ -680,37 +864,45 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
       { ...escopo("f1"), divisao: "WEPINK" },
       {
         dayAggs: [
-          { ...base, brand: "ALL", revenueCents: 100_00, salesCount: 10, itemCount: 20 },
-          { ...base, brand: "WEPINK", revenueCents: 80_00, salesCount: 7, itemCount: 14 },
-          { ...base, brand: "WPINK", revenueCents: 20_00, salesCount: 3, itemCount: 6 },
+          { ...base, brand: "ALL", revenueCents: 100_00, salesCount: 10, itemCount: 20, cmvCents: 40_00 },
+          { ...base, brand: "WEPINK", revenueCents: 80_00, salesCount: 7, itemCount: 14, cmvCents: 30_00 },
+          { ...base, brand: "WPINK", revenueCents: 20_00, salesCount: 3, itemCount: 6, cmvCents: 10_00 },
         ],
       },
     );
-    expect(v.kpis.find((k) => k.label === "Nº de vendas")?.valor).toMatch(/7/);
-    // ticket = 80/7 ≈ 11,43
-    expect(v.kpis.find((k) => k.label === "Ticket médio")?.valor).toMatch(/11/);
+    // Total = ALL (10 vendas)
+    expect(v.kpis.find((k) => k.label === "Nº de vendas")?.valor).toMatch(/10/);
+    expect(v.kpis.find((k) => k.label === "Ticket médio")?.valor).toMatch(/10/);
+    // KPIs principais sem anotação WPINK
+    expect(v.kpis.find((k) => k.label === "Faturamento")?.subWpink).toBeUndefined();
+    expect(v.kpis.find((k) => k.label === "CMV")?.sub).not.toMatch(/WPINK/);
+    expect(v.kpis.find((k) => k.label === "Nº de vendas")?.sub).not.toMatch(/WPINK/);
+    // f1 fixture não tem temWpink → faixa oculta
+    expect(v.kpisWpink).toHaveLength(0);
   });
 
-  it("brand filter with report-only counts (0) rateia do ALL pela receita", () => {
-    const base = {
-      tenantId: "t1",
-      storeId: "f1",
-      day: "2026-09-10",
-    } as const;
-    const v = buildOverviewView(
-      { ...escopo("f1"), divisao: "WEPINK" },
-      {
-        dayAggs: [
-          { ...base, brand: "ALL", revenueCents: 100_00, salesCount: 10, itemCount: 20 },
-          { ...base, brand: "WEPINK", revenueCents: 80_00, salesCount: 0, itemCount: 0 },
-          { ...base, brand: "WPINK", revenueCents: 20_00, salesCount: 0, itemCount: 0 },
-        ],
-      },
-    );
-    // 80% de 10 vendas = 8
-    expect(v.kpis.find((k) => k.label === "Nº de vendas")?.valor).toMatch(/8/);
-    // ticket = 80/8 = 10
-    expect(v.kpis.find((k) => k.label === "Ticket médio")?.valor).toMatch(/10/);
+  it("kpisWpink strip only when store has temWpink", () => {
+    const day = "2026-09-10";
+    const vF1 = buildOverviewView(escopo("f1"), {
+      dayAggs: [
+        { tenantId: "t1", storeId: "f1", day, brand: "ALL", revenueCents: 100_00, salesCount: 10, itemCount: 20 },
+        { tenantId: "t1", storeId: "f1", day, brand: "WPINK", revenueCents: 20_00, salesCount: 3, itemCount: 6 },
+      ],
+    });
+    expect(vF1.kpisWpink).toHaveLength(0);
+
+    const vF2 = buildOverviewView(escopo("f2"), {
+      dayAggs: [
+        { tenantId: "t1", storeId: "f2", day, brand: "ALL", revenueCents: 100_00, salesCount: 10, itemCount: 20, cmvCents: 40_00 },
+        { tenantId: "t1", storeId: "f2", day, brand: "WPINK", revenueCents: 20_00, salesCount: 3, itemCount: 6, cmvCents: 8_00 },
+      ],
+    });
+    expect(vF2.kpisWpink).toHaveLength(4);
+    expect(vF2.kpisWpink[0]?.label).toBe("Faturamento WPINK");
+    expect(vF2.kpisWpink[0]?.valor).toMatch(/20/);
+    expect(vF2.kpisWpink[0]?.sub).toMatch(/% do faturamento/);
+    expect(vF2.kpisWpink[0]?.sub).not.toMatch(/do total/);
+    expect(vF2.kpisWpink[2]?.valor).toMatch(/3/);
   });
 
   it("post-sync read reflects updated aggregates without mocks (SYNC-09)", () => {
@@ -731,5 +923,537 @@ describe("Overview from sales aggregates (SYNC-06/08)", () => {
     expect(before.kpis.find((k) => k.label === "Faturamento")?.valor).toMatch(/R\$\s*0/);
     expect(after.kpis.find((k) => k.label === "Nº de vendas")?.valor).toMatch(/7/);
     expect(after.fromAggregates).toBe(true);
+  });
+
+  it("Faturamento x meta (hoje): Overview usa horas ALL (sem filtro de marca)", () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+    const d = String(today.getDate()).padStart(2, "0");
+    const day = `${y}-${m}-${d}`;
+    const v = buildOverviewView(
+      { filialIds: [], periodo: { tipo: "hoje" }, divisao: "WPINK" },
+      {
+        dayAggs: [
+          { tenantId: "t1", storeId: "f1", day, brand: "ALL", revenueCents: 100_00, salesCount: 10, itemCount: 10 },
+          { tenantId: "t1", storeId: "f1", day, brand: "WEPINK", revenueCents: 80_00, salesCount: 0, itemCount: 0 },
+          { tenantId: "t1", storeId: "f1", day, brand: "WPINK", revenueCents: 20_00, salesCount: 0, itemCount: 0 },
+        ],
+        hourAggs: [
+          { tenantId: "t1", storeId: "f1", day, hour: 10, brand: "ALL", revenueCents: 40_00, salesCount: 4, itemCount: 4 },
+          { tenantId: "t1", storeId: "f1", day, hour: 11, brand: "ALL", revenueCents: 60_00, salesCount: 6, itemCount: 6 },
+        ],
+      },
+    );
+    expect(v.eixoSerie).toBe("hora");
+    expect(v.evolucao.length).toBeGreaterThanOrEqual(2);
+    // Total da operação (ALL), não rateio WPINK
+    expect(v.evolucao[v.evolucao.length - 1]?.realizado).toBeCloseTo(100, 0);
+  });
+
+  it("Faturamento x meta (hoje): 1 hora com venda ainda preenche o eixo", () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+    const d = String(today.getDate()).padStart(2, "0");
+    const day = `${y}-${m}-${d}`;
+    const v = buildOverviewView(
+      { filialIds: ["f1"], periodo: { tipo: "hoje" }, divisao: null },
+      {
+        dayAggs: [
+          { tenantId: "t1", storeId: "f1", day, brand: "ALL", revenueCents: 50_00, salesCount: 2, itemCount: 2 },
+        ],
+        hourAggs: [
+          { tenantId: "t1", storeId: "f1", day, hour: 15, brand: "ALL", revenueCents: 50_00, salesCount: 2, itemCount: 2 },
+        ],
+      },
+    );
+    expect(v.eixoSerie).toBe("hora");
+    expect(v.evolucao.length).toBeGreaterThan(1);
+    expect(v.evolucao.some((e) => e.label.includes("15"))).toBe(true);
+    expect(v.evolucao[0]?.realizado).toBe(0);
+    expect(v.evolucao[v.evolucao.length - 1]?.realizado).toBe(50);
+  });
+
+  it("Faturamento x meta (1 dia passado): eixo segue o expediente só das lojas com venda", () => {
+    // Segunda-feira: f1 abre 10–22; f2 (sem venda) abre 08–18 e não pode puxar o início p/ 8h.
+    const day = "2026-09-21";
+    const v = buildOverviewView(
+      { filialIds: [], periodo: { tipo: "personalizado", inicio: day, fim: day }, divisao: null },
+      {
+        dayAggs: [
+          { tenantId: "t1", storeId: "f1", day, brand: "ALL", revenueCents: 100_00, salesCount: 3, itemCount: 3 },
+        ],
+        hourAggs: [
+          { tenantId: "t1", storeId: "f1", day, hour: 12, brand: "ALL", revenueCents: 60_00, salesCount: 2, itemCount: 2 },
+          { tenantId: "t1", storeId: "f1", day, hour: 22, brand: "ALL", revenueCents: 40_00, salesCount: 1, itemCount: 1 },
+        ],
+      },
+    );
+    expect(v.eixoSerie).toBe("hora");
+    // Abre às 10h com R$ 0 (âncora); rótulos = "acumulado até".
+    expect(v.evolucao[0]).toMatchObject({ label: "10h", realizado: 0, ancora: true });
+    expect(v.evolucao.find((e) => e.label === "13h")?.realizado).toBe(60);
+    expect(v.evolucao.find((e) => e.label === "22h")?.realizado).toBe(60);
+    // Venda após o fechamento (22:xx) continua aparecendo → vai até 23h.
+    expect(v.evolucao[v.evolucao.length - 1]).toMatchObject({ label: "23h", realizado: 100 });
+  });
+
+  it("Faturamento x meta: meta do dia (não do mês) e curva pela hora histórica", () => {
+    const day = "2026-09-21";
+    const sale = { tenantId: "t1", storeId: "f1", day, brand: "ALL" as const, revenueCents: 50_00, salesCount: 1, itemCount: 1 };
+    const base = {
+      dayAggs: [sale],
+      hourAggs: [{ ...sale, hour: 15 }],
+    };
+    const escopo = { filialIds: ["f1"], periodo: { tipo: "personalizado" as const, inicio: day, fim: day }, divisao: null };
+    const linear = buildOverviewView(escopo, base);
+    const metaDia = linear.evolucao[linear.evolucao.length - 1]!.meta;
+    // Meta mensal f1 set/26 = 170 mil → um dia fica bem abaixo de 1/20 do mês.
+    expect(metaDia).toBeGreaterThan(0);
+    expect(metaDia).toBeLessThan(170_000 / 20);
+
+    // Histórico: segundas anteriores vendem só às 15h → toda a meta cai nas 15h.
+    const curva = buildOverviewView(escopo, {
+      ...base,
+      goalHistoryHourAggs: ["2026-09-14", "2026-09-07"].map((d) => ({ ...sale, day: d, hour: 15 })),
+    });
+    const at = (label: string) => curva.evolucao.find((e) => e.label === label)?.meta ?? -1;
+    expect(at("15h")).toBe(0);
+    expect(at("16h")).toBeCloseTo(metaDia);
+  });
+
+  it("Faturamento x meta (1 dia passado): sem venda pós-fechamento termina no fechamento", () => {
+    const day = "2026-09-21";
+    const v = buildOverviewView(
+      { filialIds: ["f1"], periodo: { tipo: "personalizado", inicio: day, fim: day }, divisao: null },
+      {
+        dayAggs: [
+          { tenantId: "t1", storeId: "f1", day, brand: "ALL", revenueCents: 50_00, salesCount: 1, itemCount: 1 },
+        ],
+        hourAggs: [
+          { tenantId: "t1", storeId: "f1", day, hour: 21, brand: "ALL", revenueCents: 50_00, salesCount: 1, itemCount: 1 },
+        ],
+      },
+    );
+    expect(v.evolucao[0]?.label).toBe("10h");
+    expect(v.evolucao[v.evolucao.length - 1]).toMatchObject({ label: "22h", realizado: 50 });
+  });
+});
+
+describe("buildOverviewView — comparativo com o período anterior", () => {
+  const day = (d: string, rev: number, cmv: number, vendas: number) => ({
+    tenantId: "t1",
+    storeId: "f1",
+    day: d,
+    brand: "ALL" as const,
+    revenueCents: rev * 100,
+    cmvCents: cmv * 100,
+    salesCount: vendas,
+    itemCount: vendas * 2,
+  });
+  const esc = { filialIds: ["f1"], periodo: { tipo: "personalizado" as const, inicio: "2026-08-10", fim: "2026-08-11" }, divisao: null };
+
+  it("KPIs e cards ganham badge quando há vendas no período anterior", () => {
+    const v = buildOverviewView(esc, {
+      dayAggs: [day("2026-08-10", 200, 80, 4), day("2026-08-11", 100, 40, 2)],
+      prevDayAggs: [day("2026-08-08", 150, 60, 3), day("2026-08-09", 50, 20, 1)],
+    });
+    const [fat, cmv, vendas, ticket] = v.kpis;
+    expect(fat?.delta).toMatchObject({ value: "50%", positive: true, vs: "os 2 dias anteriores" });
+    expect(cmv?.delta?.positive).toBe(true);
+    expect(vendas?.delta).toMatchObject({ positive: true });
+    expect(ticket?.delta).toBeUndefined(); // 300/6 = 200/4 = R$ 50
+    expect(v.deltaFaturamento).toEqual(fat?.delta);
+  });
+
+  it("faixa WPINK compara com o WPINK do período anterior", () => {
+    const w = (d: string, rev: number, vendas: number) => ({ ...day(d, rev, 0, vendas), storeId: "f2", brand: "WPINK" as const, cmvCents: 0 });
+    const all = (d: string, rev: number, vendas: number) => ({ ...day(d, rev, 0, vendas), storeId: "f2" });
+    const v = buildOverviewView(
+      { ...esc, filialIds: ["f2"] },
+      {
+        dayAggs: [all("2026-08-10", 300, 6), w("2026-08-10", 120, 3)],
+        prevDayAggs: [all("2026-08-08", 200, 4), w("2026-08-08", 80, 2)],
+      },
+    );
+    const [fatW, cmvW, vendasW] = v.kpisWpink;
+    expect(fatW?.delta).toMatchObject({ value: "50%", positive: true });
+    expect(cmvW?.delta).toBeUndefined();
+    expect(vendasW?.delta).toMatchObject({ value: "50%", positive: true });
+  });
+
+  it("WPINK sem contagem/CMV (só receita) não estima: — e sem badge", () => {
+    const w = (d: string, rev: number) => ({ ...day(d, rev, 0, 0), storeId: "f2", brand: "WPINK" as const, cmvCents: 0 });
+    const all = (d: string, rev: number, vendas: number) => ({ ...day(d, rev, 0, vendas), storeId: "f2" });
+    const v = buildOverviewView(
+      { ...esc, filialIds: ["f2"] },
+      {
+        dayAggs: [all("2026-08-10", 300, 30), w("2026-08-10", 150)],
+        prevDayAggs: [all("2026-08-08", 200, 20), w("2026-08-08", 50)],
+      },
+    );
+    const byLabel = (l: string) => v.kpisWpink.find((k) => k.label === l);
+    expect(byLabel("Faturamento WPINK")?.delta).toMatchObject({ value: "200%", positive: true });
+    for (const l of ["CMV WPINK", "Nº de vendas WPINK", "Ticket médio WPINK"]) {
+      expect(byLabel(l)?.valor).toBe("—");
+      expect(byLabel(l)?.delta).toBeUndefined();
+    }
+  });
+
+  it("sem vendas no período anterior não mostra badge", () => {
+    const v = buildOverviewView(esc, { dayAggs: [day("2026-08-10", 200, 80, 4)], prevDayAggs: [] });
+    expect(v.kpis.every((k) => k.delta === undefined)).toBe(true);
+    expect(v.deltaFaturamento).toBeUndefined();
+  });
+
+  it("sem vendas no período atual (ex.: hoje antes do Atualizar) não mostra −100%", () => {
+    const w = (d: string, rev: number) => ({ ...day(d, rev, 40, 2), storeId: "f2", brand: "WPINK" as const });
+    const all = (d: string, rev: number) => ({ ...day(d, rev, 80, 4), storeId: "f2" });
+    const v = buildOverviewView(
+      { ...esc, filialIds: ["f2"] },
+      { dayAggs: [all("2026-08-10", 0)], prevDayAggs: [all("2026-08-08", 200), w("2026-08-08", 100)] },
+    );
+    expect(v.kpis.every((k) => k.delta === undefined)).toBe(true);
+    expect(v.deltaFaturamento).toBeUndefined();
+    expect(v.kpisWpink.every((k) => k.delta === undefined)).toBe(true);
+
+    const f = buildFinanceView(
+      { filialIds: ["f2"], periodo: { tipo: "personalizado", inicio: "2026-08-10", fim: "2026-08-10" }, divisao: null },
+      { dayAggs: [all("2026-08-10", 0), all("2026-08-03", 200), w("2026-08-03", 100)] },
+    );
+    expect(f.kpis.every((k) => k.delta === undefined)).toBe(true);
+    expect(f.deltaResultado).toBeUndefined();
+    expect(f.kpisWpink.every((k) => k.delta === undefined)).toBe(true);
+  });
+});
+
+describe("comparativo alinhado pelo horário (período termina hoje)", () => {
+  // qui 24/09/2026 16h30 em Campo Grande (UTC−4)
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-24T20:30:00Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const d = (day: string, rev: number, cmv: number) => ({
+    tenantId: "t1", storeId: "f1", day, brand: "ALL" as const,
+    revenueCents: rev * 100, cmvCents: cmv * 100, salesCount: 1, itemCount: 1,
+  });
+  const h = (day: string, hour: number, rev: number) => ({
+    tenantId: "t1", storeId: "f1", day, hour, brand: "ALL" as const,
+    revenueCents: rev * 100, salesCount: 1, itemCount: 1,
+  });
+  const semana = { filialIds: ["f1"], periodo: { tipo: "estaSemana" as const }, divisao: null };
+  const atual = [d("2026-09-21", 100, 40), d("2026-09-22", 100, 40), d("2026-09-23", 100, 40), d("2026-09-24", 100, 20)];
+  const anterior = [d("2026-09-14", 100, 50), d("2026-09-15", 100, 50), d("2026-09-16", 100, 50), d("2026-09-17", 200, 100)];
+
+  it("previousPeriod: semana = mesmos dias; último dia recortado na hora atual", () => {
+    expect(previousPeriod(resolvePeriod({ tipo: "estaSemana" }, "2026-09-24"), 16)).toEqual({
+      inicio: "2026-09-14", fim: "2026-09-17", rotulo: "a semana passada", horaMax: 16,
+    });
+    expect(previousPeriod(resolvePeriod({ tipo: "esteMes" }, "2026-09-24"), 16)).toMatchObject({
+      inicio: "2026-08-01", fim: "2026-08-24", horaMax: 16,
+    });
+    expect(previousPeriod(resolvePeriod({ tipo: "7dias" }, "2026-09-24"), 16)).toMatchObject({
+      inicio: "2026-09-11", fim: "2026-09-17", horaMax: 16,
+    });
+    expect(previousPeriod(resolvePeriod({ tipo: "mesPassado" }, "2026-09-24"), 16).horaMax).toBeUndefined();
+  });
+
+  it("Visão Geral: dia equivalente entra até a hora atual; CMV compara até ontem", () => {
+    const v = buildOverviewView(semana, {
+      dayAggs: atual,
+      prevDayAggs: anterior,
+      prevHourAggs: [h("2026-09-17", 10, 50), h("2026-09-17", 18, 150)],
+    });
+    const [fat, cmv] = v.kpis;
+    // 400 × (300 + qui 17 só até 16h = 50) → +14%
+    expect(fat?.delta).toMatchObject({ value: "14%", positive: true, vs: "a semana passada" });
+    expect(fat?.delta?.anterior).toContain("350,00");
+    // CMV seg–qua: 120 × 150
+    expect(cmv?.delta).toMatchObject({ value: "20%", positive: false, vs: "a semana passada, até ontem" });
+    expect(cmv?.delta?.anterior).toContain("150,00");
+  });
+
+  it("sem as horas do dia equivalente não compara dia parcial com dia cheio", () => {
+    const v = buildOverviewView(semana, { dayAggs: atual, prevDayAggs: anterior, prevHourAggs: [] });
+    expect(v.kpis[0]?.delta).toBeUndefined();
+    expect(v.deltaFaturamento).toBeUndefined();
+  });
+
+  it("Financeiro: mesma regra (faturamento até a hora; CMV/lucro até ontem)", () => {
+    const f = buildFinanceView(semana, {
+      dayAggs: [...atual, ...anterior],
+      prevHourAggs: [h("2026-09-17", 10, 50), h("2026-09-17", 18, 150)],
+    });
+    const byLabel = (l: string) => f.kpis.find((k) => k.label === l);
+    expect(byLabel("Faturamento")?.delta).toMatchObject({ value: "14%", positive: true });
+    expect(byLabel("CMV")?.delta).toMatchObject({ value: "20%", positive: false, vs: "a semana passada, até ontem" });
+  });
+});
+
+describe("buildFinanceView com agregados reais", () => {
+  const day = (d: string, rev: number, cmv: number) => ({
+    tenantId: "t1",
+    storeId: "f1",
+    day: d,
+    brand: "ALL" as const,
+    revenueCents: rev * 100,
+    cmvCents: cmv * 100,
+    salesCount: 2,
+    itemCount: 3,
+  });
+
+  it("soma faturamento/CMV, desconta custos % da loja e compara com o período anterior", () => {
+    const v = buildFinanceView(
+      { filialIds: ["f1"], periodo: { tipo: "personalizado", inicio: "2026-08-10", fim: "2026-08-11" }, divisao: null },
+      { dayAggs: [day("2026-08-08", 150, 60), day("2026-08-10", 200, 80), day("2026-08-11", 100, 40)] },
+    );
+    const fat = v.custoLucroMargem.reduce((s, p) => s + p.faturamento, 0);
+    const cmv = v.custoLucroMargem.reduce((s, p) => s + p.custo, 0);
+    const resultado = v.resultadoOperacional.reduce((s, p) => s + p.resultado, 0);
+    expect(fat).toBe(300);
+    expect(cmv).toBe(120);
+    // Sem custos configurados: nenhum custo inventado (resultado = lucro bruto).
+    expect(resultado).toBeCloseTo(180);
+    expect(v.custosFixosFranquia.find((l) => l.ehTotal)?.valor).toBe(0);
+    expect(v.custosConfigurados).toBe(false);
+    expect(v.custosFixosFranquia.some((l) => l.rotulo === "Aluguel fixo")).toBe(false);
+    expect(v.custosFixosFranquia.some((l) => l.rotulo.includes("WPINK"))).toBe(false);
+    expect(v.faturamentoPorMarca).toBeNull();
+    expect(v.kpis[0]?.delta).toBeDefined();
+    expect(v.deltaResultado).toBeDefined();
+    // Período de 2 dias (eixo por dia) → sem Evolução mensal.
+    expect(v.evolucaoMensal).toEqual([]);
+  });
+
+  it("Evolução mensal com vários meses: meses do período, recortados nas pontas", () => {
+    const v = buildFinanceView(
+      { filialIds: ["f1"], periodo: { tipo: "personalizado", inicio: "2026-07-10", fim: "2026-08-31" }, divisao: null },
+      { dayAggs: [day("2026-07-05", 999, 0), day("2026-07-10", 200, 80), day("2026-08-11", 100, 40)] },
+    );
+    expect(v.mostrarEvolucaoMensal).toBe(true);
+    expect(v.evolucaoMensal.map((r) => r.mes)).toEqual(["julho (10 a 31)", "agosto"]);
+    expect(v.evolucaoMensal.map((r) => r.faturamento)).toEqual([200, 100]);
+    expect(v.rotuloEvolucaoMensal).toBe("10/07 a 31/08");
+  });
+
+  it("Evolução mensal com 1 mês inteiro (fevereiro, 28 dias): o mês + 5 anteriores", () => {
+    const v = buildFinanceView(
+      { filialIds: ["f1"], periodo: { tipo: "personalizado", inicio: "2026-02-01", fim: "2026-02-28" }, divisao: null },
+      { dayAggs: [day("2025-08-20", 999, 0), day("2025-12-10", 300, 100), day("2026-02-11", 100, 40)] },
+    );
+    expect(v.mostrarEvolucaoMensal).toBe(true);
+    expect(v.evolucaoMensal.map((r) => r.mes)).toEqual(["dezembro de 2025", "fevereiro de 2026"]);
+    expect(v.evolucaoMensal.map((r) => r.faturamento)).toEqual([300, 100]);
+    expect(v.rotuloEvolucaoMensal).toBe("fevereiro de 2026 e meses anteriores");
+  });
+
+  it("monthlyEvolutionMonths: período mensal pelo calendário, não por contagem de dias", () => {
+    const meses = (p: Period, hoje = "2026-09-26") => {
+      const r = resolvePeriod(p, hoje);
+      return monthlyEvolutionMonths(r, seriesAxisForPeriod(r));
+    };
+    expect(meses({ tipo: "esteMes" })).toEqual({
+      meses: ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"],
+      comAnteriores: true,
+    });
+    expect(meses({ tipo: "esteMes" }, "2026-09-01").comAnteriores).toBe(true);
+    expect(meses({ tipo: "mesPassado" }).meses.at(-1)).toBe("2026-08");
+    expect(meses({ tipo: "esteTrimestre" })).toEqual({ meses: ["2026-07", "2026-08", "2026-09"], comAnteriores: false });
+    expect(meses({ tipo: "personalizado", inicio: "2026-09-01", fim: "2026-09-26" }).comAnteriores).toBe(true);
+    expect(meses({ tipo: "hoje" }).meses).toEqual([]);
+    expect(meses({ tipo: "hoje" }, "2026-09-01").meses).toEqual([]);
+    expect(meses({ tipo: "7dias" }).meses).toEqual([]);
+    expect(meses({ tipo: "estaSemana" }).meses).toEqual([]);
+    expect(meses({ tipo: "personalizado", inicio: "2026-09-01", fim: "2026-09-15" }).meses).toEqual([]);
+  });
+
+  it("faixa WPINK: valores e badges só com dado completo (nada estimado)", () => {
+    const row = (d: string, brand: "ALL" | "WPINK", rev: number, cmv: number) => ({ ...day(d, rev, cmv), storeId: "f2", brand });
+    const esc = { filialIds: ["f2"], periodo: { tipo: "personalizado" as const, inicio: "2026-08-10", fim: "2026-08-10" }, divisao: null };
+    const v = buildFinanceView(esc, {
+      dayAggs: [row("2026-08-10", "ALL", 1000, 400), row("2026-08-10", "WPINK", 200, 80), row("2026-08-03", "ALL", 800, 300), row("2026-08-03", "WPINK", 100, 50)],
+    });
+    const [fat, cmv, lucro, margem] = v.kpisWpink;
+    expect(fat?.valor).toMatch(/^R\$\s200,00$/);
+    expect(fat?.sub).toBe("20% do faturamento");
+    expect(fat?.delta).toMatchObject({ value: "100%", positive: true });
+    expect(cmv?.delta).toMatchObject({ value: "60%", positive: true });
+    expect(lucro?.valor).toMatch(/^R\$\s120,00$/);
+    expect(margem?.delta).toMatchObject({ value: "10.0 p.p.", positive: true });
+
+    const semCmv = buildFinanceView(esc, {
+      dayAggs: [row("2026-08-10", "ALL", 1000, 400), row("2026-08-10", "WPINK", 200, 0), row("2026-08-03", "WPINK", 100, 50)],
+    });
+    expect(semCmv.kpisWpink.slice(1).map((k) => k.valor)).toEqual(["—", "—", "—"]);
+    expect(semCmv.kpisWpink.slice(1).every((k) => k.delta === undefined)).toBe(true);
+  });
+
+  it("produto com custo R$ 0 no Millennium: CMV WPINK = 0 (não —) e aviso lista o produto", () => {
+    const row = (d: string, brand: "ALL" | "WPINK", rev: number, cmv: number) => ({ ...day(d, rev, cmv), storeId: "f2", brand });
+    const esc = { filialIds: ["f2"], periodo: { tipo: "personalizado" as const, inicio: "2026-09-12", fim: "2026-09-12" }, divisao: null };
+    const v = buildFinanceView(esc, {
+      dayAggs: [row("2026-09-12", "ALL", 1000, 400), row("2026-09-12", "WPINK", 140, 0)],
+      productCostDayAggs: [
+        { tenantId: "t1", storeId: "f2", day: "2026-09-12", productCode: "WP014", itemCount: 3, revenueCents: 14000, cmvCents: 0 },
+        { tenantId: "t1", storeId: "f2", day: "2026-09-12", productCode: "A1", itemCount: 5, revenueCents: 86000, cmvCents: 40000 },
+      ],
+      productNames: { WP014: "WP ULTRA - WP" },
+    });
+    const [, cmv, lucro, margem] = v.kpisWpink;
+    expect(cmv?.valor).toMatch(/^R\$\s0,00$/);
+    expect(lucro?.valor).toMatch(/^R\$\s140,00$/);
+    expect(margem?.valor).not.toBe("—");
+    expect(v.produtosSemCusto).toEqual([{ codigo: "WP014", nome: "WP ULTRA - WP", itens: 3, faturamento: 140 }]);
+  });
+
+  it("impostos da loja saem antes do Lucro bruto: ICMS sobre o faturamento, ICMS ST sobre o CMV", () => {
+    const loja = stores.find((s) => s.id === "f1")!;
+    const antes = loja.custos;
+    loja.custos = { ...EMPTY_STORE_COSTS, icmsPct: 10, icmsStPct: 20 };
+    try {
+      const v = buildFinanceView(
+        { filialIds: ["f1"], periodo: { tipo: "personalizado", inicio: "2026-08-10", fim: "2026-08-10" }, divisao: null },
+        { dayAggs: [day("2026-08-10", 200, 80)] },
+      );
+      const lucro = v.kpis.find((k) => k.label === "Lucro bruto");
+      // 200 − 80 − ICMS 20 (10% de 200) − ICMS ST 16 (20% de 80)
+      expect(lucro?.valor).toMatch(/^R\$\s84,00$/);
+      expect(lucro?.sub).toMatch(/^Impostos R\$\s36,00$/);
+      expect(v.custosFixosFranquia[0]).toMatchObject({ rotulo: "Lucro bruto", valor: 84 });
+      // Sem royalties/marketing/aluguel configurados: resultado = lucro bruto.
+      expect(v.custosFixosFranquia.find((l) => l.ehResultado)?.valor).toBeCloseTo(84);
+    } finally {
+      loja.custos = antes;
+    }
+  });
+
+  it("loja sem dados não quebra a tela (CMV vazio vira —)", () => {
+    const v = buildFinanceView({ filialIds: ["f2"], periodo: { tipo: "hoje" }, divisao: null }, { dayAggs: [] });
+    expect(v.kpis[0]?.valor).toBeDefined();
+    expect(v.kpis[1]?.valor).toBe("—");
+    expect(v.evolucaoMensal).toEqual([]);
+  });
+});
+
+describe("buildProductsView com agregados reais", () => {
+  const dia = (d: string, rev: number, cmv: number, items = 10) => ({
+    tenantId: "t1", storeId: "f1", day: d, brand: "ALL" as const,
+    revenueCents: rev * 100, cmvCents: cmv * 100, salesCount: 2, itemCount: items,
+  });
+  const prod = (d: string, id: number, code: string, rev: number, itens: number) => ({
+    tenantId: "t1", storeId: "f1", day: d, productId: id, productCode: code, productName: `PRODUTO ${code}`,
+    brand: "ALL" as const, revenueCents: rev * 100, itemCount: itens,
+  });
+  const custo = (d: string, code: string, cmv: number) => ({
+    tenantId: "t1", storeId: "f1", day: d, productCode: code, itemCount: 1, revenueCents: 0, cmvCents: cmv * 100,
+  });
+  const cat = (d: string, id: number, nome: string, rev: number) => ({
+    tenantId: "t1", storeId: "f1", day: d, categoryId: id, categoryName: nome, brand: "ALL" as const,
+    revenueCents: rev * 100, itemCount: 1,
+  });
+  const esc = { filialIds: ["f1"], periodo: { tipo: "personalizado" as const, inicio: "2026-08-10", fim: "2026-08-11" }, divisao: null };
+
+  it("KPIs = Financeiro + Itens vendidos; categorias e produtos com variação vs período anterior", () => {
+    const v = buildProductsView(esc, {
+      dayAggs: [dia("2026-08-08", 150, 60, 5), dia("2026-08-10", 200, 80), dia("2026-08-11", 100, 40)],
+      categoryDayAggs: [cat("2026-08-10", 1, "Perfumaria", 200), cat("2026-08-11", 2, "Body", 100), cat("2026-08-08", 1, "Perfumaria", 150)],
+      productDayAggs: [prod("2026-08-10", 1, "A1", 200, 4), prod("2026-08-11", 2, "B2", 100, 5), prod("2026-08-08", 1, "A1", 100, 2)],
+      productCostDayAggs: [custo("2026-08-10", "A1", 80)],
+    });
+    expect(v.kpis.map((k) => k.label)).toEqual(["Faturamento", "Lucro bruto", "Margem", "Itens vendidos"]);
+    expect(v.kpis[3]?.valor).toBe("20");
+    expect(v.kpis[3]?.delta).toMatchObject({ value: "300%", positive: true });
+    expect(v.temVendas).toBe(true);
+
+    expect(v.categorias.map((c) => [c.nome, c.faturamento])).toEqual([["PERFUMARIA", 200], ["BODY", 100]]);
+    expect(v.deltaCategorias).toMatchObject({ value: "100%", positive: true });
+    // Body começa em 66,7% acumulado (< 80%) → ainda classe A.
+    expect(v.curvaAbcCategorias.itens.map((i) => i.classe)).toEqual(["A", "A"]);
+
+    const [a1, b2] = v.produtos;
+    expect(a1).toMatchObject({ codigo: "A1", faturamento: 200, itens: 4, precoMedio: 50, cmv: 80, lucro: 120, variacaoPct: 100 });
+    expect(a1?.participacaoPct).toBeCloseTo(66.67, 1);
+    // B2 vendeu num dia sem custo gravado → nada estimado.
+    expect(b2).toMatchObject({ codigo: "B2", cmv: null, lucro: null, margemPct: null, variacaoPct: null });
+    expect(v.temCustoProduto).toBe(true);
+  });
+
+  it("linhas de produto: soma a fragrância em todos os tipos; sem custo em algum produto → margem —", () => {
+    const nomeado = (d: string, id: number, code: string, nome: string, rev: number, itens: number) => ({
+      ...prod(d, id, code, rev, itens),
+      productName: nome,
+    });
+    const v = buildProductsView(esc, {
+      dayAggs: [dia("2026-08-08", 100, 40), dia("2026-08-10", 600, 200)],
+      productDayAggs: [
+        nomeado("2026-08-10", 1, "DCOB", "DESOD COL OBSESSED 100ML - WEPINK", 200, 2),
+        nomeado("2026-08-10", 2, "DCOBDX", "DESOD COL OBSESSED DELUXE 100 ML - WEPINK", 150, 1),
+        nomeado("2026-08-10", 3, "BSOBS", "BODY SPLASH OBSESSED 200ML - WEPINK", 100, 2),
+        nomeado("2026-08-08", 3, "BSOBS", "BODY SPLASH OBSESSED 200ML - WEPINK", 100, 2),
+        nomeado("2026-08-10", 4, "271", "BODY SPLASH VF GOLDEN  200 ML - WEPINK", 120, 1),
+        nomeado("2026-08-10", 5, "327", "SHAMPOO MY HAIR ULTRA REPAIR 250ML - WEPINK", 30, 1),
+      ],
+      productCostDayAggs: [custo("2026-08-10", "DCOB", 80), custo("2026-08-10", "DCOBDX", 60), custo("2026-08-10", "BSOBS", 40)],
+      // Catálogo dá o nome estável: VF GOLDEN sozinha no período ainda é da linha VF.
+      catalogDescriptions: ["DESOD COL VF 27 75ML - WEPINK", "BODY SPLASH VF GOLDEN  200 ML - WEPINK"],
+    });
+    const [obsessed, vf] = v.linhas;
+    expect(obsessed).toMatchObject({
+      nome: "OBSESSED",
+      faturamento: 450,
+      itens: 5,
+      produtos: 3,
+      tipos: ["Desodorante colônia", "Body splash"],
+      variacaoPct: 350,
+    });
+    expect(obsessed?.margemPct).toBeCloseTo(60);
+    expect(vf).toMatchObject({ nome: "VF", faturamento: 120, margemPct: null });
+    expect(v.semLinhaFaturamento).toBe(30);
+  });
+
+  it("lucro do produto desconta ICMS (faturamento) e ICMS ST (CMV) da loja", () => {
+    const loja = stores.find((s) => s.id === "f1")!;
+    const antes = loja.custos;
+    loja.custos = { ...EMPTY_STORE_COSTS, icmsPct: 10, icmsStPct: 20 };
+    try {
+      const v = buildProductsView(esc, {
+        dayAggs: [dia("2026-08-10", 200, 80)],
+        productDayAggs: [prod("2026-08-10", 1, "A1", 200, 4)],
+        productCostDayAggs: [custo("2026-08-10", "A1", 80)],
+      });
+      // 200 − 80 − 20 − 16
+      expect(v.produtos[0]?.lucro).toBeCloseTo(84);
+      expect(v.produtos[0]?.margemPct).toBeCloseTo(42);
+    } finally {
+      loja.custos = antes;
+    }
+  });
+
+  describe("período terminando hoje", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-24T20:30:00Z"));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    it("categorias e produtos comparam até ontem; Hoje fica sem variação", () => {
+      const semana = { filialIds: ["f1"], periodo: { tipo: "estaSemana" as const }, divisao: null };
+      const input = {
+        dayAggs: [],
+        categoryDayAggs: [cat("2026-09-21", 1, "Body", 100), cat("2026-09-24", 1, "Body", 500), cat("2026-09-14", 1, "Body", 50), cat("2026-09-17", 1, "Body", 900)],
+        productDayAggs: [prod("2026-09-21", 1, "A1", 100, 1), prod("2026-09-24", 1, "A1", 500, 5), prod("2026-09-14", 1, "A1", 50, 1), prod("2026-09-17", 1, "A1", 900, 9)],
+      };
+      const v = buildProductsView(semana, input);
+      expect(v.deltaCategorias).toMatchObject({ value: "100%", positive: true, vs: "a semana passada, até ontem" });
+      expect(v.produtos[0]?.variacaoPct).toBe(100);
+      expect(v.produtos[0]?.faturamento).toBe(600);
+
+      const hoje = buildProductsView({ ...semana, periodo: { tipo: "hoje" } }, input);
+      expect(hoje.deltaCategorias).toBeUndefined();
+      expect(hoje.produtos[0]?.variacaoPct).toBeNull();
+    });
   });
 });

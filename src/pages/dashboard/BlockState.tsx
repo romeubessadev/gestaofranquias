@@ -1,15 +1,15 @@
 import type { ReactNode } from "react";
 import { EmptyState, Skeleton } from "@/components/ui";
-import type { EstadoBloco as EstadoBlocoTipo } from "@/data/gestao/dashboard";
+import type { BlockState as BlockStateTipo } from "@/data/wedash/dashboard";
 
-const ROTULO_ESTADO: Record<Exclude<EstadoBlocoTipo, "disponivel">, string> = {
+const ROTULO_ESTADO: Record<Exclude<BlockStateTipo, "disponivel">, string> = {
   carregando: "Carregando dados…",
   sem_dados: "Sem dados no período selecionado.",
   indisponivel: "Bloco indisponível no momento",
 };
 
 /** Skeleton / empty / conteúdo conforme o estado do bloco. */
-export function EstadoBloco({ estado, children }: { estado: EstadoBlocoTipo; children: ReactNode }) {
+export function BlockState({ estado, children }: { estado: BlockStateTipo; children: ReactNode }) {
   if (estado === "disponivel") return <>{children}</>;
   if (estado === "carregando") {
     return (

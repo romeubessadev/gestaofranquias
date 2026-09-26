@@ -1,17 +1,41 @@
 import { lazyPage } from "@/lib/lazyPage";
-import type { RouteObject } from "react-router-dom";
+import { Navigate, useParams, type RouteObject } from "react-router-dom";
 import { paths } from "@/router/paths";
 
 const Login = lazyPage(() => import("./Login"), "Login");
-const Recuperar = lazyPage(() => import("./Recuperar"), "Recuperar");
-const Redefinir = lazyPage(() => import("./Redefinir"), "Redefinir");
-const Convite = lazyPage(() => import("./Convite"), "Convite");
-const Instalar = lazyPage(() => import("./Instalar"), "Instalar");
+const Forgot = lazyPage(() => import("./Forgot"), "Forgot");
+const Reset = lazyPage(() => import("./Reset"), "Reset");
+const Invite = lazyPage(() => import("./Invite"), "Invite");
+const Install = lazyPage(() => import("./Install"), "Install");
 
-export const acessoRoutes: RouteObject[] = [
-  { path: paths.acesso.entrar, element: <Login /> },
-  { path: paths.acesso.recuperar, element: <Recuperar /> },
-  { path: paths.acesso.redefinir(), element: <Redefinir /> },
-  { path: paths.acesso.convite(), element: <Convite /> },
-  { path: paths.acesso.instalar, element: <Instalar /> },
+function RedirectResetToken() {
+  const { token } = useParams();
+  return <Navigate to={`${paths.access.reset}/${token}`} replace />;
+}
+
+function RedirectInvite() {
+  const { token } = useParams();
+  return <Navigate to={paths.access.invite(token)} replace />;
+}
+
+export const accessRoutes: RouteObject[] = [
+  { path: paths.access.login, element: <Login /> },
+  { path: paths.access.forgot, element: <Forgot /> },
+  { path: paths.access.reset, element: <Reset /> },
+  /** Demo / estados: /reset/expired|used|invalid */
+  { path: `${paths.access.reset}/:token`, element: <Reset /> },
+  { path: paths.access.invite(), element: <Invite /> },
+  { path: paths.access.install, element: <Install /> },
+
+  /* Legados PT → EN */
+  { path: paths.legacy.auth.entrar, element: <Navigate to={paths.access.login} replace /> },
+  { path: paths.legacy.auth.recuperar, element: <Navigate to={paths.access.forgot} replace /> },
+  { path: paths.legacy.auth.redefinir, element: <Navigate to={paths.access.reset} replace /> },
+  { path: `${paths.legacy.auth.redefinir}/:token`, element: <RedirectResetToken /> },
+  { path: paths.legacy.auth.convite, element: <RedirectInvite /> },
+  { path: paths.legacy.auth.instalar, element: <Navigate to={paths.access.install} replace /> },
+  { path: paths.legacy.auth.trocarSenha, element: <Navigate to={paths.access.changePassword} replace /> },
 ];
+
+/** @deprecated alias */
+export const acessoRoutes = accessRoutes;

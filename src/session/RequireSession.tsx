@@ -47,7 +47,8 @@ export function RequireSession({ modo = "app" }: { modo?: "app" | "onboarding" |
 
 /** Restringe a rota a alguns papéis; os demais vão para a tela inicial do seu papel. */
 export function RequireRole({ roles }: { roles: Role[] }) {
-  const { session } = useSession();
+  const { session, ready } = useSession();
+  if (!ready) return null;
   if (!session) return <Navigate to={paths.access.login} replace />;
   if (!roles.includes(session.role)) return <Navigate to={homeForRole(session.role)} replace />;
   return <Outlet />;

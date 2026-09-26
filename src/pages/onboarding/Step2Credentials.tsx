@@ -1,85 +1,178 @@
 import { useState } from "react";
-import { Button, Card, Checkbox, FormField, Input, useToast } from "@/components/ui";
-import { CampoSenha } from "@/pages/acesso/AcessoKit";
-import { testarLoginErp, type ResultadoLoginErp } from "@/data/gestao/erp";
+import { FormField, Input, useToast } from "@/components/ui";
+import { testErpLogin, type ErpLoginResult, type ErpReportCheck } from "@/data/wedash/erp";
+import { ErpReportChecks } from "@/components/wedash/ErpReportChecks";
+import { gravarSenhaErp, lerSenhaErp } from "./draft";
+import { noAutofill, secretStyle } from "@/lib/noAutofill";
 
-const mensagemErro: Record<Exclude<ResultadoLoginErp, { ok: true }>["motivo"], { titulo: string; texto: string }> = {
-  senha: { titulo: "Usuário ou senha do Millenium incorretos", texto: "Nada foi salvo. Confira os dados e tente de novo. Não vamos tentar sozinhos, para não bloquear seu usuário." },
-  ocupado: { titulo: "Seu usuário está conectado ao Millenium", texto: "O ERP aceita um login por vez. Saia de lá e tente de novo." },
-  outro: { titulo: "Não foi possível conectar", texto: "O ERP não respondeu. Nada foi salvo. Tente novamente em alguns minutos." },
+const toastErro: Record<Exclude<ErpLoginResult, { ok: true }>["reason"], string> = {
+  password: "Usuário ou senha incorretos. Nenhum dado foi salvo.",
+  busy:
+    "Este usuário já está logado no Millennium (outra tela, loja ou integração). Saia do ERP nesse outro lugar e toque em Testar de novo.",
+  stores: "Conectou no Millennium, mas não foi possível listar as lojas. Tente de novo.",
+  other: "Não foi possível conectar ao Millennium. Tente novamente em alguns minutos.",
+  reports: "Este usuário não tem acesso a todos os relatórios que a WeDash usa. Nenhum dado foi salvo.",
 };
 
-export function Etapa2Credencial({ onConcluir, onVoltar }: { onConcluir: () => void; onVoltar: () => void }) {
+const btnPrimario =
+  "h-[46px] w-full rounded-xl bg-acc text-sm font-bold text-white transition-colors hover:bg-acc-2 disabled:cursor-not-allowed disabled:opacity-50";
+
+export type ErpRascunho = {
+  usuario: string;
+  dedicada: boolean;
+  aceite: boolean;
+};
+
+export function Step2Credentials({
+  membershipId,
+  inicial,
+  onErpChange,
+  onConcluir,
+  onVoltar,
+}: {
+  membershipId: string;
+  inicial: ErpRascunho;
+  onErpChange: (erp: ErpRascunho) => void;
+  onConcluir: (r: Extract<ErpLoginResult, { ok: true }>) => void;
+  onVoltar: () => void;
+}) {
   const { show } = useToast();
-  const [usuario, setUsuario] = useState("");
-  const [senha, setSenha] = useState("");
-  const [dedicada, setDedicada] = useState(false);
-  const [aceite, setAceite] = useState(false);
+  const [usuario, setUsuario] = useState(inicial.usuario);
+  const [senha, setSenha] = useState(() => lerSenhaErp(membershipId));
+  const [dedicada, setDedicada] = useState(inicial.dedicada);
+  const [aceite, setAceite] = useState(inicial.aceite);
   const [testando, setTestando] = useState(false);
-  const [erro, setErro] = useState<Exclude<ResultadoLoginErp, { ok: true }>["motivo"] | null>(null);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [relatorios, setRelatorios] = useState<ErpReportCheck[] | null>(null);
+
+  function syncErp(next: Partial<ErpRascunho> & { usuario?: string; dedicada?: boolean; aceite?: boolean }) {
+    const erp = {
+      usuario: next.usuario ?? usuario,
+      dedicada: next.dedicada ?? dedicada,
+      aceite: next.aceite ?? aceite,
+    };
+    onErpChange(erp);
+  }
 
   const pode = usuario.trim().length > 0 && senha.length > 0 && aceite && !testando;
 
   async function testar() {
     if (!pode) return;
-    setErro(null);
     setTestando(true);
-    const r = await testarLoginErp(usuario, senha);
+    setRelatorios(null);
+    const r = await testErpLogin(usuario, senha);
     setTestando(false);
     if (!r.ok) {
-      setErro(r.motivo);
+      if (r.reason === "reports" && r.reports) setRelatorios(r.reports);
+      show(toastErro[r.reason], "danger");
       return;
     }
-    show("Conectado ao Millenium. A sessão fica aberta para a próxima etapa.", "success");
-    onConcluir();
+    onConcluir(r);
   }
 
   return (
-    <Card padding="lg">
-      <h2 className="text-lg font-bold text-t0">Conexão com o Millenium</h2>
-      <p className="mb-6 mt-1 text-[13.5px] text-t2">Vendas, custos, estoque e cadastros vêm do ERP por sincronização. Precisamos de um usuário para isso.</p>
+    <div>
+      <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-t0">Conecte o Millennium</h1>
+      <p className="mb-7 text-sm text-t2">
+        A WeDash usa essa conexão para sincronizar vendas, custos, estoque e cadastros. Informe um usuário e uma senha do ERP para continuar.
+      </p>
 
-      <div className="flex flex-col gap-5">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField label="Usuário do Millenium" required>
-            <Input value={usuario} onChange={(e) => setUsuario(e.target.value)} placeholder="ex.: essencia.integracao" autoComplete="off" autoFocus />
+      <div className="flex flex-col gap-3.5">
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          <FormField label="Usuário do Millennium" required>
+            <Input
+              value={usuario}
+              onChange={(e) => {
+                const v = e.target.value.toUpperCase();
+                setUsuario(v);
+                syncErp({ usuario: v });
+              }}
+              placeholder="Ex.: ESSENCIA.INTEGRACAO"
+              name="erp-user"
+              {...noAutofill}
+              autoFocus
+              className="uppercase"
+            />
           </FormField>
-          <FormField label="Senha do Millenium" required>
-            <CampoSenha value={senha} onChange={setSenha} placeholder="Senha do ERP" autoComplete="off" />
+          <FormField label="Senha do Millennium" required>
+            <div className="relative">
+              <Input
+                type="text"
+                value={senha}
+                onChange={(e) => {
+                  setSenha(e.target.value);
+                  gravarSenhaErp(membershipId, e.target.value);
+                }}
+                placeholder="Digite a senha do ERP"
+                name="erp-secret"
+                {...noAutofill}
+                style={secretStyle(mostrarSenha)}
+                className="pr-12"
+              />
+              <button
+                type="button"
+                onClick={() => setMostrarSenha((m) => !m)}
+                aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+                className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-t2 hover:bg-bg-3 hover:text-t0"
+              >
+                {mostrarSenha ? (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" />
+                  </svg>
+                ) : (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </FormField>
         </div>
 
-        <div className="rounded-[var(--radius-vela-md)] border border-line bg-bg-inset p-4">
-          <Checkbox checked={dedicada} onChange={(e) => setDedicada(e.target.checked)} label={<span className="font-semibold">Este é um usuário exclusivo para integração</span>} />
-          <p className="mt-2 pl-6 text-[12.5px] leading-relaxed text-t1">
-            O Millenium aceita um login por vez. Enquanto o sistema sincroniza, esse usuário não consegue entrar no ERP.
-            {dedicada ? " Com usuário exclusivo, atualizamos as vendas a cada 2 minutos." : " Se for o seu usuário do dia a dia, atualizamos a cada 30 minutos, para não te derrubar do ERP."}
-          </p>
-        </div>
+        <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-normal text-t1">
+          <input
+            type="checkbox"
+            checked={dedicada}
+            onChange={(e) => {
+              setDedicada(e.target.checked);
+              syncErp({ dedicada: e.target.checked });
+            }}
+            className="mt-0.5"
+            style={{ accentColor: "var(--acc)" }}
+          />
+          <span>
+            Este usuário será exclusivo da WeDash
+            <span className="mt-0.5 block text-t2">
+              O Millennium aceita uma sessão por usuário: se alguém entrar com ele no sistema, um derruba o outro e a
+              sincronização para. Use um usuário criado só para a WeDash.
+            </span>
+          </span>
+        </label>
 
-        <div className="rounded-[var(--radius-vela-md)] border border-line bg-bg-inset p-4">
-          <Checkbox checked={aceite} onChange={(e) => setAceite(e.target.checked)} label={<span className="font-semibold">Autorizo o uso desta credencial para sincronização</span>} />
-          <p className="mt-2 pl-6 text-[12.5px] leading-relaxed text-t1">A senha é guardada cifrada, usada só pelo servidor e nunca exibida de novo. Você pode trocar ou remover a qualquer momento em Configurações.</p>
-        </div>
+        <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-normal text-t1">
+          <input
+            type="checkbox"
+            checked={aceite}
+            onChange={(e) => {
+              setAceite(e.target.checked);
+              syncErp({ aceite: e.target.checked });
+            }}
+            className="mt-0.5"
+            style={{ accentColor: "var(--acc)" }}
+          />
+          Autorizo a WeDash a usar estes dados para realizar a sincronização
+        </label>
 
-        {erro && (
-          <div className="rounded-[var(--radius-vela-md)] border border-bad/30 bg-bad-soft p-4">
-            <p className="text-[13.5px] font-bold text-t0">{mensagemErro[erro].titulo}</p>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-t1">{mensagemErro[erro].texto}</p>
-          </div>
-        )}
+        {relatorios && <ErpReportChecks reports={relatorios} username={usuario.trim()} />}
 
-        <p className="text-[11.5px] text-t2">Demonstração: a senha “errada”, “ocupado” ou “falha” simula cada erro. Qualquer outra conecta.</p>
-
-        <div className="flex items-center justify-between pt-2">
-          <Button variant="outline" onClick={onVoltar} disabled={testando}>
-            Voltar
-          </Button>
-          <Button onClick={testar} disabled={!pode} size="lg">
-            {testando ? "Testando no Millenium…" : "Testar e salvar"}
-          </Button>
-        </div>
+        <button type="button" disabled={!pode} onClick={testar} className={btnPrimario} style={{ boxShadow: "0 8px 24px -8px var(--acc)" }}>
+          {testando ? "Testando conexão e relatórios…" : "Testar e continuar"}
+        </button>
+        <button type="button" onClick={onVoltar} disabled={testando} className="text-center text-[13px] font-semibold text-t2 hover:text-t0 disabled:opacity-60">
+          Voltar
+        </button>
       </div>
-    </Card>
+    </div>
   );
 }

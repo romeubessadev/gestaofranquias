@@ -5,7 +5,7 @@ import { Card, EmptyState, PageHeader } from "@/components/ui";
  * um Card listando o que a tela vai mostrar, para o mapa de telas ser validado
  * antes da construção.
  */
-export function EmBreve({ titulo, fase, descricao, itens }: { titulo: string; fase: string; descricao: string; itens: string[] }) {
+export function ComingSoon({ titulo, fase, descricao, itens }: { titulo: string; fase: string; descricao: string; itens: string[] }) {
   return (
     <div>
       <PageHeader title={titulo} subtitle={fase} />

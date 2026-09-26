@@ -11,16 +11,16 @@
  * desempenho, porque os dois respondem à mesma pergunta de quem abre a tela:
  * "o que eu preciso saber agora?".
  */
-import type { LojaView } from "./dashboard";
+import type { StoreView } from "./dashboard";
 
-export function montarLeituraLoja(v: LojaView): string | null {
+export function buildStoreInsight(v: StoreView): string | null {
   const partes = v.alertas.map((a) => a.texto);
   const narrativa = v.visao === "rede" ? leituraRede(v) : v.visao === "dia" ? null : leituraMes(v);
   if (narrativa) partes.push(narrativa);
   return partes.length > 0 ? partes.join(" ") : null;
 }
 
-function leituraRede(v: LojaView): string | null {
+function leituraRede(v: StoreView): string | null {
   if (v.escopo.divisao) return null; // régua vira participação da marca, não fala de meta
   const regua = v.regua;
   if (!regua || regua.length < 2) return null;
@@ -41,7 +41,7 @@ function leituraRede(v: LojaView): string | null {
   return `${parteHoje} ${parteAcao}`;
 }
 
-function leituraMes(v: LojaView): string | null {
+function leituraMes(v: StoreView): string | null {
   const atendimentos = v.kpiAtendimentos.delta;
   const ticket = v.kpiTicket.delta;
   const pa = v.kpiPA.delta;

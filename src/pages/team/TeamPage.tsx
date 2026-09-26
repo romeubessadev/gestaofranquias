@@ -1,16 +1,23 @@
 import { useMemo, useState, useCallback } from "react";
-import { montarEquipeView } from "@/data/gestao/equipeVisoes";
-import { mesAno, brlK, deIso, tipRelacao } from "@/lib/formato";
-import { Avisos } from "@/components/gestao/Avisos";
+import { buildTeamView } from "@/data/wedash/teamViews";
+import { formatUpdatedAtLabel } from "@/data/wedash/syncUi";
+import { mesAno, brlK, tipDelta } from "@/lib/format";
+import { Avisos } from "@/components/wedash/Notices";
 import { Badge, Button, Card, CardTitle, DateRangePicker, EmptyState, PageHeader } from "@/components/ui";
 import { AreaLineChart } from "@/components/charts";
-import { useEscopo } from "@/pages/dashboard/useEscopo";
+import { useScope } from "@/pages/dashboard/useScope";
 import { AvisoCompetencia, BlocoDesafios, BlocoKpisEquipe, CardMetasEquipe, CardVendedoras } from "./blocos";
 import { Tooltip } from "@/components/ui/Tooltip";
-import type { DateRange } from "@/components/ui/DateRangePicker";
+import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
+import {
+  applyPeriodDateChange,
+  dateRangeFromPeriod,
+  periodActivePresetId,
+  periodDisplayLabel,
+} from "@/pages/dashboard/periodPicker";
 
 /** Badge de delta — só % no chip; base do comparativo no tooltip (igual Visão Geral). */
-function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; diff?: string } }) {
+function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; diff?: string; anterior?: string } }) {
   if (!delta) return null;
   const badge = (
     <Badge variant={delta.positive ? "success" : "danger"}>
@@ -18,8 +25,8 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
       {delta.value}
     </Badge>
   );
-  if (!delta.vs) return badge;
-  return <Tooltip label={tipRelacao(delta.vs)}>{badge}</Tooltip>;
+  const tip = tipDelta(delta);
+  return tip ? <Tooltip label={tip}>{badge}</Tooltip> : badge;
 }
 
 const filtroSelectClass =
@@ -29,10 +36,10 @@ const filtroSelectClass =
  * Tela Equipe: metas, desafios e premiação do mês (sempre visíveis — AD-046).
  * Chrome: Período + Grupo (sem filtro de Marca — não impacta esta leitura).
  */
-export function EquipePage() {
-  const { escopo, mudar } = useEscopo();
+export function TeamPage() {
+  const { escopo, mudar } = useScope();
   // Equipe é visão individual (meta/escada/desafios da loja) — marca não altera a leitura.
-  const v = useMemo(() => montarEquipeView({ ...escopo, divisao: null }), [escopo]);
+  const v = useMemo(() => buildTeamView({ ...escopo, divisao: null }), [escopo]);
   const periodoForaDoMes = Boolean(v.avisoCompetencia?.includes("seguem o período"));
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -55,39 +62,10 @@ export function EquipePage() {
     });
   }, [v.metasCards, grupoAtivo]);
 
-  const dateRange: DateRange | null = useMemo(() => {
-    if (escopo.periodo.tipo === "personalizado" && escopo.periodo.inicio && escopo.periodo.fim) {
-      return [deIso(escopo.periodo.inicio), deIso(escopo.periodo.fim)];
-    }
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-    switch (escopo.periodo.tipo) {
-      case "hoje":
-        return [hoje, hoje];
-      case "ontem": {
-        const y = new Date(hoje);
-        y.setDate(y.getDate() - 1);
-        return [y, y];
-      }
-      case "7dias": {
-        const s = new Date(hoje);
-        s.setDate(s.getDate() - 6);
-        return [s, hoje];
-      }
-      case "esteMes":
-        return [new Date(hoje.getFullYear(), hoje.getMonth(), 1), hoje];
-      case "mesPassado":
-        return [new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1), new Date(hoje.getFullYear(), hoje.getMonth(), 0)];
-      default:
-        return null;
-    }
-  }, [escopo.periodo]);
+  const dateRange = useMemo(() => dateRangeFromPeriod(escopo.periodo), [escopo.periodo]);
 
-  function onDateChange(r: DateRange) {
-    mudar({
-      ...escopo,
-      periodo: { tipo: "personalizado", inicio: r[0].toISOString().slice(0, 10), fim: r[1].toISOString().slice(0, 10) },
-    });
+  function onDateChange(r: DateRange, meta?: DateRangeChangeMeta) {
+    mudar(applyPeriodDateChange(escopo, r, meta));
   }
 
   const forcarAtualizacao = useCallback(() => {
@@ -99,7 +77,7 @@ export function EquipePage() {
   }, []);
 
   const minutosAtras = Math.floor((Date.now() - ultimaAtualizacao.getTime()) / 60000);
-  const rotuloAtualizacao = minutosAtras < 1 ? "Atualizado agora" : `Atualizado há ${minutosAtras} min`;
+  const rotuloAtualizacao = formatUpdatedAtLabel(ultimaAtualizacao);
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
@@ -152,7 +130,13 @@ export function EquipePage() {
             >
               Exportar
             </Button>
-            <DateRangePicker value={dateRange} onChange={onDateChange} size="sm" />
+            <DateRangePicker
+              value={dateRange}
+              onChange={onDateChange}
+              displayLabel={periodDisplayLabel(escopo.periodo)}
+              activePresetId={periodActivePresetId(escopo.periodo)}
+              size="sm"
+            />
             <select
               value={grupoAtivo ?? ""}
               onChange={(e) => setGrupoFiltro(e.target.value || null)}
@@ -203,7 +187,7 @@ export function EquipePage() {
                     <div>
                       <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
                         <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--warn)]" />
-                        Meta
+                        Goal
                       </span>
                       <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
                         {brlK(v.evolucaoFaturamento[v.evolucaoFaturamento.length - 1]?.meta ?? 0)}
@@ -236,8 +220,8 @@ export function EquipePage() {
           />
         )}
 
-        {v.metaAtiva && v.desafios && v.desafios.length > 0 && <BlocoDesafios desafios={v.desafios} />}
-        {v.metaAtiva && (!v.desafios || v.desafios.length === 0) && (
+        {v.metaAtiva && v.challenges && v.challenges.length > 0 && <BlocoDesafios challenges={v.challenges} />}
+        {v.metaAtiva && (!v.challenges || v.challenges.length === 0) && (
           <Card>
             <EmptyState icon="🎯" title="Nenhum desafio nesta competência." description={`Não há desafios cadastrados para ${mesAno(`${v.competencia}-01`)}.`} />
           </Card>

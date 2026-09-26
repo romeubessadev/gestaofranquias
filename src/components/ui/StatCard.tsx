@@ -3,7 +3,7 @@ import { Card } from "./Card";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { Tooltip } from "./Tooltip";
 import { cn } from "@/lib/cn";
-import { tipRelacao } from "@/lib/formato";
+import { tipDelta } from "@/lib/format";
 
 export interface StatCardProps {
   label: string;
@@ -11,16 +11,18 @@ export interface StatCardProps {
   icon: ReactNode;
   iconColor?: string;
   iconBg?: string;
-  delta?: { value: string; positive: boolean; vs?: string; diff?: string };
+  delta?: { value: string; positive: boolean; vs?: string; diff?: string; anterior?: string };
   sparkline?: ReactNode;
   /** Texto secundário abaixo do valor (ex.: "1.665 vendas · 2.495 itens"). */
   sub?: string;
+  /** Segunda linha (ex.: contribuição WPINK na Overview). */
+  sub2?: string;
   /** Tooltip exibido ao passar o mouse no ⓘ ao lado do label. */
   tooltip?: string;
   className?: string;
 }
 
-export function StatCard({ label, value, icon, iconColor = "var(--acc)", iconBg = "var(--acc-soft)", delta, sparkline, sub, tooltip, className }: StatCardProps) {
+export function StatCard({ label, value, icon, iconColor = "var(--acc)", iconBg = "var(--acc-soft)", delta, sparkline, sub, sub2, tooltip, className }: StatCardProps) {
   return (
     <Card className={cn("min-w-0", className)}>
       <div className="flex items-center justify-between gap-2">
@@ -31,7 +33,7 @@ export function StatCard({ label, value, icon, iconColor = "var(--acc)", iconBg 
           {icon}
         </div>
         {delta && (() => {
-          const badgeLabel = delta.vs ? tipRelacao(delta.vs) : "";
+          const badgeLabel = tipDelta(delta);
           const badge = (
             <span
               className={cn(
@@ -57,6 +59,7 @@ export function StatCard({ label, value, icon, iconColor = "var(--acc)", iconBg 
       </div>
       <AnimatedNumber value={value} className="mt-1 block truncate text-2xl font-extrabold text-t0" />
       {sub && <p className="mt-0.5 truncate text-[11px] text-t2">{sub}</p>}
+      {sub2 && <p className="mt-0.5 truncate text-[11px] text-t2">{sub2}</p>}
       {sparkline && <div className="mt-3 h-9">{sparkline}</div>}
     </Card>
   );

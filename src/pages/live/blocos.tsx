@@ -1,11 +1,10 @@
 import { Avatar, Badge, CardTitle, EmptyState, ProgressBar } from "@/components/ui";
 import { DonutChart } from "@/components/charts";
-import { brlK, num } from "@/lib/formato";
+import { brlK, num } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { TrophyIcon } from "@/pages/dashboards/icons";
-import type { RankingLinha, RankingLojaLinha } from "@/data/gestao/aoVivo";
-import type { VendedoraLinha } from "@/data/gestao/equipeVisoes";
-
+import type { RankingRow, StoreRankingRow } from "@/data/wedash/live";
+import type { SellerRow } from "@/data/wedash/teamViews";
 /** Medalhas do leaderboard Vela (SalesDashboard / CRM) — anel, troféu e rótulos. */
 const MEDALHA = {
   1: { cor: "#f7b84e", glow: "0 0 32px rgba(247,184,78,0.4)" },
@@ -23,7 +22,7 @@ const PODIO_ALTURA: Record<1 | 2 | 3, string> = {
 const PODIO_ORDEM = [1, 0, 2] as const;
 
 /** Pódio top 3 — aba Ranking (ouro / prata / bronze; degrau na cor primária). */
-export function BlocoRanking({ ranking }: { ranking: RankingLinha[] }) {
+export function BlocoRanking({ ranking }: { ranking: RankingRow[] }) {
   if (ranking.length === 0) {
     return (
       <EmptyState
@@ -34,7 +33,7 @@ export function BlocoRanking({ ranking }: { ranking: RankingLinha[] }) {
   }
 
   const top3 = ranking.slice(0, 3);
-  const slots = PODIO_ORDEM.map((i) => top3[i]).filter((l): l is RankingLinha => Boolean(l));
+  const slots = PODIO_ORDEM.map((i) => top3[i]).filter((l): l is RankingRow => Boolean(l));
 
   return (
     <div className="flex items-end justify-center gap-2.5 pt-3 sm:gap-6">
@@ -101,7 +100,7 @@ export function BlocoRanking({ ranking }: { ranking: RankingLinha[] }) {
 const CORES_LOJAS = ["var(--acc)", "var(--info)", "var(--ok)", "var(--warn)", "var(--bad)"];
 
 /** Donut + lista por loja — mesmo card da Visão Geral. */
-export function BlocoRankingLojas({ lojas }: { lojas: RankingLojaLinha[] }) {
+export function BlocoRankingLojas({ lojas }: { lojas: StoreRankingRow[] }) {
   const total = lojas.reduce((s, l) => s + l.valor, 0) || 1;
   return (
     <>
@@ -158,8 +157,8 @@ export function BlocoRankingGeral({
   ranking,
   vendedoras,
 }: {
-  ranking: RankingLinha[];
-  vendedoras?: VendedoraLinha[] | null;
+  ranking: RankingRow[];
+  vendedoras?: SellerRow[] | null;
 }) {
   if (ranking.length === 0) {
     return (

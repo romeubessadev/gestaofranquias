@@ -4,17 +4,13 @@ import { lazyPage } from "@/lib/lazyPage";
 import { ComingSoon } from "./ComingSoon";
 
 const Profile = lazyPage(() => import("./Profile"), "Profile");
-const ErpIntegrationPage = lazyPage(
-  () => import("@/pages/settings/ErpIntegrationPage"),
-  "ErpIntegrationPage",
-);
 const FASE2 = "Fase 2 · em construção";
 const FASE3 = "Fase 3 · em construção";
 
 export const emBreveRoutes: RouteObject[] = [
   { path: paths.analytics, element: <Navigate to={paths.overview} replace /> },
   { path: paths.legacy.analytics, element: <Navigate to={paths.overview} replace /> },
-  { path: paths.legacy.settings.root, element: <Navigate to={paths.settings.staff} replace /> },
+  { path: paths.legacy.settings.root, element: <Navigate to={paths.settings.stores} replace /> },
   { path: paths.legacy.settings.challenges, element: <Navigate to={paths.settings.challenges} replace /> },
   { path: paths.legacy.settings.staff, element: <Navigate to={paths.settings.staff} replace /> },
   { path: paths.legacy.settings.groups, element: <Navigate to={paths.settings.groups} replace /> },
@@ -23,6 +19,7 @@ export const emBreveRoutes: RouteObject[] = [
   { path: paths.legacy.settings.costs, element: <Navigate to={paths.settings.costs} replace /> },
   { path: paths.legacy.settings.brand, element: <Navigate to={paths.settings.brand} replace /> },
   { path: paths.legacy.settings.erp, element: <Navigate to={paths.settings.erp} replace /> },
+  { path: paths.legacy.settings.stores, element: <Navigate to={paths.settings.stores} replace /> },
   { path: paths.legacy.settings.users, element: <Navigate to={paths.settings.users} replace /> },
   { path: paths.legacy.seller.myGoal, element: <Navigate to={paths.seller.myGoal} replace /> },
   { path: paths.legacy.seller.tasks, element: <Navigate to={paths.seller.tasks} replace /> },
@@ -37,9 +34,7 @@ export const emBreveRoutes: RouteObject[] = [
   { path: paths.settings.documents, element: <ComingSoon titulo="Documentos" fase={FASE3} descricao="Termos e regras versionados. Nova versão exige novo aceite de todos." itens={["Por filial ou grupo", "Registro de quem aceitou, versão, data e IP", "Versão anterior nunca é sobrescrita"]} /> },
   { path: paths.settings.costs, element: <ComingSoon titulo="Custos" fase={FASE3} descricao="Parâmetros por filial que alimentam lucro bruto e, na v2, margem de contribuição." itens={["Imposto sobre custo de mercadoria", "Margem mínima aceitável", "Royalties e marketing por divisão (v2)", "Aluguel: percentual com mínimo em shopping, fixo em rua (v2)", "Custo fixo mensal (v2)"]} /> },
   { path: paths.settings.brand, element: <ComingSoon titulo="Marca" fase={FASE3} descricao="Nome de exibição, logo e cor principal. O slug (wedash.app/…) é gerado do nome; edição manual entra depois." itens={["Mudar o slug mantém o anterior como redirecionamento", "Checagem de contraste e distância dos semânticos"]} /> },
-  { path: paths.settings.erp, element: <ErpIntegrationPage /> },
-  { path: paths.settings.users, element: <ComingSoon titulo="Usuários" fase={FASE3} descricao="Gestores e gerentes não existem no ERP. Cadastro manual e convite por e-mail." itens={["CPF, nome, e-mail, papel e filiais do escopo", "Pendente até ativar ou aceitar", "Reenviar convite"]} /> },
-  { path: paths.seller.myGoal, element: <ComingSoon titulo="Minha meta" fase={FASE2} descricao="A tela que a vendedora abre todo dia. Do que ela mais quer saber para o que menos quer." itens={["Realizado contra a meta, com os degraus marcados na barra", "Próximo degrau: quanto ganha a mais, quanto falta em reais e por dia, veredito honesto", "Comissão até agora, com percentual, bônus e a parcela do caixa central separada", "Meu dia: faturamento, atendimentos, ticket e PA contra o mesmo dia da semana anterior", "Ponto de atenção como orientação", "Grupo atual e tarefas, desafios que participo, ranking da loja", "Seletor de mês para conferir meses anteriores"]} /> },
+  { path: paths.seller.myGoal, element: <ComingSoon titulo="Minha meta" fase={FASE2} descricao="A tela que quem vende abre todo dia. Do que mais importa saber para o que menos importa." itens={["Realizado contra a meta, com os degraus marcados na barra", "Próximo degrau: quanto ganha a mais, quanto falta em reais e por dia, veredito honesto", "Comissão até agora, com percentual, bônus e a parcela do caixa central separada", "Meu dia: faturamento, atendimentos, ticket e PA contra o mesmo dia da semana anterior", "Ponto de atenção como orientação", "Grupo atual e tarefas, desafios que participo, ranking da loja", "Seletor de mês para conferir meses anteriores"]} /> },
   { path: paths.seller.tasks, element: <ComingSoon titulo="Tarefas" fase={FASE3} descricao="Checklist do grupo atual. Qualquer colaboradora marca, o sistema registra quem." itens={["Grupo atual com horário e progresso", "Checkbox grande por tarefa, na ordem configurada", "Grupos anteriores do dia recolhidos, somente leitura", "Reseta na virada do grupo"]} /> },
   { path: paths.seller.ranking, element: <ComingSoon titulo="Ranking" fase={FASE2} descricao="Ranking completo da loja, ordenado por atingimento." itens={["Posição e percentual de atingimento de cada colega", "O próprio valor em reais; das colegas só o percentual", "Rótulo de período parcial"]} /> },
   { path: paths.profile, element: <Profile /> },

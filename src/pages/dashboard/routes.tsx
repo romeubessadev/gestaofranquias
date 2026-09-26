@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
 import type { RouteObject } from "react-router-dom";
 import { paths } from "@/router/paths";
-import { RequirePapel } from "@/session/RequireSession";
+import { RequireRole } from "@/session/RequireSession";
 
 /**
  * `/dashboard` e `/loja` eram a tela legada com TabNav interno.
@@ -9,10 +9,10 @@ import { RequirePapel } from "@/session/RequireSession";
  */
 export const dashboardRoutes: RouteObject[] = [
   {
-    element: <RequirePapel papeis={["GESTOR", "GERENTE", "ADMIN_GLOBAL"]} />,
+    element: <RequireRole roles={["OWNER", "MANAGER", "ADMIN_GLOBAL"]} />,
     children: [
-      { path: paths.dashboard, element: <Navigate replace to={paths.visaoGeral} /> },
-      { path: paths.lojaLegado, element: <Navigate replace to={paths.visaoGeral} /> },
+      { path: paths.dashboard, element: <Navigate replace to={paths.overview} /> },
+      { path: paths.legacy.store, element: <Navigate replace to={paths.overview} /> },
     ],
   },
 ];

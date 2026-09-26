@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, ProgressBar, Spinner, useToast } from "@/components/ui";
+import { Avatar, Badge, Button, Card, ProgressBar, Spinner, useToast } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { paths } from "@/router/paths";
 import { useActiveSession, useSession } from "@/session/SessionProvider";
 import {
@@ -9,14 +10,12 @@ import {
   bumpAwaitingInitialSyncSince,
 } from "@/session/awaitingInitialSync";
 import {
-  calendarDaysInclusive,
   countDaysInWindow,
   fetchLatestSeedJob,
   fetchSeedDaysByStore,
   fetchSyncReady,
   fetchTenantStores,
   seedCoverageWindow,
-  seedMonthWindows,
   type SyncStoreRow,
 } from "@/data/wedash/salesRepo";
 import { calendarTodayIso } from "@/data/wedash/clock";
@@ -27,64 +26,15 @@ import { padTopoEBase } from "@/lib/safeArea";
 
 /** Job na fila sem worker pegar → erro (não espera infinito). */
 const STUCK_QUEUED_MS = 90_000;
-/** RUNNING sem progresso de dias por muito tempo. */
-const STUCK_RUNNING_MS = 20 * 60_000;
-/** Janela concluída = ≥90% dos dias do período no banco. */
-const WINDOW_DONE_RATIO = 0.9;
+/** RUNNING sem nenhuma loja pronta por muito tempo (hoje leva segundos). */
+const STUCK_RUNNING_MS = 5 * 60_000;
 
-type FetchStep = {
-  kind: "fetch";
-  id: string;
-  storeId: string;
-  storeName: string;
-  from: string;
-  to: string;
-  expected: number;
-  label: string;
-  detail: string;
-};
-
-type FinalStep = {
-  kind: "final";
-  id: "dashboard";
-  label: string;
-  detail?: string;
-};
-
-type SyncStep = FetchStep | FinalStep;
-
-function fmtBr(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
-
-function buildSteps(stores: SyncStoreRow[], seedFrom: string, seedTo: string): SyncStep[] {
-  const months = seedMonthWindows(seedFrom, seedTo);
-  const fetchSteps: FetchStep[] = [];
-  for (const s of stores) {
-    for (const w of months) {
-      fetchSteps.push({
-        kind: "fetch",
-        id: `${s.id}:${w.from}:${w.to}`,
-        storeId: s.id,
-        storeName: s.name,
-        from: w.from,
-        to: w.to,
-        expected: calendarDaysInclusive(w.from, w.to),
-        label: s.name,
-        detail: `${fmtBr(w.from)} → ${fmtBr(w.to)}`,
-      });
-    }
-  }
-  return [
-    ...fetchSteps,
-    {
-      kind: "final",
-      id: "dashboard",
-      label: "Preparando o dashboard",
-      detail: "Liberando a Visão Geral com os dados sincronizados",
-    },
-  ];
+function fmtDuration(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rest = s % 60;
+  return rest ? `${m}min ${rest}s` : `${m}min`;
 }
 
 function isBusyError(msg: string | null | undefined): boolean {
@@ -112,14 +62,10 @@ function isInternalJobCancel(msg: string | null | undefined): boolean {
   );
 }
 
-function windowDone(loaded: number, expected: number): boolean {
-  if (expected <= 0) return loaded > 0;
-  return loaded >= Math.max(1, Math.ceil(expected * WINDOW_DONE_RATIO));
-}
-
 /**
- * Pós-onboarding: steps = (loja × mês SEED) + preparar dashboard.
- * Barra = steps concluídos / total (sem fake %).
+ * Pós-onboarding: espera só o Atualizar de **hoje** (segundos) e abre o dashboard.
+ * Os dias anteriores do mês chegam por trás (indicador no Topbar — `useMonthFill`).
+ * Progresso = lojas com hoje gravado / total (sem fake %).
  */
 export function SyncingPage() {
   const session = useActiveSession();
@@ -140,58 +86,26 @@ export function SyncingPage() {
   const coverageReseedDone = useRef(false);
   const runningSinceRef = useRef<number | null>(null);
   const daysAtRunStartRef = useRef(0);
+  const [timing, setTiming] = useState<{ now: number; since: number | null }>({ now: 0, since: null });
 
   const today = calendarTodayIso();
   const win = useMemo(() => seedCoverageWindow(today), [today]);
-  const steps = useMemo(() => buildSteps(stores, win.from, win.to), [stores, win.from, win.to]);
 
-  const fetchDoneFlags = useMemo(() => {
-    return steps.map((s) => {
-      if (s.kind !== "fetch") return false;
-      const n = countDaysInWindow(coverage.get(s.storeId), s.from, s.to);
-      return windowDone(n, s.expected);
-    });
-  }, [steps, coverage]);
+  const storeReady = useMemo(
+    () => stores.map((s) => countDaysInWindow(coverage.get(s.id), win.from, win.to) > 0),
+    [stores, coverage, win.from, win.to],
+  );
+  const readyCount = storeReady.filter(Boolean).length;
+  const allFetchDone = stores.length > 0 && readyCount >= stores.length;
 
-  const allFetchDone = useMemo(() => {
-    const fetchSteps = steps.filter((s): s is FetchStep => s.kind === "fetch");
-    if (fetchSteps.length === 0) return false;
-    return fetchSteps.every((_, i) => fetchDoneFlags[i]);
-  }, [steps, fetchDoneFlags]);
-
-  /** Índice do step ativo (primeiro incompleto). */
-  const activeIdx = useMemo(() => {
-    if (status === "ready") return steps.length - 1;
-    if (status === "failed") return Math.max(0, steps.findIndex((_, i) => !fetchDoneFlags[i]));
-    for (let i = 0; i < steps.length; i++) {
-      const s = steps[i];
-      if (s.kind === "fetch" && !fetchDoneFlags[i]) return i;
-      if (s.kind === "final") {
-        // Só entra no final quando buscas ok (ou job SUCCEEDED com cobertura).
-        if (allFetchDone || jobStatus === "SUCCEEDED") return i;
-        return Math.max(0, i - 1);
-      }
-    }
-    return 0;
-  }, [status, steps, fetchDoneFlags, allFetchDone, jobStatus]);
-
-  const completedCount = useMemo(() => {
-    if (status === "ready") return steps.length;
-    let n = 0;
-    for (let i = 0; i < steps.length; i++) {
-      const s = steps[i];
-      if (s.kind === "fetch" && fetchDoneFlags[i]) n += 1;
-    }
-    return n;
-  }, [status, steps, fetchDoneFlags]);
   const progressPct =
-    status === "failed"
-      ? 0
-      : steps.length === 0
+    status === "ready"
+      ? 100
+      : stores.length === 0
         ? 0
-        : status === "ready"
-          ? 100
-          : Math.min(99, Math.round((completedCount / steps.length) * 100));
+        : Math.min(99, Math.round((readyCount / stores.length) * 100));
+
+  const elapsedMs = timing.since ? timing.now - timing.since : 0;
 
   const enqueueSeed = useCallback(async () => {
     const sb = getSupabase();
@@ -210,6 +124,11 @@ export function SyncingPage() {
 
     const byStore = await fetchSeedDaysByStore(session.tenantId, win.from, win.to);
     setCoverage(byStore);
+    setTiming((t) => ({
+      ...t,
+      now: Date.now(),
+      since: since ? new Date(since).getTime() : null,
+    }));
 
     const ready = await fetchSyncReady(session.tenantId, {
       sinceIso: since,
@@ -366,7 +285,7 @@ export function SyncingPage() {
   useEffect(() => {
     if (status !== "ready") return;
     const t = window.setTimeout(() => {
-      navigate(paths.overview, { replace: true });
+      navigate(`${paths.overview}?periodo=hoje`, { replace: true });
     }, 900);
     return () => window.clearTimeout(t);
   }, [status, navigate]);
@@ -392,25 +311,19 @@ export function SyncingPage() {
     navigate(paths.access.login);
   }
 
-  const activeStep = steps[activeIdx];
-  const activeLoaded =
-    activeStep?.kind === "fetch"
-      ? countDaysInWindow(coverage.get(activeStep.storeId), activeStep.from, activeStep.to)
-      : 0;
-
+  const preparing = status === "running" && (allFetchDone || jobStatus === "SUCCEEDED");
+  const lojasTxt =
+    stores.length === 1 ? "da sua loja" : stores.length > 1 ? `das ${stores.length} lojas` : "das suas lojas";
   const subtitle =
     status === "ready"
-      ? "Dados sincronizados. Abrindo o dashboard…"
+      ? "Vendas de hoje prontas. Abrindo o dashboard…"
       : status === "failed"
         ? errorMsg
         : busy
           ? "Aguardando liberar a sessão no Millennium…"
-          : activeStep?.kind === "fetch"
-            ? `Buscando ${activeStep.storeName}: ${activeStep.detail}` +
-              (activeStep.expected > 0
-                ? ` · ${activeLoaded}/${activeStep.expected} dias`
-                : "")
-            : "Quase lá — preparando o dashboard.";
+          : preparing
+            ? "Quase lá — abrindo o dashboard."
+            : `Buscando as vendas de hoje ${lojasTxt} no Millennium. Leva alguns segundos.`;
 
   return (
     <div
@@ -431,7 +344,7 @@ export function SyncingPage() {
         </button>
       </div>
 
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-4">
+      <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center py-4">
         <h1 className="text-[22px] font-bold text-t0">
           {status === "ready"
             ? "Tudo pronto!"
@@ -439,93 +352,64 @@ export function SyncingPage() {
               ? "Aguardando o Millennium"
               : status === "failed"
                 ? "Sincronização interrompida"
-                : "Sincronizando suas vendas"}
+                : "Preparando seu dashboard"}
         </h1>
-        <p className="mt-2 text-[14px] text-t2">{subtitle}</p>
+        <p className={cn("mt-2 text-[14px]", status === "failed" ? "text-bad" : "text-t2")}>{subtitle}</p>
 
-        <div className="mt-8">
-          <ProgressBar
-            value={progressPct}
-            color={status === "failed" ? "var(--bad)" : "var(--acc)"}
-          />
-          {status === "running" && (
-            <p className="mt-2 text-right text-[11px] text-t3">
-              {completedCount}/{steps.length || "—"} · {progressPct}%
-            </p>
-          )}
-        </div>
+        <Card className="mt-6">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <div className="text-[11.5px] font-semibold uppercase tracking-wide text-t3">Vendas de hoje</div>
+              <div className="mt-1 text-[34px] font-extrabold leading-none text-t0 tabular-nums">
+                {progressPct}%
+              </div>
+            </div>
+            {status === "running" && elapsedMs > 0 && (
+              <div className="text-right text-[12px] text-t2">
+                Decorrido <span className="font-semibold text-t1 tabular-nums">{fmtDuration(elapsedMs)}</span>
+              </div>
+            )}
+          </div>
 
-        <ul className="mt-6 max-h-[50vh] space-y-3 overflow-y-auto pr-1">
-          {steps.length === 0 ? (
-            <li className="flex items-center gap-3 text-[13.5px] text-t2">
+          <div className="mt-4">
+            <ProgressBar value={progressPct} color={status === "failed" ? "var(--bad)" : "var(--acc)"} />
+          </div>
+
+          {stores.length === 0 ? (
+            <div className="mt-4 flex items-center gap-3 text-[13.5px] text-t2">
               <Spinner size={18} />
               Montando a lista de lojas…
-            </li>
+            </div>
           ) : (
-            steps.map((step, i) => {
-              const done =
-                status === "ready" ||
-                (step.kind === "fetch" && fetchDoneFlags[i]);
-              const failedHere = status === "failed" && i === activeIdx;
-              const active = status === "running" && i === activeIdx && !done;
-              const loaded =
-                step.kind === "fetch"
-                  ? countDaysInWindow(coverage.get(step.storeId), step.from, step.to)
-                  : 0;
-
-              return (
-                <li
-                  key={step.id}
-                  className={`flex items-start gap-3 text-[13.5px] ${
-                    done
-                      ? "text-ok"
-                      : failedHere
-                        ? "font-semibold text-bad"
-                        : active
-                          ? "font-semibold text-t0"
-                          : "text-t3"
-                  }`}
-                >
-                  <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center">
+            <ul className="mt-4 max-h-[36vh] divide-y divide-line overflow-y-auto">
+              {stores.map((s, i) => {
+                const done = status === "ready" || storeReady[i];
+                return (
+                  <li key={s.id} className="flex items-center gap-3 py-2.5">
+                    <Avatar name={s.name} size="sm" />
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-t0">{s.name}</span>
                     {done ? (
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-current text-[11px]">
-                        ✓
-                      </span>
-                    ) : failedHere ? (
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-current text-[11px]">
-                        !
-                      </span>
-                    ) : active ? (
-                      <Spinner size={18} />
+                      <Badge variant="success">Pronta</Badge>
+                    ) : status === "running" ? (
+                      <Spinner size={16} />
                     ) : (
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-current text-[11px]">
-                        {i + 1}
-                      </span>
+                      <span className="text-[12px] text-t3">Pendente</span>
                     )}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block">{step.label}</span>
-                    {step.kind === "fetch" ? (
-                      <span className="mt-0.5 block text-[12px] font-normal text-t2">
-                        {step.detail}
-                        {active || done
-                          ? ` · ${loaded}/${step.expected} dias`
-                          : null}
-                      </span>
-                    ) : step.detail ? (
-                      <span className="mt-0.5 block text-[12px] font-normal text-t2">{step.detail}</span>
-                    ) : null}
-                  </span>
-                </li>
-              );
-            })
+                  </li>
+                );
+              })}
+            </ul>
           )}
-        </ul>
+        </Card>
 
-        {status === "failed" && (
-          <div className="mt-10 flex flex-wrap gap-3">
+        {status === "failed" ? (
+          <div className="mt-6 flex flex-wrap gap-3">
             <Button onClick={() => void retrySeed()}>Tentar novamente</Button>
           </div>
+        ) : (
+          <p className="mt-4 text-center text-[12px] text-t3">
+            Depois de entrar, os dias anteriores do mês continuam carregando por trás — você acompanha no topo da tela.
+          </p>
         )}
       </div>
     </div>

@@ -9,9 +9,9 @@ export default function TvPage() {
       <PageHeader
         title="Modo TV"
         subtitle="Exibição em tela cheia para a loja."
-        crumbs={[{ label: "Ao vivo", to: paths.aoVivo.root }, { label: "Modo TV" }]}
+        crumbs={[{ label: "Ao vivo", to: paths.live.root }, { label: "Modo TV" }]}
         actions={
-          <Link to={paths.aoVivo.root}>
+          <Link to={paths.live.root}>
             <Button variant="secondary" size="sm">
               Voltar ao Ao vivo
             </Button>

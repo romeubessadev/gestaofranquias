@@ -7,12 +7,12 @@
 
 ## Architecture Overview
 
-Página de leitura no AppShell, alimentada por `montarAoVivoView(escopo)` (fixtures), no mesmo padrão de Equipe/Financeiro. Escopo de loja via `useEscopo` + SeletorLoja no Topbar. Abas locais (Ranking | Desafios | Metas). Rotas shell `/ao-vivo/compartilhar` e `/ao-vivo/tv` para os botões do header.
+Página de leitura no AppShell, alimentada por `buildLiveView(escopo)` (fixtures), no mesmo padrão de Equipe/Financeiro. Escopo de loja via `useEscopo` + SeletorLoja no Topbar. Abas locais (Ranking | Desafios | Metas). Rotas shell `/ao-vivo/compartilhar` e `/ao-vivo/tv` para os botões do header.
 
 ```mermaid
 graph TD
   Topbar[SeletorLoja / useEscopo] --> Page[AoVivoPage]
-  Page --> View[montarAoVivoView]
+  Page --> View[buildLiveView]
   View --> Fixtures[vendas / metas / desafios / equipe]
   Page --> Tabs[Ranking / Desafios / Metas]
   Page --> Share["/ao-vivo/compartilhar shell"]
@@ -28,18 +28,18 @@ graph TD
 | PageHeader, Button, Card, StatCard, Tabs, Avatar, Badge, ProgressBar, EmptyState | `src/components/ui` | Chrome + KPIs + listas |
 | AreaLineChart | `src/components/charts` | Evolução (P2) |
 | useEscopo / SeletorLoja | `src/pages/dashboard` | Escopo loja |
-| agregadoPeriodo, calcularMeta, kpi helpers | `src/data/gestao/dashboard.ts` | Volumes mês/hoje |
-| desafios fixtures + progresso | `src/data/gestao/desafios.ts` + equipeVisoes patterns | Aba Desafios |
-| metas fixtures | `src/data/gestao/metas.ts` | Aba Metas |
-| nav-gestao / paths / router | layout + router | Menu + rotas |
+| agregadoPeriodo, calcularMeta, kpi helpers | `src/data/wedash/dashboard.ts` | Volumes mês/hoje |
+| desafios fixtures + progresso | `src/data/wedash/challenges.ts` + teamViews patterns | Aba Desafios |
+| metas fixtures | `src/data/wedash/goals.ts` | Aba Metas |
+| nav-wedash / paths / router | layout + router | Menu + rotas |
 | Equipe Atualizar pattern | `EquipePage` | Freshness P3 |
 
 ---
 
 ## Components
 
-### `montarAoVivoView`
-- **Location**: `src/data/gestao/aoVivo.ts`
+### `buildLiveView`
+- **Location**: `src/data/wedash/live.ts`
 - **Input**: `Escopo`
 - **Output**: KPIs (mês + hoje), ranking mês, desafios ativos, meta ativa (vendedor/grupo), evolução opcional, insight mock
 
@@ -88,4 +88,4 @@ AoVivoView {
 | --- | --- | --- |
 | Path base | `/ao-vivo` | Fora do Dashboard (operacional) |
 | Share/TV | Shells navegáveis | Botões funcionais agora; UI rica depois |
-| Tests | Unit on `montarAoVivoView` | Mesmo padrão `*.test.ts` em `data/gestao` |
+| Tests | Unit on `buildLiveView` | Mesmo padrão `*.test.ts` em `data/wedash` |

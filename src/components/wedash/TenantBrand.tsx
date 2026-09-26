@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { BrandMark } from "@/pages/auth/authKit";
-import { tenant } from "@/data/gestao/tenant";
+import { tenant } from "@/data/wedash/tenant";
 
 function iniciais(nome: string) {
   const partes = nome.trim().split(/\s+/);

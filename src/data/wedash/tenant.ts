@@ -10,19 +10,19 @@ export interface Tenant {
 }
 
 export const tenant: Tenant = {
-  id: "t-vela",
-  slug: "vela",
-  nome: "Vela Franquias Ltda",
-  nomeExibicao: "Vela",
-  // Sem logo próprio ainda: a UI usa a marca do template (o mesmo cubo da demo).
-  // Para usar o logo real, coloque o arquivo em public/brand/ e aponte aqui.
+  id: "t-wedash",
+  slug: "wedash",
+  nome: "WeDash Demo Ltda",
+  nomeExibicao: "WeDash",
+  // Sem logo próprio ainda: a UI usa BrandMark “WE”.
+  // Para usar logo real, coloque em public/ e aponte o caminho aqui.
   logoUrl: null,
   corMarca: null,
 };
 
 /** Marca padrão do produto, exibida quando o slug não existe. */
 export const marcaPadrao = {
-  nomeExibicao: "Gestão de Franquias",
+  nomeExibicao: "WeDash",
   logoUrl: null as string | null,
   corMarca: null as string | null,
 };

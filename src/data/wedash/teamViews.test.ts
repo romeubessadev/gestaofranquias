@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { agregadoVendedoraPeriodo, degrausDaFilial, escadaVendedora, metaIndividual, vendedorasDaLoja, montarEquipeView, type MetaIndividual } from "./equipeVisoes";
-import { colaboradorPorId } from "./equipe";
-import { metaDaFilial, type Degrau } from "./metas";
-import { desafiosAtivos, progressoIndividual, type Desafio } from "./desafios";
-import { HOJE_ISO } from "./relogio";
-import type { Escopo } from "./dashboard";
+import { sellerAggregateForPeriod, tiersOfStore, sellerLadder, individualGoal, sellersOfStore, buildTeamView, type IndividualGoal } from "./teamViews";
+import { collaboratorById } from "./team";
+import { goalOfStore, type Tier } from "./goals";
+import { activeChallenges, individualProgress, type Challenge } from "./challenges";
+import { TODAY_ISO } from "./clock";
+import type { Scope } from "./dashboard";
 
-function escopo(filialId: string = "todas", periodo: Escopo["periodo"] = { tipo: "esteMes" }): Escopo {
+function escopo(filialId: string = "todas", periodo: Scope["periodo"] = { tipo: "esteMes" }): Scope {
   return { filialIds: filialId === "todas" ? [] : [filialId], periodo, divisao: null };
 }
 
@@ -20,137 +20,137 @@ function parseBrl(texto: string): number {
 
 describe("T2: meta individual derivada (EQUIP-03)", () => {
   it("soma das metas individuais fecha exato com a meta da loja", () => {
-    const meta = metaDaFilial("f1", "2026-09")!.valorLoja;
-    const vendedoras = vendedorasDaLoja("f1", "2026-09");
-    const soma = vendedoras.reduce((s, c) => s + (metaIndividual(c, "f1", "2026-09")?.valor ?? 0), 0);
+    const meta = goalOfStore("f1", "2026-09")!.valorLoja;
+    const vendedoras = sellersOfStore("f1", "2026-09");
+    const soma = vendedoras.reduce((s, c) => s + (individualGoal(c, "f1", "2026-09")?.valor ?? 0), 0);
     expect(Math.round(soma)).toBe(meta);
   });
 
   it("meta individual segue o peso: maior pesoVenda recebe maior meta", () => {
-    const ana = colaboradorPorId("c01")!; // peso 1.35
-    const helena = colaboradorPorId("c08")!; // peso 0.7
-    const mAna = metaIndividual(ana, "f1", "2026-09")!.valor;
-    const mHelena = metaIndividual(helena, "f1", "2026-09")!.valor;
+    const ana = collaboratorById("c01")!; // peso 1.35
+    const helena = collaboratorById("c08")!; // peso 0.7
+    const mAna = individualGoal(ana, "f1", "2026-09")!.valor;
+    const mHelena = individualGoal(helena, "f1", "2026-09")!.valor;
     expect(mAna).toBeGreaterThan(mHelena);
   });
 
   it("sem meta cadastrada na competência devolve null", () => {
-    const c = colaboradorPorId("c01")!;
-    expect(metaIndividual(c, "f1", "2025-01")).toBeNull();
+    const c = collaboratorById("c01")!;
+    expect(individualGoal(c, "f1", "2025-01")).toBeNull();
   });
 
   it("vendedora em período parcial tem meta proporcional com flag e dias", () => {
     // Fernanda (c06) entra em férias em 10/09: dias elegíveis < dias abertos do mês.
-    const fernanda = colaboradorPorId("c06")!;
-    const m = metaIndividual(fernanda, "f1", "2026-09")!;
+    const fernanda = collaboratorById("c06")!;
+    const m = individualGoal(fernanda, "f1", "2026-09")!;
     expect(m.proporcional).toBe(true);
     expect(m.diasElegiveis).toBeLessThan(m.diasAbertosMes);
     expect(m.diasElegiveis).toBeGreaterThan(0);
     // A metade cheia de outra vendedora não é proporcional.
-    const ana = colaboradorPorId("c01")!;
-    const mAna = metaIndividual(ana, "f1", "2026-09")!;
+    const ana = collaboratorById("c01")!;
+    const mAna = individualGoal(ana, "f1", "2026-09")!;
     expect(mAna.proporcional).toBe(false);
   });
 
   it("elegibilidade por data: Rafaela (admissão 08/09) é parcial no mês", () => {
-    const rafaela = colaboradorPorId("c18")!;
-    const m = metaIndividual(rafaela, "f2", "2026-09")!;
+    const rafaela = collaboratorById("c18")!;
+    const m = individualGoal(rafaela, "f2", "2026-09")!;
     expect(m.proporcional).toBe(true);
   });
 
   it("dias elegíveis respeitam a inatividade (Fernanda: 1–9/set em loja que abre todo dia)", () => {
-    const fernanda = colaboradorPorId("c06")!;
-    const m = metaIndividual(fernanda, "f1", "2026-09")!;
+    const fernanda = collaboratorById("c06")!;
+    const m = individualGoal(fernanda, "f1", "2026-09")!;
     expect(m.diasElegiveis).toBe(9);
   });
 });
 
 describe("T2: agregados por vendedora no período (EQUIP-02)", () => {
   it("agregado de uma vendedora é consistente com o mês da loja", () => {
-    const ana = colaboradorPorId("c01")!;
-    const a = agregadoVendedoraPeriodo(ana, "f1", "2026-09-01", HOJE_ISO);
+    const ana = collaboratorById("c01")!;
+    const a = sellerAggregateForPeriod(ana, "f1", "2026-09-01", TODAY_ISO);
     expect(a.faturamento).toBeGreaterThan(0);
     expect(a.diasTrabalhados).toBeGreaterThan(0);
     // Faturamento individual é fração do total; não pode exceder o total do mês da loja.
-    const totalMeta = metaDaFilial("f1", "2026-09")!.valorLoja;
+    const totalMeta = goalOfStore("f1", "2026-09")!.valorLoja;
     expect(a.faturamento).toBeLessThan(totalMeta);
   });
 
   it("vendedora sem venda no período devolve zeros sem erro", () => {
-    const ana = colaboradorPorId("c01")!;
-    const a = agregadoVendedoraPeriodo(ana, "f1", "2024-01-01", "2024-01-05");
+    const ana = collaboratorById("c01")!;
+    const a = sellerAggregateForPeriod(ana, "f1", "2024-01-01", "2024-01-05");
     expect(a.faturamento).toBe(0);
     expect(a.atendimentos).toBe(0);
     expect(a.diasTrabalhados).toBe(0);
   });
 
   it("vendedora inativa no período soma só até a inatividade (Fernanda, férias 10/09)", () => {
-    const fernanda = colaboradorPorId("c06")!;
-    const a = agregadoVendedoraPeriodo(fernanda, "f1", "2026-09-01", HOJE_ISO);
+    const fernanda = collaboratorById("c06")!;
+    const a = sellerAggregateForPeriod(fernanda, "f1", "2026-09-01", TODAY_ISO);
     // Tem venda de 1–9/set e nenhuma de 10/09 em diante.
     expect(a.faturamento).toBeGreaterThan(0);
-    const ate9 = agregadoVendedoraPeriodo(fernanda, "f1", "2026-09-01", "2026-09-09");
+    const ate9 = sellerAggregateForPeriod(fernanda, "f1", "2026-09-01", "2026-09-09");
     expect(a.faturamento).toBe(ate9.faturamento);
   });
 
   it("hoje conta só até a hora atual (agregado de hoje é fração do dia)", () => {
-    const ana = colaboradorPorId("c01")!;
-    const ateAgora = agregadoVendedoraPeriodo(ana, "f1", HOJE_ISO, HOJE_ISO);
+    const ana = collaboratorById("c01")!;
+    const ateAgora = sellerAggregateForPeriod(ana, "f1", TODAY_ISO, TODAY_ISO);
     expect(ateAgora.faturamento).toBeGreaterThanOrEqual(0);
   });
 });
 
 describe("T3: escada de degraus e premiação (EQUIP-04)", () => {
-  const degrausPadrao = degrausDaFilial("f1", "2026-09");
-  const metaBase: MetaIndividual = { valor: 1000, proporcional: false, diasElegiveis: 30, diasAbertosMes: 30 };
-  const escadaDe = (degraus: Degrau[], meta = metaBase) => (realizado: number) => escadaVendedora(realizado, meta, degraus);
+  const defaultTiers = tiersOfStore("f1", "2026-09");
+  const metaBase: IndividualGoal = { valor: 1000, proporcional: false, diasElegiveis: 30, diasAbertosMes: 30 };
+  const escadaDe = (degraus: Tier[], meta = metaBase) => (realizado: number) => sellerLadder(realizado, meta, degraus);
 
   it("antes do primeiro degrau: degrau null, premiação e bônus 0", () => {
-    const e = escadaDe(degrausPadrao)(400); // 40% < Meta (50%)
+    const e = escadaDe(defaultTiers)(400); // 40% < Meta (50%)
     expect(e!.degrau).toBeNull();
     expect(e!.premiacao).toBe(0);
     expect(e!.bonus).toBe(0);
   });
 
   it("fronteira exata: 50% → Meta, 75% → Super Meta", () => {
-    const exata = escadaDe(degrausPadrao)(500);
+    const exata = escadaDe(defaultTiers)(500);
     expect(exata!.degrau!.nome).toBe("Meta");
     expect(exata!.premiacao).toBeCloseTo(500 * 0.015, 6);
     expect(exata!.bonus).toBe(50);
-    const superMeta = escadaDe(degrausPadrao)(750);
+    const superMeta = escadaDe(defaultTiers)(750);
     expect(superMeta!.degrau!.nome).toBe("Super Meta");
     expect(superMeta!.premiacao).toBeCloseTo(750 * 0.02, 6);
     expect(superMeta!.bonus).toBe(100);
   });
 
   it("degrau alcançado é o maior possível (100% → Hiper, não Super)", () => {
-    const e = escadaDe(degrausPadrao)(1000);
+    const e = escadaDe(defaultTiers)(1000);
     expect(e!.degrau!.nome).toBe("Hiper Meta");
   });
 
   it("bônus entra uma única vez (não dobra na projeção)", () => {
-    const e = escadaDe(degrausPadrao)(1000);
+    const e = escadaDe(defaultTiers)(1000);
     // bônus do Hiper = 150, uma vez; premiação separada do bônus.
     expect(e!.bonus).toBe(150);
     expect(e!.premiacao).toBeCloseTo(1000 * 0.025, 6);
   });
 
   it("próximo degrau: falta = meta × minPct ÷ 100 − realizado", () => {
-    const e = escadaDe(degrausPadrao)(500); // 50% → Meta; próximo = Super 75%
+    const e = escadaDe(defaultTiers)(500); // 50% → Meta; próximo = Super 75%
     expect(e!.proximo!.nome).toBe("Super Meta");
     expect(e!.proximo!.faltaValor).toBeCloseTo(750 - 500, 6);
     // Já no último: null.
-    const topo = escadaDe(degrausPadrao)(1200); // 120% > Desafio 110%
+    const topo = escadaDe(defaultTiers)(1200); // 120% > Desafio 110%
     expect(topo!.proximo).toBeNull();
   });
 
   it("sem meta individual (null ou zero) escada é null", () => {
-    expect(escadaVendedora(500, null, degrausPadrao)).toBeNull();
-    expect(escadaVendedora(500, { ...metaBase, valor: 0 }, degrausPadrao)).toBeNull();
+    expect(sellerLadder(500, null, defaultTiers)).toBeNull();
+    expect(sellerLadder(500, { ...metaBase, valor: 0 }, defaultTiers)).toBeNull();
   });
 
   it("escada lê degraus CUSTOMIZADOS da meta da filial, não os padrões", () => {
-    const custom: Degrau[] = [
+    const custom: Tier[] = [
       { nome: "Bronze", atingimentoMinPct: 60, comissaoPct: 1.0, bonus: 10 },
       { nome: "Prata", atingimentoMinPct: 90, comissaoPct: 2.0, bonus: 30 },
     ];
@@ -162,17 +162,17 @@ describe("T3: escada de degraus e premiação (EQUIP-04)", () => {
   });
 
   it("degrausDaFilial devolve os degraus da competência (smoke da fonte)", () => {
-    expect(degrausDaFilial("f1", "2026-09")).toBe(metaDaFilial("f1", "2026-09")!.degraus);
+    expect(tiersOfStore("f1", "2026-09")).toBe(goalOfStore("f1", "2026-09")!.degraus);
   });
 });
 
 describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", () => {
   it("Este mês: metaAtiva, KPI premiação unificada, colunas de meta preenchidas e desafios presentes", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const v = buildTeamView(escopo("f1", { tipo: "esteMes" }));
     expect(v.visao).toBe("loja");
     expect(v.metaAtiva).toBe(true);
     expect(v.kpiPremiacao).not.toBeNull();
-    expect(v.desafios).not.toBeNull();
+    expect(v.challenges).not.toBeNull();
     expect(v.vendedoras!.length).toBeGreaterThan(0);
     const comMeta = v.vendedoras!.filter((l) => !l.semMeta);
     expect(comMeta.length).toBe(v.vendedoras!.length);
@@ -182,22 +182,22 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
 
   it("KPI Atendimentos sempre presente e plausível", () => {
     for (const tipo of ["esteMes", "hoje"] as const) {
-      const v = montarEquipeView(escopo("f1", { tipo }));
+      const v = buildTeamView(escopo("f1", { tipo }));
       expect(Number(v.kpiAtendimentos.valor.replace(/\D/g, "")), tipo).toBeGreaterThanOrEqual(0);
     }
   });
 
   it("Premiação projetada = escada de metas + prêmios dos desafios (verba única)", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const v = buildTeamView(escopo("f1", { tipo: "esteMes" }));
     expect(v.kpiPremiacao).not.toBeNull();
     // Fonte desafios: prêmio × participantes cuja projeção individual fecha
     // (POR PARTICIPANTE, não pelo veredito agregado do desafio).
     const decorridos = 15;
     const totais = 30; // dias abertos de setembro no mock
     let desafiosEsperado = 0;
-    for (const d of desafiosAtivos("2026-09")) {
+    for (const d of activeChallenges("2026-09")) {
       for (const id of d.participantes) {
-        const p = progressoIndividual(d, id);
+        const p = individualProgress(d, id);
         if (p > 0 && (p / decorridos) * totais >= d.alvoIndividual) desafiosEsperado += d.premio;
       }
     }
@@ -217,13 +217,13 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
   });
 
   it("Premiação presente com filtro 7 dias (AD-046 — competência corrente)", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "7dias" }));
+    const v = buildTeamView(escopo("f1", { tipo: "7dias" }));
     expect(v.kpiPremiacao).not.toBeNull();
     expect(v.avisoCompetencia).toContain("seguem o período");
   });
 
   it("Mês passado: metaAtiva com aviso de competência", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "mesPassado" }));
+    const v = buildTeamView(escopo("f1", { tipo: "mesPassado" }));
     expect(v.metaAtiva).toBe(true);
     expect(v.avisoCompetencia).toContain("competência");
     expect(v.kpiPremiacao).not.toBeNull();
@@ -231,10 +231,10 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
 
   it("Hoje/Ontem/7 dias: meta continua ativa (AD-046) com aviso; KPIs seguem o período", () => {
     for (const tipo of ["hoje", "ontem", "7dias"] as const) {
-      const v = montarEquipeView(escopo("f1", { tipo }));
+      const v = buildTeamView(escopo("f1", { tipo }));
       expect(v.metaAtiva, tipo).toBe(true);
       expect(v.kpiPremiacao, tipo).not.toBeNull();
-      expect(v.desafios, tipo).not.toBeNull();
+      expect(v.challenges, tipo).not.toBeNull();
       expect(v.avisoCompetencia, tipo).toContain("seguem o período");
       expect(v.competencia, tipo).toBe("2026-09");
       // Colunas de meta preenchidas com a janela da competência (não do filtro).
@@ -245,20 +245,20 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
   });
 
   it("KPIs vêm com delta contra o período anterior equivalente (7 dias)", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "7dias" }));
+    const v = buildTeamView(escopo("f1", { tipo: "7dias" }));
     expect(v.kpiFaturamento.delta).toBeDefined();
     expect(v.kpiFaturamento.delta!.value).toMatch(/%$/);
   });
 
   it("lista ordenada por atingimento com meta ativa (maior → menor), zeros no fim", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const v = buildTeamView(escopo("f1", { tipo: "esteMes" }));
     const pcts = v.vendedoras!.filter((l) => !l.semMeta).map((l) => l.atingimentoPct);
     expect([...pcts].sort((a, b) => b - a)).toEqual(pcts);
   });
 
   it("KPI de Hoje recorta o dia; meta da linha continua MTD da competência", () => {
-    const hoje = montarEquipeView(escopo("f1", { tipo: "hoje" }));
-    const mes = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const hoje = buildTeamView(escopo("f1", { tipo: "hoje" }));
+    const mes = buildTeamView(escopo("f1", { tipo: "esteMes" }));
     // KPI do topo: Hoje ≤ Este mês.
     expect(parseBrl(hoje.kpiFaturamento.valor)).toBeLessThanOrEqual(parseBrl(mes.kpiFaturamento.valor) + 1);
     // Linhas de meta: mesmo atingimento (mesma janela de competência).
@@ -270,14 +270,14 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
   });
 
   it("tendência existe para todas e é um dos três valores", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const v = buildTeamView(escopo("f1", { tipo: "esteMes" }));
     for (const l of v.vendedoras!) {
       expect(["subindo", "estavel", "caindo"]).toContain(l.tendencia);
     }
   });
 
   it("ponto de atenção: um por vendedora, sempre que P.A. cai ≥5% abaixo da média", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const v = buildTeamView(escopo("f1", { tipo: "esteMes" }));
     const alertas = v.vendedoras!.filter((l) => l.atencao?.tipo === "pa");
     for (const l of alertas) {
       // Detalhe do mockup: "P.A. X,XX · Y% abaixo".
@@ -292,7 +292,7 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
   });
 
   it("premiação projetada individual: coerente com projeção × degrau (não-nula com meta)", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const v = buildTeamView(escopo("f1", { tipo: "esteMes" }));
     for (const l of v.vendedoras!) {
       if (l.semMeta) continue;
       // Com meta ativa e mês em curso, toda vendedora tem projeção calculada.
@@ -303,17 +303,17 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
   });
 
   it("estados por bloco: desafios disponíveis mesmo com filtro Hoje (AD-046)", () => {
-    const vDia = montarEquipeView(escopo("f1", { tipo: "hoje" }));
+    const vDia = buildTeamView(escopo("f1", { tipo: "hoje" }));
     expect(vDia.estados.kpis).toBe("disponivel");
     expect(vDia.estados.vendedoras).toBe("disponivel");
-    expect(vDia.estados.desafios).toBe("disponivel");
-    const vMes = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
-    expect(vMes.estados.desafios).toBe("disponivel");
+    expect(vDia.estados.challenges).toBe("disponivel");
+    const vMes = buildTeamView(escopo("f1", { tipo: "esteMes" }));
+    expect(vMes.estados.challenges).toBe("disponivel");
     expect(vMes.avisoCompetencia).toBeNull();
   });
 
   it("período personalizado antigo: KPIs do período; meta/aviso da competência corrente", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "personalizado", inicio: "2025-06-01", fim: "2025-06-30" }));
+    const v = buildTeamView(escopo("f1", { tipo: "personalizado", inicio: "2025-06-01", fim: "2025-06-30" }));
     // AD-046: competência = mês corrente (há meta em 2026-09).
     expect(v.metaAtiva).toBe(true);
     expect(v.competencia).toBe("2026-09");
@@ -324,7 +324,7 @@ describe("T4: montarEquipeView — visão loja com metaAtiva (EQUIP-01/02/03)", 
 
 describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
   it("todas as lojas: resumo por filial + vendedoras flat com filialNome (REDE-01/02)", () => {
-    const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    const v = buildTeamView(escopo("todas", { tipo: "esteMes" }));
     expect(v.visao).toBe("rede");
     expect(v.vendedoras).not.toBeNull();
     expect(v.vendedoras!.length).toBeGreaterThan(0);
@@ -345,7 +345,7 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
   });
 
   it("pctMetaGlobal das lojas com meta soma ~100 (REDE-13)", () => {
-    const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    const v = buildTeamView(escopo("todas", { tipo: "esteMes" }));
     const comMeta = v.lojas!.filter((l) => l.metaValor > 0);
     expect(comMeta.length).toBeGreaterThan(0);
     const soma = comMeta.reduce((s, l) => s + l.pctMetaGlobal, 0);
@@ -358,7 +358,7 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
   });
 
   it("metaGlobal: total = soma das metas; pct = realizado/total; presente na rede mesmo com 7 dias (AD-046)", () => {
-    const comMeta = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    const comMeta = buildTeamView(escopo("todas", { tipo: "esteMes" }));
     expect(comMeta.metaGlobal).not.toBeNull();
     const g = comMeta.metaGlobal!;
     const somaMetas = comMeta.lojas!.reduce((s, l) => s + l.metaValor, 0);
@@ -370,11 +370,11 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
     expect(g.competTexto).toBeTruthy();
 
     // AD-046: faixa global permanece com filtro curto (mesma competência).
-    const seteDias = montarEquipeView(escopo("todas", { tipo: "7dias" }));
+    const seteDias = buildTeamView(escopo("todas", { tipo: "7dias" }));
     expect(seteDias.metaGlobal).not.toBeNull();
     expect(seteDias.metaGlobal!.total).toBe(g.total);
 
-    const loja = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const loja = buildTeamView(escopo("f1", { tipo: "esteMes" }));
     expect(loja.metaGlobal).not.toBeNull();
     expect(loja.metaGlobal!.total).toBe(170000);
     expect(loja.metaGlobal!.inicio).toBe("2026-09-01");
@@ -382,9 +382,9 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
   });
 
   it("melhor/pior atingimento por loja consistentes com a lista da loja", () => {
-    const rede = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    const rede = buildTeamView(escopo("todas", { tipo: "esteMes" }));
     for (const resumo of rede.lojas!) {
-      const loja = montarEquipeView(escopo(resumo.filialId, { tipo: "esteMes" }));
+      const loja = buildTeamView(escopo(resumo.filialId, { tipo: "esteMes" }));
       const comMeta = loja.vendedoras!.filter((l) => !l.semMeta);
       const ordenadas = [...comMeta].sort((a, b) => b.atingimentoPct - a.atingimentoPct);
       if (ordenadas.length > 0) {
@@ -399,18 +399,18 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
   });
 
   it("KPIs da rede somam as lojas (faturamento da rede ≥ qualquer loja isolada)", () => {
-    const rede = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    const rede = buildTeamView(escopo("todas", { tipo: "esteMes" }));
     for (const l of rede.lojas!) {
-      const isolada = montarEquipeView(escopo(l.filialId, { tipo: "esteMes" }));
+      const isolada = buildTeamView(escopo(l.filialId, { tipo: "esteMes" }));
       // Rede soma as lojas; o valor da rede nunca é menor que o de uma loja.
       expect(parseBrl(rede.kpiFaturamento.valor)).toBeGreaterThanOrEqual(parseBrl(isolada.kpiFaturamento.valor) - 1);
     }
   });
 
   it("rede com filtro 7 dias: meta/desafios/faixa da competência; KPIs do período", () => {
-    const v = montarEquipeView(escopo("todas", { tipo: "7dias" }));
+    const v = buildTeamView(escopo("todas", { tipo: "7dias" }));
     expect(v.metaAtiva).toBe(true);
-    expect(v.desafios).not.toBeNull();
+    expect(v.challenges).not.toBeNull();
     expect(v.kpiPremiacao).not.toBeNull();
     expect(v.metaGlobal).not.toBeNull();
     expect(v.avisoCompetencia).toContain("seguem o período");
@@ -418,10 +418,10 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
   });
 
   it("premiação da rede = escada das duas lojas + desafios (que não dobram)", () => {
-    const rede = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
+    const rede = buildTeamView(escopo("todas", { tipo: "esteMes" }));
     expect(rede.kpiPremiacao).not.toBeNull();
-    const r1 = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
-    const r2 = montarEquipeView(escopo("f2", { tipo: "esteMes" }));
+    const r1 = buildTeamView(escopo("f1", { tipo: "esteMes" }));
+    const r2 = buildTeamView(escopo("f2", { tipo: "esteMes" }));
     // Rede ≥ qualquer loja isolada (soma as escadas; desafios entram 1×).
     expect(parseBrl(rede.kpiPremiacao!.valor)).toBeGreaterThanOrEqual(parseBrl(r1.kpiPremiacao!.valor) - 1);
     expect(parseBrl(rede.kpiPremiacao!.valor)).toBeGreaterThanOrEqual(parseBrl(r2.kpiPremiacao!.valor) - 1);
@@ -433,16 +433,16 @@ describe("T6: montarEquipeView — visão rede (EQUIP-07)", () => {
 
 describe("T5: desafios na visão (EQUIP-05)", () => {
   it("lista só desafios Ativo (sem encerrados nem a começar)", () => {
-    const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
-    expect(v.desafios!.length).toBe(2);
-    expect(v.desafios!.every((d) => d.statusLabel === "Ativo")).toBe(true);
-    expect(v.desafios!.map((d) => d.id).sort()).toEqual(["d-bodycream", "d-pa"]);
+    const v = buildTeamView(escopo("todas", { tipo: "esteMes" }));
+    expect(v.challenges!.length).toBe(2);
+    expect(v.challenges!.every((d) => d.statusLabel === "Ativo")).toBe(true);
+    expect(v.challenges!.map((d) => d.id).sort()).toEqual(["d-bodycream", "d-pa"]);
   });
 
   it("progresso agregado: un/R$ = soma capped; pa/ticket = média vs piso", () => {
-    const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
-    expect(v.desafios!.length).toBe(2);
-    for (const d of v.desafios!) {
+    const v = buildTeamView(escopo("todas", { tipo: "esteMes" }));
+    expect(v.challenges!.length).toBe(2);
+    for (const d of v.challenges!) {
       const piso = d.minimo ?? d.alvoIndividual;
       const progressos = d.ranking.map((p) => p.progresso);
       if (d.tipo === "pa" || d.tipo === "ticket") {
@@ -480,16 +480,16 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
   });
 
   it("demo cobre amarelo e verde nas barras dos ativos", () => {
-    const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
-    const byId = Object.fromEntries(v.desafios!.map((d) => [d.id, d]));
+    const v = buildTeamView(escopo("todas", { tipo: "esteMes" }));
+    const byId = Object.fromEntries(v.challenges!.map((d) => [d.id, d]));
     expect(byId["d-bodycream"].progressoPct).toBeGreaterThanOrEqual(50);
     expect(byId["d-bodycream"].progressoPct).toBeLessThan(80);
     expect(byId["d-pa"].progressoPct).toBeGreaterThanOrEqual(80);
   });
 
   it("ranking lista todos os participantes ordenados por status e progresso", () => {
-    const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
-    for (const d of v.desafios!) {
+    const v = buildTeamView(escopo("todas", { tipo: "esteMes" }));
+    for (const d of v.challenges!) {
       expect(d.corIcone).toBeTruthy();
       expect(d.projetadoAgregado).toBeGreaterThanOrEqual(0);
       for (const p of d.ranking) {
@@ -500,8 +500,8 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
   });
 
   it("engajadas nunca excede participantes; ativos no mock têm engajamento", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
-    for (const d of v.desafios!) {
+    const v = buildTeamView(escopo("f1", { tipo: "esteMes" }));
+    for (const d of v.challenges!) {
       expect(d.engajadas).toBeLessThanOrEqual(d.participantes);
       expect(d.engajadas).toBeGreaterThan(0);
       expect(d.semEngajamento).toBe(false);
@@ -509,7 +509,7 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
   });
 
   it("desafio sem engajamento hipotético: engajadas 0 de M, semEngajamento true e ritmo false", () => {
-    const base: Desafio = {
+    const base: Challenge = {
       id: "d-teste",
       nome: "Teste",
       objetivo: "Quem vender 10 unidades ganha o prêmio.",
@@ -536,8 +536,8 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
   });
 
   it("ritmo (fechaNoRitmo) só faz sentido em ativos listados", () => {
-    const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
-    for (const d of v.desafios!) {
+    const v = buildTeamView(escopo("todas", { tipo: "esteMes" }));
+    for (const d of v.challenges!) {
       expect(d.statusLabel).toBe("Ativo");
       const pct = d.progressoPct;
       const diasDecorridos = 15;
@@ -548,33 +548,33 @@ describe("T5: desafios na visão (EQUIP-05)", () => {
   });
 
   it("desafios ativos ordenados por dias restantes, depois loja/nome", () => {
-    const v = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
-    const dias = v.desafios!.map((d) => d.diasRestantes);
+    const v = buildTeamView(escopo("todas", { tipo: "esteMes" }));
+    const dias = v.challenges!.map((d) => d.diasRestantes);
     expect(dias).toEqual([...dias].sort((a, b) => a - b));
   });
 
   it("visão rede exibe loja no card; loja isolada não", () => {
-    const rede = montarEquipeView(escopo("todas", { tipo: "esteMes" }));
-    const loja = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
-    expect(rede.desafios!.length).toBe(2);
-    expect(rede.desafios!.every((d) => d.exibirLoja)).toBe(true);
-    expect(rede.desafios!.some((d) => d.lojaRotulo === "Campo Grande")).toBe(true);
-    expect(rede.desafios!.some((d) => d.lojaRotulo === "Três Lagoas")).toBe(true);
-    expect(loja.desafios!.length).toBe(1);
-    expect(loja.desafios!.every((d) => !d.exibirLoja)).toBe(true);
-    expect(loja.desafios!.every((d) => d.filialId === "f1")).toBe(true);
+    const rede = buildTeamView(escopo("todas", { tipo: "esteMes" }));
+    const loja = buildTeamView(escopo("f1", { tipo: "esteMes" }));
+    expect(rede.challenges!.length).toBe(2);
+    expect(rede.challenges!.every((d) => d.exibirLoja)).toBe(true);
+    expect(rede.challenges!.some((d) => d.lojaRotulo === "Campo Grande")).toBe(true);
+    expect(rede.challenges!.some((d) => d.lojaRotulo === "Três Lagoas")).toBe(true);
+    expect(loja.challenges!.length).toBe(1);
+    expect(loja.challenges!.every((d) => !d.exibirLoja)).toBe(true);
+    expect(loja.challenges!.every((d) => d.filialId === "f1")).toBe(true);
   });
 
   it("sem meta ativa não há desafios na view (já coberto), e desafios da competência vazia não quebram", () => {
     // 2026-07 tem meta mas não tem desafios: desafiosView devolve lista vazia.
-    const ativos = desafiosAtivos("2026-07");
+    const ativos = activeChallenges("2026-07");
     expect(ativos).toEqual([]);
   });
 });
 
 describe("T5: premiação projetada (EQUIP-04/05)", () => {
   it("KPI premiação projetada presente e plausível no mês em andamento", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const v = buildTeamView(escopo("f1", { tipo: "esteMes" }));
     expect(v.kpiPremiacao).not.toBeNull();
     // Plausibilidade: premiação é fração do faturamento das linhas (< 10%).
     const fatLinhas = v.vendedoras!.reduce((s, l) => s + l.faturamentoValor, 0);
@@ -584,17 +584,17 @@ describe("T5: premiação projetada (EQUIP-04/05)", () => {
   });
 
   it("premiação do mês fechado (Mês passado) é a final: soma premiacaoAcumulada + bônus", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "mesPassado" }));
+    const v = buildTeamView(escopo("f1", { tipo: "mesPassado" }));
     expect(v.kpiPremiacao).not.toBeNull();
     const escada = v.vendedoras!.reduce((s, l) => s + l.premiacaoAcumulada + l.bonusAlcancado, 0);
     // Competência de agosto não tem desafios no mock: KPI = escada final.
-    expect(desafiosAtivos("2026-08")).toEqual([]);
+    expect(activeChallenges("2026-08")).toEqual([]);
     expect(parseBrl(v.kpiPremiacao!.valor)).toBeCloseTo(escada, -1);
   });
 
   it("premiacaoAcumulada só com degrau já cruzado no MTD: realizado × pct", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
-    const degraus = degrausDaFilial("f1", "2026-09");
+    const v = buildTeamView(escopo("f1", { tipo: "esteMes" }));
+    const degraus = tiersOfStore("f1", "2026-09");
     for (const l of v.vendedoras!) {
       // Nível na UI pode ser pelo ritmo; premiação acumulada só conta degrau MTD.
       let degrauMtd: (typeof degraus)[number] | null = null;
@@ -612,15 +612,17 @@ describe("T5: premiação projetada (EQUIP-04/05)", () => {
     }
   });
 
-  it("ranking: % meta geral e Progresso da Meta coerentes com Σ faturamento", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
-    const metaLoja = metaDaFilial("f1", "2026-09")!.valorLoja;
+  it("ranking: % meta geral = Σ vendedoras; Progresso da Meta = faturamento da loja (+ fora da equipe)", () => {
+    const v = buildTeamView(escopo("f1", { tipo: "esteMes" }));
+    const metaLoja = goalOfStore("f1", "2026-09")!.valorLoja;
     expect(v.vendedoras!.length).toBeGreaterThan(0);
     const somaFat = v.vendedoras!.reduce((s, l) => s + l.faturamentoValor, 0);
     expect(v.metaGlobal).not.toBeNull();
-    expect(v.metaGlobal!.realizado).toBe(somaFat);
+    // Venda sem vendedora / gerência: fica fora do ranking, mas conta na meta da loja.
+    expect(v.metaGlobal!.foraDaEquipe ?? 0).toBeGreaterThanOrEqual(0);
+    expect(v.metaGlobal!.realizado).toBeCloseTo(somaFat + (v.metaGlobal!.foraDaEquipe ?? 0), 2);
     expect(v.metaGlobal!.total).toBe(metaLoja);
-    expect(v.metaGlobal!.pct).toBeCloseTo((somaFat / metaLoja) * 100, 6);
+    expect(v.metaGlobal!.pct).toBeCloseTo((v.metaGlobal!.realizado / metaLoja) * 100, 6);
 
     for (const l of v.vendedoras!) {
       expect(l.grupo === "Grupo 1" || l.grupo === "Grupo 2" || l.grupo === "Sem grupo").toBe(true);
@@ -633,11 +635,11 @@ describe("T5: premiação projetada (EQUIP-04/05)", () => {
         expect(l.comissaoPct).toBe(0);
       }
     }
-    // Média ponderada de atingimento = Progresso da Meta.
+    // Média ponderada de atingimento da equipe = Σ vendedoras ÷ meta da loja.
     const somaMeta = v.vendedoras!.reduce((s, l) => s + l.metaIndividualValor, 0);
     expect(somaMeta).toBeCloseTo(metaLoja, 0);
     const mediaPonderada = (somaFat / somaMeta) * 100;
-    expect(mediaPonderada).toBeCloseTo(v.metaGlobal!.pct, 6);
+    expect(mediaPonderada).toBeCloseTo((somaFat / metaLoja) * 100, 6);
 
     // Demo: Shopping CG (f1) no Hiper (N3 ≈100% da meta); Desafio = 110%.
     expect(v.metaGlobal!.pct).toBeGreaterThanOrEqual(100);
@@ -650,7 +652,7 @@ describe("T5: premiação projetada (EQUIP-04/05)", () => {
 
 describe("T5: leitura da IA da equipe (EQUIP-06) — desativada por enquanto", () => {
   it("não monta sugestão de IA na view", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const v = buildTeamView(escopo("f1", { tipo: "esteMes" }));
     expect(v.leitura).toBeNull();
     expect(v.estados.leitura).toBe("sem_dados");
   });
@@ -658,7 +660,7 @@ describe("T5: leitura da IA da equipe (EQUIP-06) — desativada por enquanto", (
 
 describe("Faturamento vs Meta — série acumulada (padrão Visão Geral)", () => {
   it("monta série com realizado e meta crescentes no mês", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "esteMes" }));
+    const v = buildTeamView(escopo("f1", { tipo: "esteMes" }));
     expect(v.evolucaoFaturamento).toBeDefined();
     expect(v.evolucaoFaturamento!.length).toBeGreaterThan(1);
     expect(v.rotuloSerie).toMatch(/por dia/);
@@ -671,7 +673,7 @@ describe("Faturamento vs Meta — série acumulada (padrão Visão Geral)", () =
   });
 
   it("em 1 dia usa eixo por hora", () => {
-    const v = montarEquipeView(escopo("f1", { tipo: "hoje" }));
+    const v = buildTeamView(escopo("f1", { tipo: "hoje" }));
     expect(v.rotuloSerie).toMatch(/por hora/);
     expect(v.evolucaoFaturamento!.length).toBeGreaterThan(1);
   });

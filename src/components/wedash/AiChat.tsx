@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { posBase } from "@/lib/areaSegura";
+import { posBase } from "@/lib/safeArea";
 import { Button, Input, Modal } from "@/components/ui";
 import { Avatar } from "@/components/ui";
 import { cn } from "@/lib/cn";

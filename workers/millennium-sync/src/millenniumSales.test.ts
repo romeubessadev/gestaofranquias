@@ -24,6 +24,8 @@ describe("mapVendasListaPayload", () => {
     expect(rows.length).toBe(5);
     expect(rows[0].revenueCents).toBe(189_90);
     expect(rows[0].millenniumFilial).toBe(1);
+    expect(rows[0].sellerName).toBe("VENDEDORA A");
+    expect(rows[2].sellerName).toBe("VENDEDORA B");
   });
 
   it("keeps NF + COD_OPERACAO numérico for ConsultaDetMov", () => {
@@ -117,14 +119,14 @@ describe("partitionRowsByFilial", () => {
 });
 
 describe("milleniumDataRange", () => {
-  it("DATAF is exclusive next local midnight (UI parity)", () => {
+  it("DATAF is the inclusive last day (next midnight would pull the next day)", () => {
     expect(milleniumDayBoundIso("2026-09-21")).toBe("2026-09-21T04:00:00.000Z");
     expect(addDaysYmd("2026-09-21", 1)).toBe("2026-09-22");
     expect(milleniumDataRange("2026-09-21", "2026-09-21")).toEqual({
       datai: "2026-09-21T04:00:00.000Z",
-      dataf: "2026-09-22T04:00:00.000Z",
+      dataf: "2026-09-21T04:00:00.000Z",
     });
-    expect(milleniumDataRange("2026-09-01", "2026-09-21").dataf).toBe("2026-09-22T04:00:00.000Z");
+    expect(milleniumDataRange("2026-09-01", "2026-09-21").dataf).toBe("2026-09-21T04:00:00.000Z");
   });
 });
 
@@ -157,7 +159,7 @@ describe("fetchSalesLista", () => {
     expect(body.FILIAL).toBe(8);
     expect(body.EVENTO).toBe("(107,22,24)");
     expect(body.DATAI).toBe("2026-09-21T04:00:00.000Z");
-    expect(body.DATAF).toBe("2026-09-22T04:00:00.000Z");
+    expect(body.DATAF).toBe("2026-09-21T04:00:00.000Z");
   });
 
   it("allows FILIAL null for a single-day window", async () => {
