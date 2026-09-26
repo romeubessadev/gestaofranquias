@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Badge,
   Button,
   DataTable,
   type DataTableColumn,
@@ -9,7 +8,9 @@ import {
   Select,
   useToast,
 } from "@/components/ui";
+import { BrandBadge } from "@/components/wedash/BrandBadge";
 import { ProductsTableSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { cn } from "@/lib/cn";
 import { useActiveSession } from "@/session/SessionProvider";
 import { fetchCostTables, type CostTable } from "@/data/wedash/stores";
 import {
@@ -156,20 +157,22 @@ export function ProductsSettingsPage() {
       header: "Marca",
       sortable: true,
       sortValue: (r) => r.brand,
-      render: (r) => <Badge variant={r.brand === "WPINK" ? "info" : "neutral"}>{r.brand}</Badge>,
+      render: (r) => <BrandBadge brand={r.brand} />,
     },
     {
       key: "cost",
       header: "Custo",
       align: "right",
       sortable: true,
-      sortValue: (r) => r.cost,
-      render: (r) =>
-        r.cost == null ? (
-          <Badge variant="warning">Sem custo</Badge>
-        ) : (
-          <span className="font-extrabold tabular-nums text-t0">{brlCent(r.cost)}</span>
-        ),
+      sortValue: (r) => r.cost ?? 0,
+      render: (r) => (
+        <span
+          className={cn("font-extrabold tabular-nums", r.cost == null ? "text-warn" : "text-t0")}
+          title={r.cost == null ? "Sem custo nesta tabela" : undefined}
+        >
+          {brlCent(r.cost ?? 0)}
+        </span>
+      ),
     },
   ];
 
