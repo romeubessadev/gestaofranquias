@@ -28,6 +28,15 @@ export interface Store {
   dataInauguracao: string;
   /** Custos da operação (Configurações > Lojas). Ausente/null = não configurado. */
   custos?: StoreCosts;
+  /** Tabela de custo do Millennium: completa o custo de produto que vem zerado na margem. */
+  costTableId?: number | null;
+}
+
+/** Tabela de custo do Millennium (product_cost_table). */
+export interface CostTable {
+  id: number;
+  code: string;
+  description: string;
 }
 
 /** % sobre o faturamento da marca; aluguel fixo em R$/mês. null = não configurado. */
@@ -303,6 +312,7 @@ function rowToStore(r: {
   rent_fixed_cents?: number | string | null;
   icms_pct?: number | string | null;
   icms_st_pct?: number | string | null;
+  cost_table_id?: number | string | null;
 }): Store {
   const horas = parseWeekHours(r.hours);
   const num = (v: number | string | null | undefined) => (v == null || v === "" ? null : Number(v));
@@ -333,12 +343,14 @@ function rowToStore(r: {
       icmsPct: num(r.icms_pct),
       icmsStPct: num(r.icms_st_pct),
     },
+    costTableId: num(r.cost_table_id),
   });
 }
 
 const STORE_COST_COLUMNS =
   "royalties_wepink_pct, royalties_wpink_pct, marketing_wepink_pct, marketing_wpink_pct, rent_wepink_pct, rent_wpink_pct, rent_fixed_cents";
 const STORE_TAX_COLUMNS = "icms_pct, icms_st_pct";
+const STORE_COST_TABLE_COLUMN = "cost_table_id";
 
 /**
  * Filtro de marca só faz sentido se alguma loja do escopo tem WPINK.
@@ -381,8 +393,11 @@ export async function hydrateSessionStores(tenantId: string, sessionStoreIds: st
         .in("id", sessionStoreIds)
         .order("code");
 
-    let { data, error } = await query(`${baseCols}, ${STORE_COST_COLUMNS}, ${STORE_TAX_COLUMNS}`);
+    let { data, error } = await query(
+      `${baseCols}, ${STORE_COST_COLUMNS}, ${STORE_TAX_COLUMNS}, ${STORE_COST_TABLE_COLUMN}`,
+    );
     // Banco sem as migrations de impostos/custos: segue sem eles em vez de cair no mock.
+    if (error?.code === "42703") ({ data, error } = await query(`${baseCols}, ${STORE_COST_COLUMNS}, ${STORE_TAX_COLUMNS}`));
     if (error?.code === "42703") ({ data, error } = await query(`${baseCols}, ${STORE_COST_COLUMNS}`));
     if (error?.code === "42703") ({ data, error } = await query(baseCols));
     if (error || !data?.length) {
@@ -445,10 +460,30 @@ export async function updateStoreSchedule(args: {
   }
 }
 
-/** Persiste custos da operação da loja (Configurações > Lojas > Custos). */
+/** Tabelas de custo do Millennium (sincronizadas pelo worker). Falha → []. */
+export async function fetchCostTables(): Promise<CostTable[]> {
+  try {
+    const { getSupabase } = await import("@/lib/supabase");
+    const sb = getSupabase();
+    if (!sb) return [];
+    const { data, error } = await sb.from("product_cost_table").select("table_id, code, description").order("code");
+    if (error) throw error;
+    return (data ?? []).map((r) => ({
+      id: Number(r.table_id),
+      code: String(r.code ?? ""),
+      description: String(r.description ?? ""),
+    }));
+  } catch (e) {
+    console.warn("fetchCostTables:", e);
+    return [];
+  }
+}
+
+/** Persiste custos da operação da loja (Configurações > Lojas > Custos). `costTableId` undefined = não mexe. */
 export async function updateStoreCosts(
   storeId: string,
   custos: StoreCosts,
+  costTableId?: number | null,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const { getSupabase } = await import("@/lib/supabase");
@@ -458,6 +493,9 @@ export async function updateStoreCosts(
     const { error } = await sb
       .from("store")
       .update({
+        ...(costTableId !== undefined
+          ? { cost_table_id: costTableId, cost_table_set_at: new Date().toISOString() }
+          : {}),
         royalties_wepink_pct: custos.royaltiesWepinkPct,
         royalties_wpink_pct: custos.royaltiesWpinkPct,
         marketing_wepink_pct: custos.marketingWepinkPct,
@@ -472,7 +510,9 @@ export async function updateStoreCosts(
     if (error) return { ok: false, error: error.message };
 
     const existing = allStores().find((s) => s.id === storeId);
-    if (existing) registerExtraStore({ ...existing, custos });
+    if (existing) {
+      registerExtraStore({ ...existing, custos, ...(costTableId !== undefined ? { costTableId } : {}) });
+    }
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

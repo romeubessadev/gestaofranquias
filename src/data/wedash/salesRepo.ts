@@ -1,5 +1,11 @@
 import { getSupabase } from "@/lib/supabase";
 import { titleName } from "@/lib/format";
+import {
+  applyFillToDayAggs,
+  applyFillToProductCosts,
+  buildTableCostFill,
+  type TableCostFill,
+} from "./costTableFill";
 import type {
   SalesBrand,
   SalesCategoryDayAgg,
@@ -225,7 +231,76 @@ export async function fetchSalesDayAggs(
   if (query.brand) q = q.eq("brand", query.brand);
 
   const ordered = q.order("day", { ascending: true }).order("store_id").order("brand");
-  return (await fetchAllPages<DayRow>(ordered, "fetchSalesDayAggs")).map(mapDay);
+  const days = (await fetchAllPages<DayRow>(ordered, "fetchSalesDayAggs")).map(mapDay);
+  if (days.length === 0) return days;
+  return applyFillToDayAggs(days, await loadTableCostFill(client, null, query));
+}
+
+/**
+ * Custo da tabela da loja para os produtos que vieram com custo 0 na margem.
+ * `rows` já carregadas (produto) ou null = busca só as linhas zeradas do período. Falha → sem ajuste.
+ */
+async function loadTableCostFill(
+  client: SalesQueryClient,
+  rows: SalesProductCostDayAgg[] | null,
+  query: { tenantId: string; storeIds: string[]; from: string; to: string },
+): Promise<TableCostFill> {
+  try {
+    let zero = rows?.filter((r) => r.cmvCents === 0 && r.itemCount > 0);
+    if (!zero) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q: any = (client.from("sales_product_cost_day_agg") as any)
+        .select("store_id, day, product_code, item_count, cmv_cents")
+        .eq("tenant_id", query.tenantId)
+        .gte("day", query.from)
+        .lte("day", query.to)
+        .eq("cmv_cents", 0)
+        .gt("item_count", 0);
+      if (query.storeIds.length > 0) q = q.in("store_id", query.storeIds);
+      const ordered = q.order("day", { ascending: true }).order("store_id").order("product_code");
+      const raw = await fetchAllPages<Omit<ProductCostDayRow, "tenant_id" | "revenue_cents">>(
+        ordered,
+        "loadTableCostFill",
+      );
+      zero = raw.map((r) => ({
+        tenantId: query.tenantId,
+        storeId: r.store_id,
+        day: r.day,
+        productCode: String(r.product_code ?? "").trim(),
+        itemCount: Number(r.item_count) || 0,
+        revenueCents: 0,
+        cmvCents: 0,
+      }));
+    }
+    if (zero.length === 0) return new Map();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: stores, error: storeErr } = await (client.from("store") as any)
+      .select("id, cost_table_id")
+      .in("id", [...new Set(zero.map((r) => r.storeId))]);
+    if (storeErr) throw storeErr;
+    const storeTable = new Map<string, number>();
+    for (const s of (stores ?? []) as Array<{ id: string; cost_table_id: number | string | null }>) {
+      if (s.cost_table_id != null) storeTable.set(s.id, Number(s.cost_table_id));
+    }
+    if (storeTable.size === 0) return new Map();
+
+    const codes = [...new Set(zero.filter((r) => storeTable.has(r.storeId)).map((r) => r.productCode))];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: priceRows, error: priceErr } = await (client.from("product_cost_table_price") as any)
+      .select("table_id, product_code, unit_cost_cents")
+      .in("table_id", [...new Set(storeTable.values())])
+      .in("product_code", codes);
+    if (priceErr) throw priceErr;
+    const prices = new Map<string, number>();
+    for (const p of (priceRows ?? []) as Array<{ table_id: number | string; product_code: string; unit_cost_cents: number }>) {
+      prices.set(`${Number(p.table_id)}|${String(p.product_code).trim()}`, Number(p.unit_cost_cents) || 0);
+    }
+    return buildTableCostFill(zero, storeTable, prices);
+  } catch (e) {
+    console.warn("loadTableCostFill:", e);
+    return new Map();
+  }
 }
 
 const PAGE_SIZE = 1000;
@@ -596,8 +671,7 @@ export async function fetchSalesProductCostDayAggs(
 
   const ordered = q.order("day", { ascending: true }).order("store_id").order("product_code");
   try {
-    const rows = await fetchAllPages<ProductCostDayRow>(ordered, "fetchSalesProductCostDayAggs");
-    return rows.map((r) => ({
+    const rows = (await fetchAllPages<ProductCostDayRow>(ordered, "fetchSalesProductCostDayAggs")).map((r) => ({
       tenantId: r.tenant_id,
       storeId: r.store_id,
       day: r.day,
@@ -606,6 +680,7 @@ export async function fetchSalesProductCostDayAggs(
       revenueCents: Number(r.revenue_cents) || 0,
       cmvCents: Number(r.cmv_cents) || 0,
     }));
+    return applyFillToProductCosts(rows, await loadTableCostFill(client, rows, query));
   } catch (e) {
     console.warn("fetchSalesProductCostDayAggs:", e);
     return [];

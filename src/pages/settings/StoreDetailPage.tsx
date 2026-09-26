@@ -25,6 +25,7 @@ import { isGestor } from "@/layout/nav-wedash";
 import {
   EMPTY_STORE_COSTS,
   deleteStoreShift,
+  fetchCostTables,
   fetchStoreSellers,
   fetchStoreShifts,
   hydrateSessionStores,
@@ -35,6 +36,7 @@ import {
   syncStoreSellersNow,
   updateStoreCosts,
   updateStoreSchedule,
+  type CostTable,
   type Store,
   type StoreCosts,
   type StoreSeller,
@@ -259,7 +261,21 @@ function StoreDetailForm({
   const [savedCostsTxt, setSavedCostsTxt] = useState(() => custosParaTexto(store.custos ?? EMPTY_STORE_COSTS));
   const [custosTxt, setCustosTxt] = useState(savedCostsTxt);
   const [savingCosts, setSavingCosts] = useState(false);
-  const costsDirty = JSON.stringify(custosTxt) !== JSON.stringify(savedCostsTxt);
+  const [costTables, setCostTables] = useState<CostTable[]>([]);
+  const [savedCostTable, setSavedCostTable] = useState<number | null>(store.costTableId ?? null);
+  const [costTable, setCostTable] = useState<number | null>(savedCostTable);
+  const costsDirty = JSON.stringify(custosTxt) !== JSON.stringify(savedCostsTxt) || costTable !== savedCostTable;
+
+  useEffect(() => {
+    if (!showCosts) return;
+    let cancelled = false;
+    void fetchCostTables().then((list) => {
+      if (!cancelled) setCostTables(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [showCosts]);
 
   const [savedShifts, setSavedShifts] = useState<StoreShift[]>([]);
   const [shifts, setShifts] = useState<ShiftDraft[]>([]);
@@ -441,13 +457,21 @@ function StoreDetailForm({
       return;
     }
     setSavingCosts(true);
-    const ok = await run(() => updateStoreCosts(store.id, custos));
+    const ok = await run(() =>
+      updateStoreCosts(store.id, custos, costTable !== savedCostTable ? costTable : undefined),
+    );
     setSavingCosts(false);
     if (ok) {
       const txt = custosParaTexto(custos);
       setSavedCostsTxt(txt);
       setCustosTxt(txt);
+      setSavedCostTable(costTable);
     }
+  }
+
+  function resetCosts() {
+    setCustosTxt(savedCostsTxt);
+    setCostTable(savedCostTable);
   }
 
   const copySource = DOWS.find((d) => hours[d] != null);
@@ -586,10 +610,27 @@ function StoreDetailForm({
               {pctField("icmsPct", "ICMS", "Sobre o faturamento")}
               {pctField("icmsStPct", "ICMS ST", "Sobre o custo dos produtos (CMV)")}
               {pctField("rentPct", "Aluguel percentual", "Sobre o faturamento total (aluguel variável do shopping)")}
+              <div className="sm:col-span-2">
+                <FormField label="Tabela de custo" hint="Usada quando o Millennium traz um produto vendido sem custo">
+                  <Select
+                    value={costTable == null ? "" : String(costTable)}
+                    disabled={!canEdit || (costTables.length === 0 && costTable == null)}
+                    onChange={(e) => setCostTable(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">{costTables.length === 0 ? "Aguardando sincronização" : "Nenhuma"}</option>
+                    {costTable != null && !costTables.some((t) => t.id === costTable) && (
+                      <option value={String(costTable)}>Tabela {costTable}</option>
+                    )}
+                    {costTables.map((t) => (
+                      <option key={t.id} value={String(t.id)}>
+                        {t.code} · {t.description}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
+              </div>
             </div>
-            {canEdit && (
-              <FormActions dirty={costsDirty} saving={savingCosts} onReset={() => setCustosTxt(savedCostsTxt)} />
-            )}
+            {canEdit && <FormActions dirty={costsDirty} saving={savingCosts} onReset={resetCosts} />}
           </form>
         </Card>
         )}
