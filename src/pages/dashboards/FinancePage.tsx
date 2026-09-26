@@ -484,7 +484,7 @@ export default function FinancePage() {
                         : session.stores.length === 1
                           ? session.stores[0]
                           : undefined;
-                    navigate(lojaId ? `${paths.settings.storeDetail(lojaId)}#custos` : paths.settings.stores);
+                    navigate(lojaId ? paths.settings.storeDetail(lojaId) : paths.settings.stores);
                   }}
                 >
                   Configurar custos
