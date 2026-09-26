@@ -465,15 +465,6 @@ export function TimelineSkeleton({ rows = 5 }: { rows?: number }) {
   );
 }
 
-/** Configurações > Produtos: tabela Produto · Categoria · Marca · Custo. */
-export function ProductsTableSkeleton({ rows = 8 }: { rows?: number }) {
-  return (
-    <Busy>
-      <DataTableSkeleton rows={rows} cells={["text", "text", "pill", "short"]} />
-    </Busy>
-  );
-}
-
 /** Equipe da loja: tabela Nome · Código ERP · Status (+ Turno nos ativos). */
 export function TeamTableSkeleton({ withShift = true, rows = 3 }: { withShift?: boolean; rows?: number }) {
   return (

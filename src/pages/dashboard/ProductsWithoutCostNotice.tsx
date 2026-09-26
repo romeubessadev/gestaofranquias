@@ -1,10 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import type { ProductWithoutCost } from "@/data/wedash/dashboard";
 import { brlCent, num } from "@/lib/format";
-import { isGestor } from "@/layout/nav-wedash";
-import { paths } from "@/router/paths";
-import { useActiveSession } from "@/session/SessionProvider";
 import { AlertTriangleIcon } from "@/pages/dashboards/icons";
 
 /**
@@ -12,7 +8,6 @@ import { AlertTriangleIcon } from "@/pages/dashboards/icons";
  * e sem preço na tabela de custo da loja — CMV e margem ficam otimistas.
  */
 export function ProductsWithoutCostNotice({ produtos }: { produtos?: ProductWithoutCost[] }) {
-  const session = useActiveSession();
   const [aberto, setAberto] = useState(false);
   if (!produtos || produtos.length === 0) return null;
   const n = produtos.length;
@@ -27,20 +22,13 @@ export function ProductsWithoutCostNotice({ produtos }: { produtos?: ProductWith
             <span className="text-t1"> · CMV e margem ficam acima do real</span>
           </span>
         </p>
-        <div className="flex shrink-0 items-center gap-3 text-[12px] font-semibold">
-          <button type="button" onClick={() => setAberto((v) => !v)} className="text-t0 underline-offset-2 hover:underline">
-            {aberto ? "Ocultar" : "Ver produtos"}
-          </button>
-          {isGestor(session.role) && (
-            <Link
-              to={`${paths.settings.products}?filtro=sem-custo`}
-              title="Cadastro de produtos e custos das tabelas do Millennium"
-              className="text-t0 underline-offset-2 hover:underline"
-            >
-              Abrir cadastro
-            </Link>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={() => setAberto((v) => !v)}
+          className="shrink-0 text-[12px] font-semibold text-t0 underline-offset-2 hover:underline"
+        >
+          {aberto ? "Ocultar" : "Ver produtos"}
+        </button>
       </div>
       {aberto && (
         <ul className="mt-2 divide-y divide-warn/20 border-t border-warn/20">
