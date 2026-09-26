@@ -610,25 +610,23 @@ function StoreDetailForm({
               {pctField("icmsPct", "ICMS", "Sobre o faturamento")}
               {pctField("icmsStPct", "ICMS ST", "Sobre o custo dos produtos (CMV)")}
               {pctField("rentPct", "Aluguel percentual", "Sobre o faturamento total (aluguel variável do shopping)")}
-              <div className="sm:col-span-2">
-                <FormField label="Tabela de custo" hint="Usada quando o Millennium traz um produto vendido sem custo">
-                  <Select
-                    value={costTable == null ? "" : String(costTable)}
-                    disabled={!canEdit || (costTables.length === 0 && costTable == null)}
-                    onChange={(e) => setCostTable(e.target.value ? Number(e.target.value) : null)}
-                  >
-                    <option value="">{costTables.length === 0 ? "Aguardando sincronização" : "Nenhuma"}</option>
-                    {costTable != null && !costTables.some((t) => t.id === costTable) && (
-                      <option value={String(costTable)}>Tabela {costTable}</option>
-                    )}
-                    {costTables.map((t) => (
-                      <option key={t.id} value={String(t.id)}>
-                        {t.code} · {t.description}
-                      </option>
-                    ))}
-                  </Select>
-                </FormField>
-              </div>
+              <FormField label="Tabela de custo" hint="Usada quando o Millennium traz um produto vendido sem custo">
+                <Select
+                  value={costTable == null ? "" : String(costTable)}
+                  disabled={!canEdit || (costTables.length === 0 && costTable == null)}
+                  onChange={(e) => setCostTable(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">{costTables.length === 0 ? "Aguardando sincronização" : "Nenhuma"}</option>
+                  {costTable != null && !costTables.some((t) => t.id === costTable) && (
+                    <option value={String(costTable)}>Tabela {costTable}</option>
+                  )}
+                  {costTables.map((t) => (
+                    <option key={t.id} value={String(t.id)}>
+                      {t.code} · {t.description}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
             </div>
             {canEdit && <FormActions dirty={costsDirty} saving={savingCosts} onReset={resetCosts} />}
           </form>
