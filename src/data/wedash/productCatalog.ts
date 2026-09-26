@@ -104,11 +104,16 @@ const SYNC_PRODUCTS_ERRORS: Record<string, string> = {
   forbidden: "Seu perfil não pode atualizar os produtos.",
 };
 
-/** Busca catálogo, tabelas de custo e preços no Millennium agora (Edge `erp-products-sync`). */
-export async function syncProductsNow(): Promise<{ ok: true } | { ok: false; message: string }> {
+/**
+ * Busca no Millennium agora (Edge `erp-products-sync`): `all` = catálogo + tabelas de custo + preços;
+ * `costs` = só tabelas de custo + preços.
+ */
+export async function syncProductsNow(
+  scope: "all" | "costs" = "all",
+): Promise<{ ok: true } | { ok: false; message: string }> {
   const sb = await client();
   if (!sb) return { ok: false, message: "Sem conexão com o servidor." };
-  const { data, error } = await sb.functions.invoke("erp-products-sync", { body: {} });
+  const { data, error } = await sb.functions.invoke("erp-products-sync", { body: { scope } });
   let body = data as { ok?: boolean; error?: string } | null;
   if ((!body || typeof body !== "object") && error && typeof error === "object") {
     const ctx = (error as { context?: Response }).context;

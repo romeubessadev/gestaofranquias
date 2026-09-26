@@ -477,7 +477,7 @@ function StoreDetailForm({
 
   async function atualizarTabelas() {
     setSyncingTables(true);
-    const r = await syncProductsNow();
+    const r = await syncProductsNow("costs");
     if (r.ok) setCostTables(await fetchCostTables());
     setSyncingTables(false);
     if (!r.ok) {
@@ -650,7 +650,7 @@ function StoreDetailForm({
                 variant="secondary"
                 onClick={() => void atualizarTabelas()}
                 disabled={syncingTables}
-                title="Busca as tabelas de custo e o cadastro de produtos no Millennium"
+                title="Busca as tabelas de custo no Millennium"
                 icon={syncingTables ? undefined : <RefreshIcon />}
               >
                 {syncingTables ? "Atualizando…" : "Atualizar"}
