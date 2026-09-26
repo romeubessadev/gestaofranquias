@@ -21,10 +21,13 @@ export function AppShell() {
   const mainRef = useRef<HTMLElement>(null);
   const session = useActiveSession();
 
-  // A janela é quem rola (.tela-cheia usa min-height); o <main> só em layouts de altura fixa.
+  // html/body com height 100% + overflow-x hidden fazem o <body> rolar (não a janela nem o <main>):
+  // zera todos para a tela nova abrir no topo.
   useLayoutEffect(() => {
     setMobileNavOpen(false);
-    mainRef.current?.scrollTo({ top: 0 });
+    for (const el of [mainRef.current, document.body, document.documentElement]) {
+      if (el) el.scrollTop = 0;
+    }
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
