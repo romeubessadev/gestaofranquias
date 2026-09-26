@@ -32,7 +32,7 @@ import { useActiveSession } from "@/session/SessionProvider";
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, monthFillTouches, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
-import { DashboardSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { OverviewSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { goalHistoryDayRange, goalHistorySameWeekdays } from "@/data/wedash/goalCurve";
 import {
@@ -380,7 +380,7 @@ export default function OverviewPage() {
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
 
       {loading ? (
-        <DashboardSkeleton />
+        <OverviewSkeleton weekdays={periodoAtual.inicio !== periodoAtual.fim} />
       ) : (
       <>
 

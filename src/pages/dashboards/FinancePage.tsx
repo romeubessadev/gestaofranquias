@@ -24,7 +24,7 @@ import { useActiveSession } from "@/session/SessionProvider";
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, monthFillTouches, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
-import { DashboardSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { FinanceSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { brlCent, deIso, tipDelta } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { TINT } from "@/pages/dashboards/icons";
@@ -273,7 +273,7 @@ export default function FinancePage() {
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
 
       {loading ? (
-        <DashboardSkeleton />
+        <FinanceSkeleton />
       ) : (
       <>
 

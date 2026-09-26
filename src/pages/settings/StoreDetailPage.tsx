@@ -18,7 +18,7 @@ import {
   Switch,
   useToast,
 } from "@/components/ui";
-import { FormCardsSkeleton, SkeletonRows } from "@/components/wedash/LoadingSkeletons";
+import { StoreDetailSkeleton, TeamTableSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { useActiveSession } from "@/session/SessionProvider";
 import { isGestor } from "@/layout/nav-wedash";
 import {
@@ -174,7 +174,7 @@ export function StoreDetailPage() {
       <div>
         <DetailHeader nome="Loja" onBack={voltar} />
         {loading ? (
-          <FormCardsSkeleton cards={3} />
+          <StoreDetailSkeleton showCosts={isGestor(session.role)} />
         ) : (
           <span className="block py-6 text-center text-[12px] text-t2">Loja não encontrada no seu escopo.</span>
         )}
@@ -687,7 +687,7 @@ function StoreDetailForm({
             />
           </div>
           {!equipeLoaded ? (
-            <SkeletonRows rows={3} />
+            <TeamTableSkeleton withShift={teamTab === "ativos"} />
           ) : teamRows.length === 0 ? (
             <span className="block pt-2 pb-6 text-center text-[12px] text-t2">
               {teamTab === "ativos" ? "Ninguém na equipe" : "Nenhum desligado"}

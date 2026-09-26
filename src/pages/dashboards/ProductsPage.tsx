@@ -30,7 +30,7 @@ import { useActiveSession } from "@/session/SessionProvider";
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, monthFillTouches, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
-import { DashboardSkeleton } from "@/components/wedash/LoadingSkeletons";
+import { ProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { brlCent, deIso, num, tipDelta, tipRelacao } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { TINT } from "@/pages/dashboards/icons";
@@ -398,7 +398,7 @@ export default function ProductsPage() {
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
 
       {loading ? (
-        <DashboardSkeleton />
+        <ProductsSkeleton />
       ) : (
       <>
 

@@ -10,7 +10,7 @@ import {
   type TimelineEvent,
   useToast,
 } from "@/components/ui";
-import { SkeletonRows } from "@/components/wedash/LoadingSkeletons";
+import { TimelineSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { useActiveSession } from "@/session/SessionProvider";import { hydrateSessionStores, storesForSession } from "@/data/wedash/stores";
 import {
   SYNC_JOB_KIND_LABEL,
@@ -158,7 +158,7 @@ export function SyncLogsPage() {
         {error ? (
           <span className="block py-6 text-center text-[12px] text-bad">Não foi possível carregar os logs: {error}</span>
         ) : loading ? (
-          <SkeletonRows rows={5} />
+          <TimelineSkeleton rows={5} />
         ) : events.length === 0 ? (
           <span className="block py-6 text-center text-[12px] text-t2">
             {busca.trim() ? "Nada encontrado para essa busca." : "Nenhum erro ou aviso. Tudo certo com a sincronização."}

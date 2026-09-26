@@ -17,7 +17,7 @@ import {
   Tabs,
   useToast,
 } from "@/components/ui";
-import { SkeletonRows } from "@/components/wedash/LoadingSkeletons";
+import { UsersTableSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { Icon, icons } from "@/pages/users/Icons";
 import { roleLabel } from "@/session/session";
 import {
@@ -227,7 +227,7 @@ export function SystemUsersPage() {
       </div>
 
       {loading ? (
-        <SkeletonRows rows={4} />
+        <UsersTableSkeleton />
       ) : loadError ? (
         <span className="block py-6 text-center text-[12px] text-t2">{loadError}</span>
       ) : (
