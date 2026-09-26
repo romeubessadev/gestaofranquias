@@ -286,7 +286,7 @@ export default function FinancePage() {
       />
 
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
-      {!loading && <ProductsWithoutCostNotice produtos={view.produtosSemCusto} recarga={view.recargaSemCusto} />}
+      {!loading && <ProductsWithoutCostNotice produtos={view.produtosSemCusto} />}
 
       {loading ? (
         <FinanceSkeleton />

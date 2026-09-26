@@ -779,40 +779,6 @@ export async function requestForceRefresh(opts: {
   return { ok: false, error: body?.error ?? "enqueue_failed" };
 }
 
-/**
- * Recarrega dias passados do ERP (ex.: custo corrigido no Millennium) pela carga em período.
- * O progresso aparece no aviso de carga do histórico (`useMonthFill`).
- */
-export async function requestDaysReload(opts: {
-  from: string;
-  to: string;
-  storeIds?: string[];
-}): Promise<{ ok: true } | { ok: false; error: string }> {
-  const sb = getSupabase();
-  if (!sb) return { ok: false, error: "supabase_unavailable" };
-  const { data, error } = await sb.functions.invoke("erp-sync-enqueue", {
-    body: {
-      action: "reload",
-      from: opts.from,
-      to: opts.to,
-      ...(opts.storeIds && opts.storeIds.length > 0 ? { storeIds: opts.storeIds } : {}),
-    },
-  });
-  let body = data as { ok?: boolean; error?: string } | null;
-  if ((!body || typeof body !== "object") && error && typeof error === "object") {
-    const ctx = (error as { context?: Response }).context;
-    if (ctx && typeof ctx.json === "function") {
-      try {
-        body = (await ctx.json()) as typeof body;
-      } catch {
-        /* ignore */
-      }
-    }
-  }
-  if (body?.ok === true) return { ok: true };
-  return { ok: false, error: body?.error ?? error?.message ?? "enqueue_failed" };
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

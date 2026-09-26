@@ -1,64 +1,21 @@
-import { useEffect, useRef, useState } from "react";
-import { useToast } from "@/components/ui";
-import type { DaysReload, ProductWithoutCost } from "@/data/wedash/dashboard";
-import { requestDaysReload } from "@/data/wedash/salesRepo";
-import { canForceSyncRefresh } from "@/data/wedash/syncUi";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import type { ProductWithoutCost } from "@/data/wedash/dashboard";
 import { brlCent, num } from "@/lib/format";
+import { isGestor } from "@/layout/nav-wedash";
+import { paths } from "@/router/paths";
 import { useActiveSession } from "@/session/SessionProvider";
 import { AlertTriangleIcon } from "@/pages/dashboards/icons";
-import { refreshMonthFill, useMonthFill } from "@/pages/dashboard/useMonthFill";
-
-const RELOAD_ERRORS: Record<string, string> = {
-  reload_busy: "Já existe uma carga de vendas em andamento. Tente de novo quando ela terminar.",
-  range_too_large: "Período grande demais para recarregar de uma vez. Escolha até 3 meses.",
-  integration_paused: "Integração com o Millennium desconectada. Conecte em Configurações > Integrações.",
-  credential_invalid: "Integração ERP indisponível — confira em Configurações > Integrações.",
-  credential_missing: "Integração ERP indisponível — confira em Configurações > Integrações.",
-};
 
 /**
- * Aviso (warn) quando produtos vendidos no período vêm com custo R$ 0 do Millennium — CMV e margem ficam otimistas.
- * "Recarregar custos" busca de novo os dias afetados (depois de cadastrar o custo no ERP).
+ * Aviso (warn) quando produtos vendidos no período ficam sem custo: R$ 0 na margem do Millennium
+ * e sem preço na tabela de custo da loja — CMV e margem ficam otimistas.
  */
-export function ProductsWithoutCostNotice({
-  produtos,
-  recarga,
-}: {
-  produtos?: ProductWithoutCost[];
-  recarga?: DaysReload | null;
-}) {
+export function ProductsWithoutCostNotice({ produtos }: { produtos?: ProductWithoutCost[] }) {
   const session = useActiveSession();
-  const monthFill = useMonthFill();
-  const { show } = useToast();
   const [aberto, setAberto] = useState(false);
-  /** Pedido enviado — segue "Recarregando…" até a carga aparecer e terminar (poll do useMonthFill). */
-  const [pedido, setPedido] = useState(false);
-  const cargaAtiva = monthFill != null;
-  const viuCarga = useRef(false);
-  useEffect(() => {
-    if (cargaAtiva) viuCarga.current = true;
-    else if (viuCarga.current) {
-      viuCarga.current = false;
-      setPedido(false);
-    }
-  }, [cargaAtiva]);
   if (!produtos || produtos.length === 0) return null;
   const n = produtos.length;
-  const podeRecarregar = Boolean(recarga) && canForceSyncRefresh(session.role);
-  const recarregando = pedido || cargaAtiva;
-
-  async function recarregar() {
-    if (!recarga || recarregando) return;
-    setPedido(true);
-    const r = await requestDaysReload(recarga);
-    if (r.ok) {
-      refreshMonthFill();
-      show("Recarregando os custos. Os números se atualizam sozinhos em alguns minutos.", "success");
-      return;
-    }
-    setPedido(false);
-    show(RELOAD_ERRORS[r.error] ?? "Não foi possível recarregar os custos.", "danger");
-  }
 
   return (
     <div className="mt-4 rounded-[var(--radius-vela-md)] border border-warn/30 bg-warn-soft px-3.5 py-2.5 text-[12.5px] text-t0">
@@ -74,16 +31,14 @@ export function ProductsWithoutCostNotice({
           <button type="button" onClick={() => setAberto((v) => !v)} className="text-t0 underline-offset-2 hover:underline">
             {aberto ? "Ocultar" : "Ver produtos"}
           </button>
-          {podeRecarregar && (
-            <button
-              type="button"
-              onClick={() => void recarregar()}
-              disabled={recarregando}
-              title="Depois de cadastrar o custo no Millennium, busca de novo os dias com esses produtos."
-              className="text-t0 underline-offset-2 hover:underline disabled:cursor-default disabled:text-t2 disabled:no-underline"
+          {isGestor(session.role) && (
+            <Link
+              to={`${paths.settings.products}?filtro=sem-custo`}
+              title="Cadastro de produtos e custos das tabelas do Millennium"
+              className="text-t0 underline-offset-2 hover:underline"
             >
-              {recarregando ? "Recarregando…" : "Recarregar custos"}
-            </button>
+              Abrir cadastro
+            </Link>
           )}
         </div>
       </div>
