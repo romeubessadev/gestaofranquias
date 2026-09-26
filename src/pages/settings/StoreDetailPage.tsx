@@ -662,7 +662,7 @@ function StoreDetailForm({
                 Adicionar turno
               </button>
             )}
-            {canEdit && (
+            {canEdit && (shifts.length > 0 || shiftsDirty) && (
               <FormActions
                 dirty={shiftsDirty}
                 saving={savingShifts}
