@@ -216,7 +216,7 @@ export function SystemUsersPage() {
     <Card>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <CardTitle>Pessoas com acesso</CardTitle>
+          <CardTitle>Usuários com acesso</CardTitle>
           <CardSubtitle>A equipe de vendas vem do Millennium e não entra aqui.</CardSubtitle>
         </div>
         <Button icon={<Icon d={icons.plus} size={14} />} onClick={() => setEditing({ mode: "invite" })}>
@@ -233,7 +233,7 @@ export function SystemUsersPage() {
           <Segmented
             className="mb-4"
             options={[
-              { value: "people", label: `Pessoas (${people.length})` },
+              { value: "people", label: `Usuários (${people.length})` },
               { value: "invites", label: `Convites pendentes (${invites.length})` },
             ]}
             value={tab}
@@ -244,7 +244,7 @@ export function SystemUsersPage() {
               columns={peopleColumns}
               data={people}
               rowKey={(u) => u.membershipId}
-              emptyMessage="Ninguém com acesso ainda."
+              emptyMessage="Nenhum usuário com acesso ainda."
             />
           ) : (
             <DataTable
