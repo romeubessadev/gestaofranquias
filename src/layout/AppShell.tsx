@@ -1,13 +1,17 @@
 import { Suspense, useEffect, useRef, useState } from "react";
-import { padBase } from "@/lib/areaSegura";
+import { padBase } from "@/lib/safeArea";
 import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { MobileDrawer } from "./MobileDrawer";
 import { Topbar } from "./Topbar";
 import { CommandPalette } from "./CommandPalette";
 import { PageLoader } from "./PageLoader";
-import { ChatIA } from "@/components/gestao/ChatIA";
-import { useSessaoAtiva } from "@/session/SessionProvider";
+import { ChatIA } from "@/components/wedash/AiChat";
+import { useActiveSession } from "@/session/SessionProvider";
+import { touchLastSeen } from "@/session/authApi";
+
+/** O banco só grava 1x a cada 5 min; aqui só evita chamadas à toa. */
+const LAST_SEEN_INTERVAL_MS = 5 * 60_000;
 
 export function AppShell() {
   const [collapsed, setCollapsed] = useState(false);
@@ -15,7 +19,7 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const location = useLocation();
   const mainRef = useRef<HTMLElement>(null);
-  const sessao = useSessaoAtiva();
+  const session = useActiveSession();
 
   useEffect(() => {
     setMobileNavOpen(false);
@@ -33,7 +37,20 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const temChat = sessao.papel === "GESTOR" || sessao.papel === "GERENTE";
+  useEffect(() => {
+    const touch = () => {
+      if (document.visibilityState === "visible") void touchLastSeen();
+    };
+    touch();
+    const timer = window.setInterval(touch, LAST_SEEN_INTERVAL_MS);
+    document.addEventListener("visibilitychange", touch);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", touch);
+    };
+  }, []);
+
+  const temChat = session.role === "OWNER" || session.role === "MANAGER";
 
   return (
     <div className="tela-cheia flex w-full overflow-x-hidden bg-bg-0 text-t0">

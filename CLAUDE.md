@@ -618,6 +618,7 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  - **Edge `team-members`** (service role): `list · invite · resend · update · suspend · reactivate · revoke` (Gestor) e `invite_info · accept` (pessoa convidada). E-mail já usado em outra empresa → recusa (a sessão só suporta 1 empresa por pessoa).
  - **Config do Supabase (Auth):** template **Invite user** com link `{{ .SiteURL }}/invite/{{ .TokenHash }}` (abre direto na tela de senha); se ficar o link padrão, incluir `https://<app>/invite/link` em Redirect URLs. Validade do link = "Email OTP expiration".
  - Suspender não derruba uma sessão já aberta até o próximo carregamento do app.
+ - **Último acesso = uso real do app** (2026-09-26, migration `20260926160000_identity_last_seen`): `identity.last_seen_at`, gravado pela RPC `touch_last_seen()` (no máx. 1x a cada 5 min) que o `AppShell` chama ao abrir, a cada 5 min com a aba visível e ao voltar para o app. A Edge mostra o mais recente entre isso e o último login do Auth (a sessão fica salva por dias, então só o login ficava desatualizado).
 ---
 
 ## Ordem de construção das subtelas (DECIDIDO)

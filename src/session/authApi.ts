@@ -488,6 +488,14 @@ export async function persistErpCredentialAndStores(
   };
 }
 
+/** Marca o usuário logado como ativo (coluna Último acesso em Configurações > Usuários). */
+export async function touchLastSeen(): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const { error } = await sb.rpc("touch_last_seen");
+  if (error) console.warn("touch_last_seen:", error.message);
+}
+
 /** Grava marca da empresa (etapa 1 do onboarding) no tenant. */
 export async function saveTenantBrand(
   tenantId: string,

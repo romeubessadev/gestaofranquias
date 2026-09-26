@@ -39,6 +39,13 @@ function inviteRedirect(origin: unknown): string | undefined {
 
 const ROLE_LABEL: Record<Role, string> = { OWNER: "Gestor", MANAGER: "Gerente" };
 
+/** Mais recente entre duas datas ISO (null = ausente). */
+function latest(a: string | null, b: string | null): string | null {
+  if (!a) return b;
+  if (!b) return a;
+  return Date.parse(a) >= Date.parse(b) ? a : b;
+}
+
 /** Variáveis do template "Invite user" ({{ .Data.name }}, {{ .Data.company }}, {{ .Data.role }}). */
 async function inviteData(admin: SupabaseClient, tenantId: string, name: string, role: Role) {
   const { data: ten } = await admin.from("tenant").select("name, display_name").eq("id", tenantId).maybeSingle();
@@ -179,7 +186,7 @@ Deno.serve(async (req) => {
     const [{ data: rows, error }, { data: storeRows }] = await Promise.all([
       admin
         .from("membership")
-        .select("id, role, status, is_owner, accepted_at, created_at, identity:identity_id (id, auth_user_id, name, email), membership_store (store_id)")
+        .select("id, role, status, is_owner, accepted_at, created_at, identity:identity_id (id, auth_user_id, name, email, last_seen_at), membership_store (store_id)")
         .eq("tenant_id", tenantId)
         .in("role", ROLES)
         .in("status", ["PENDING", "ACTIVE", "SUSPENDED"])
@@ -189,7 +196,13 @@ Deno.serve(async (req) => {
     if (error) return fail("list_failed");
     const members = await Promise.all(
       (rows ?? []).map(async (r) => {
-        const ident = r.identity as unknown as { id: string; auth_user_id: string; name: string; email: string };
+        const ident = r.identity as unknown as {
+          id: string;
+          auth_user_id: string;
+          name: string;
+          email: string;
+          last_seen_at: string | null;
+        };
         const { data: au } = await admin.auth.admin.getUserById(ident.auth_user_id);
         return {
           membershipId: r.id,
@@ -201,7 +214,7 @@ Deno.serve(async (req) => {
           isSelf: r.id === caller.id,
           storeIds: ((r.membership_store as { store_id: string }[] | null) ?? []).map((s) => s.store_id),
           invitedAt: au.user?.invited_at ?? r.created_at,
-          lastSignInAt: au.user?.last_sign_in_at ?? null,
+          lastSignInAt: latest(ident.last_seen_at, au.user?.last_sign_in_at ?? null),
           acceptedAt: r.accepted_at,
         };
       }),
