@@ -466,6 +466,9 @@ export default function FinancePage() {
               <TipHelp label="Detalha os custos descontados do lucro bruto para chegar ao resultado operacional." />
             </div>
           </CardHeader>
+          {view.custosFixosFranquia.every((l) => l.valor === 0) ? (
+            <EmptyBlock />
+          ) : (
           <div className="px-4 pb-4">
             {view.custosFixosFranquia.map((linha) => {
               const estilo = estiloLinhaCusto(linha);
@@ -489,6 +492,7 @@ export default function FinancePage() {
               );
             })}
           </div>
+          )}
         </Card>
 
         <Card className="flex flex-col">
