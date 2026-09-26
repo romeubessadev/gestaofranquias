@@ -477,13 +477,15 @@ export default function FinancePage() {
               action={
                 <Button
                   size="sm"
-                  onClick={() =>
-                    navigate(
+                  onClick={() => {
+                    const lojaId =
                       escopo.filialIds.length === 1
-                        ? `${paths.settings.storeDetail(escopo.filialIds[0]!)}#custos`
-                        : paths.settings.stores,
-                    )
-                  }
+                        ? escopo.filialIds[0]
+                        : session.stores.length === 1
+                          ? session.stores[0]
+                          : undefined;
+                    navigate(lojaId ? `${paths.settings.storeDetail(lojaId)}#custos` : paths.settings.stores);
+                  }}
                 >
                   Configurar custos
                 </Button>
