@@ -389,7 +389,14 @@ export default function ProductsPage() {
       />
 
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
-      {!loading && <ProductsWithoutCostNotice produtos={view.produtosSemCusto} />}
+      {!loading && (
+        <ProductsWithoutCostNotice
+          produtos={view.produtosSemCusto}
+          storeIds={escopo.filialIds}
+          from={periodoAtual.inicio}
+          to={periodoAtual.fim}
+        />
+      )}
 
       {loading ? (
         <ProductsSkeleton />
