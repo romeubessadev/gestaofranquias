@@ -6,7 +6,6 @@ import {
   DataTable,
   type DataTableColumn,
   EmptyState,
-  Pagination,
   Select,
   useToast,
 } from "@/components/ui";
@@ -27,8 +26,6 @@ type Filtro = "todos" | "sem-custo";
 type Row = CatalogProductRow & { cost: number | null };
 type SortKey = "description" | "category" | "cost";
 type SortDir = "asc" | "desc";
-
-const PAGE_SIZE = 20;
 
 const SORTS: { key: SortKey; label: string }[] = [
   { key: "description", label: "Ordenar por nome" },
@@ -70,7 +67,6 @@ export function ProductsSettingsPage() {
   const [busca, setBusca] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("description");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [page, setPage] = useState(1);
 
   const carregar = useCallback(async () => {
     try {
@@ -145,16 +141,11 @@ export function ProductsSettingsPage() {
     });
   }, [rows, filtro, busca, sortKey, sortDir]);
 
-  const totalPages = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE));
-  const pageAtual = Math.min(page, totalPages);
-  const pageRows = filtrados.slice((pageAtual - 1) * PAGE_SIZE, pageAtual * PAGE_SIZE);
-
   function setFiltro(v: Filtro) {
     const next = new URLSearchParams(params);
     if (v === "sem-custo") next.set("filtro", "sem-custo");
     else next.delete("filtro");
     setParams(next, { replace: true });
-    setPage(1);
   }
 
   function toggleSort(key: SortKey) {
@@ -229,10 +220,7 @@ export function ProductsSettingsPage() {
       <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
         <input
           value={busca}
-          onChange={(e) => {
-            setBusca(e.target.value);
-            setPage(1);
-          }}
+          onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar…"
           className="h-[38px] w-[180px] rounded-[10px] border border-line bg-bg-2 px-3 text-[13px] text-t0 outline-none placeholder:text-t2"
         />
@@ -243,10 +231,7 @@ export function ProductsSettingsPage() {
         {tables.length > 0 && (
           <Select
             value={tableId == null ? "" : String(tableId)}
-            onChange={(e) => {
-              setTableId(e.target.value ? Number(e.target.value) : null);
-              setPage(1);
-            }}
+            onChange={(e) => setTableId(e.target.value ? Number(e.target.value) : null)}
             title="Tabela de custo usada na coluna Custo"
             className="!h-[38px] w-auto"
           >
@@ -280,15 +265,8 @@ export function ProductsSettingsPage() {
       {!loaded ? (
         <ProductsTableSkeleton />
       ) : (
-        <DataTable columns={columns} data={pageRows} rowKey={(r) => r.code} empty={empty} />
+        <DataTable columns={columns} data={filtrados} rowKey={(r) => r.code} empty={empty} paginate="produtos" />
       )}
-
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <span className="text-[12.5px] text-t2">
-          Mostrando {pageRows.length} de {filtrados.length} produtos
-        </span>
-        <Pagination page={pageAtual} totalPages={totalPages} onChange={setPage} />
-      </div>
     </div>
   );
 }

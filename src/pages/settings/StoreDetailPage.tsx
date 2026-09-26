@@ -801,6 +801,7 @@ function StoreDetailForm({
               columns={teamTab === "ativos" ? sellerColumns : SELLER_COLUMNS}
               data={teamRows}
               rowKey={(v) => v.id}
+              paginate="pessoas"
             />
           )}
         </Card>

@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { Badge, Card, CardHeader, CardTitle, StatCard, DateRangePicker, PageHeader, Button, Pagination, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { MOBILE_QUERY, useMediaQuery } from "@/lib/useMediaQuery";
+import { TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_MOBILE } from "@/lib/usePagedRows";
 import { BarChart, DonutChart } from "@/components/charts";
 import { useScope } from "@/pages/dashboard/useScope";
 import {
@@ -83,8 +84,8 @@ const KPI_COLORS = [
 type SortKey = "nome" | "faturamento" | "itens" | "precoMedio" | "cmv" | "lucro" | "margemPct" | "participacaoPct" | "variacaoPct";
 type TopProdSort = "nome" | "itens" | "faturamento" | "margem";
 
-const PAGE_SIZE = 10;
-const PAGE_SIZE_MOBILE = 5;
+const PAGE_SIZE = TABLE_PAGE_SIZE;
+const PAGE_SIZE_MOBILE = TABLE_PAGE_SIZE_MOBILE;
 
 const TipHelp = ({ label }: { label: string }) => (
   <Tooltip label={label}>

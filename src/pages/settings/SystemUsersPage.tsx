@@ -251,6 +251,7 @@ export function SystemUsersPage() {
               columns={peopleColumns}
               data={people}
               rowKey={(u) => u.membershipId}
+              paginate="usuários"
               empty={
                 <EmptyState
                   framed={false}
@@ -266,6 +267,7 @@ export function SystemUsersPage() {
               columns={inviteColumns}
               data={invites}
               rowKey={(u) => u.membershipId}
+              paginate="convites"
               empty={
                 <EmptyState
                   framed={false}

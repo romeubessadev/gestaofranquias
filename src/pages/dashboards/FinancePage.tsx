@@ -635,7 +635,7 @@ export default function FinancePage() {
         <>
         {/* Desktop / tablet — DataTable Vela */}
         <div className="hidden p-4 md:block">
-          <DataTable columns={evolucaoColumns} data={view.evolucaoMensal} rowKey={(r) => r.mes} />
+          <DataTable columns={evolucaoColumns} data={view.evolucaoMensal} rowKey={(r) => r.mes} paginate="meses" />
         </div>
 
         {/* Mobile — stack em cards (padrão Responsive Tables) */}

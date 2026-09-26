@@ -1,5 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { usePagedRows } from "@/lib/usePagedRows";
+import { Pagination } from "./Pagination";
 import { ThSort, type SortDir } from "./ThSort";
 
 export interface DataTableColumn<T> {
@@ -29,6 +31,11 @@ export interface DataTableProps<T> {
   /** Coluna inicial ativa (precisa ser `sortable`). */
   defaultSortKey?: string;
   defaultSortDir?: SortDir;
+  /**
+   * Pagina no padrão da WeDash (10 por página no desktop, 5 no celular) e mostra
+   * "Mostrando X de Y {paginate}" + paginação quando há mais de uma página. Ex.: `paginate="produtos"`.
+   */
+  paginate?: string;
 }
 
 const hideBelowClasses: Record<NonNullable<DataTableColumn<unknown>["hideBelow"]>, string> = {
@@ -64,6 +71,7 @@ export function DataTable<T>({
   className,
   defaultSortKey,
   defaultSortDir = "desc",
+  paginate,
 }: DataTableProps<T>) {
   const sortableCols = columns.filter((c) => c.sortable && c.sortValue);
   const [sortKey, setSortKey] = useState<string | undefined>(() =>
@@ -80,6 +88,11 @@ export function DataTable<T>({
     if (!col?.sortValue) return data;
     return [...data].sort((a, b) => compareSortValues(col.sortValue!(a), col.sortValue!(b), sortDir));
   }, [columns, data, sortKeyAtivo, sortDir]);
+
+  const firstKey = sorted.length > 0 ? rowKey(sorted[0]!) : "";
+  const paged = usePagedRows(sorted, `${sorted.length}|${firstKey}|${sortKeyAtivo}|${sortDir}`);
+  const rows = paginate ? paged.pageRows : sorted;
+  const showPager = Boolean(paginate) && paged.totalPages > 1;
 
   function toggleSort(key: string) {
     const col = columns.find((c) => c.key === key);
@@ -100,7 +113,8 @@ export function DataTable<T>({
   }
 
   return (
-    <div className={cn("overflow-x-auto rounded-[var(--radius-vela-lg)] border border-line bg-bg-2", className)}>
+    <div className={cn("overflow-hidden rounded-[var(--radius-vela-lg)] border border-line bg-bg-2", className)}>
+      <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-line">
@@ -135,7 +149,7 @@ export function DataTable<T>({
           </tr>
         </thead>
         <tbody>
-          {sorted.map((row) => (
+          {rows.map((row) => (
             <tr
               key={rowKey(row)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
@@ -153,6 +167,15 @@ export function DataTable<T>({
           ))}
         </tbody>
       </table>
+      </div>
+      {showPager && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3.5">
+          <span className="text-[12.5px] text-t2">
+            Mostrando {paged.pageRows.length} de {paged.total} {paginate}
+          </span>
+          <Pagination page={paged.page} totalPages={paged.totalPages} onChange={paged.setPage} />
+        </div>
+      )}
     </div>
   );
 }
