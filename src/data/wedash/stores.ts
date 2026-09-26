@@ -479,11 +479,34 @@ export async function fetchCostTables(): Promise<CostTable[]> {
   }
 }
 
-/** Persiste custos da operação da loja (Configurações > Lojas > Custos). `costTableId` undefined = não mexe. */
+/** Tabela de custo da loja (Configurações > Lojas > Custo dos produtos). Gravar fixa a escolha (a detecção automática não mexe mais). */
+export async function updateStoreCostTable(
+  storeId: string,
+  costTableId: number | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const { getSupabase } = await import("@/lib/supabase");
+    const sb = getSupabase();
+    if (!sb) return { ok: false, error: "Supabase não configurado" };
+
+    const { error } = await sb
+      .from("store")
+      .update({ cost_table_id: costTableId, cost_table_set_at: new Date().toISOString() })
+      .eq("id", storeId);
+    if (error) return { ok: false, error: error.message };
+
+    const existing = allStores().find((s) => s.id === storeId);
+    if (existing) registerExtraStore({ ...existing, costTableId });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Persiste custos da operação da loja (Configurações > Lojas > Custos). */
 export async function updateStoreCosts(
   storeId: string,
   custos: StoreCosts,
-  costTableId?: number | null,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const { getSupabase } = await import("@/lib/supabase");
@@ -493,9 +516,6 @@ export async function updateStoreCosts(
     const { error } = await sb
       .from("store")
       .update({
-        ...(costTableId !== undefined
-          ? { cost_table_id: costTableId, cost_table_set_at: new Date().toISOString() }
-          : {}),
         royalties_wepink_pct: custos.royaltiesWepinkPct,
         royalties_wpink_pct: custos.royaltiesWpinkPct,
         marketing_wepink_pct: custos.marketingWepinkPct,
@@ -511,7 +531,7 @@ export async function updateStoreCosts(
 
     const existing = allStores().find((s) => s.id === storeId);
     if (existing) {
-      registerExtraStore({ ...existing, custos, ...(costTableId !== undefined ? { costTableId } : {}) });
+      registerExtraStore({ ...existing, custos });
     }
     return { ok: true };
   } catch (e) {

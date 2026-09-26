@@ -35,6 +35,7 @@ import {
   storesForSession,
   syncStoreSellersNow,
   updateStoreCosts,
+  updateStoreCostTable,
   updateStoreSchedule,
   type CostTable,
   type Store,
@@ -264,7 +265,9 @@ function StoreDetailForm({
   const [costTables, setCostTables] = useState<CostTable[]>([]);
   const [savedCostTable, setSavedCostTable] = useState<number | null>(store.costTableId ?? null);
   const [costTable, setCostTable] = useState<number | null>(savedCostTable);
-  const costsDirty = JSON.stringify(custosTxt) !== JSON.stringify(savedCostsTxt) || costTable !== savedCostTable;
+  const [savingCostTable, setSavingCostTable] = useState(false);
+  const costsDirty = JSON.stringify(custosTxt) !== JSON.stringify(savedCostsTxt);
+  const costTableDirty = costTable !== savedCostTable;
 
   useEffect(() => {
     if (!showCosts) return;
@@ -457,21 +460,24 @@ function StoreDetailForm({
       return;
     }
     setSavingCosts(true);
-    const ok = await run(() =>
-      updateStoreCosts(store.id, custos, costTable !== savedCostTable ? costTable : undefined),
-    );
+    const ok = await run(() => updateStoreCosts(store.id, custos));
     setSavingCosts(false);
     if (ok) {
       const txt = custosParaTexto(custos);
       setSavedCostsTxt(txt);
       setCustosTxt(txt);
-      setSavedCostTable(costTable);
     }
   }
 
   function resetCosts() {
     setCustosTxt(savedCostsTxt);
-    setCostTable(savedCostTable);
+  }
+
+  async function saveCostTable() {
+    setSavingCostTable(true);
+    const ok = await run(() => updateStoreCostTable(store.id, costTable));
+    setSavingCostTable(false);
+    if (ok) setSavedCostTable(costTable);
   }
 
   const copySource = DOWS.find((d) => hours[d] != null);
@@ -610,25 +616,54 @@ function StoreDetailForm({
               {pctField("icmsPct", "ICMS", "Sobre o faturamento")}
               {pctField("icmsStPct", "ICMS ST", "Sobre o custo dos produtos (CMV)")}
               {pctField("rentPct", "Aluguel percentual", "Sobre o faturamento total (aluguel variável do shopping)")}
-              <FormField label="Tabela de custo" hint="Usada quando o Millennium traz um produto vendido sem custo">
-                <Select
-                  value={costTable == null ? "" : String(costTable)}
-                  disabled={!canEdit || (costTables.length === 0 && costTable == null)}
-                  onChange={(e) => setCostTable(e.target.value ? Number(e.target.value) : null)}
-                >
-                  <option value="">{costTables.length === 0 ? "Aguardando sincronização" : "Nenhuma"}</option>
-                  {costTable != null && !costTables.some((t) => t.id === costTable) && (
-                    <option value={String(costTable)}>Tabela {costTable}</option>
-                  )}
-                  {costTables.map((t) => (
-                    <option key={t.id} value={String(t.id)}>
-                      {t.code} · {t.description}
-                    </option>
-                  ))}
-                </Select>
-              </FormField>
             </div>
             {canEdit && <FormActions dirty={costsDirty} saving={savingCosts} onReset={resetCosts} />}
+          </form>
+        </Card>
+        )}
+
+        {showCosts && (
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Custo dos produtos</CardTitle>
+              <CardSubtitle>Tabela de custo do Millennium · entra no CMV</CardSubtitle>
+            </div>
+          </CardHeader>
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void saveCostTable();
+            }}
+          >
+            <FormField
+              label="Tabela de custo"
+              hint="Usada quando o Millennium traz um produto vendido sem custo. Escolhida automaticamente pela tabela mais próxima dos custos da loja."
+            >
+              <Select
+                value={costTable == null ? "" : String(costTable)}
+                disabled={!canEdit || (costTables.length === 0 && costTable == null)}
+                onChange={(e) => setCostTable(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">{costTables.length === 0 ? "Aguardando sincronização" : "Nenhuma"}</option>
+                {costTable != null && !costTables.some((t) => t.id === costTable) && (
+                  <option value={String(costTable)}>Tabela {costTable}</option>
+                )}
+                {costTables.map((t) => (
+                  <option key={t.id} value={String(t.id)}>
+                    {t.code} · {t.description}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+            {canEdit && (
+              <FormActions
+                dirty={costTableDirty}
+                saving={savingCostTable}
+                onReset={() => setCostTable(savedCostTable)}
+              />
+            )}
           </form>
         </Card>
         )}
