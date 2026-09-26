@@ -8,6 +8,7 @@ import { useScope } from "@/pages/dashboard/useScope";
 import {
   buildFinanceView,
   financeFetchRange,
+  productsFetchRange,
   resolvePeriod,
   type FinanceAggInput,
   type FinanceKpi,
@@ -19,7 +20,10 @@ import {
   fetchSalesDayAggs,
   fetchSalesHourAggs,
   fetchSalesPaymentDayAggs,
+  fetchSalesProductCostDayAggs,
+  fetchProductNames,
 } from "@/data/wedash/salesRepo";
+import { ProductsWithoutCostNotice } from "@/pages/dashboard/ProductsWithoutCostNotice";
 import type { SalesHourAgg } from "@/data/wedash/salesTypes";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { useActiveSession } from "@/session/SessionProvider";
@@ -191,9 +195,10 @@ export default function FinancePage() {
     const gen = ++reloadGen.current;
     const periodo = resolvePeriod(escopo.periodo, calendarTodayIso());
     const range = financeFetchRange(escopo);
+    const costRange = productsFetchRange(escopo);
     const storeIds = escopo.filialIds;
     try {
-      const [dayAggs, hourAggs, prevHourAggs, paymentDayAggs, cov] = await Promise.all([
+      const [dayAggs, hourAggs, prevHourAggs, paymentDayAggs, productCostDayAggs, cov] = await Promise.all([
         fetchSalesDayAggs({ tenantId: session.tenantId, storeIds, from: range.from, to: range.to, brand: null }),
         periodo.inicio === periodo.fim
           ? fetchSalesHourAggs({ tenantId: session.tenantId, storeIds, day: periodo.inicio, brand: null })
@@ -202,10 +207,16 @@ export default function FinancePage() {
           ? fetchSalesHourAggs({ tenantId: session.tenantId, storeIds, day: range.prevHourDay, brand: null })
           : Promise.resolve([] as SalesHourAgg[]),
         fetchSalesPaymentDayAggs({ tenantId: session.tenantId, storeIds, from: periodo.inicio, to: periodo.fim }),
+        fetchSalesProductCostDayAggs({ tenantId: session.tenantId, storeIds, from: costRange.from, to: costRange.to }),
         fetchSalesCoverage(session.tenantId, storeIds),
       ]);
+      const productNames = await fetchProductNames(
+        productCostDayAggs
+          .filter((r) => r.day >= periodo.inicio && r.day <= periodo.fim && r.revenueCents > 0 && r.cmvCents === 0)
+          .map((r) => r.productCode),
+      );
       if (gen !== reloadGen.current) return;
-      setAggs({ dayAggs, hourAggs, prevHourAggs, paymentDayAggs });
+      setAggs({ dayAggs, hourAggs, prevHourAggs, paymentDayAggs, productCostDayAggs, productNames });
       setCoverageFrom(cov.from ? deIso(cov.from) : null);
     } catch (e) {
       if (gen !== reloadGen.current) return;
@@ -324,6 +335,8 @@ export default function FinancePage() {
           })}
         </div>
       )}
+
+      <ProductsWithoutCostNotice produtos={view.produtosSemCusto} />
 
       {/* Par: CMV/Lucro + Resultado operacional */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">

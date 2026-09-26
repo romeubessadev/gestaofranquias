@@ -32,6 +32,7 @@ import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
 import { LastUpdated } from "@/pages/dashboard/LastUpdated";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
+import { ProductsWithoutCostNotice } from "@/pages/dashboard/ProductsWithoutCostNotice";
 import { ProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { brlCent, deIso, num, tipDelta, tipRelacao } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -187,7 +188,7 @@ export default function ProductsPage() {
           : Promise.resolve([] as SalesHourAgg[]),
         fetchSalesCategoryDayAggs({ tenantId, storeIds, from: prodRange.from, to: prodRange.to, brand: null }),
         fetchSalesProductDayAggs({ tenantId, storeIds, from: prodRange.from, to: prodRange.to }),
-        fetchSalesProductCostDayAggs({ tenantId, storeIds, from: periodo.inicio, to: periodo.fim }),
+        fetchSalesProductCostDayAggs({ tenantId, storeIds, from: prodRange.from, to: prodRange.to }),
         fetchSalesCoverage(tenantId, storeIds),
         fetchProductCatalogDescriptions(),
       ]);
@@ -398,6 +399,8 @@ export default function ProductsPage() {
           <KpiCard key={kpi.label} kpi={kpi} Icon={KPI_ICONS[i] ?? IconFat} colorIdx={i} />
         ))}
       </div>
+
+      <ProductsWithoutCostNotice produtos={view.produtosSemCusto} />
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card padding="lg" className="flex flex-col">

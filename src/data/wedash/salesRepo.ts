@@ -542,6 +542,31 @@ export function fetchProductCatalogDescriptions(clientOverride?: SalesQueryClien
   return run;
 }
 
+/** COD_PRODUTO → descrição do catálogo. Falha de leitura → {} (aviso mostra só o código). */
+export async function fetchProductNames(
+  codes: string[],
+  clientOverride?: SalesQueryClient,
+): Promise<Record<string, string>> {
+  const client = clientOrNull(clientOverride);
+  const uniq = [...new Set(codes.map((c) => c.trim()).filter(Boolean))];
+  if (!client || uniq.length === 0) return {};
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (client.from("product_catalog") as any)
+      .select("product_code, description")
+      .in("product_code", uniq);
+    if (error) throw error;
+    const out: Record<string, string> = {};
+    for (const r of (data ?? []) as Array<{ product_code: string; description: string | null }>) {
+      if (r.description) out[String(r.product_code).trim()] = r.description;
+    }
+    return out;
+  } catch (e) {
+    console.warn("fetchProductNames:", e);
+    return {};
+  }
+}
+
 type ProductCostDayRow = {
   tenant_id: string;
   store_id: string;
