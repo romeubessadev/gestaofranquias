@@ -301,6 +301,7 @@ function RowMenu({ items }: { items: { label: string; danger?: boolean; onClick:
   return (
     <Dropdown
       align="right"
+      portal
       items={items}
       trigger={
         <button
