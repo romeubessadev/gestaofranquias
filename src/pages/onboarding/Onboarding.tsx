@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { WizardSteps } from "@/components/ui";
 import { BrandMark } from "@/pages/auth/authKit";
@@ -7,6 +7,7 @@ import { tenant } from "@/data/wedash/tenant";
 import { storeIdsFromErp } from "@/data/wedash/stores";
 import type { StoreErp } from "@/data/wedash/erp";
 import { padTopoEBase } from "@/lib/safeArea";
+import { upperText } from "@/lib/format";
 import { getSupabase } from "@/lib/supabase";
 import { useSession, useActiveSession } from "@/session/SessionProvider";
 import {
@@ -15,7 +16,8 @@ import {
   saveTenantBrand,
   persistErpCredentialAndStores,
 } from "@/session/authApi";
-import { markAwaitingInitialSync } from "@/session/awaitingInitialSync";
+import { clearAwaitingInitialSync, markAwaitingInitialSync } from "@/session/awaitingInitialSync";
+import { waitForSeedJob, type SeedWaitResult } from "@/data/wedash/salesRepo";
 import { Step1Brand, type RascunhoEmpresa } from "./Step1Brand";
 import { Step2Credentials } from "./Step2Credentials";
 import { Step3Stores } from "./Step3Stores";
@@ -70,6 +72,17 @@ const heroPorEtapa: Record<number, { titulo: React.ReactNode; texto: string; bul
   },
 };
 
+function mensagemErroSync(r: Exclude<SeedWaitResult, { ok: true }>): string {
+  const t = (r.error ?? "").toLowerCase();
+  if (["ultrapassado", "já está conectado", "ja esta conectado", "máximo", "maximo", "busy"].some((k) => t.includes(k))) {
+    return "Este usuário já está logado no Millennium em outro lugar. Saia do ERP nessa outra sessão e toque em Tentar novamente.";
+  }
+  if (r.reason === "stuck") {
+    return "A sincronização demorou para começar. Tente novamente; se continuar, fale com o suporte.";
+  }
+  return "Não foi possível buscar as vendas de hoje no Millennium. Tente novamente.";
+}
+
 function etapaInicial(sessaoEtapa: number | null, draft: RascunhoOnboarding | null): number {
   const daSessao = sessaoEtapa !== null && sessaoEtapa >= 1 ? Math.min(3, sessaoEtapa) : 1;
   const doDraft = draft?.etapa ?? 1;
@@ -92,6 +105,9 @@ export function Onboarding() {
   const [erpSession, setErpSession] = useState<string | undefined>();
   const [atual, setAtual] = useState(() => etapaInicial(session.onboardingStep, draft));
   const [concluindo, setConcluindo] = useState(false);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [erroSync, setErroSync] = useState<string | null>(null);
+  const entrarAposSync = useRef<(() => void) | null>(null);
 
   const hero = heroPorEtapa[atual] ?? heroPorEtapa[1];
 
@@ -116,12 +132,41 @@ export function Onboarding() {
     setDraft((d) => ({ ...d, empresa: { ...d.empresa, ...patch } }));
   }
 
+  /** Pede o Atualizar de hoje (SEED) e espera terminar; o resto do mês carrega depois, por trás. */
+  async function sincronizarHoje() {
+    setSincronizando(true);
+    setErroSync(null);
+    const sb = getSupabase();
+    const pedir = async () => {
+      const since = new Date().toISOString();
+      try {
+        const { error } = await sb!.functions.invoke("erp-sync-enqueue", { body: { action: "seed" } });
+        if (error) console.warn("erp-sync-enqueue seed:", error.message);
+      } catch (e) {
+        console.warn("erp-sync-enqueue seed:", e);
+      }
+      return waitForSeedJob(session.tenantId, since);
+    };
+    if (!sb) {
+      entrarAposSync.current?.();
+      return;
+    }
+    let r = await pedir();
+    if (!r.ok && r.reason === "cancelled") r = await pedir();
+    if (r.ok) {
+      entrarAposSync.current?.();
+      return;
+    }
+    setSincronizando(false);
+    setErroSync(mensagemErroSync(r));
+  }
+
   async function irPara(etapa: number | null, filiaisConfirmadas?: StoreErp[]) {
     if (etapa === null) {
       setConcluindo(true);
       const confirmed = filiaisConfirmadas ?? draft.stores ?? [];
       const empresa = draft.empresa;
-      const companyName = empresa.nome.trim() || session.companyName;
+      const companyName = upperText(empresa.nome) || upperText(session.companyName);
       // Logo blob local não persiste; gravamos só nome/slug por enquanto.
       await saveTenantBrand(session.tenantId, {
         name: companyName,
@@ -131,6 +176,7 @@ export function Onboarding() {
 
       const password = lerSenhaErp(membershipId);
       let ids = storeIdsFromErp(confirmed);
+      let semSync = false;
       if (draft.erp.usuario && password && confirmed.length > 0) {
         const persisted = await persistErpCredentialAndStores({
           tenantId: session.tenantId,
@@ -144,38 +190,40 @@ export function Onboarding() {
         });
         if (persisted.ok) {
           ids = persisted.storeIds;
-          const sb = getSupabase();
-          if (sb) {
-            try {
-              const { error: enqErr } = await sb.functions.invoke("erp-sync-enqueue", {
-                body: { action: "seed" },
-              });
-              if (enqErr) console.warn("erp-sync-enqueue seed:", enqErr.message);
-            } catch (e) {
-              console.warn("erp-sync-enqueue seed:", e);
-            }
-          }
         } else {
           console.warn("persistErpCredentialAndStores:", persisted.error);
           await saveMembershipStores(membershipId, ids);
+          semSync = true;
         }
       } else {
         await saveMembershipStores(membershipId, ids);
+        semSync = true;
       }
 
-      // Trava o Dash até o SEED — marca ANTES de zerar onboarding_step
-      // (senão RequireSession manda pro overview e pula /sincronizando).
+      const entrar = () => {
+        clearAwaitingInitialSync();
+        limparRascunho(membershipId);
+        update({
+          onboardingStep: null,
+          stores: ids,
+          companyName,
+          companySlug: empresa.slug.trim() || session.companySlug,
+          companyLogoUrl: null,
+        });
+        navigate(`${paths.overview}?periodo=hoje`, { replace: true });
+      };
+
+      // Onboarding fecha no banco ANTES do SEED (o worker cancela jobs com onboarding aberto).
+      // A sessão local só muda no fim — a tela fica na etapa 3 com o botão "Sincronizando…".
+      // F5 no meio: a flag leva para /sincronizando, que continua esperando.
       markAwaitingInitialSync();
       await saveOnboardingStep(membershipId, null);
-      limparRascunho(membershipId);
-      update({
-        onboardingStep: null,
-        stores: ids,
-        companyName,
-        companySlug: empresa.slug.trim() || session.companySlug,
-        companyLogoUrl: null,
-      });
-      navigate(paths.syncing, { replace: true });
+      if (semSync) {
+        entrar();
+        return;
+      }
+      entrarAposSync.current = entrar;
+      await sincronizarHoje();
       return;
     }
     setAtual(etapa);
@@ -250,8 +298,11 @@ export function Onboarding() {
             <Step3Stores
               session={erpSession}
               filiaisPre={draft.stores}
+              sincronizando={sincronizando}
+              erroSync={erroSync}
+              onTentarSync={() => void sincronizarHoje()}
               onConcluir={(confirmadas) => {
-                // Confirma lojas + SEED; não faz logout Millennium.
+                // Confirma lojas + Atualizar de hoje (SEED); não faz logout Millennium.
                 void irPara(null, confirmadas).finally(() => setErpSession(undefined));
               }}
               onVoltar={() => {

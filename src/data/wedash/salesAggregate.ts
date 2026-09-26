@@ -7,6 +7,8 @@ import type {
   SalesPaymentDayAgg,
   SalesSellerDayAgg,
 } from "./salesTypes";
+import { upperText } from "../../lib/format";
+
 export type AggregateSalesOptions = {
   tenantId: string;
   timeZone: string;
@@ -111,9 +113,9 @@ export function sellerKeyFromName(raw: string | null | undefined): string | null
   return key || null;
 }
 
-/** Nome como veio do ERP (só trim); a caixa alta é aplicada na exibição. */
+/** Nome gravado da vendedora: caixa alta, espaços normalizados. */
 export function sellerDisplayName(raw: string): string {
-  return raw.trim();
+  return upperText(raw);
 }
 
 /**

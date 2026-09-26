@@ -240,7 +240,7 @@ describe("sellerKeyFromName / sellerDisplayName", () => {
     expect(sellerKeyFromName("")).toBeNull();
     expect(sellerKeyFromName(null)).toBeNull();
     expect(sellerDisplayName("EMILLY VICTORIA CANEDO")).toBe("EMILLY VICTORIA CANEDO");
-    expect(sellerDisplayName("  Emilly Victória ")).toBe("Emilly Victória");
+    expect(sellerDisplayName("  emilly   victória ")).toBe("EMILLY VICTÓRIA");
   });
 });
 

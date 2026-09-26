@@ -580,7 +580,7 @@ export async function saveStoreShift(args: {
   const { getSupabase } = await import("@/lib/supabase");
   const sb = getSupabase();
   if (!sb) return { ok: false, error: "Supabase não configurado" };
-  const row = { name: args.shift.name.trim(), start_time: args.shift.start, end_time: args.shift.end };
+  const row = { name: upperText(args.shift.name), start_time: args.shift.start, end_time: args.shift.end };
   const { data, error } = args.shift.id
     ? await sb.from("store_shift").update(row).eq("id", args.shift.id).select("id").single()
     : await sb

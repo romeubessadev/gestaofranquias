@@ -495,7 +495,7 @@ export async function saveTenantBrand(
 ): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
-  const name = brand.name.trim();
+  const name = upperText(brand.name);
   const slug = brand.slug.trim().toLowerCase();
   if (!name) return;
   const { error } = await sb

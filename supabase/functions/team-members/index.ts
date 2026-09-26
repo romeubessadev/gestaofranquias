@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
   }
 
   if (action === "invite") {
-    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const name = typeof body.name === "string" ? body.name.trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR") : "";
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     const role = body.role as Role;
     if (!name || name.length > 120) return fail("invalid_name");

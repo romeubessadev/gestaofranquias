@@ -64,7 +64,7 @@ function shiftToDraft(s: StoreShift): ShiftDraft {
 }
 
 function draftToShift(d: ShiftDraft): StoreShift {
-  return { id: d.id ?? "", name: d.name.trim(), start: d.start, end: d.end };
+  return { id: d.id ?? "", name: upperText(d.name), start: d.start, end: d.end };
 }
 
 /** Custos em % editáveis aqui. Aluguel % vale para a loja toda (grava igual nas duas marcas); fixos ficam fora. */
