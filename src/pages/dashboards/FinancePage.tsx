@@ -37,7 +37,7 @@ import {
   periodDisplayLabel,
 } from "@/pages/dashboard/periodPicker";
 
-/** Ãcones dos KPIs â€” Faturamento/CMV iguais Ã  VisÃ£o Geral; Lucro/Margem prÃ³prios. */
+/** Ícones dos KPIs — Faturamento/CMV iguais à Visão Geral; Lucro/Margem próprios. */
 const IconFat = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
@@ -72,12 +72,12 @@ const TipHelp = ({ label }: { label: string }) => (
   </Tooltip>
 );
 
-/** Badge de delta â€” sÃ³ % no chip; base do comparativo no tooltip (igual StatCard). */
+/** Badge de delta — só % no chip; base do comparativo no tooltip (igual StatCard). */
 function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; diff?: string; anterior?: string } }) {
   if (!delta) return null;
   const badge = (
     <Badge variant={delta.positive ? "success" : "danger"}>
-      {delta.positive ? "+" : "âˆ’"}
+      {delta.positive ? "+" : "−"}
       {delta.value}
     </Badge>
   );
@@ -87,7 +87,7 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
 
 const KPI_ICONS = [IconFat, IconCmv, IconLucro, IconMargem];
 
-/** Mesma paleta da VisÃ£o Geral: Faturamento, CMV, Lucro, Margem. */
+/** Mesma paleta da Visão Geral: Faturamento, CMV, Lucro, Margem. */
 const KPI_COLORS = [
   { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
   { iconColor: "var(--warn)", iconBg: "rgba(245,158,11,0.12)" },
@@ -98,7 +98,7 @@ const KPI_COLORS = [
 const evolucaoColumns: DataTableColumn<MonthlyEvolutionRow>[] = [
   {
     key: "mes",
-    header: "MÃªs",
+    header: "Mês",
     sortable: true,
     sortValue: (r) => r.mes,
     render: (r) => <span className="font-bold text-t0">{r.mes}</span>,
@@ -139,7 +139,7 @@ const evolucaoColumns: DataTableColumn<MonthlyEvolutionRow>[] = [
   },
   {
     key: "ticket",
-    header: "Ticket mÃ©dio",
+    header: "Ticket médio",
     align: "right",
     hideBelow: "md",
     sortable: true,
@@ -148,7 +148,7 @@ const evolucaoColumns: DataTableColumn<MonthlyEvolutionRow>[] = [
   },
 ];
 
-/** Hierarquia visual no padrÃ£o Income statement (ProfitLoss). */
+/** Hierarquia visual no padrão Income statement (ProfitLoss). */
 function estiloLinhaCusto(linha: FixedCostRow): { bold: boolean; indent: boolean; color?: string; valor: string } {
   if (linha.ehResultado) {
     return {
@@ -159,12 +159,12 @@ function estiloLinhaCusto(linha: FixedCostRow): { bold: boolean; indent: boolean
     };
   }
   if (linha.ehTotal) {
-    return { bold: true, indent: false, valor: `âˆ’${brlCent(linha.valor)}` };
+    return { bold: true, indent: false, valor: `−${brlCent(linha.valor)}` };
   }
   if (linha.rotulo === "Lucro bruto") {
     return { bold: true, indent: false, color: "var(--ok)", valor: brlCent(linha.valor) };
   }
-  return { bold: false, indent: true, valor: `âˆ’${brlCent(linha.valor)}` };
+  return { bold: false, indent: true, valor: `−${brlCent(linha.valor)}` };
 }
 
 export default function FinancePage() {
@@ -173,7 +173,7 @@ export default function FinancePage() {
   const [aggs, setAggs] = useState<FinanceAggInput>({ dayAggs: [] });
   const [coverageFrom, setCoverageFrom] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
-  // CatÃ¡logo de lojas (horÃ¡rio/custos) hidratado depois do 1Âº render â†’ recalcula.
+  // Catálogo de lojas (horário/custos) hidratado depois do 1º render → recalcula.
   const [storesTick, setStoresTick] = useState(0);
   useEffect(() => {
     const onStores = () => setStoresTick((n) => n + 1);
@@ -181,7 +181,7 @@ export default function FinancePage() {
     return () => window.removeEventListener("wedash:stores", onStores);
   }, []);
 
-  /** SÃ³ a leitura mais recente aplica setState. */
+  /** Só a leitura mais recente aplica setState. */
   const reloadGen = useRef(0);
   const reload = useCallback(async () => {
     const gen = ++reloadGen.current;
@@ -225,7 +225,7 @@ export default function FinancePage() {
     [escopo, aggs, storesTick],
   );
 
-  // Resolve o DateRange a partir do escopo â€” sempre mostra algo selecionado.
+  // Resolve o DateRange a partir do escopo — sempre mostra algo selecionado.
   const dateRange = useMemo(() => dateRangeFromPeriod(escopo.periodo), [escopo.periodo]);
   const periodoAtual = resolvePeriod(escopo.periodo, calendarTodayIso());
   const monthFill = useMonthFill();
@@ -240,7 +240,7 @@ export default function FinancePage() {
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Financeiro" }]}
         title="Financeiro"
-        subtitle="Receita, custos e margem da operaÃ§Ã£o."
+        subtitle="Receita, custos e margem da operação."
         actions={
           <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
             <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
@@ -279,14 +279,14 @@ export default function FinancePage() {
       ) : (
       <>
 
-      {/* KPI row â€” 4 cards */}
+      {/* KPI row — 4 cards */}
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {view.kpis.map((kpi, i) => (
           <KpiCard key={kpi.label} kpi={kpi} Icon={KPI_ICONS[i]} colorIdx={i} />
         ))}
       </div>
 
-      {/* Quick stats WPINK â€” sÃ³ quando a loja (ou rede) tem a marca */}
+      {/* Quick stats WPINK — só quando a loja (ou rede) tem a marca */}
       {view.kpisWpink.length > 0 && (
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {view.kpisWpink.map((kpi, i) => {
@@ -326,7 +326,7 @@ export default function FinancePage() {
       {!loading && view.custoLucroMargem.every((p) => p.faturamento === 0) && !periodoCarregando && (
         <Card className="mt-4">
           <p className="py-6 text-center text-[13px] text-t2">
-            Ainda nÃ£o hÃ¡ vendas neste perÃ­odo. A carga inicial cobre o mÃªs atual; use Atualizar para buscar o dia de hoje.
+            Ainda não há vendas neste período. A carga inicial cobre o mês atual; use Atualizar para buscar o dia de hoje.
           </p>
         </Card>
       )}
@@ -375,7 +375,7 @@ export default function FinancePage() {
                 </div>
               </div>
               {totalFat === 0 ? (
-                <span className="block py-6 text-center text-[12px] text-t2">Sem dados no perÃ­odo selecionado.</span>
+                <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
               ) : (
                 <AreaLineChart
                   data={serie.map((m) => m.lucro)}
@@ -398,8 +398,8 @@ export default function FinancePage() {
           const totalFat = serie.reduce((s, m) => s + m.faturamento, 0);
           const margemOpPct = totalFat > 0 ? (totalRes / totalFat) * 100 : 0;
           const tipResultado = view.resultadoRateado
-            ? "Em perÃ­odos curtos, os custos mensais sÃ£o rateados por dia ou por hora."
-            : "Valor que permanece apÃ³s descontar os custos da operaÃ§Ã£o do lucro bruto.";
+            ? "Em períodos curtos, os custos mensais são rateados por dia ou por hora."
+            : "Valor que permanece após descontar os custos da operação do lucro bruto.";
           return (
             <Card padding="lg">
               <div className="mb-4">
@@ -435,7 +435,7 @@ export default function FinancePage() {
                 </div>
               </div>
               {totalFat === 0 ? (
-                <span className="block py-6 text-center text-[12px] text-t2">Sem dados no perÃ­odo selecionado.</span>
+                <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
               ) : (
                 <AreaLineChart
                   data={serie.map((m) => m.lucro)}
@@ -452,8 +452,8 @@ export default function FinancePage() {
         })()}
       </div>
 
-      {/* Custos antes de Formas (leitura natural apÃ³s Resultado / margem op.).
-          Com WPINK no escopo: 3 colunas (Custos | Formas | Marcas); senÃ£o 2. */}
+      {/* Custos antes de Formas (leitura natural após Resultado / margem op.).
+          Com WPINK no escopo: 3 colunas (Custos | Formas | Marcas); senão 2. */}
       <div
         className={cn(
           "mt-4 grid grid-cols-1 gap-4",
@@ -463,7 +463,7 @@ export default function FinancePage() {
         <Card className="flex flex-col">
           <CardHeader>
             <div className="flex items-center gap-1.5">
-              <CardTitle>Custos da operaÃ§Ã£o</CardTitle>
+              <CardTitle>Custos da operação</CardTitle>
               <TipHelp label="Detalha os custos descontados do lucro bruto para chegar ao resultado operacional." />
             </div>
           </CardHeader>
@@ -497,7 +497,7 @@ export default function FinancePage() {
             <CardTitle>Formas de pagamento</CardTitle>
           </CardHeader>
           {view.formasPagamento.length === 0 ? (
-            <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no perÃ­odo selecionado.</span>
+            <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
           ) : (
             (() => {
               const total = view.formasPagamento.reduce((s, f) => s + f.valor, 0) || 1;
@@ -539,7 +539,7 @@ export default function FinancePage() {
               <CardTitle>Faturamento por marca</CardTitle>
             </CardHeader>
             {view.faturamentoPorMarca.length === 0 ? (
-              <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no perÃ­odo selecionado.</span>
+              <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
             ) : (
               (() => {
                 const total = view.faturamentoPorMarca.reduce((s, m) => s + m.valor, 0) || 1;
@@ -577,29 +577,29 @@ export default function FinancePage() {
         )}
       </div>
 
-      {/* EvoluÃ§Ã£o Mensal â€” DataTable (desktop) + cards (mobile) */}
+      {/* Evolução Mensal — DataTable (desktop) + cards (mobile) */}
       <Card className="mt-4" padding="none">
         <div className="flex items-center gap-1.5 px-5 py-4">
           <div>
-            <CardTitle>EvoluÃ§Ã£o mensal</CardTitle>
+            <CardTitle>Evolução mensal</CardTitle>
             <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloEvolucaoMensal}</p>
           </div>
         </div>
 
-        {/* Desktop / tablet â€” DataTable Vela */}
+        {/* Desktop / tablet — DataTable Vela */}
         <div className="hidden p-4 md:block">
           <DataTable
             columns={evolucaoColumns}
             data={view.evolucaoMensal}
             rowKey={(r) => r.mes}
-            emptyMessage="Sem dados nos Ãºltimos 6 meses."
+            emptyMessage="Sem dados nos últimos 6 meses."
           />
         </div>
 
-        {/* Mobile â€” stack em cards (padrÃ£o Responsive Tables) */}
+        {/* Mobile — stack em cards (padrão Responsive Tables) */}
         <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
           {view.evolucaoMensal.length === 0 ? (
-            <p className="py-6 text-center text-[12px] text-t2">Sem dados nos Ãºltimos 6 meses.</p>
+            <p className="py-6 text-center text-[12px] text-t2">Sem dados nos últimos 6 meses.</p>
           ) : (
             view.evolucaoMensal.map((linha) => (
               <div key={linha.mes} className="rounded-xl border border-line bg-bg-inset p-3.5">
@@ -624,7 +624,7 @@ export default function FinancePage() {
                     <span className="font-semibold tabular-nums text-t0">{linha.margemPct.toFixed(1)}%</span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-t2">Ticket mÃ©dio</span>
+                    <span className="text-t2">Ticket médio</span>
                     <span className="font-semibold tabular-nums text-t0">{brlCent(linha.ticketMedio)}</span>
                   </div>
                 </div>
@@ -639,7 +639,7 @@ export default function FinancePage() {
   );
 }
 
-/** StatCard wrapper com tooltip ? e sparkline de tendÃªncia. */
+/** StatCard wrapper com tooltip ? e sparkline de tendência. */
 function KpiCard({ kpi, Icon, colorIdx = 0 }: { kpi: FinanceKpi; Icon: () => React.JSX.Element; colorIdx?: number }) {
   const c = KPI_COLORS[colorIdx % KPI_COLORS.length];
   return (
