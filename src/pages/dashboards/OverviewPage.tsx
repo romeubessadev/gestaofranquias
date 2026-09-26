@@ -665,7 +665,7 @@ export default function OverviewPage() {
         <Card className="flex flex-col">
           <CardHeader className="items-center">
             <CardTitle>Ranking de lojas</CardTitle>
-            {escopo.filialIds.length === 1 && (
+            {escopo.filialIds.length === 1 && view.rankingLojas.length > 0 && (view.rankingRedeTotal ?? 0) > 0 && (
               <Badge variant="accent">
                 Rede: {brlCent(view.rankingRedeTotal ?? 0)}
               </Badge>
