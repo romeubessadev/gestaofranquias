@@ -477,7 +477,7 @@ function StoreDetailForm({
 
   async function atualizarTabelas() {
     setSyncingTables(true);
-    const r = await syncProductsNow("costs");
+    const r = await syncProductsNow({ scope: "tables" });
     if (r.ok) setCostTables(await fetchCostTables());
     setSyncingTables(false);
     if (!r.ok) {
@@ -489,6 +489,14 @@ function StoreDetailForm({
 
   async function saveCostTable() {
     setSavingCostTable(true);
+    if (costTable != null) {
+      const prices = await syncProductsNow({ scope: "table", tableId: costTable });
+      if (!prices.ok) {
+        setSavingCostTable(false);
+        show(prices.message, "danger");
+        return;
+      }
+    }
     const ok = await run(() => updateStoreCostTable(store.id, costTable));
     setSavingCostTable(false);
     if (ok) setSavedCostTable(costTable);
@@ -650,7 +658,7 @@ function StoreDetailForm({
                 variant="secondary"
                 onClick={() => void atualizarTabelas()}
                 disabled={syncingTables}
-                title="Busca as tabelas de custo no Millennium"
+                title="Busca no Millennium a lista de tabelas de custo"
                 icon={syncingTables ? undefined : <RefreshIcon />}
               >
                 {syncingTables ? "Atualizando…" : "Atualizar"}
