@@ -338,7 +338,7 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
 
 20d. ✅ **Overview sem filtro de Marca** (2026-09-23) — tela sempre total (ALL).
  - Remove BrandPicker / Segmented WEPINK|WPINK na Visão Geral.
- - Faixa **quick stats WPINK** (estilo Sales overview / Ao vivo): Faturamento · CMV · Nº de vendas · Ticket — só se alguma loja do escopo tem `has_wpink` / `temWpink`.
+ - ~~Faixa **quick stats WPINK**~~ **removida da Visão Geral e de Produtos (2026-09-26)**: separação por marca = detalhe → fica **só no Financeiro** (faixa WPINK + card Faturamento por marca). A view ainda calcula `kpisWpink`; as páginas não renderizam.
  - Sub do Faturamento WPINK: `X% do faturamento` (não “do total”).
  - KPIs principais = total puro (sem subtítulo WPINK).
  - Demais cards sem anotação de marca.
@@ -503,7 +503,7 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  - Mês parcial mostra o recorte no nome: "setembro (01 a 26)", "julho (10 a 31)". Só meses com faturamento. Ano no nome só se a lista atravessa anos. A busca do Financeiro/Produtos puxa os 5 meses extras só no caso de 1 mês.
  - Recarrega sozinho quando o Atualizar do Topbar termina (ver #31).
  - **Padrão Visão Geral** (2026-09-24): filtros = só Período + Exportar (**sem filtro de Marca**; view força `divisao: null` — marca aparece no card Faturamento por marca quando há WPINK). Valores sempre em `brlCent` (R$ completo com centavos; **sem `brlK`**) em KPIs, cards, gráficos e tabela. Sem vendas → cada card mostra o próprio vazio (`EmptyBlock`); o card geral "Ainda não há vendas…" foi removido das três telas (2026-09-26, redundante e desatualizado).
- - **Faixa WPINK** abaixo dos KPIs (mesmo visual da Visão Geral), só se alguma loja do escopo tem WPINK: Faturamento WPINK (% do faturamento) · CMV WPINK · Lucro bruto WPINK · Margem WPINK, com badge vs período anterior. Mesma regra "nada estimado" do #25b (`buildFinanceWpinkKpis` / `wpinkTotals`).
+ - **Faixa WPINK** abaixo dos KPIs (única tela com separação por marca desde 2026-09-26), só se alguma loja do escopo tem WPINK: Faturamento WPINK (% do faturamento) · CMV WPINK · Lucro bruto WPINK · Margem WPINK, com badge vs período anterior. Mesma regra "nada estimado" do #25b (`buildFinanceWpinkKpis` / `wpinkTotals`).
 
 31. ✅ **Atualizar global no Topbar** (2026-09-24) — o botão saiu do cabeçalho das telas e ocupa o lugar do antigo botão de tema, **em todas as telas** (o cabeçalho é o mesmo para todas).
  - Um botão só = FORCE de **hoje** da loja do StorePicker ("Todas" = rede); atualiza tudo o que vem do ERP (vendas, horas, formas, marca/CMV, categorias, top produtos, equipe). Não existe Atualizar por tela: dados compartilhados + um "Atualizado às…" só evitam números divergentes entre telas.
@@ -512,8 +512,8 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  - Equipe de vendas (SELLER) não vê o botão; a "Última atualização" aparece nas telas.
  - **Tema claro/escuro** foi para o menu do avatar ("Tema escuro" com switch).
 
-32. ✅ **Produtos em dados reais** (2026-09-24) — `buildProductsView(escopo, aggs)` (a fixture saiu). Mesmo padrão do Financeiro e da Visão Geral: filtros = só Período + Exportar (**sem Marca**, sem Atualizar próprio); aviso da carga do mês; faixa WPINK; vazio por card; valores em `brlCent`; recarrega com o Atualizar do Topbar.
- - **KPIs:** Faturamento · Lucro bruto · Margem = os mesmos números e badges do Financeiro; **Itens vendidos** (`sales_day_agg.item_count`) com a mesma regra de comparativo. A faixa WPINK também é a do Financeiro.
+32. ✅ **Produtos em dados reais** (2026-09-24) — `buildProductsView(escopo, aggs)` (a fixture saiu). Mesmo padrão do Financeiro e da Visão Geral: filtros = só Período + Exportar (**sem Marca**, sem Atualizar próprio); aviso da carga do mês; sem faixa WPINK (só no Financeiro, 2026-09-26); vazio por card; valores em `brlCent`; recarrega com o Atualizar do Topbar.
+ - **KPIs:** Faturamento · Lucro bruto · Margem = os mesmos números e badges do Financeiro; **Itens vendidos** (`sales_day_agg.item_count`) com a mesma regra de comparativo.
  - **Faturamento por categoria + Curva ABC:** `sales_category_day_agg` ({2C46ADF5}). O badge do card compara o total das categorias com o período anterior.
  - **Produtos (Top produtos + Desempenho por produto):** `sales_product_day_agg` ({E7A5C5C7}), agrupado por `COD_PRODUTO`. Colunas: Faturamento · Itens · Preço médio · CMV · Lucro bruto · Margem · Participação · Variação. Busca por nome/código + CSV. **Saíram** Categoria, Nº de vendas e Ticket (não existe dado por produto; o antigo `estimarVendas` inventava números).
  - **CMV por produto** (migration `20260924235900_sales_product_cost_day_agg`): tabela `sales_product_cost_day_agg` (loja × dia × `COD_PRODUTO`: qtde, receita, CMV). Vem do **mesmo** fetch do RELATORIOMARGEM que já grava marca/CMV (**nenhuma chamada nova ao ERP**). O worker grava no split de marca e no `syncCmvForRange`, com soft-fail (WARN "CMV por produto" em Logs).

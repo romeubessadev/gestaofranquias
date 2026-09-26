@@ -35,7 +35,6 @@ import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { ProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { brlCent, deIso, num, tipDelta, tipRelacao } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import { TINT } from "@/pages/dashboards/icons";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
 import {
   applyPeriodDateChange,
@@ -48,13 +47,6 @@ import {
 const IconFat = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-  </svg>
-);
-const IconCmv = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="8" cy="21" r="1" />
-    <circle cx="19" cy="21" r="1" />
-    <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
   </svg>
 );
 const IconLucro = () => (
@@ -78,8 +70,6 @@ const IconItens = () => (
   </svg>
 );
 const KPI_ICONS = [IconFat, IconLucro, IconMargem, IconItens];
-/** Faixa WPINK = mesma do Financeiro (Faturamento · CMV · Lucro · Margem). */
-const WPINK_ICONS = [IconFat, IconCmv, IconLucro, IconMargem];
 
 /** Heroes por métrica: Fat/Lucro/Margem iguais ao Financeiro; Itens = warn. */
 const KPI_COLORS = [
@@ -408,43 +398,6 @@ export default function ProductsPage() {
           <KpiCard key={kpi.label} kpi={kpi} Icon={KPI_ICONS[i] ?? IconFat} colorIdx={i} />
         ))}
       </div>
-
-      {/* Quick stats WPINK — só quando a loja (ou rede) tem a marca */}
-      {view.kpisWpink.length > 0 && (
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {view.kpisWpink.map((kpi, i) => {
-            const Icon = WPINK_ICONS[i] ?? IconFat;
-            const tint = TINT[kpi.tint];
-            return (
-              <Card key={kpi.label} padding="sm" className="flex items-center gap-3.5">
-                <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]"
-                  style={{ background: tint.bg, color: tint.fg }}
-                >
-                  <Icon />
-                </span>
-                <div className="min-w-0">
-                  <p className="flex items-center gap-1.5 text-[11.5px] font-semibold text-t2">
-                    {kpi.label}
-                    {kpi.tooltip ? (
-                      <Tooltip label={kpi.tooltip} side="bottom">
-                        <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
-                          ?
-                        </span>
-                      </Tooltip>
-                    ) : null}
-                  </p>
-                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-                    <p className="truncate font-mono text-lg font-extrabold text-t0">{kpi.valor}</p>
-                    <BadgeVsAnterior delta={kpi.delta} />
-                  </div>
-                  {kpi.sub ? <p className="text-[11px] text-t2">{kpi.sub}</p> : null}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card padding="lg" className="flex flex-col">

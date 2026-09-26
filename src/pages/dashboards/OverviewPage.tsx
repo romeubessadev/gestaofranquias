@@ -45,7 +45,6 @@ import {
   periodActivePresetId,
   periodDisplayLabel,
 } from "@/pages/dashboard/periodPicker";
-import { TINT, type TintKey } from "@/pages/dashboards/icons";
 type TopProdSort = "nome" | "itens" | "faturamento" | "variacao";
 
 /** Ouro / prata / bronze — mesmo padrão do Sales leaderboard (Vela). */
@@ -79,7 +78,6 @@ const IconTicket = () => (
 );
 
 const KPI_ICONS = [IconFat, IconCmv, IconVendas, IconTicket];
-const KPI_WPINK_ICONS = [IconFat, IconCmv, IconVendas, IconTicket];
 
 /** Cores fixas para as lojas no donut e barras do Ranking de Lojas. */
 const CORES_LOJAS = ["var(--acc)", "var(--info)", "var(--ok)", "var(--warn)", "var(--bad)"];
@@ -93,7 +91,6 @@ const KPI_COLORS = [
   { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },
   { iconColor: "var(--info)", iconBg: "rgba(59,130,246,0.12)" },
 ];
-const KPI_WPINK_TINTS: TintKey[] = ["acc", "warn", "ok", "info"];
 
 /** Badge de delta — só % no chip; base do comparativo no tooltip (igual StatCard). */
 function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; diff?: string; anterior?: string } }) {
@@ -400,43 +397,6 @@ export default function OverviewPage() {
           <KpiCard key={kpi.label} kpi={kpi} Icon={KPI_ICONS[i]} colorIdx={i} />
         ))}
       </div>
-
-      {/* Quick stats WPINK — só quando a loja (ou rede) tem a marca */}
-      {view.kpisWpink.length > 0 && (
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {view.kpisWpink.map((kpi, i) => {
-            const Icon = KPI_WPINK_ICONS[i] ?? IconVendas;
-            const tint = TINT[kpi.tint ?? KPI_WPINK_TINTS[i] ?? "acc"];
-            return (
-              <Card key={kpi.label} padding="sm" className="flex items-center gap-3.5">
-                <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]"
-                  style={{ background: tint.bg, color: tint.fg }}
-                >
-                  <Icon />
-                </span>
-                <div className="min-w-0">
-                  <p className="flex items-center gap-1.5 text-[11.5px] font-semibold text-t2">
-                    {kpi.label}
-                    {kpi.tooltip ? (
-                      <Tooltip label={kpi.tooltip} side="bottom">
-                        <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
-                          ?
-                        </span>
-                      </Tooltip>
-                    ) : null}
-                  </p>
-                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-                    <p className="truncate font-mono text-lg font-extrabold text-t0">{kpi.valor}</p>
-                    <BadgeVsAnterior delta={kpi.delta} />
-                  </div>
-                  {kpi.sub ? <p className="text-[11px] text-t2">{kpi.sub}</p> : null}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
 
       {/* Linha: Atingimento da Meta + Faturamento vs Meta */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.6fr]">
