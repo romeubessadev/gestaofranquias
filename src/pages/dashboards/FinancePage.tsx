@@ -23,7 +23,7 @@ import { calendarTodayIso } from "@/data/wedash/clock";
 import { useActiveSession } from "@/session/SessionProvider";
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useMonthFill } from "@/pages/dashboard/useMonthFill";
-import { MonthFillNotice, monthFillTouches, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
+import { MonthFillNotice, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
 import { LastUpdated } from "@/pages/dashboard/LastUpdated";
 import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { FinanceSkeleton } from "@/components/wedash/LoadingSkeletons";
@@ -230,8 +230,6 @@ export default function FinancePage() {
   const dateRange = useMemo(() => dateRangeFromPeriod(escopo.periodo), [escopo.periodo]);
   const periodoAtual = resolvePeriod(escopo.periodo, calendarTodayIso());
   const monthFill = useMonthFill();
-  const periodoCarregando = monthFillTouches(monthFill, periodoAtual.inicio, periodoAtual.fim);
-
   function onDateChange(r: DateRange, meta?: DateRangeChangeMeta) {
     mudar(applyPeriodDateChange(escopo, r, meta));
   }
@@ -322,14 +320,6 @@ export default function FinancePage() {
             );
           })}
         </div>
-      )}
-
-      {!loading && view.custoLucroMargem.every((p) => p.faturamento === 0) && !periodoCarregando && (
-        <Card className="mt-4">
-          <p className="py-6 text-center text-[13px] text-t2">
-            Ainda não há vendas neste período. A carga inicial cobre o mês atual; use Atualizar para buscar o dia de hoje.
-          </p>
-        </Card>
       )}
 
       {/* Par: CMV/Lucro + Resultado operacional */}
