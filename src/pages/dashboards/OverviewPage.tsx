@@ -514,6 +514,8 @@ export default function OverviewPage() {
                   </span>
                 </Tooltip>
               </div>
+              {(view.evolucao[view.evolucao.length - 1]?.realizado ?? 0) + (view.evolucao[view.evolucao.length - 1]?.meta ?? 0) > 0 && (
+              <>
               <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloSerie}</p>
               <div className="mt-2.5 flex flex-wrap gap-5">
                 <div>
@@ -533,6 +535,8 @@ export default function OverviewPage() {
                   </p>
                 </div>
               </div>
+              </>
+              )}
             </div>
             <BadgeVsAnterior delta={view.deltaFaturamento} />
           </div>
@@ -610,6 +614,7 @@ export default function OverviewPage() {
                     </span>
                   </Tooltip>
                 </div>
+                {!view.diaVsMeta.every((d) => d.realizado === 0 && d.meta === 0) && (
                 <div className="mt-2.5 flex flex-wrap gap-5">
                   <div>
                     <span className="flex items-center gap-1.5 text-xs font-semibold text-t1">
@@ -625,13 +630,14 @@ export default function OverviewPage() {
                         className="inline-block w-3 border-t-2 border-dashed border-[var(--warn)]"
                         aria-hidden
                       />
-                      Goal
+                      Meta
                     </span>
                     <p className="mt-0.5 font-mono text-base font-extrabold text-t0">
                       {brlCent(view.diaVsMeta.reduce((s, d) => s + d.meta, 0))}
                     </p>
                   </div>
                 </div>
+                )}
               </div>
               <BadgeVsAnterior delta={view.deltaFaturamento} />
             </div>

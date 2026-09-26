@@ -344,6 +344,8 @@ export default function FinancePage() {
                       <BadgeVsAnterior delta={deltaLucro} />
                     </div>
                   </div>
+                  {totalFat > 0 && (
+                  <>
                   <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloSerie}</p>
                   <div className="mt-2.5 flex flex-wrap gap-5">
                     <div>
@@ -363,6 +365,8 @@ export default function FinancePage() {
                       <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{margemPct.toFixed(1)}%</p>
                     </div>
                   </div>
+                  </>
+                  )}
                 </div>
               </div>
               {totalFat === 0 ? (
@@ -404,6 +408,8 @@ export default function FinancePage() {
                       <BadgeVsAnterior delta={view.deltaResultado} />
                     </div>
                   </div>
+                  {totalFat > 0 && (
+                  <>
                   <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloSerie}</p>
                   <div className="mt-2.5 flex flex-wrap gap-5">
                     <div>
@@ -423,6 +429,8 @@ export default function FinancePage() {
                       <p className="mt-0.5 font-mono text-base font-extrabold text-t0">{margemOpPct.toFixed(1)}%</p>
                     </div>
                   </div>
+                  </>
+                  )}
                 </div>
               </div>
               {totalFat === 0 ? (
