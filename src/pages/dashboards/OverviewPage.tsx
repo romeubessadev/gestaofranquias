@@ -32,6 +32,7 @@ import { useActiveSession } from "@/session/SessionProvider";
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, monthFillTouches, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
+import { LastUpdated } from "@/pages/dashboard/LastUpdated";
 import { OverviewSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { goalHistoryDayRange, goalHistorySameWeekdays } from "@/data/wedash/goalCurve";
@@ -44,7 +45,7 @@ import {
 import { TINT, type TintKey } from "@/pages/dashboards/icons";
 type TopProdSort = "nome" | "itens" | "faturamento" | "variacao";
 
-/** Ouro / prata / bronze — mesmo padrão do Sales leaderboard (Vela). */
+/** Ouro / prata / bronze â€” mesmo padrÃ£o do Sales leaderboard (Vela). */
 const RANK_MEDAL = ["#f7b84e", "#c7cdd6", "#d99a5c"];
 
 const IconFat = () => (
@@ -79,7 +80,7 @@ const KPI_WPINK_ICONS = [IconFat, IconCmv, IconVendas, IconTicket];
 
 /** Cores fixas para as lojas no donut e barras do Ranking de Lojas. */
 const CORES_LOJAS = ["var(--acc)", "var(--info)", "var(--ok)", "var(--warn)", "var(--bad)"];
-/** Fatia neutra "Demais lojas" (1 loja no StorePicker) — não compete com a cor da loja. */
+/** Fatia neutra "Demais lojas" (1 loja no StorePicker) â€” nÃ£o compete com a cor da loja. */
 const COR_DEMAIS_LOJAS = "color-mix(in srgb, var(--t2) 40%, transparent)";
 
 /** Cores distintas para cada KPI card (hero). */
@@ -91,12 +92,12 @@ const KPI_COLORS = [
 ];
 const KPI_WPINK_TINTS: TintKey[] = ["acc", "warn", "ok", "info"];
 
-/** Badge de delta — só % no chip; base do comparativo no tooltip (igual StatCard). */
+/** Badge de delta â€” sÃ³ % no chip; base do comparativo no tooltip (igual StatCard). */
 function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; diff?: string; anterior?: string } }) {
   if (!delta) return null;
   const badge = (
     <Badge variant={delta.positive ? "success" : "danger"}>
-      {delta.positive ? "+" : "−"}
+      {delta.positive ? "+" : "âˆ’"}
       {delta.value}
     </Badge>
   );
@@ -122,7 +123,7 @@ export default function OverviewPage() {
   const [goalHistoryHourAggs, setGoalHistoryHourAggs] = useState<SalesHourAgg[]>([]);
   const [prevDayAggs, setPrevDayAggs] = useState<SalesDayAgg[]>([]);
   const [prevHourAggs, setPrevHourAggs] = useState<SalesHourAgg[]>([]);
-  // Catálogo de lojas (horário/fuso) hidratado depois do 1º render → recalcula eixos.
+  // CatÃ¡logo de lojas (horÃ¡rio/fuso) hidratado depois do 1Âº render â†’ recalcula eixos.
   const [storesTick, setStoresTick] = useState(0);
   useEffect(() => {
     const onStores = () => setStoresTick((n) => n + 1);
@@ -131,7 +132,7 @@ export default function OverviewPage() {
   }, []);
   const [topProdSort, setTopProdSort] = useState<TopProdSort>("faturamento");
   const [topProdDir, setTopProdDir] = useState<SortDir>("desc");
-  /** Só a leitura mais recente aplica setState (evita corrida stale sobrescrever pós-FORCE). */
+  /** SÃ³ a leitura mais recente aplica setState (evita corrida stale sobrescrever pÃ³s-FORCE). */
   const reloadGen = useRef(0);
 
   const reloadAggs = useCallback(async () => {
@@ -144,7 +145,7 @@ export default function OverviewPage() {
       const [days, hours, cats, catalog, payments, sellers, products, wm, cov, goalHistDays, goalHistHours, prevDays, prevHours, shifts] = await Promise.all([
         fetchSalesDayAggs({
           tenantId: session.tenantId,
-          // Sempre a rede: Ranking precisa do total/participação mesmo com 1 loja no StorePicker.
+          // Sempre a rede: Ranking precisa do total/participaÃ§Ã£o mesmo com 1 loja no StorePicker.
           storeIds: [],
           from: periodo.inicio,
           to: periodo.fim,
@@ -249,8 +250,8 @@ export default function OverviewPage() {
     return () => window.removeEventListener(SALES_SYNCED_EVENT, onSynced);
   }, [reloadAggs]);
 
-  // Só a 1ª carga usa `loading` (desabilita o botão). Re-fetch de escopo/aba
-  // atualiza os dados em silêncio — senão o Atualizar “pisca” (disabled:opacity-50).
+  // SÃ³ a 1Âª carga usa `loading` (desabilita o botÃ£o). Re-fetch de escopo/aba
+  // atualiza os dados em silÃªncio â€” senÃ£o o Atualizar â€œpiscaâ€ (disabled:opacity-50).
   const hasLoadedOnce = useRef(false);
   useEffect(() => {
     let cancelled = false;
@@ -267,7 +268,7 @@ export default function OverviewPage() {
     };
   }, [reloadAggs]);
 
-  // Enquanto o primeiro sync não grava watermark, repolha (SEED pode demorar).
+  // Enquanto o primeiro sync nÃ£o grava watermark, repolha (SEED pode demorar).
   useEffect(() => {
     if (watermark != null) return;
     const id = window.setInterval(() => {
@@ -276,7 +277,7 @@ export default function OverviewPage() {
     return () => window.clearInterval(id);
   }, [watermark, reloadAggs]);
 
-  // Enquanto o histórico ainda cresce (HISTORY), repolha cobertura do picker.
+  // Enquanto o histÃ³rico ainda cresce (HISTORY), repolha cobertura do picker.
   useEffect(() => {
     const id = window.setInterval(() => {
       void fetchSalesCoverage(session.tenantId, escopo.filialIds).then((cov) => {
@@ -306,7 +307,7 @@ export default function OverviewPage() {
     [escopo, dayAggs, hourAggs, categoryDayAggs, categoryCatalog, paymentDayAggs, sellerDayAggs, sellerShifts, productDayAggs, goalHistoryDayAggs, goalHistoryHourAggs, prevDayAggs, prevHourAggs, storesTick],
   );
 
-  // A métrica escolhe QUAIS 5 entram (sempre os maiores); a direção só reordena os 5.
+  // A mÃ©trica escolhe QUAIS 5 entram (sempre os maiores); a direÃ§Ã£o sÃ³ reordena os 5.
   // "Produto" (nome) reordena o Top 5 por faturamento.
   const topProdutosOrdenados = useMemo(() => {
     type P = (typeof view.topProdutos)[number];
@@ -331,7 +332,7 @@ export default function OverviewPage() {
     }
   }
 
-  // Resolve o DateRange a partir do escopo — sempre mostra algo selecionado.
+  // Resolve o DateRange a partir do escopo â€” sempre mostra algo selecionado.
   const dateRange = useMemo(() => dateRangeFromPeriod(escopo.periodo), [escopo.periodo]);
   const periodoAtual = resolvePeriod(escopo.periodo, calendarTodayIso());
   const monthFill = useMonthFill();
@@ -344,9 +345,9 @@ export default function OverviewPage() {
   return (
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
-        crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Visão geral" }]}
-        title="Visão geral"
-        subtitle="Indicadores, metas e desempenho da operação."
+        crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "VisÃ£o geral" }]}
+        title="VisÃ£o geral"
+        subtitle="Indicadores, metas e desempenho da operaÃ§Ã£o."
         actions={
           <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
             <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
@@ -373,6 +374,7 @@ export default function OverviewPage() {
                 Exportar
               </Button>
             </div>
+            <LastUpdated />
           </div>
         }
       />
@@ -384,14 +386,14 @@ export default function OverviewPage() {
       ) : (
       <>
 
-      {/* KPI row — 4 cards */}
+      {/* KPI row â€” 4 cards */}
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {view.kpis.map((kpi, i) => (
           <KpiCard key={kpi.label} kpi={kpi} Icon={KPI_ICONS[i]} colorIdx={i} />
         ))}
       </div>
 
-      {/* Quick stats WPINK — só quando a loja (ou rede) tem a marca */}
+      {/* Quick stats WPINK â€” sÃ³ quando a loja (ou rede) tem a marca */}
       {view.kpisWpink.length > 0 && (
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {view.kpisWpink.map((kpi, i) => {
@@ -431,7 +433,7 @@ export default function OverviewPage() {
       {!loading && dayAggs.length === 0 && !periodoCarregando && (
         <Card className="mt-4">
           <p className="py-6 text-center text-[13px] text-t2">
-            Ainda não há vendas neste período. A carga inicial cobre o mês atual; use Atualizar para buscar o dia de hoje.
+            Ainda nÃ£o hÃ¡ vendas neste perÃ­odo. A carga inicial cobre o mÃªs atual; use Atualizar para buscar o dia de hoje.
           </p>
         </Card>
       )}
@@ -446,8 +448,8 @@ export default function OverviewPage() {
           const alvo = meta?.alvo ?? 0;
           const faltamValor = meta ? Math.max(0, meta.alvo - meta.realizado) : 0;
           const projecaoValor = meta
-            ? (view.projecaoFechamento?.replace(/^Projeção:\s*/i, "") ?? "—")
-            : "—";
+            ? (view.projecaoFechamento?.replace(/^ProjeÃ§Ã£o:\s*/i, "") ?? "â€”")
+            : "â€”";
           return (
             <Card>
               <div className="mb-4">
@@ -470,7 +472,7 @@ export default function OverviewPage() {
                   </svg>
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-bold" style={{ color: "var(--warn)" }}>
-                      Meta não configurada
+                      Meta nÃ£o configurada
                     </p>
                     <p className="mt-0.5 text-[12.5px] text-t1">
                       Cadastre em Metas para acompanhar o atingimento.
@@ -487,19 +489,19 @@ export default function OverviewPage() {
                   <span className="text-[13px] font-bold text-t0">{brlCent(realizado)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[12.5px] text-t2">Meta do mês</span>
+                  <span className="text-[12.5px] text-t2">Meta do mÃªs</span>
                   <span className={`text-[13px] font-bold ${meta && pct < 100 ? "text-warn" : meta ? "text-ok" : "text-t2"}`}>
-                    {meta ? brlCent(alvo) : "—"}
+                    {meta ? brlCent(alvo) : "â€”"}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[12.5px] text-t2">Faltam</span>
                   <span className={`text-[13px] font-bold ${meta && faltamValor > 0 ? "text-warn" : meta ? "text-ok" : "text-t2"}`}>
-                    {!meta ? "—" : faltamValor <= 0 ? "Meta atingida" : brlCent(faltamValor)}
+                    {!meta ? "â€”" : faltamValor <= 0 ? "Meta atingida" : brlCent(faltamValor)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[12.5px] text-t2">Projeção</span>
+                  <span className="text-[12.5px] text-t2">ProjeÃ§Ã£o</span>
                   <span className={`text-[13px] font-bold ${meta ? "text-t0" : "text-t2"}`}>{projecaoValor}</span>
                 </div>
               </div>
@@ -512,7 +514,7 @@ export default function OverviewPage() {
             <div>
               <div className="flex items-center gap-1.5">
                 <CardTitle>Faturamento x meta</CardTitle>
-                <Tooltip label="Faturamento de cada hora/dia comparado à meta daquele ponto. A meta do mês é distribuída pelo peso histórico de cada dia da semana e de cada hora da loja.">
+                <Tooltip label="Faturamento de cada hora/dia comparado Ã  meta daquele ponto. A meta do mÃªs Ã© distribuÃ­da pelo peso histÃ³rico de cada dia da semana e de cada hora da loja.">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
@@ -541,7 +543,7 @@ export default function OverviewPage() {
             <BadgeVsAnterior delta={view.deltaFaturamento} />
           </div>
           {(() => {
-            // evolucao vem acumulada; o gráfico mostra o valor de cada hora/dia/mês.
+            // evolucao vem acumulada; o grÃ¡fico mostra o valor de cada hora/dia/mÃªs.
             const serie = view.evolucao
               .map((e, i) => {
                 const prev = view.evolucao[i - 1];
@@ -553,7 +555,7 @@ export default function OverviewPage() {
               })
               .filter((e) => !e.ancora);
             if (serie.every((e) => e.realizado === 0 && e.meta === 0)) {
-              return <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>;
+              return <span className="block py-6 text-center text-[12px] text-t2">Sem dados no perÃ­odo selecionado.</span>;
             }
             return (
               <AreaLineChart
@@ -570,14 +572,14 @@ export default function OverviewPage() {
         </Card>
       </div>
 
-      {/* Linha: Categoria vs Meta + Dia da Semana vs Meta (Dia some em período de 1 dia) */}
+      {/* Linha: Categoria vs Meta + Dia da Semana vs Meta (Dia some em perÃ­odo de 1 dia) */}
       <div className={`mt-4 grid grid-cols-1 gap-4 ${view.diaVsMeta.length > 0 ? "lg:grid-cols-2" : ""}`}>
         <Card padding="lg">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-1.5">
                 <CardTitle>Faturamento por categoria</CardTitle>
-                <Tooltip label="Mix do faturamento por tipo de produto no período.">
+                <Tooltip label="Mix do faturamento por tipo de produto no perÃ­odo.">
                   <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                     ?
                   </span>
@@ -587,7 +589,7 @@ export default function OverviewPage() {
             <BadgeVsAnterior delta={view.deltaFaturamento} />
           </div>
           {view.categoriaVsMeta.filter((c) => c.realizado > 0).length === 0 ? (
-            <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+            <span className="block py-6 text-center text-[12px] text-t2">Sem dados no perÃ­odo selecionado.</span>
           ) : (
             <BarChart
               data={view.categoriaVsMeta
@@ -608,7 +610,7 @@ export default function OverviewPage() {
               <div>
                 <div className="flex items-center gap-1.5">
                   <CardTitle>Dias da semana x meta</CardTitle>
-                  <Tooltip label="Revela em quais dias o faturamento médio supera ou fica abaixo da meta diária.">
+                  <Tooltip label="Revela em quais dias o faturamento mÃ©dio supera ou fica abaixo da meta diÃ¡ria.">
                     <span className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-bg-inset text-[10px] font-semibold text-t2 hover:text-t1 transition-colors">
                       ?
                     </span>
@@ -666,7 +668,7 @@ export default function OverviewPage() {
             )}
           </CardHeader>
           {view.rankingLojas.length === 0 ? (
-            <span className="py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+            <span className="py-6 text-center text-[12px] text-t2">Sem dados no perÃ­odo selecionado.</span>
           ) : (
             (() => {
               const totalRede =
@@ -674,7 +676,7 @@ export default function OverviewPage() {
               const umaLoja = escopo.filialIds.length === 1;
               const valorLoja = view.rankingLojas[0]?.valor ?? 0;
               const valorDemais = umaLoja ? Math.max(0, totalRede - valorLoja) : 0;
-              // 1 loja: fatia da loja × "Demais lojas" (resto da rede) — mostra o peso real na rede.
+              // 1 loja: fatia da loja Ã— "Demais lojas" (resto da rede) â€” mostra o peso real na rede.
               const demais: (typeof view.rankingLojas)[number] | null =
                 umaLoja && valorDemais > 0
                   ? {
@@ -743,13 +745,13 @@ export default function OverviewPage() {
             <CardTitle>Formas de pagamento</CardTitle>
           </CardHeader>
           {view.formasPagamento.length === 0 ? (
-            <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+            <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no perÃ­odo selecionado.</span>
           ) : (
             (() => {
               const total = view.formasPagamento.reduce((s, f) => s + f.valor, 0) || 1;
               return (
                 <div className="flex flex-1 flex-col justify-center px-4 pb-4">
-                  {/* Padrão Expense breakdown — igual Financeiro */}
+                  {/* PadrÃ£o Expense breakdown â€” igual Financeiro */}
                   <div className="mx-auto my-2">
                     <DonutChart
                       segments={view.formasPagamento.map((f) => ({
@@ -819,9 +821,9 @@ export default function OverviewPage() {
                         <div className="flex flex-col gap-2.5 text-[12px]">
                           <div>
                             <p className="text-[11px] font-semibold text-t2">{v.lojas.length > 1 ? "Lojas" : "Loja"}</p>
-                            <p className="font-bold text-t0">{v.lojas[0] ?? "—"}</p>
+                            <p className="font-bold text-t0">{v.lojas[0] ?? "â€”"}</p>
                             {v.lojas.length > 1 && (
-                              <p className="text-t1">Também vendeu em {v.lojas.slice(1).join(", ")}</p>
+                              <p className="text-t1">TambÃ©m vendeu em {v.lojas.slice(1).join(", ")}</p>
                             )}
                           </div>
                           <div>
@@ -834,22 +836,22 @@ export default function OverviewPage() {
                     </div>
                     {hasMeta && <ProgressBar value={pct} height={5} />}
                     <div className={`flex flex-wrap items-center gap-x-1.5 text-[11px] text-t2 ${hasMeta ? "mt-0.5" : ""}`}>
-                      <span>{v.sub?.split("·")[0]?.trim() ?? ""}</span>
+                      <span>{v.sub?.split("Â·")[0]?.trim() ?? ""}</span>
                       {v.ticketMedio != null && v.ticketMedio > 0 && (
                         <>
-                          <span>·</span>
-                          <span>Ticket médio {brlCent(v.ticketMedio)}</span>
+                          <span>Â·</span>
+                          <span>Ticket mÃ©dio {brlCent(v.ticketMedio)}</span>
                         </>
                       )}
                       {v.pa != null && (
                         <>
-                          <span>·</span>
+                          <span>Â·</span>
                           <span>P.A. {num(v.pa, 2)}</span>
                         </>
                       )}
                       {hasMeta && (
                         <>
-                          <span>·</span>
+                          <span>Â·</span>
                           <span className={pct >= 100 ? "font-semibold text-ok" : ""}>{Math.round(pct)}% da meta</span>
                         </>
                       )}
@@ -859,7 +861,7 @@ export default function OverviewPage() {
               );
             })}
             {view.topVendedoras.length === 0 && (
-              <span className="py-4 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+              <span className="py-4 text-center text-[12px] text-t2">Sem dados no perÃ­odo selecionado.</span>
             )}
           </div>
         </Card>
@@ -898,7 +900,7 @@ export default function OverviewPage() {
                     className="px-1 pb-3"
                   />
                   <ThSort
-                    label="Variação"
+                    label="VariaÃ§Ã£o"
                     active={topProdSort === "variacao"}
                     dir={topProdDir}
                     onClick={() => toggleTopProdSort("variacao")}
@@ -923,16 +925,16 @@ export default function OverviewPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{p.itens != null ? p.itens.toLocaleString("pt-BR") : (p.sub?.replace(" itens", "") ?? "—")}</td>
+                      <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{p.itens != null ? p.itens.toLocaleString("pt-BR") : (p.sub?.replace(" itens", "") ?? "â€”")}</td>
                       <td className="px-1 py-3 text-right font-mono text-[13px] font-bold text-t0">{brlCent(p.valor)}</td>
                       <td className="px-1 py-3 text-right text-xs font-bold" style={{ color: p.trend != null ? (p.trend >= 0 ? "var(--ok)" : "var(--bad)") : undefined }}>
-                        {p.trend != null ? `${p.trend >= 0 ? "+" : ""}${p.trend}%` : "—"}
+                        {p.trend != null ? `${p.trend >= 0 ? "+" : ""}${p.trend}%` : "â€”"}
                       </td>
                     </tr>
                   );
                 })}
                 {topProdutosOrdenados.length === 0 && (
-                  <tr><td colSpan={5} className="px-1 py-3 text-center text-[13px] text-t2">Sem dados no período selecionado.</td></tr>
+                  <tr><td colSpan={5} className="px-1 py-3 text-center text-[13px] text-t2">Sem dados no perÃ­odo selecionado.</td></tr>
                 )}
               </tbody>
             </table>

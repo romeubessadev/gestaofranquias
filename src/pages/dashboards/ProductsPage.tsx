@@ -30,6 +30,7 @@ import { useActiveSession } from "@/session/SessionProvider";
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, monthFillTouches, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
+import { LastUpdated } from "@/pages/dashboard/LastUpdated";
 import { ProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { brlCent, deIso, num, tipDelta, tipRelacao } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -42,7 +43,7 @@ import {
   periodDisplayLabel,
 } from "@/pages/dashboard/periodPicker";
 
-/** Ícones dos KPIs — Fat/Lucro/Margem iguais ao Financeiro; Itens próprio da tela. */
+/** Ãcones dos KPIs â€” Fat/Lucro/Margem iguais ao Financeiro; Itens prÃ³prio da tela. */
 const IconFat = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
@@ -76,10 +77,10 @@ const IconItens = () => (
   </svg>
 );
 const KPI_ICONS = [IconFat, IconLucro, IconMargem, IconItens];
-/** Faixa WPINK = mesma do Financeiro (Faturamento · CMV · Lucro · Margem). */
+/** Faixa WPINK = mesma do Financeiro (Faturamento Â· CMV Â· Lucro Â· Margem). */
 const WPINK_ICONS = [IconFat, IconCmv, IconLucro, IconMargem];
 
-/** Heroes por métrica: Fat/Lucro/Margem iguais ao Financeiro; Itens = warn. */
+/** Heroes por mÃ©trica: Fat/Lucro/Margem iguais ao Financeiro; Itens = warn. */
 const KPI_COLORS = [
   { iconColor: "var(--acc)", iconBg: "var(--acc-soft)" },
   { iconColor: "var(--ok)", iconBg: "var(--ok-soft)" },
@@ -107,12 +108,12 @@ const CORES_ABC: Record<AbcClass, string> = {
   C: "var(--ok)",
 };
 
-/** Badge de delta — só % no chip; base do comparativo no tooltip (igual StatCard). */
+/** Badge de delta â€” sÃ³ % no chip; base do comparativo no tooltip (igual StatCard). */
 function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean; vs?: string; anterior?: string } }) {
   if (!delta) return null;
   const badge = (
     <Badge variant={delta.positive ? "success" : "danger"}>
-      {delta.positive ? "+" : "−"}
+      {delta.positive ? "+" : "âˆ’"}
       {delta.value}
     </Badge>
   );
@@ -138,11 +139,11 @@ function AvatarIniciais({ nome, idx }: { nome: string; idx: number }) {
   );
 }
 
-const pctFmt = (v: number | null, casas = 1) => (v == null ? "—" : `${v.toFixed(casas).replace(".", ",")}%`);
-const moneyOrDash = (v: number | null) => (v == null ? "—" : brlCent(v));
+const pctFmt = (v: number | null, casas = 1) => (v == null ? "â€”" : `${v.toFixed(casas).replace(".", ",")}%`);
+const moneyOrDash = (v: number | null) => (v == null ? "â€”" : brlCent(v));
 
 function Variacao({ v }: { v: number | null }) {
-  if (v == null) return <span className="text-t2">—</span>;
+  if (v == null) return <span className="text-t2">â€”</span>;
   const r = Math.round(v);
   return (
     <span className="font-bold" style={{ color: r >= 0 ? "var(--ok)" : "var(--bad)" }}>
@@ -167,7 +168,7 @@ export default function ProductsPage() {
   const [topLinhaDir, setTopLinhaDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const isMobile = useMediaQuery(MOBILE_QUERY);
-  // Catálogo de lojas (custos/impostos) hidratado depois do 1º render → recalcula.
+  // CatÃ¡logo de lojas (custos/impostos) hidratado depois do 1Âº render â†’ recalcula.
   const [storesTick, setStoresTick] = useState(0);
   useEffect(() => {
     const onStores = () => setStoresTick((n) => n + 1);
@@ -175,7 +176,7 @@ export default function ProductsPage() {
     return () => window.removeEventListener("wedash:stores", onStores);
   }, []);
 
-  /** Só a leitura mais recente aplica setState. */
+  /** SÃ³ a leitura mais recente aplica setState. */
   const reloadGen = useRef(0);
   const reload = useCallback(async () => {
     const gen = ++reloadGen.current;
@@ -233,7 +234,7 @@ export default function ProductsPage() {
     mudar(applyPeriodDateChange(escopo, r, meta));
   }
 
-  // A métrica escolhe QUAIS 5 entram (sempre os maiores); a direção só reordena os 5.
+  // A mÃ©trica escolhe QUAIS 5 entram (sempre os maiores); a direÃ§Ã£o sÃ³ reordena os 5.
   // "Produto" (nome) reordena o Top 5 por faturamento.
   const topProdutos = useMemo(() => {
     const metrica = (p: ProductItemRow) =>
@@ -255,7 +256,7 @@ export default function ProductsPage() {
     }
   }
 
-  // Mesma regra do Top produtos: a métrica escolhe as 5 linhas; a direção só reordena.
+  // Mesma regra do Top produtos: a mÃ©trica escolhe as 5 linhas; a direÃ§Ã£o sÃ³ reordena.
   const topLinhas = useMemo(() => {
     const metrica = (l: ProductLineRow) =>
       topLinhaSort === "itens" ? l.itens : topLinhaSort === "margem" ? (l.margemPct ?? -Infinity) : l.faturamento;
@@ -285,7 +286,7 @@ export default function ProductsPage() {
       if (sortKey === "nome") return a.nome.localeCompare(b.nome, "pt-BR") * dir;
       const va = a[sortKey];
       const vb = b[sortKey];
-      // Sem dado ("—") sempre no fim, nas duas direções.
+      // Sem dado ("â€”") sempre no fim, nas duas direÃ§Ãµes.
       if (va == null && vb == null) return b.faturamento - a.faturamento;
       if (va == null) return 1;
       if (vb == null) return -1;
@@ -329,7 +330,7 @@ export default function ProductsPage() {
   }
 
   function exportCsv() {
-    const header = ["Código", "Produto", "Faturamento", "Itens vendidos", "Preço médio", "CMV", "Lucro bruto", "Margem %", "Participação %", "Variação %"];
+    const header = ["CÃ³digo", "Produto", "Faturamento", "Itens vendidos", "PreÃ§o mÃ©dio", "CMV", "Lucro bruto", "Margem %", "ParticipaÃ§Ã£o %", "VariaÃ§Ã£o %"];
     const dec = (v: number | null, casas = 2) => (v == null ? "" : v.toFixed(casas).replace(".", ","));
     const rows = linhasTabela.map((p) => [
       csvCell(p.codigo),
@@ -356,15 +357,15 @@ export default function ProductsPage() {
   const totalCategorias = view.categorias.reduce((s, c) => s + c.faturamento, 0);
   const tipVariacao = `Faturamento do produto ${tipRelacao(view.vsVariacao).replace(/^Em/, "em").replace(/\.$/, "")}.`;
   const tipCmvProduto = view.temCustoProduto
-    ? "CMV e lucro bruto por produto vêm do relatório de margem do ERP. “—” = algum dia com venda do produto ainda sem custo."
-    : "CMV por produto aparece depois do próximo Atualizar (relatório de margem do ERP).";
+    ? "CMV e lucro bruto por produto vÃªm do relatÃ³rio de margem do ERP. â€œâ€”â€ = algum dia com venda do produto ainda sem custo."
+    : "CMV por produto aparece depois do prÃ³ximo Atualizar (relatÃ³rio de margem do ERP).";
 
   return (
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Produtos" }]}
         title="Produtos"
-        subtitle="Desempenho, margem e composição do mix de produtos."
+        subtitle="Desempenho, margem e composiÃ§Ã£o do mix de produtos."
         actions={
           <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
             <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
@@ -391,6 +392,7 @@ export default function ProductsPage() {
                 Exportar
               </Button>
             </div>
+            <LastUpdated />
           </div>
         }
       />
@@ -408,7 +410,7 @@ export default function ProductsPage() {
         ))}
       </div>
 
-      {/* Quick stats WPINK — só quando a loja (ou rede) tem a marca */}
+      {/* Quick stats WPINK â€” sÃ³ quando a loja (ou rede) tem a marca */}
       {view.kpisWpink.length > 0 && (
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {view.kpisWpink.map((kpi, i) => {
@@ -448,7 +450,7 @@ export default function ProductsPage() {
       {!loading && !view.temVendas && !periodoCarregando && (
         <Card className="mt-4">
           <p className="py-6 text-center text-[13px] text-t2">
-            Ainda não há vendas neste período. A carga inicial cobre o mês atual; use Atualizar para buscar o dia de hoje.
+            Ainda nÃ£o hÃ¡ vendas neste perÃ­odo. A carga inicial cobre o mÃªs atual; use Atualizar para buscar o dia de hoje.
           </p>
         </Card>
       )}
@@ -463,7 +465,7 @@ export default function ProductsPage() {
             <BadgeVsAnterior delta={view.deltaCategorias} />
           </div>
           {view.categorias.length === 0 ? (
-            <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+            <span className="block py-6 text-center text-[12px] text-t2">Sem dados no perÃ­odo selecionado.</span>
           ) : (
             <div className="overflow-x-auto">
               <div className="min-w-[420px]">
@@ -480,10 +482,10 @@ export default function ProductsPage() {
         <Card padding="lg" className="flex flex-col">
           <div className="mb-1 flex items-center gap-1.5">
             <CardTitle>Curva ABC por categoria</CardTitle>
-            <TipHelp label="Classifica as categorias pela participação acumulada no faturamento: A até 80%, B até 95% e C no restante." />
+            <TipHelp label="Classifica as categorias pela participaÃ§Ã£o acumulada no faturamento: A atÃ© 80%, B atÃ© 95% e C no restante." />
           </div>
           {view.curvaAbcCategorias.itens.length === 0 ? (
-            <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+            <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no perÃ­odo selecionado.</span>
           ) : (
             (() => {
               const classes = view.curvaAbcCategorias.resumo.filter((r) => r.faturamento > 0);
@@ -514,7 +516,7 @@ export default function ProductsPage() {
                               <span className="ml-auto shrink-0 font-mono text-[12.5px] font-bold text-t0">{brlCent(r.faturamento)}</span>
                               <span className="min-w-[32px] shrink-0 text-right text-[11.5px] font-semibold text-t2">{pct}%</span>
                             </div>
-                            <p className="mt-0.5 text-[11.5px] leading-snug text-t2">{nomes.join(" · ")}</p>
+                            <p className="mt-0.5 text-[11.5px] leading-snug text-t2">{nomes.join(" Â· ")}</p>
                           </div>
                         </div>
                       );
@@ -532,7 +534,7 @@ export default function ProductsPage() {
           <CardHeader>
             <div className="flex items-center gap-1.5">
               <CardTitle>Top linhas de produto</CardTitle>
-              <TipHelp label="Soma a mesma fragrância em todos os tipos (desodorante colônia, body splash, body cream, roll-on…). Ex.: Obsessed, Obsessed Deluxe e Obsessed Intense entram na linha OBSESSED." />
+              <TipHelp label="Soma a mesma fragrÃ¢ncia em todos os tipos (desodorante colÃ´nia, body splash, body cream, roll-onâ€¦). Ex.: Obsessed, Obsessed Deluxe e Obsessed Intense entram na linha OBSESSED." />
             </div>
             <Badge variant="accent">Top 5</Badge>
           </CardHeader>
@@ -556,9 +558,9 @@ export default function ProductsPage() {
                         <AvatarIniciais nome={l.nome} idx={idx} />
                         <div className="min-w-0">
                           <p className="truncate text-[13px] font-bold text-t0">{l.nome}</p>
-                          <Tooltip label={l.tipos.join(" · ")}>
+                          <Tooltip label={l.tipos.join(" Â· ")}>
                             <p className="truncate text-[11px] text-t2">
-                              {l.produtos} produto{l.produtos === 1 ? "" : "s"} · {l.tipos.length} tipo{l.tipos.length === 1 ? "" : "s"}
+                              {l.produtos} produto{l.produtos === 1 ? "" : "s"} Â· {l.tipos.length} tipo{l.tipos.length === 1 ? "" : "s"}
                             </p>
                           </Tooltip>
                         </div>
@@ -573,7 +575,7 @@ export default function ProductsPage() {
                 ))}
                 {topLinhas.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-1 py-6 text-center text-[13px] text-t2">Sem dados no período selecionado.</td>
+                    <td colSpan={5} className="px-1 py-6 text-center text-[13px] text-t2">Sem dados no perÃ­odo selecionado.</td>
                   </tr>
                 )}
               </tbody>
@@ -624,7 +626,7 @@ export default function ProductsPage() {
                 ))}
                 {topProdutos.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-1 py-6 text-center text-[13px] text-t2">Sem dados no período selecionado.</td>
+                    <td colSpan={5} className="px-1 py-6 text-center text-[13px] text-t2">Sem dados no perÃ­odo selecionado.</td>
                   </tr>
                 )}
               </tbody>
@@ -633,7 +635,7 @@ export default function ProductsPage() {
         </Card>
       </div>
 
-      {/* Desempenho por produto — tabela flat + Total + cards mobile */}
+      {/* Desempenho por produto â€” tabela flat + Total + cards mobile */}
       <Card className="mt-4" padding="none">
         <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex items-center gap-1.5">
@@ -643,7 +645,7 @@ export default function ProductsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="search"
-              placeholder="Buscar produto ou código…"
+              placeholder="Buscar produto ou cÃ³digoâ€¦"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               className={cn(filtroInputClass, "sm:w-56")}
@@ -658,7 +660,7 @@ export default function ProductsPage() {
         <div className="hidden overflow-x-auto p-4 md:block">
           {linhasTabela.length === 0 ? (
             <p className="py-10 text-center text-sm text-t2">
-              {view.produtos.length === 0 ? "Sem dados no período selecionado." : "Nenhum produto encontrado."}
+              {view.produtos.length === 0 ? "Sem dados no perÃ­odo selecionado." : "Nenhum produto encontrado."}
             </p>
           ) : (
             <table className="w-full min-w-[1000px] border-collapse text-[13px]">
@@ -667,12 +669,12 @@ export default function ProductsPage() {
                   <ThSort label="Produto" active={sortKey === "nome"} dir={sortDir} onClick={() => toggleSort("nome")} align="left" />
                   <ThSort label="Faturamento" active={sortKey === "faturamento"} dir={sortDir} onClick={() => toggleSort("faturamento")} />
                   <ThSort label="Itens vendidos" active={sortKey === "itens"} dir={sortDir} onClick={() => toggleSort("itens")} />
-                  <ThSort label="Preço médio" active={sortKey === "precoMedio"} dir={sortDir} onClick={() => toggleSort("precoMedio")} />
+                  <ThSort label="PreÃ§o mÃ©dio" active={sortKey === "precoMedio"} dir={sortDir} onClick={() => toggleSort("precoMedio")} />
                   <ThSort label="CMV" active={sortKey === "cmv"} dir={sortDir} onClick={() => toggleSort("cmv")} />
                   <ThSort label="Lucro bruto" active={sortKey === "lucro"} dir={sortDir} onClick={() => toggleSort("lucro")} />
                   <ThSort label="Margem" active={sortKey === "margemPct"} dir={sortDir} onClick={() => toggleSort("margemPct")} />
-                  <ThSort label="Participação" active={sortKey === "participacaoPct"} dir={sortDir} onClick={() => toggleSort("participacaoPct")} />
-                  <ThSort label="Variação" active={sortKey === "variacaoPct"} dir={sortDir} onClick={() => toggleSort("variacaoPct")} />
+                  <ThSort label="ParticipaÃ§Ã£o" active={sortKey === "participacaoPct"} dir={sortDir} onClick={() => toggleSort("participacaoPct")} />
+                  <ThSort label="VariaÃ§Ã£o" active={sortKey === "variacaoPct"} dir={sortDir} onClick={() => toggleSort("variacaoPct")} />
                 </tr>
               </thead>
               <tbody>
@@ -702,7 +704,7 @@ export default function ProductsPage() {
                   <td className="px-3 py-3 text-[13.5px] font-extrabold text-t0">
                     <span className="inline-flex items-center gap-1">
                       Total do filtro
-                      <TipHelp label="Soma todos os produtos do filtro, inclusive os que não aparecem nesta página." />
+                      <TipHelp label="Soma todos os produtos do filtro, inclusive os que nÃ£o aparecem nesta pÃ¡gina." />
                     </span>
                     <span className="ml-2 text-[11px] font-semibold text-t2">
                       ({num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"})
@@ -724,11 +726,11 @@ export default function ProductsPage() {
           )}
         </div>
 
-        {/* Mobile — card por produto */}
+        {/* Mobile â€” card por produto */}
         <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
           {pageRows.length === 0 ? (
             <p className="py-8 text-center text-sm text-t2">
-              {view.produtos.length === 0 ? "Sem dados no período selecionado." : "Nenhum produto encontrado."}
+              {view.produtos.length === 0 ? "Sem dados no perÃ­odo selecionado." : "Nenhum produto encontrado."}
             </p>
           ) : (
             pageRows.map((p) => (
@@ -749,7 +751,7 @@ export default function ProductsPage() {
           {linhasTabela.length > 0 && (
             <div className="rounded-xl border border-line bg-bg-3 p-3.5">
               <p className="text-[11px] font-bold uppercase tracking-wide text-t2">
-                Total do filtro · {num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"}
+                Total do filtro Â· {num(linhasTabela.length)} produto{linhasTabela.length === 1 ? "" : "s"}
               </p>
               <GradeMetricas m={totalTabela} className="mt-2" destaque />
             </div>
@@ -799,11 +801,11 @@ function GradeMetricas({ m, className, destaque = false }: { m: MetricasLinha; c
   const rows: { label: string; value: React.ReactNode }[] = [
     { label: "Faturamento", value: <span className={val}>{brlCent(m.faturamento)}</span> },
     { label: "Itens vendidos", value: <span className={val}>{num(m.itens)}</span> },
-    { label: "Preço médio", value: <span className={val}>{brlCent(m.precoMedio)}</span> },
+    { label: "PreÃ§o mÃ©dio", value: <span className={val}>{brlCent(m.precoMedio)}</span> },
     { label: "CMV", value: <span className={val}>{moneyOrDash(m.cmv)}</span> },
     { label: "Lucro bruto", value: <span className={cn(val, m.lucro != null && "text-ok")}>{moneyOrDash(m.lucro)}</span> },
     { label: "Margem", value: <span className={val}>{pctFmt(m.margemPct)}</span> },
-    { label: "Participação", value: <span className={val}>{pctFmt(m.participacaoPct)}</span> },
+    { label: "ParticipaÃ§Ã£o", value: <span className={val}>{pctFmt(m.participacaoPct)}</span> },
   ];
   return (
     <div className={cn("grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11.5px]", className)}>
