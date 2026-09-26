@@ -130,7 +130,7 @@ export async function inviteSystemUser(input: InviteInput): Promise<ActionResult
   if (!getSupabase()) {
     demoMembers().push({
       membershipId: `d-${Date.now()}`,
-      name: personName(input.name),
+      name: input.name.trim(),
       email: input.email.trim().toLowerCase(),
       role: input.role,
       status: "PENDING",
@@ -143,7 +143,7 @@ export async function inviteSystemUser(input: InviteInput): Promise<ActionResult
     });
     return { ok: true };
   }
-  const r = await invoke({ action: "invite", ...input, name: personName(input.name), allStores: input.storeIds.length === 0 });
+  const r = await invoke({ action: "invite", ...input, name: input.name.trim(), allStores: input.storeIds.length === 0 });
   return r.ok ? { ok: true } : r;
 }
 

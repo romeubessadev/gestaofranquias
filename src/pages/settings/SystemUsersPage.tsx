@@ -387,8 +387,9 @@ function UserModal({
             <FormField label="Nome" required>
               <Input
                 value={name}
-                onChange={(e) => setName(e.target.value.toLocaleUpperCase("pt-BR"))}
-                placeholder="NOME E SOBRENOME"
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Nome e sobrenome"
+                className="[&:not(:placeholder-shown)]:uppercase"
                 autoFocus
               />
             </FormField>

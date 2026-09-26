@@ -7,8 +7,6 @@ import type {
   SalesPaymentDayAgg,
   SalesSellerDayAgg,
 } from "./salesTypes";
-import { personName } from "../../lib/format";
-
 export type AggregateSalesOptions = {
   tenantId: string;
   timeZone: string;
@@ -113,9 +111,9 @@ export function sellerKeyFromName(raw: string | null | undefined): string | null
   return key || null;
 }
 
-/** Rótulo de UI a partir do nome bruto do ERP (geralmente ALL CAPS). */
+/** Nome como veio do ERP (só trim); a caixa alta é aplicada na exibição. */
 export function sellerDisplayName(raw: string): string {
-  return personName(raw);
+  return raw.trim();
 }
 
 /**
