@@ -25,6 +25,7 @@ import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, monthFillTouches, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
 import { LastUpdated } from "@/pages/dashboard/LastUpdated";
+import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { FinanceSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { brlCent, deIso, tipDelta } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -341,7 +342,7 @@ export default function FinancePage() {
           const margemPct = totalFat > 0 ? (totalLucro / totalFat) * 100 : 0;
           const deltaLucro = view.kpis.find((k) => k.label === "Lucro bruto")?.delta;
           return (
-            <Card padding="lg">
+            <Card padding="lg" className="flex flex-col">
               <div className="mb-4">
                 <div>
                   <div className="flex items-start justify-between gap-3">
@@ -375,7 +376,7 @@ export default function FinancePage() {
                 </div>
               </div>
               {totalFat === 0 ? (
-                <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+                <EmptyBlock />
               ) : (
                 <AreaLineChart
                   data={serie.map((m) => m.lucro)}
@@ -401,7 +402,7 @@ export default function FinancePage() {
             ? "Em períodos curtos, os custos mensais são rateados por dia ou por hora."
             : "Valor que permanece após descontar os custos da operação do lucro bruto.";
           return (
-            <Card padding="lg">
+            <Card padding="lg" className="flex flex-col">
               <div className="mb-4">
                 <div>
                   <div className="flex items-start justify-between gap-3">
@@ -435,7 +436,7 @@ export default function FinancePage() {
                 </div>
               </div>
               {totalFat === 0 ? (
-                <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+                <EmptyBlock />
               ) : (
                 <AreaLineChart
                   data={serie.map((m) => m.lucro)}
@@ -497,7 +498,7 @@ export default function FinancePage() {
             <CardTitle>Formas de pagamento</CardTitle>
           </CardHeader>
           {view.formasPagamento.length === 0 ? (
-            <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+            <EmptyBlock />
           ) : (
             (() => {
               const total = view.formasPagamento.reduce((s, f) => s + f.valor, 0) || 1;
@@ -539,7 +540,7 @@ export default function FinancePage() {
               <CardTitle>Faturamento por marca</CardTitle>
             </CardHeader>
             {view.faturamentoPorMarca.length === 0 ? (
-              <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+              <EmptyBlock />
             ) : (
               (() => {
                 const total = view.faturamentoPorMarca.reduce((s, m) => s + m.valor, 0) || 1;

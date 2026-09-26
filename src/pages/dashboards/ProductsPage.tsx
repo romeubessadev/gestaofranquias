@@ -31,6 +31,7 @@ import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, monthFillTouches, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
 import { LastUpdated } from "@/pages/dashboard/LastUpdated";
+import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { ProductsSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { brlCent, deIso, num, tipDelta, tipRelacao } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -456,7 +457,7 @@ export default function ProductsPage() {
       )}
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card padding="lg">
+        <Card padding="lg" className="flex flex-col">
           <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle>Faturamento por categoria</CardTitle>
@@ -465,7 +466,7 @@ export default function ProductsPage() {
             <BadgeVsAnterior delta={view.deltaCategorias} />
           </div>
           {view.categorias.length === 0 ? (
-            <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+            <EmptyBlock />
           ) : (
             <div className="overflow-x-auto">
               <div className="min-w-[420px]">
@@ -485,7 +486,7 @@ export default function ProductsPage() {
             <TipHelp label="Classifica as categorias pela participação acumulada no faturamento: A até 80%, B até 95% e C no restante." />
           </div>
           {view.curvaAbcCategorias.itens.length === 0 ? (
-            <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+            <EmptyBlock />
           ) : (
             (() => {
               const classes = view.curvaAbcCategorias.resumo.filter((r) => r.faturamento > 0);
@@ -538,6 +539,9 @@ export default function ProductsPage() {
             </div>
             <Badge variant="accent">Top 5</Badge>
           </CardHeader>
+          {topLinhas.length === 0 ? (
+            <EmptyBlock />
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] border-collapse text-sm">
               <thead>
@@ -573,14 +577,10 @@ export default function ProductsPage() {
                     </td>
                   </tr>
                 ))}
-                {topLinhas.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-1 py-6 text-center text-[13px] text-t2">Sem dados no período selecionado.</td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
+          )}
           {topLinhas.length > 0 && view.semLinhaFaturamento > 0 && (
             <p className="mt-3 text-[11.5px] text-t2">
               Fora das linhas: {brlCent(view.semLinhaFaturamento)} em skincare, cabelo, maquiagem, suplementos e kits.
@@ -588,11 +588,14 @@ export default function ProductsPage() {
           )}
         </Card>
 
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
             <CardTitle>Top produtos</CardTitle>
             <Badge variant="accent">Top 5</Badge>
           </CardHeader>
+          {topProdutos.length === 0 ? (
+            <EmptyBlock />
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] border-collapse text-sm">
               <thead>
@@ -624,14 +627,10 @@ export default function ProductsPage() {
                     </td>
                   </tr>
                 ))}
-                {topProdutos.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-1 py-6 text-center text-[13px] text-t2">Sem dados no período selecionado.</td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
+          )}
         </Card>
       </div>
 
@@ -659,9 +658,9 @@ export default function ProductsPage() {
         {/* Desktop */}
         <div className="hidden overflow-x-auto p-4 md:block">
           {linhasTabela.length === 0 ? (
-            <p className="py-10 text-center text-sm text-t2">
+            <EmptyBlock>
               {view.produtos.length === 0 ? "Sem dados no período selecionado." : "Nenhum produto encontrado."}
-            </p>
+            </EmptyBlock>
           ) : (
             <table className="w-full min-w-[1000px] border-collapse text-[13px]">
               <thead>
@@ -729,9 +728,9 @@ export default function ProductsPage() {
         {/* Mobile — card por produto */}
         <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
           {pageRows.length === 0 ? (
-            <p className="py-8 text-center text-sm text-t2">
+            <EmptyBlock>
               {view.produtos.length === 0 ? "Sem dados no período selecionado." : "Nenhum produto encontrado."}
-            </p>
+            </EmptyBlock>
           ) : (
             pageRows.map((p) => (
               <div key={p.codigo || p.nome} className="rounded-xl border border-line bg-bg-inset p-3.5">

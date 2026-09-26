@@ -33,6 +33,7 @@ import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
 import { useMonthFill } from "@/pages/dashboard/useMonthFill";
 import { MonthFillNotice, monthFillTouches, pickerMinDate } from "@/pages/dashboard/MonthFillNotice";
 import { LastUpdated } from "@/pages/dashboard/LastUpdated";
+import { EmptyBlock } from "@/pages/dashboard/EmptyBlock";
 import { OverviewSkeleton } from "@/components/wedash/LoadingSkeletons";
 import { calendarTodayIso } from "@/data/wedash/clock";
 import { goalHistoryDayRange, goalHistorySameWeekdays } from "@/data/wedash/goalCurve";
@@ -515,7 +516,7 @@ export default function OverviewPage() {
           );
         })()}
 
-        <Card padding="lg">
+        <Card padding="lg" className="flex flex-col">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-1.5">
@@ -561,7 +562,7 @@ export default function OverviewPage() {
               })
               .filter((e) => !e.ancora);
             if (serie.every((e) => e.realizado === 0 && e.meta === 0)) {
-              return <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>;
+              return <EmptyBlock />;
             }
             return (
               <AreaLineChart
@@ -580,7 +581,7 @@ export default function OverviewPage() {
 
       {/* Linha: Categoria vs Meta + Dia da Semana vs Meta (Dia some em período de 1 dia) */}
       <div className={`mt-4 grid grid-cols-1 gap-4 ${view.diaVsMeta.length > 0 ? "lg:grid-cols-2" : ""}`}>
-        <Card padding="lg">
+        <Card padding="lg" className="flex flex-col">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-1.5">
@@ -595,7 +596,7 @@ export default function OverviewPage() {
             <BadgeVsAnterior delta={view.deltaFaturamento} />
           </div>
           {view.categoriaVsMeta.filter((c) => c.realizado > 0).length === 0 ? (
-            <span className="block py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+            <EmptyBlock />
           ) : (
             <BarChart
               data={view.categoriaVsMeta
@@ -611,7 +612,7 @@ export default function OverviewPage() {
           )}
         </Card>
         {view.diaVsMeta.length > 0 && (
-          <Card padding="lg">
+          <Card padding="lg" className="flex flex-col">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-1.5">
@@ -647,6 +648,9 @@ export default function OverviewPage() {
               </div>
               <BadgeVsAnterior delta={view.deltaFaturamento} />
             </div>
+            {view.diaVsMeta.every((d) => d.realizado === 0 && d.meta === 0) ? (
+              <EmptyBlock />
+            ) : (
             <BarChart
               data={view.diaVsMeta.map((d) => ({
                 label: d.dia,
@@ -658,6 +662,7 @@ export default function OverviewPage() {
               goalColor="var(--warn)"
               formatValue={brlCent}
             />
+            )}
           </Card>
         )}
       </div>
@@ -674,7 +679,7 @@ export default function OverviewPage() {
             )}
           </CardHeader>
           {view.rankingLojas.length === 0 ? (
-            <span className="py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+            <EmptyBlock />
           ) : (
             (() => {
               const totalRede =
@@ -751,7 +756,7 @@ export default function OverviewPage() {
             <CardTitle>Formas de pagamento</CardTitle>
           </CardHeader>
           {view.formasPagamento.length === 0 ? (
-            <span className="flex flex-1 items-center justify-center py-6 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
+            <EmptyBlock />
           ) : (
             (() => {
               const total = view.formasPagamento.reduce((s, f) => s + f.valor, 0) || 1;
@@ -791,13 +796,16 @@ export default function OverviewPage() {
 
       {/* Par: Top Vendedoras + Top Produtos */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
             <div className="flex w-full items-center justify-between gap-1.5">
               <CardTitle>Destaques da equipe</CardTitle>
               <Badge variant="accent">Top 5</Badge>
             </div>
           </CardHeader>
+          {view.topVendedoras.length === 0 ? (
+            <EmptyBlock />
+          ) : (
           <div className="flex flex-col gap-4 px-4 pb-4">
             {view.topVendedoras.map((v, idx) => {
               const hasMeta = v.pctMeta != null;
@@ -866,18 +874,19 @@ export default function OverviewPage() {
                 </div>
               );
             })}
-            {view.topVendedoras.length === 0 && (
-              <span className="py-4 text-center text-[12px] text-t2">Sem dados no período selecionado.</span>
-            )}
           </div>
+          )}
         </Card>
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
             <div className="flex w-full items-center justify-between gap-1.5">
               <CardTitle>Top produtos</CardTitle>
               <Badge variant="accent">Top 5</Badge>
             </div>
           </CardHeader>
+          {topProdutosOrdenados.length === 0 ? (
+            <EmptyBlock />
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] border-collapse text-sm">
               <thead>
@@ -939,12 +948,10 @@ export default function OverviewPage() {
                     </tr>
                   );
                 })}
-                {topProdutosOrdenados.length === 0 && (
-                  <tr><td colSpan={5} className="px-1 py-3 text-center text-[13px] text-t2">Sem dados no período selecionado.</td></tr>
-                )}
               </tbody>
             </table>
           </div>
+          )}
         </Card>
       </div>
       </>
