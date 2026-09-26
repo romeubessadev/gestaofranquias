@@ -19,6 +19,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { useActiveSession } from "@/session/SessionProvider";
+import { isGestor } from "@/layout/nav-wedash";
 import {
   EMPTY_STORE_COSTS,
   deleteStoreShift,
@@ -180,6 +181,7 @@ export function StoreDetailPage() {
       store={store}
       equipe={equipe}
       canEdit={session.role === "OWNER" || session.role === "MANAGER" || session.role === "ADMIN_GLOBAL"}
+      showCosts={isGestor(session.role)}
       onBack={voltar}
       onSaved={() => setCatalogTick((n) => n + 1)}
       onSellersSynced={() => setSellersTick((n) => n + 1)}
@@ -203,6 +205,7 @@ function StoreDetailForm({
   store,
   equipe,
   canEdit,
+  showCosts,
   onBack,
   onSaved,
   onSellersSynced,
@@ -211,6 +214,7 @@ function StoreDetailForm({
   store: Store;
   equipe: StoreSeller[];
   canEdit: boolean;
+  showCosts: boolean;
   onBack: () => void;
   onSaved: () => void;
   onSellersSynced: () => void;
@@ -546,6 +550,7 @@ function StoreDetailForm({
           </form>
         </Card>
 
+        {showCosts && (
         <Card>
           <CardHeader>
             <div>
@@ -574,12 +579,13 @@ function StoreDetailForm({
             )}
           </form>
         </Card>
+        )}
 
         <Card>
           <CardHeader>
             <div>
               <CardTitle>Turnos</CardTitle>
-              <CardSubtitle>Defina o turno de cada vendedora na Equipe de vendas abaixo</CardSubtitle>
+              <CardSubtitle>Defina o turno de cada pessoa na Equipe abaixo</CardSubtitle>
             </div>
           </CardHeader>
           <form
@@ -643,12 +649,8 @@ function StoreDetailForm({
         <Card padding="none">
           <CardHeader className="mb-0 px-5 pt-5 pb-4">
             <div>
-              <CardTitle>Equipe de vendas</CardTitle>
-              <CardSubtitle>
-                {teamTab === "ativos"
-                  ? "Sincronizada do Millennium · só cargo Vendedor"
-                  : "Desligados no Millennium · histórico de vendas preservado"}
-              </CardSubtitle>
+              <CardTitle>Equipe</CardTitle>
+              <CardSubtitle>Sincronizada do Millennium</CardSubtitle>
             </div>
             {canEdit && (
               <Button
