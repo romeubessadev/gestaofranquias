@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { padBase } from "@/lib/safeArea";
 import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
@@ -21,9 +21,11 @@ export function AppShell() {
   const mainRef = useRef<HTMLElement>(null);
   const session = useActiveSession();
 
-  useEffect(() => {
+  // A janela é quem rola (.tela-cheia usa min-height); o <main> só em layouts de altura fixa.
+  useLayoutEffect(() => {
     setMobileNavOpen(false);
     mainRef.current?.scrollTo({ top: 0 });
+    window.scrollTo(0, 0);
   }, [location.pathname]);
 
   useEffect(() => {
