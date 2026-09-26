@@ -572,7 +572,7 @@ function StoreDetailForm({
               {store.temWpink && pctField("marketingWpinkPct", "Taxa de marketing WPINK")}
               {pctField("icmsPct", "ICMS", "Sobre o faturamento")}
               {pctField("icmsStPct", "ICMS ST", "Sobre o custo dos produtos (CMV)")}
-              {pctField("rentPct", "Aluguel percentual")}
+              {pctField("rentPct", "Aluguel percentual", "Sobre o faturamento total (aluguel variável do shopping)")}
             </div>
             {canEdit && (
               <FormActions dirty={costsDirty} saving={savingCosts} onReset={() => setCustosTxt(savedCostsTxt)} />
