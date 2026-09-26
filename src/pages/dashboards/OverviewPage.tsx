@@ -26,7 +26,7 @@ import type {
   SalesProductDayAgg,
   SellerShiftRef,
 } from "@/data/wedash/salesTypes";
-import { brlCent, deIso, num, tipDelta } from "@/lib/format";
+import { brlCent, deIso, num, tipDelta, upperText } from "@/lib/format";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
 import { useActiveSession } from "@/session/SessionProvider";
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
@@ -103,6 +103,12 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
   );
   const tip = tipDelta(delta);
   return tip ? <Tooltip label={tip}>{badge}</Tooltip> : badge;
+}
+
+/** Título da tela inicial pós-login: saudação com o primeiro nome. */
+function welcomeTitle(name: string): string {
+  const first = upperText(name).split(" ")[0];
+  return first ? `Bem-vindo(a) de volta, ${first} 👋` : "Bem-vindo(a) de volta 👋";
 }
 
 export default function OverviewPage() {
@@ -346,7 +352,7 @@ export default function OverviewPage() {
     <div className="flex flex-col p-4 sm:p-6">
       <PageHeader
         crumbs={[{ label: "Dashboard", to: "/dashboard/visao-geral" }, { label: "Visão geral" }]}
-        title="Visão geral"
+        title={welcomeTitle(session.name)}
         subtitle="Indicadores, metas e desempenho da operação."
         actions={
           <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">

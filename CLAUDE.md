@@ -587,6 +587,8 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  - **Ranking** (`fetchSalesSellerDayAggs` → `excludeNonSalesPeople`): tira vendas de funcionário **ativo com cargo ≠ VENDEDOR** (por código → gerador → loja+nome). Inativos ficam (ex-vendedoras; ao desativar o ERP troca VENDEDOR → INDEFINIDO). Vale na hora para todo o período.
  - **Consulta no sync do worker:** pula só quem tem gerador salvo **e o mesmo cargo** de antes; cargo mudou (desativada → INDEFINIDO, virou gerência) → `FUNCIONARIOS.Consulta` de novo. 1º sync após a migration consulta todo mundo 1×. Botão Atualizar do card (Edge) consulta todos.
 
+36b. ✅ **Saudação na tela inicial** (2026-09-26) — a tela que abre após o login (`homeForRole`: Visão geral para Gestor/Gerente) tem título **"Bem-vindo(a) de volta, NOME 👋"** (primeiro nome, em maiúsculas); breadcrumb continua "Visão geral". Minha meta (Equipe de vendas) ganha a mesma saudação quando sair do "em breve".
+
 37. ✅ **Período padrão = Hoje, compartilhado entre telas** (2026-09-25) — `useScope`.
  - Sem `?periodo=` na URL → último período escolhido na sessão (`sessionStorage` `wedash.period`) → senão **Hoje** (antes: Este mês).
  - Trocar o período numa tela vale para todas (menu não carrega query string).
