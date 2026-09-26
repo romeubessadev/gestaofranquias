@@ -580,31 +580,30 @@ export default function FinancePage() {
         )}
       </div>
 
-      {/* Evolução Mensal — DataTable (desktop) + cards (mobile) */}
+      {/* Evolução Mensal — só com período por mês (>31 dias); DataTable (desktop) + cards (mobile) */}
+      {view.eixoSerie === "mes" && (
       <Card className="mt-4" padding="none">
         <div className="flex items-center gap-1.5 px-5 py-4">
           <div>
             <CardTitle>Evolução mensal</CardTitle>
-            <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloEvolucaoMensal}</p>
+            {view.evolucaoMensal.length > 0 && (
+              <p className="mt-0.5 text-[11px] font-semibold text-t2">{view.rotuloEvolucaoMensal}</p>
+            )}
           </div>
         </div>
 
+        {view.evolucaoMensal.length === 0 ? (
+          <EmptyBlock />
+        ) : (
+        <>
         {/* Desktop / tablet — DataTable Vela */}
         <div className="hidden p-4 md:block">
-          <DataTable
-            columns={evolucaoColumns}
-            data={view.evolucaoMensal}
-            rowKey={(r) => r.mes}
-            emptyMessage="Sem dados nos últimos 6 meses."
-          />
+          <DataTable columns={evolucaoColumns} data={view.evolucaoMensal} rowKey={(r) => r.mes} />
         </div>
 
         {/* Mobile — stack em cards (padrão Responsive Tables) */}
         <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
-          {view.evolucaoMensal.length === 0 ? (
-            <p className="py-6 text-center text-[12px] text-t2">Sem dados nos últimos 6 meses.</p>
-          ) : (
-            view.evolucaoMensal.map((linha) => (
+          {view.evolucaoMensal.map((linha) => (
               <div key={linha.mes} className="rounded-xl border border-line bg-bg-inset p-3.5">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <p className="text-[13.5px] font-bold text-t0">{linha.mes}</p>
@@ -632,10 +631,12 @@ export default function FinancePage() {
                   </div>
                 </div>
               </div>
-            ))
-          )}
+            ))}
         </div>
+        </>
+        )}
       </Card>
+      )}
       </>
       )}
     </div>

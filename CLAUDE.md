@@ -275,7 +275,7 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  - Período de **> 31 dias** → eixo por **MÊS**.
  - Cards de série mostram subtítulo (`Hoje · por hora` / `… · por dia` / `… · por mês`).
  - Snapshots (KPIs, Formas, Custos…) não usam subtítulo de eixo.
- - Exceções: **Dia da Semana** oculto em 1 dia; **Evolução Mensal** sempre `Últimos 6 meses`; **Resultado** rateia custos fixos em hora/dia.
+ - Exceções: **Dia da Semana** oculto em 1 dia; **Evolução Mensal** só aparece com eixo por mês (> 31 dias) e lista os meses do período filtrado (2026-09-26; antes era sempre "Últimos 6 meses"); **Resultado** rateia custos fixos em hora/dia.
 7. ✅ **Ordem de execução** — (a) refinar em texto + mock ASCII no CLAUDE.md primeiro; (b) começar pela tela **EQUIPE**; (c) depois Financeiro e Produtos; (d) **Visão Geral por último** (é o resumo de todas). Nav+router como esqueleto antes dos componentes.
 8. ✅ **Equipe ≠ Grupos** (2026-09-17) — telas SEPARADAS (indivíduo vs operação por grupo). Chrome Equipe: Período + Grupo — **sem filtro de Marca** (2026-09-18: marca não impacta meta/escada/desafios; view força `divisao: null`).
 9. ✅ **Turno → Grupo** (2026-09-17) — nomenclatura de produto: `GruposPage`, `montarGruposView`, `paths.grupos`, tipos `Grupo`/`grupoId`. URLs legadas `/dashboard/turnos` e `/configuracoes/turnos-e-tarefas` redirecionam.
@@ -497,7 +497,7 @@ Pergunta: "Quais são meus 80/20? Estou perdendo venda por ruptura? O que descon
  - Custos: % da loja (Configurações > Lojas), **vazio = 0** (sem padrão inventado). **Aluguel fixo real = `rent_fixed_cents` ou 0**; linha só aparece se > 0.
  - Comparativo: período anterior (1 dia hoje = mesmo dia da semana −7 até a hora atual). Sem CMV → KPI "—" e sem delta.
  - **Lucro bruto = Faturamento − CMV − ICMS − ICMS ST** (com "?" explicando; sub "Impostos R$ X" quando > 0). ICMS = % da loja × faturamento; ICMS ST = % da loja × CMV; sem configuração = 0. Custos % da loja (royalties, marketing, aluguel) e aluguel fixo **não** entram — são descontados no **Resultado operacional**. Margem, gráfico Custo/Lucro, Resultado, Evolução mensal e faixa WPINK usam o mesmo lucro.
- - Evolução mensal = últimos 6 meses até hoje, só meses com faturamento.
+ - Evolução mensal (2026-09-26) = **só com período > 31 dias** (eixo por mês); 1 linha por mês do período filtrado, recortado nas pontas (1º mês desde o início do filtro, último até o fim/hoje), só meses com faturamento. Subtítulo = rótulo do período; ano no nome do mês só se o período atravessa anos. Período curto (Hoje, 7 dias, Este mês) = card oculto. Busca do Financeiro não puxa mais 6 meses extras (só período + anterior).
  - Recarrega sozinho quando o Atualizar do Topbar termina (ver #31).
  - **Padrão Visão Geral** (2026-09-24): filtros = só Período + Exportar (**sem filtro de Marca**; view força `divisao: null` — marca aparece no card Faturamento por marca quando há WPINK). Valores sempre em `brlCent` (R$ completo com centavos; **sem `brlK`**) em KPIs, cards, gráficos e tabela. Sem vendas → cada card mostra o próprio vazio (`EmptyBlock`); o card geral "Ainda não há vendas…" foi removido das três telas (2026-09-26, redundante e desatualizado).
  - **Faixa WPINK** abaixo dos KPIs (mesmo visual da Visão Geral), só se alguma loja do escopo tem WPINK: Faturamento WPINK (% do faturamento) · CMV WPINK · Lucro bruto WPINK · Margem WPINK, com badge vs período anterior. Mesma regra "nada estimado" do #25b (`buildFinanceWpinkKpis` / `wpinkTotals`).
