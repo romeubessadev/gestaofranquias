@@ -24,14 +24,6 @@ import { brlCent } from "@/lib/format";
 
 type Filtro = "todos" | "sem-custo";
 type Row = CatalogProductRow & { cost: number | null };
-type SortKey = "description" | "category" | "cost";
-type SortDir = "asc" | "desc";
-
-const SORTS: { key: SortKey; label: string }[] = [
-  { key: "description", label: "Ordenar por nome" },
-  { key: "category", label: "Ordenar por categoria" },
-  { key: "cost", label: "Ordenar por custo" },
-];
 
 function fmtRefreshed(iso: string): string {
   const d = new Date(iso);
@@ -65,9 +57,6 @@ export function ProductsSettingsPage() {
   const [loaded, setLoaded] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [busca, setBusca] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("description");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
-
   const carregar = useCallback(async () => {
     try {
       const [p, t, used, at] = await Promise.all([
@@ -128,18 +117,11 @@ export function ProductsSettingsPage() {
 
   const filtrados = useMemo(() => {
     const q = normalize(busca.trim());
-    const base = rows.filter((r) => {
+    return rows.filter((r) => {
       if (filtro === "sem-custo" && r.cost != null) return false;
       return !q || normalize(`${r.description} ${r.code} ${r.category}`).includes(q);
     });
-    return base.sort((a, b) => {
-      const cmp =
-        sortKey === "cost"
-          ? (a.cost ?? -1) - (b.cost ?? -1)
-          : (a[sortKey] || "").localeCompare(b[sortKey] || "", "pt-BR");
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }, [rows, filtro, busca, sortKey, sortDir]);
+  }, [rows, filtro, busca]);
 
   function setFiltro(v: Filtro) {
     const next = new URLSearchParams(params);
@@ -148,18 +130,12 @@ export function ProductsSettingsPage() {
     setParams(next, { replace: true });
   }
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  }
-
   const columns: DataTableColumn<Row>[] = [
     {
       key: "product",
       header: "Produto",
+      sortable: true,
+      sortValue: (r) => r.description || r.code,
       render: (r) => (
         <div className="min-w-0">
           <p className="truncate text-[13.5px] font-bold text-t0">{r.description || r.code}</p>
@@ -167,16 +143,27 @@ export function ProductsSettingsPage() {
         </div>
       ),
     },
-    { key: "category", header: "Categoria", hideBelow: "md", render: (r) => r.category || "—" },
+    {
+      key: "category",
+      header: "Categoria",
+      hideBelow: "md",
+      sortable: true,
+      sortValue: (r) => r.category || null,
+      render: (r) => r.category || "—",
+    },
     {
       key: "brand",
       header: "Marca",
+      sortable: true,
+      sortValue: (r) => r.brand,
       render: (r) => <Badge variant={r.brand === "WPINK" ? "info" : "neutral"}>{r.brand}</Badge>,
     },
     {
       key: "cost",
       header: "Custo",
       align: "right",
+      sortable: true,
+      sortValue: (r) => r.cost,
       render: (r) =>
         r.cost == null ? (
           <Badge variant="warning">Sem custo</Badge>
@@ -218,6 +205,9 @@ export function ProductsSettingsPage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        {refreshedAt && (
+          <span className="mr-auto text-[12px] font-medium text-t2">{fmtRefreshed(refreshedAt)}</span>
+        )}
         <input
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
@@ -253,19 +243,18 @@ export function ProductsSettingsPage() {
         </Button>
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-4 text-[12px] font-semibold text-t1">
-        {SORTS.map((s) => (
-          <button key={s.key} onClick={() => toggleSort(s.key)} className="flex items-center gap-1 hover:text-t0">
-            {s.label} {sortKey === s.key && (sortDir === "asc" ? "↑" : "↓")}
-          </button>
-        ))}
-        {refreshedAt && <span className="ml-auto font-medium text-t2">{fmtRefreshed(refreshedAt)}</span>}
-      </div>
-
       {!loaded ? (
         <ProductsTableSkeleton />
       ) : (
-        <DataTable columns={columns} data={filtrados} rowKey={(r) => r.code} empty={empty} paginate="produtos" />
+        <DataTable
+          columns={columns}
+          data={filtrados}
+          rowKey={(r) => r.code}
+          empty={empty}
+          paginate="produtos"
+          defaultSortKey="product"
+          defaultSortDir="asc"
+        />
       )}
     </div>
   );
