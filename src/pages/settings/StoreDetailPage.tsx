@@ -43,6 +43,7 @@ import {
   type StoreSeller,
   type StoreShift,
 } from "@/data/wedash/stores";
+import { syncProductsNow } from "@/data/wedash/productCatalog";
 import {
   DOW_LABELS,
   STORE_TIMEZONES,
@@ -266,6 +267,7 @@ function StoreDetailForm({
   const [savedCostTable, setSavedCostTable] = useState<number | null>(store.costTableId ?? null);
   const [costTable, setCostTable] = useState<number | null>(savedCostTable);
   const [savingCostTable, setSavingCostTable] = useState(false);
+  const [syncingTables, setSyncingTables] = useState(false);
   const costsDirty = JSON.stringify(custosTxt) !== JSON.stringify(savedCostsTxt);
   const costTableDirty = costTable !== savedCostTable;
 
@@ -473,6 +475,18 @@ function StoreDetailForm({
     setCustosTxt(savedCostsTxt);
   }
 
+  async function atualizarTabelas() {
+    setSyncingTables(true);
+    const r = await syncProductsNow();
+    if (r.ok) setCostTables(await fetchCostTables());
+    setSyncingTables(false);
+    if (!r.ok) {
+      show(r.message, "danger");
+      return;
+    }
+    show("Tabelas de custo atualizadas.", "success");
+  }
+
   async function saveCostTable() {
     setSavingCostTable(true);
     const ok = await run(() => updateStoreCostTable(store.id, costTable));
@@ -629,6 +643,19 @@ function StoreDetailForm({
               <CardTitle>Custo dos produtos</CardTitle>
               <CardSubtitle>Tabela de custo do Millennium · entra no CMV</CardSubtitle>
             </div>
+            {canEdit && (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => void atualizarTabelas()}
+                disabled={syncingTables}
+                title="Busca as tabelas de custo e o cadastro de produtos no Millennium"
+                icon={syncingTables ? undefined : <RefreshIcon />}
+              >
+                {syncingTables ? "Atualizando…" : "Atualizar"}
+              </Button>
+            )}
           </CardHeader>
           <form
             className="flex flex-col gap-4"
