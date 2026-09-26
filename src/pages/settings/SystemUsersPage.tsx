@@ -216,8 +216,8 @@ export function SystemUsersPage() {
     <Card>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <CardTitle>Usuários com acesso</CardTitle>
-          <CardSubtitle>A equipe de vendas vem do Millennium e não entra aqui.</CardSubtitle>
+          <CardTitle>Usuários</CardTitle>
+          <CardSubtitle>Gestores e gerentes que acessam a WeDash</CardSubtitle>
         </div>
         <Button icon={<Icon d={icons.plus} size={14} />} onClick={() => setEditing({ mode: "invite" })}>
           Convidar usuário
