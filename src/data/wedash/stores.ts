@@ -1,4 +1,4 @@
-import { defaultWeekHours, openHourFloor, closeHourCeil, parseWeekHours, type StoreWeekHours } from "./storeHours";
+import { defaultWeekHours, effectiveWeekHours, openHourFloor, closeHourCeil, parseWeekHours, type StoreWeekHours } from "./storeHours";
 import { titleName } from "@/lib/format";
 
 export type PointType = "SHOPPING" | "RUA";
@@ -18,7 +18,7 @@ export interface Store {
   pointType: PointType;
   temWpink: boolean;
   fuso: string;
-  /** Horário por dia (0=dom..6=sáb). Fonte de verdade para eixos de hora. */
+  /** Horário por dia (0=dom..6=sáb), como configurado. Cálculos usam `effectiveWeekHours(horas)`. */
   horas: StoreWeekHours;
   /** Derivado do horário de hoje / primeira janela aberta — compat charts legados. */
   abertura: number;
@@ -116,7 +116,7 @@ function withHours(
   },
 ): Store {
   const horas = base.horas ?? defaultWeekHours();
-  const der = derivedOpenClose(horas);
+  const der = derivedOpenClose(effectiveWeekHours(horas));
   return {
     ...base,
     horas,
