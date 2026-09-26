@@ -14,7 +14,6 @@ import {
   Input,
   Modal,
   Segmented,
-  Tabs,
   useToast,
 } from "@/components/ui";
 import { UsersTableSkeleton } from "@/components/wedash/LoadingSkeletons";
@@ -72,8 +71,7 @@ export function SystemUsersPage() {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [confirming, setConfirming] = useState<Confirming | null>(null);
   const [busy, setBusy] = useState(false);
-  /** `n` remonta o Tabs (não controlado) para abrir a aba certa após convidar. */
-  const [tab, setTab] = useState<{ key: "people" | "invites"; n: number }>({ key: "people", n: 0 });
+  const [tab, setTab] = useState<"people" | "invites">("people");
 
   const load = useCallback(async () => {
     const r = await fetchSystemUsers();
@@ -231,36 +229,32 @@ export function SystemUsersPage() {
       ) : loadError ? (
         <span className="block py-6 text-center text-[12px] text-t2">{loadError}</span>
       ) : (
-        <Tabs
-          key={tab.n}
-          defaultKey={tab.key}
-          items={[
-            {
-              key: "people",
-              label: `Pessoas (${people.length})`,
-              content: (
-                <DataTable
-                  columns={peopleColumns}
-                  data={people}
-                  rowKey={(u) => u.membershipId}
-                  emptyMessage="Ninguém com acesso ainda."
-                />
-              ),
-            },
-            {
-              key: "invites",
-              label: `Convites pendentes (${invites.length})`,
-              content: (
-                <DataTable
-                  columns={inviteColumns}
-                  data={invites}
-                  rowKey={(u) => u.membershipId}
-                  emptyMessage="Nenhum convite aguardando aceite."
-                />
-              ),
-            },
-          ]}
-        />
+        <>
+          <Segmented
+            className="mb-4"
+            options={[
+              { value: "people", label: `Pessoas (${people.length})` },
+              { value: "invites", label: `Convites pendentes (${invites.length})` },
+            ]}
+            value={tab}
+            onChange={(v) => v && setTab(v)}
+          />
+          {tab === "people" ? (
+            <DataTable
+              columns={peopleColumns}
+              data={people}
+              rowKey={(u) => u.membershipId}
+              emptyMessage="Ninguém com acesso ainda."
+            />
+          ) : (
+            <DataTable
+              columns={inviteColumns}
+              data={invites}
+              rowKey={(u) => u.membershipId}
+              emptyMessage="Nenhum convite aguardando aceite."
+            />
+          )}
+        </>
       )}
 
       {editing && (
@@ -271,7 +265,7 @@ export function SystemUsersPage() {
           onDone={async (msg, toInvites) => {
             setEditing(null);
             show(msg, "success");
-            if (toInvites) setTab((t) => ({ key: "invites", n: t.n + 1 }));
+            if (toInvites) setTab("invites");
             await load();
           }}
         />

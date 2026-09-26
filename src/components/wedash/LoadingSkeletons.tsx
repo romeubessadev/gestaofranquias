@@ -422,14 +422,22 @@ function DataTableSkeleton({ cells, rows = 4, bare = false }: { cells: TableCell
   );
 }
 
-/** Usuários: abas (Pessoas / Convites) + tabela Nome · Papel · Lojas · Status · Último acesso. */
+/** Pills do `Segmented` (h-8, cantos 9px). */
+function SegmentedSkeleton({ widths }: { widths: string[] }) {
+  return (
+    <div className="flex gap-1.5">
+      {widths.map((w, i) => (
+        <Skeleton key={i} className={cn("h-8 rounded-[9px]", w)} />
+      ))}
+    </div>
+  );
+}
+
+/** Usuários: pills (Pessoas / Convites pendentes) + tabela Nome · Papel · Lojas · Status · Último acesso. */
 export function UsersTableSkeleton() {
   return (
     <Busy>
-      <div className="flex gap-1 rounded-[var(--radius-vela-md)] bg-bg-3 p-1" style={{ width: "fit-content" }}>
-        <Skeleton className="h-7 w-28 rounded-[10px] bg-bg-1" />
-        <Skeleton className="h-7 w-40 rounded-[10px]" />
-      </div>
+      <SegmentedSkeleton widths={["w-24", "w-40"]} />
       <div className="mt-4">
         <DataTableSkeleton cells={["person", "pill", "text", "pill", "short", "menu"]} />
       </div>
@@ -556,7 +564,7 @@ export function StoreDetailSkeleton({ showCosts = true }: { showCosts?: boolean 
       <Card padding="none">
         <div className="px-5 pt-5 pb-4">
           <CardHead sub button />
-          <Skeleton className="h-9 w-56 rounded-[var(--radius-vela-md)]" />
+          <SegmentedSkeleton widths={["w-24", "w-32"]} />
         </div>
         <TeamTableSkeleton />
       </Card>
