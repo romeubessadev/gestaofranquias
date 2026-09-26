@@ -282,19 +282,37 @@ function StoreDetailForm({
   const [destacarCustos, setDestacarCustos] = useState(false);
   useEffect(() => {
     if (window.location.hash !== "#custos") return;
-    // Cards acima/abaixo carregam depois (turnos, equipe) e mudam a altura: realinha até estabilizar.
-    const alinhar = () => document.getElementById("custos")?.scrollIntoView({ block: "start" });
-    const ro = new ResizeObserver(alinhar);
-    const coluna = document.getElementById("custos")?.parentElement;
-    if (coluna) ro.observe(coluna);
-    const parar = () => {
-      ro.disconnect();
-      window.clearTimeout(fim);
-      for (const ev of ["wheel", "touchstart", "keydown"] as const) window.removeEventListener(ev, parar);
+    // O AppShell zera a rolagem ao trocar de rota (depois deste efeito), a página entra com animação
+    // (transform) e turnos/equipe carregam depois: alinha a cada quadro, medindo pelo layout (offsetTop).
+    const topoNoDocumento = (el: HTMLElement) => {
+      let y = 0;
+      for (let n: HTMLElement | null = el; n; n = n.offsetParent as HTMLElement | null) y += n.offsetTop;
+      return y;
     };
-    for (const ev of ["wheel", "touchstart", "keydown"] as const) window.addEventListener(ev, parar, { passive: true });
-    const fim = window.setTimeout(parar, 2000);
-    alinhar();
+    const containerDeRolagem = (el: HTMLElement): HTMLElement => {
+      for (let n = el.parentElement; n; n = n.parentElement) {
+        if (/(auto|scroll)/.test(getComputedStyle(n).overflowY)) return n;
+      }
+      return document.scrollingElement as HTMLElement;
+    };
+    let raf = 0;
+    const alinhar = () => {
+      const card = document.getElementById("custos");
+      if (card) {
+        const box = containerDeRolagem(card);
+        const alvo = Math.max(0, topoNoDocumento(card) - topoNoDocumento(box) - 16);
+        if (Math.abs(box.scrollTop - alvo) > 1) box.scrollTop = alvo;
+      }
+      raf = window.requestAnimationFrame(alinhar);
+    };
+    const parar = () => {
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(fim);
+      for (const ev of ["wheel", "touchstart", "keydown", "mousedown"] as const) window.removeEventListener(ev, parar);
+    };
+    for (const ev of ["wheel", "touchstart", "keydown", "mousedown"] as const) window.addEventListener(ev, parar, { passive: true });
+    const fim = window.setTimeout(parar, 1500);
+    raf = window.requestAnimationFrame(alinhar);
     setDestacarCustos(true);
     const t = window.setTimeout(() => setDestacarCustos(false), 1800);
     return () => {
@@ -590,7 +608,7 @@ function StoreDetailForm({
         {showCosts && (
         <Card
           id="custos"
-          className={cn("scroll-mt-20 transition-shadow duration-500", destacarCustos && "ring-2 ring-acc")}
+          className={cn("transition-shadow duration-500", destacarCustos && "ring-2 ring-acc")}
         >
           <CardHeader>
             <div>
