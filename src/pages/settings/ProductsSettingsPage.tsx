@@ -3,15 +3,10 @@ import { useSearchParams } from "react-router-dom";
 import {
   Badge,
   Button,
-  Card,
-  CardHeader,
-  CardSubtitle,
-  CardTitle,
   DataTable,
   type DataTableColumn,
   EmptyState,
-  Input,
-  Segmented,
+  Pagination,
   Select,
   useToast,
 } from "@/components/ui";
@@ -28,14 +23,24 @@ import {
 } from "@/data/wedash/productCatalog";
 import { brlCent } from "@/lib/format";
 
-type Tab = "todos" | "sem-custo";
+type Filtro = "todos" | "sem-custo";
 type Row = CatalogProductRow & { cost: number | null };
+type SortKey = "description" | "category" | "cost";
+type SortDir = "asc" | "desc";
+
+const PAGE_SIZE = 20;
+
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: "description", label: "Ordenar por nome" },
+  { key: "category", label: "Ordenar por categoria" },
+  { key: "cost", label: "Ordenar por custo" },
+];
 
 function fmtRefreshed(iso: string): string {
   const d = new Date(iso);
   const dia = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
   const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  return `atualizado em ${dia} às ${hora}`;
+  return `Atualizado em ${dia} às ${hora}`;
 }
 
 const normalize = (s: string) =>
@@ -46,13 +51,14 @@ const normalize = (s: string) =>
 
 /**
  * Configurações > Produtos (só Gestor) — cadastro de produtos do Millennium com o custo da tabela de custo.
+ * Layout = Data Tables do Vela (busca + filtros + ordenação + paginação).
  * Atualizar busca catálogo + tabelas + preços agora (fora da fila do worker).
  */
 export function ProductsSettingsPage() {
   const session = useActiveSession();
   const { show } = useToast();
   const [params, setParams] = useSearchParams();
-  const tab: Tab = params.get("filtro") === "sem-custo" ? "sem-custo" : "todos";
+  const filtro: Filtro = params.get("filtro") === "sem-custo" ? "sem-custo" : "todos";
 
   const [products, setProducts] = useState<CatalogProductRow[]>([]);
   const [tables, setTables] = useState<CostTable[]>([]);
@@ -62,6 +68,9 @@ export function ProductsSettingsPage() {
   const [loaded, setLoaded] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [busca, setBusca] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("description");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [page, setPage] = useState(1);
 
   const carregar = useCallback(async () => {
     try {
@@ -119,170 +128,167 @@ export function ProductsSettingsPage() {
     () => products.map((p) => ({ ...p, cost: prices.get(p.code) ?? null })),
     [products, prices],
   );
-  const semCusto = useMemo(() => rows.filter((r) => r.cost == null), [rows]);
-  const filtrados = useMemo(() => {
-    const base = tab === "sem-custo" ? semCusto : rows;
-    const q = normalize(busca.trim());
-    if (!q) return base;
-    return base.filter((r) => normalize(`${r.description} ${r.code} ${r.category}`).includes(q));
-  }, [rows, semCusto, tab, busca]);
+  const semCusto = useMemo(() => rows.filter((r) => r.cost == null).length, [rows]);
 
-  const setTab = (v: Tab) => {
+  const filtrados = useMemo(() => {
+    const q = normalize(busca.trim());
+    const base = rows.filter((r) => {
+      if (filtro === "sem-custo" && r.cost != null) return false;
+      return !q || normalize(`${r.description} ${r.code} ${r.category}`).includes(q);
+    });
+    return base.sort((a, b) => {
+      const cmp =
+        sortKey === "cost"
+          ? (a.cost ?? -1) - (b.cost ?? -1)
+          : (a[sortKey] || "").localeCompare(b[sortKey] || "", "pt-BR");
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [rows, filtro, busca, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE));
+  const pageAtual = Math.min(page, totalPages);
+  const pageRows = filtrados.slice((pageAtual - 1) * PAGE_SIZE, pageAtual * PAGE_SIZE);
+
+  function setFiltro(v: Filtro) {
     const next = new URLSearchParams(params);
     if (v === "sem-custo") next.set("filtro", "sem-custo");
     else next.delete("filtro");
     setParams(next, { replace: true });
-  };
+    setPage(1);
+  }
 
-  const columns = useMemo<DataTableColumn<Row>[]>(
-    () => [
-      {
-        key: "product",
-        header: "Produto",
-        sortable: true,
-        sortValue: (r) => r.description,
-        render: (r) => (
-          <div className="min-w-0">
-            <div className="truncate text-[13.5px] font-bold text-t0">{r.description || r.code}</div>
-            <div className="font-mono text-[11.5px] text-t2">{r.code}</div>
-          </div>
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  const columns: DataTableColumn<Row>[] = [
+    {
+      key: "product",
+      header: "Produto",
+      render: (r) => (
+        <div className="min-w-0">
+          <p className="truncate text-[13.5px] font-bold text-t0">{r.description || r.code}</p>
+          <p className="truncate font-mono text-[11.5px] text-t2">{r.code}</p>
+        </div>
+      ),
+    },
+    { key: "category", header: "Categoria", hideBelow: "md", render: (r) => r.category || "—" },
+    {
+      key: "brand",
+      header: "Marca",
+      render: (r) => <Badge variant={r.brand === "WPINK" ? "info" : "neutral"}>{r.brand}</Badge>,
+    },
+    {
+      key: "cost",
+      header: "Custo",
+      align: "right",
+      render: (r) =>
+        r.cost == null ? (
+          <Badge variant="warning">Sem custo</Badge>
+        ) : (
+          <span className="font-extrabold tabular-nums text-t0">{brlCent(r.cost)}</span>
         ),
-      },
-      {
-        key: "category",
-        header: "Categoria",
-        hideBelow: "md",
-        sortable: true,
-        sortValue: (r) => r.category,
-        render: (r) => <span className="text-t1">{r.category || "—"}</span>,
-      },
-      {
-        key: "brand",
-        header: "Marca",
-        hideBelow: "sm",
-        render: (r) => <Badge variant={r.brand === "WPINK" ? "info" : "neutral"}>{r.brand}</Badge>,
-      },
-      {
-        key: "cost",
-        header: "Custo",
-        align: "right",
-        sortable: true,
-        sortValue: (r) => r.cost ?? -1,
-        render: (r) =>
-          r.cost == null ? (
-            <Badge variant="warning">Sem custo</Badge>
-          ) : (
-            <span className="tabular-nums text-t0">{brlCent(r.cost)}</span>
-          ),
-      },
-    ],
-    [],
-  );
+    },
+  ];
 
-  const subtitulo = refreshedAt ? `Cadastro do Millennium · ${fmtRefreshed(refreshedAt)}` : "Cadastro do Millennium";
+  const empty =
+    products.length === 0 ? (
+      <EmptyState
+        framed={false}
+        icon="📦"
+        title="Nenhum produto ainda"
+        description="O cadastro vem do Millennium. Use Atualizar para buscar os produtos e as tabelas de custo."
+      />
+    ) : busca.trim() ? (
+      <EmptyState
+        framed={false}
+        icon="🔍"
+        title="Nenhum resultado"
+        description="Tente outra busca."
+        action={
+          <Button variant="outline" size="sm" onClick={() => setBusca("")}>
+            Limpar busca
+          </Button>
+        }
+      />
+    ) : (
+      <EmptyState
+        framed={false}
+        icon="✅"
+        title="Todos os produtos têm custo"
+        description="Nenhum produto sem preço nesta tabela de custo."
+      />
+    );
 
   return (
-    <Card padding="none">
-      <CardHeader className="mb-0 px-5 pt-5 pb-4">
-        <div>
-          <CardTitle>Produtos</CardTitle>
-          <CardSubtitle>{subtitulo}</CardSubtitle>
-        </div>
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        <input
+          value={busca}
+          onChange={(e) => {
+            setBusca(e.target.value);
+            setPage(1);
+          }}
+          placeholder="Buscar…"
+          className="h-[38px] w-[180px] rounded-[10px] border border-line bg-bg-2 px-3 text-[13px] text-t0 outline-none placeholder:text-t2"
+        />
+        <Select value={filtro} onChange={(e) => setFiltro(e.target.value as Filtro)} className="!h-[38px] w-auto">
+          <option value="todos">Todos ({rows.length})</option>
+          <option value="sem-custo">Sem custo ({semCusto})</option>
+        </Select>
+        {tables.length > 0 && (
+          <Select
+            value={tableId == null ? "" : String(tableId)}
+            onChange={(e) => {
+              setTableId(e.target.value ? Number(e.target.value) : null);
+              setPage(1);
+            }}
+            title="Tabela de custo usada na coluna Custo"
+            className="!h-[38px] w-auto"
+          >
+            {tables.map((t) => (
+              <option key={t.id} value={String(t.id)}>
+                Tabela {t.code} · {t.description}
+              </option>
+            ))}
+          </Select>
+        )}
         <Button
-          size="sm"
           variant="secondary"
+          size="md"
           onClick={() => void atualizar()}
           disabled={syncing}
           title="Busca o cadastro de produtos e as tabelas de custo no Millennium"
-          icon={syncing ? undefined : <RefreshIcon />}
         >
           {syncing ? "Atualizando…" : "Atualizar"}
         </Button>
-      </CardHeader>
-      <div className="flex flex-col gap-2.5 px-5 pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <Segmented
-          options={[
-            { value: "todos", label: `Todos (${rows.length})` },
-            { value: "sem-custo", label: `Sem custo (${semCusto.length})` },
-          ]}
-          value={tab}
-          onChange={(v) => v && setTab(v as Tab)}
-        />
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          {tables.length > 0 && (
-            <Select
-              value={tableId == null ? "" : String(tableId)}
-              onChange={(e) => setTableId(e.target.value ? Number(e.target.value) : null)}
-              title="Tabela de custo usada na coluna Custo"
-              className="sm:h-[38px]! sm:w-56"
-            >
-              {tables.map((t) => (
-                <option key={t.id} value={String(t.id)}>
-                  Tabela {t.code} · {t.description}
-                </option>
-              ))}
-            </Select>
-          )}
-          <Input
-            placeholder="Buscar produto ou código…"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            className="sm:h-[38px]! sm:w-60"
-          />
-        </div>
       </div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-4 text-[12px] font-semibold text-t1">
+        {SORTS.map((s) => (
+          <button key={s.key} onClick={() => toggleSort(s.key)} className="flex items-center gap-1 hover:text-t0">
+            {s.label} {sortKey === s.key && (sortDir === "asc" ? "↑" : "↓")}
+          </button>
+        ))}
+        {refreshedAt && <span className="ml-auto font-medium text-t2">{fmtRefreshed(refreshedAt)}</span>}
+      </div>
+
       {!loaded ? (
         <ProductsTableSkeleton />
-      ) : products.length === 0 ? (
-        <EmptyState
-          framed={false}
-          className="pt-4!"
-          icon="📦"
-          title="Nenhum produto ainda"
-          description="O cadastro vem do Millennium. Use Atualizar para buscar os produtos e as tabelas de custo."
-        />
-      ) : filtrados.length === 0 ? (
-        busca.trim() ? (
-          <EmptyState
-            framed={false}
-            className="pt-4!"
-            icon="🔍"
-            title="Nenhum resultado"
-            description="Tente outra busca."
-            action={
-              <Button variant="outline" size="sm" onClick={() => setBusca("")}>
-                Limpar busca
-              </Button>
-            }
-          />
-        ) : (
-          <EmptyState
-            framed={false}
-            className="pt-4!"
-            icon="✅"
-            title="Todos os produtos têm custo"
-            description="Nenhum produto sem preço nesta tabela de custo."
-          />
-        )
       ) : (
-        <DataTable
-          className="rounded-none! border-x-0! border-b-0! bg-transparent!"
-          columns={columns}
-          data={filtrados}
-          rowKey={(r) => r.code}
-        />
+        <DataTable columns={columns} data={pageRows} rowKey={(r) => r.code} empty={empty} />
       )}
-    </Card>
-  );
-}
 
-function RefreshIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 2v6h-6" />
-      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-      <path d="M3 22v-6h6" />
-      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-    </svg>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <span className="text-[12.5px] text-t2">
+          Mostrando {pageRows.length} de {filtrados.length} produtos
+        </span>
+        <Pagination page={pageAtual} totalPages={totalPages} onChange={setPage} />
+      </div>
+    </div>
   );
 }

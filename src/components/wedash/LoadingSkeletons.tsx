@@ -469,7 +469,7 @@ export function TimelineSkeleton({ rows = 5 }: { rows?: number }) {
 export function ProductsTableSkeleton({ rows = 8 }: { rows?: number }) {
   return (
     <Busy>
-      <DataTableSkeleton bare rows={rows} cells={["text", "text", "pill", "short"]} />
+      <DataTableSkeleton rows={rows} cells={["text", "text", "pill", "short"]} />
     </Busy>
   );
 }
