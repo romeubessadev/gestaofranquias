@@ -1,4 +1,6 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { paths } from "@/router/paths";
 import { Avatar, Badge, Card, CardHeader, CardTitle, Popover, ProgressBar, RadialProgress, StatCard, DateRangePicker, PageHeader, Button, ThSort, type SortDir } from "@/components/ui";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AreaLineChart, BarChart, DonutChart } from "@/components/charts";
@@ -114,6 +116,7 @@ function welcomeTitle(name: string): string {
 
 export default function OverviewPage() {
   const session = useActiveSession();
+  const navigate = useNavigate();
   const { escopo, mudar } = useScope();
   const [dayAggs, setDayAggs] = useState<SalesDayAgg[]>([]);
   const [hourAggs, setHourAggs] = useState<SalesHourAgg[]>([]);
@@ -457,36 +460,30 @@ export default function OverviewPage() {
           const projecaoValor = meta
             ? (view.projecaoFechamento?.replace(/^Projeção:\s*/i, "") ?? "—")
             : "—";
+          if (!meta) {
+            return (
+              <Card className="flex flex-col">
+                <div className="mb-4">
+                  <CardTitle>Atingimento da meta</CardTitle>
+                </div>
+                <EmptyBlock
+                  icon="🎯"
+                  title="Meta não configurada"
+                  description="Cadastre a meta do mês para acompanhar o atingimento e a projeção de fechamento."
+                  action={
+                    <Button size="sm" onClick={() => navigate(paths.goals)}>
+                      Criar meta
+                    </Button>
+                  }
+                />
+              </Card>
+            );
+          }
           return (
             <Card>
               <div className="mb-4">
                 <CardTitle>Atingimento da meta</CardTitle>
               </div>
-              {!meta && (
-                <div className="mb-3 flex items-start gap-3 rounded-xl px-4 py-3.5" style={{ background: "var(--warn-soft)" }}>
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="var(--warn)"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mt-0.5 shrink-0"
-                  >
-                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01" />
-                  </svg>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-bold" style={{ color: "var(--warn)" }}>
-                      Meta não configurada
-                    </p>
-                    <p className="mt-0.5 text-[12.5px] text-t1">
-                      Cadastre em Metas para acompanhar o atingimento.
-                    </p>
-                  </div>
-                </div>
-              )}
               <div className="relative mx-auto mb-4 h-[150px] w-[150px]">
                 <RadialProgress value={pct} size={150} stroke={15} trackColor="var(--bg-inset)" label="da meta" />
               </div>
