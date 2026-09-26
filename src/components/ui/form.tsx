@@ -4,13 +4,8 @@ import { cn } from "@/lib/cn";
 const fieldBase =
   "w-full rounded-[var(--radius-vela-md)] border border-line bg-bg-inset px-3.5 text-[13px] text-t0 placeholder:text-t2 outline-none transition-colors focus:border-acc";
 
-type InputProps = InputHTMLAttributes<HTMLInputElement> & {
-  /** Mostra o texto em caixa alta (o valor continua como digitado). */
-  upper?: boolean;
-};
-
-export const Input = forwardRef<HTMLInputElement, InputProps>(({ className, upper, ...props }, ref) => (
-  <input ref={ref} className={cn(fieldBase, "h-[42px]", upper && "[&:not(:placeholder-shown)]:uppercase", className)} {...props} />
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(({ className, ...props }, ref) => (
+  <input ref={ref} className={cn(fieldBase, "h-[42px]", className)} {...props} />
 ));
 Input.displayName = "Input";
 

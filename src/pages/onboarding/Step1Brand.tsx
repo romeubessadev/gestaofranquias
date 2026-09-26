@@ -75,7 +75,6 @@ export function Step1Brand({
             value={nome}
             onChange={(e) => onChange({ nome: e.target.value })}
             placeholder="Ex.: Essência Perfumaria"
-            upper
             autoFocus
             maxLength={60}
           />

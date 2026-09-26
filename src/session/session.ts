@@ -1,7 +1,7 @@
 import { stores } from "@/data/wedash/stores";
 import { tenant } from "@/data/wedash/tenant";
 import type { Role, User } from "@/data/wedash/team";
-import { upperText } from "@/lib/format";
+import { titleName } from "@/lib/format";
 
 /**
  * App session (membership + scope). With Supabase, hydrated after Auth;
@@ -34,7 +34,7 @@ export interface Session {
 export function sessionFromUser(u: User): Session {
   return {
     membershipId: u.membershipId,
-    name: upperText(u.name),
+    name: titleName(u.name),
     cpf: u.cpf,
     email: u.email,
     role: u.role,

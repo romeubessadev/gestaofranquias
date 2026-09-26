@@ -51,7 +51,7 @@ import {
 import { Icon, icons } from "@/pages/users/Icons";
 import { paths } from "@/router/paths";
 import { cn } from "@/lib/cn";
-import { upperText } from "@/lib/format";
+import { titleName } from "@/lib/format";
 
 const TIME_OPTS = halfHourOptions();
 const DOWS: Dow[] = [0, 1, 2, 3, 4, 5, 6];
@@ -64,7 +64,7 @@ function shiftToDraft(s: StoreShift): ShiftDraft {
 }
 
 function draftToShift(d: ShiftDraft): StoreShift {
-  return { id: d.id ?? "", name: upperText(d.name), start: d.start, end: d.end };
+  return { id: d.id ?? "", name: titleName(d.name), start: d.start, end: d.end };
 }
 
 /** Custos em % editáveis aqui. Aluguel % vale para a loja toda (grava igual nas duas marcas); fixos ficam fora. */
@@ -359,7 +359,7 @@ function StoreDetailForm({
               <option value="">{savedShifts.length === 0 ? "Cadastre um turno" : "Sem turno"}</option>
               {savedShifts.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {upperText(s.name)} · {s.start}–{s.end}
+                  {titleName(s.name)} · {s.start}–{s.end}
                 </option>
               ))}
             </Select>
@@ -616,7 +616,6 @@ function StoreDetailForm({
                     <Input
                       className="h-9! min-w-0 flex-1 basis-full sm:basis-auto"
                       placeholder="Nome (ex.: Manhã)"
-                      upper
                       value={s.name}
                       disabled={!canEdit}
                       onChange={(e) => changeShift(s.key, { name: e.target.value })}

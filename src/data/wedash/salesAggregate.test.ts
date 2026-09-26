@@ -239,8 +239,10 @@ describe("sellerKeyFromName / sellerDisplayName", () => {
     expect(sellerKeyFromName("  emilly   victoria  ")).toBe("EMILLY VICTORIA");
     expect(sellerKeyFromName("")).toBeNull();
     expect(sellerKeyFromName(null)).toBeNull();
-    expect(sellerDisplayName("EMILLY VICTORIA CANEDO")).toBe("EMILLY VICTORIA CANEDO");
-    expect(sellerDisplayName("  emilly   victória ")).toBe("EMILLY VICTÓRIA");
+    expect(sellerDisplayName("EMILLY VICTORIA CANEDO")).toBe("Emilly Victoria Canedo");
+    expect(sellerDisplayName("  emilly   victória ")).toBe("Emilly Victória");
+    expect(sellerDisplayName("ANA PAULA DE SOUZA E SILVA")).toBe("Ana Paula de Souza e Silva");
+    expect(sellerDisplayName("DA SILVA D'ÁVILA")).toBe("Da Silva D'Ávila");
   });
 });
 
@@ -285,7 +287,7 @@ describe("aggregateSellerDay", () => {
     expect(a.revenueCents).toBe(150_00);
     expect(a.salesCount).toBe(1);
     expect(a.itemCount).toBe(2);
-    expect(a.sellerName).toBe("VENDEDORA A");
+    expect(a.sellerName).toBe("Vendedora A");
     expect(b.revenueCents).toBe(80_00);
     expect(b.brand).toBe("ALL");
   });

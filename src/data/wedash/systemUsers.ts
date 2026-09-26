@@ -1,6 +1,6 @@
 import { getSupabase } from "@/lib/supabase";
 import { stores as demoStores } from "@/data/wedash/stores";
-import { upperText } from "@/lib/format";
+import { titleName } from "@/lib/format";
 
 /** Papéis de quem acessa o sistema (fora a equipe de vendas). */
 export type SystemRole = "OWNER" | "MANAGER";
@@ -115,14 +115,14 @@ export async function fetchSystemUsers(): Promise<{ ok: true; data: SystemUsersD
     return {
       ok: true,
       data: {
-        members: demoMembers().map((m) => ({ ...m, name: upperText(m.name) })),
+        members: demoMembers().map((m) => ({ ...m, name: titleName(m.name) })),
         stores: demoStores.map((s) => ({ id: s.id, code: String(s.codFilial), name: s.fantasia })),
       },
     };
   }
   const r = await invoke<SystemUsersData>({ action: "list" });
   if (!r.ok) return r;
-  const members = (r.data.members ?? []).map((m) => ({ ...m, name: upperText(m.name) }));
+  const members = (r.data.members ?? []).map((m) => ({ ...m, name: titleName(m.name) }));
   return { ok: true, data: { members, stores: r.data.stores ?? [] } };
 }
 
@@ -130,7 +130,7 @@ export async function inviteSystemUser(input: InviteInput): Promise<ActionResult
   if (!getSupabase()) {
     demoMembers().push({
       membershipId: `d-${Date.now()}`,
-      name: upperText(input.name),
+      name: titleName(input.name),
       email: input.email.trim().toLowerCase(),
       role: input.role,
       status: "PENDING",
@@ -143,7 +143,7 @@ export async function inviteSystemUser(input: InviteInput): Promise<ActionResult
     });
     return { ok: true };
   }
-  const r = await invoke({ action: "invite", ...input, name: upperText(input.name), allStores: input.storeIds.length === 0 });
+  const r = await invoke({ action: "invite", ...input, name: titleName(input.name), allStores: input.storeIds.length === 0 });
   return r.ok ? { ok: true } : r;
 }
 
@@ -182,7 +182,7 @@ export async function fetchInviteInfo(): Promise<{ ok: true; info: InviteInfo } 
   const { data, error } = await sb.functions.invoke("team-members", { body: { action: "invite_info" } });
   const res = data as ({ ok?: boolean; error?: string } & InviteInfo) | null;
   if (error || !res?.ok) return { ok: false, code: res?.error ?? "not_found" };
-  return { ok: true, info: { name: upperText(res.name), email: res.email, role: res.role, companyName: upperText(res.companyName) } };
+  return { ok: true, info: { name: titleName(res.name), email: res.email, role: res.role, companyName: res.companyName } };
 }
 
 export async function acceptInvite(): Promise<boolean> {

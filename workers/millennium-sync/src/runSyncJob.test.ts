@@ -843,7 +843,7 @@ describe("runSyncJob", () => {
     expect(hours.filter((h) => h.brand === "WEPINK").reduce((s, h) => s + h.revenueCents, 0)).toBe(14_000);
     const sellers = replaceSellerDayAggs.mock.calls.flatMap((c) => c[0].rows);
     expect(sellers).toEqual([
-      expect.objectContaining({ sellerName: "GABRIELA SILVA", sellerGeradorId: 66161, revenueCents: 10_000 }),
+      expect.objectContaining({ sellerName: "Gabriela Silva", sellerGeradorId: 66161, revenueCents: 10_000 }),
     ]);
     const products = replaceProductDayAggs.mock.calls.flatMap((c) => c[0].rows);
     expect(products.map((p: { productCode: string }) => p.productCode).sort()).toEqual(["BSPPAR", "WP002"]);

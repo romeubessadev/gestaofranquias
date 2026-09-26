@@ -7,7 +7,7 @@ import type {
   SalesPaymentDayAgg,
   SalesSellerDayAgg,
 } from "./salesTypes";
-import { upperText } from "../../lib/format";
+import { titleName } from "../../lib/format";
 
 export type AggregateSalesOptions = {
   tenantId: string;
@@ -113,9 +113,9 @@ export function sellerKeyFromName(raw: string | null | undefined): string | null
   return key || null;
 }
 
-/** Nome gravado da vendedora: caixa alta, espaços normalizados. */
+/** Nome gravado da vendedora: primeira letra de cada palavra maiúscula ("Ana Paula de Souza"). */
 export function sellerDisplayName(raw: string): string {
-  return upperText(raw);
+  return titleName(raw);
 }
 
 /**

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { padTopo } from "@/lib/safeArea";
-import { upperText } from "@/lib/format";
 import { useTheme } from "@/theme/ThemeProvider";
 import { Avatar, Dropdown } from "@/components/ui";
 import { paths } from "@/router/paths";
@@ -131,7 +130,7 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
             <button className="flex items-center gap-2 rounded-[10px] pl-0.5 pr-1 hover:bg-bg-3">
               <Avatar name={session.companyName} size="sm" />
               <span className="hidden text-left leading-tight md:block">
-                <span className="block max-w-[160px] truncate text-[12.5px] font-bold text-t0">{upperText(session.companyName)}</span>
+                <span className="block max-w-[160px] truncate text-[12.5px] font-bold text-t0">{session.companyName}</span>
                 <span className="block text-[10.5px] text-t2">{roleLabel[session.role]}{session.isOwner ? " · proprietária" : ""}</span>
               </span>
             </button>

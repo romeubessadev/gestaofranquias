@@ -1,5 +1,5 @@
 import { defaultWeekHours, openHourFloor, closeHourCeil, parseWeekHours, type StoreWeekHours } from "./storeHours";
-import { upperText } from "@/lib/format";
+import { titleName } from "@/lib/format";
 
 export type PointType = "SHOPPING" | "RUA";
 export type Division = "WEPINK" | "WPINK";
@@ -528,7 +528,7 @@ export async function fetchStoreSellers(tenantId: string, storeIds: string[]): P
     const list = out.get(r.store_id) ?? [];
     list.push({
       id: r.id,
-      name: upperText(r.name),
+      name: titleName(r.name),
       code: r.code,
       active: r.active,
       role: r.erp_role ?? null,
@@ -580,7 +580,7 @@ export async function saveStoreShift(args: {
   const { getSupabase } = await import("@/lib/supabase");
   const sb = getSupabase();
   if (!sb) return { ok: false, error: "Supabase não configurado" };
-  const row = { name: upperText(args.shift.name), start_time: args.shift.start, end_time: args.shift.end };
+  const row = { name: titleName(args.shift.name), start_time: args.shift.start, end_time: args.shift.end };
   const { data, error } = args.shift.id
     ? await sb.from("store_shift").update(row).eq("id", args.shift.id).select("id").single()
     : await sb

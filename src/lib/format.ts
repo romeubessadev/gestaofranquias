@@ -26,9 +26,22 @@ export function labelUpper(s: string): string {
   return s.trim().toLocaleUpperCase("pt-BR");
 }
 
-/** Exibição de texto livre digitado (nome de pessoa, turno, empresa): sempre em caixa alta. Gravar só com trim. */
-export function upperText(s: string | null | undefined): string {
-  return (s ?? "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
+const NAME_PARTICLES = new Set(["de", "da", "do", "das", "dos", "e"]);
+
+/**
+ * Nome de pessoa / turno: primeira letra de cada palavra maiúscula ("Ana Paula de Souza").
+ * Partículas (de, da, do, das, dos, e) ficam minúsculas fora do início. Espelho SQL na migration
+ * `20260926170000_title_case_names` e em `supabase/functions/_shared/text.ts`.
+ */
+export function titleName(s: string | null | undefined): string {
+  const words = (s ?? "").trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR").split(" ");
+  return words
+    .map((w, i) =>
+      i > 0 && NAME_PARTICLES.has(w)
+        ? w
+        : w.replace(/(^|[^\p{L}\p{N}])(\p{L})/gu, (_, sep: string, l: string) => sep + l.toLocaleUpperCase("pt-BR")),
+    )
+    .join(" ");
 }
 
 /** 2,3 · 184,5 — número com casas decimais em pt-BR. */

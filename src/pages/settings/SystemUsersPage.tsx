@@ -389,7 +389,6 @@ function UserModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Nome e sobrenome"
-                upper
                 autoFocus
               />
             </FormField>

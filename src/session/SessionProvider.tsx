@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useNavigate } from "react-router-dom";
 import type { User } from "@/data/wedash/team";
 import { getSupabase } from "@/lib/supabase";
-import { upperText } from "@/lib/format";
+import { titleName } from "@/lib/format";
 import { paths } from "@/router/paths";
 import {
   emRecovery,
@@ -34,7 +34,7 @@ const Contexto = createContext<SessionContextValue | null>(null);
 function migrateLegacySession(raw: Record<string, unknown>): Session {
   return {
     membershipId: (raw.membershipId ?? raw.vinculoId) as string,
-    name: upperText((raw.name ?? raw.nome) as string),
+    name: titleName((raw.name ?? raw.nome) as string),
     cpf: raw.cpf as string,
     email: raw.email as string,
     role: raw.role as Session["role"],

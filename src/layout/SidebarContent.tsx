@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { padTopo } from "@/lib/safeArea";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/cn";
-import { upperText } from "@/lib/format";
 import { paths } from "@/router/paths";
 import { isNavGroup, type NavEntry } from "./nav-config";
 import { navDoPapel } from "./nav-wedash";
@@ -67,7 +66,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: 
   return (
     <div className="flex h-full flex-col">
       <div className="pad-topo flex items-center gap-2.5 px-5 pb-[18px]" style={{ minHeight: 74, ...padTopo("18px") }}>
-        <MarcaComNome size={34} nome={collapsed ? "" : upperText(session.companyName)} logoUrl={session.companyLogoUrl} />
+        <MarcaComNome size={34} nome={collapsed ? "" : session.companyName} logoUrl={session.companyLogoUrl} />
       </div>
 
       <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3.5 pb-3.5">

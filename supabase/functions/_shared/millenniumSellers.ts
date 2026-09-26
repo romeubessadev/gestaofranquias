@@ -5,6 +5,7 @@
  * (desativar troca VENDEDOR → INDEFINIDO). Ativos com outro cargo (gerência) ficam fora da equipe e do ranking.
  */
 import { baseUrl } from "./millennium.ts";
+import { titleName } from "./text.ts";
 
 export type ErpSellerFlags = {
   desativado: boolean;
@@ -88,7 +89,7 @@ function parseLista(payload: unknown): ListaRow[] {
     if (!raw || typeof raw !== "object") continue;
     const o = raw as Record<string, unknown>;
     const employeeId = asNum(o.FUNCIONARIO);
-    const name = asStr(o.NOME).replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
+    const name = titleName(asStr(o.NOME));
     if (employeeId == null || !name) continue;
     out.push({
       employeeId,

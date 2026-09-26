@@ -26,7 +26,7 @@ import type {
   SalesProductDayAgg,
   SellerShiftRef,
 } from "@/data/wedash/salesTypes";
-import { brlCent, deIso, num, tipDelta, upperText } from "@/lib/format";
+import { brlCent, deIso, num, tipDelta, titleName } from "@/lib/format";
 import type { DateRange, DateRangeChangeMeta } from "@/components/ui/DateRangePicker";
 import { useActiveSession } from "@/session/SessionProvider";
 import { SALES_SYNCED_EVENT } from "@/pages/dashboard/useForceRefresh";
@@ -107,7 +107,7 @@ function BadgeVsAnterior({ delta }: { delta?: { value: string; positive: boolean
 
 /** Título da tela inicial pós-login: saudação com o primeiro nome. */
 function welcomeTitle(name: string): string {
-  const first = upperText(name).split(" ")[0];
+  const first = titleName(name).split(" ")[0];
   return first ? `Bem-vindo(a) de volta, ${first} 👋` : "Bem-vindo(a) de volta 👋";
 }
 

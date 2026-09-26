@@ -9,6 +9,7 @@
  */
 import { createClient, type SupabaseClient, type User } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
+import { titleName } from "../_shared/text.ts";
 
 type Role = "OWNER" | "MANAGER";
 const ROLES: Role[] = ["OWNER", "MANAGER"];
@@ -49,8 +50,7 @@ function latest(a: string | null, b: string | null): string | null {
 /** Variáveis do template "Invite user" ({{ .Data.name }}, {{ .Data.company }}, {{ .Data.role }}). */
 async function inviteData(admin: SupabaseClient, tenantId: string, name: string, role: Role) {
   const { data: ten } = await admin.from("tenant").select("name, display_name").eq("id", tenantId).maybeSingle();
-  const company: string = ten?.display_name ?? ten?.name ?? "WeDash";
-  return { name: name.toLocaleUpperCase("pt-BR"), company: company.toLocaleUpperCase("pt-BR"), role: ROLE_LABEL[role] };
+  return { name: titleName(name), company: ten?.display_name ?? ten?.name ?? "WeDash", role: ROLE_LABEL[role] };
 }
 
 function authErrorCode(e: { message?: string; status?: number; code?: string } | null): string {
@@ -228,7 +228,7 @@ Deno.serve(async (req) => {
   }
 
   if (action === "invite") {
-    const name = typeof body.name === "string" ? body.name.trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR") : "";
+    const name = typeof body.name === "string" ? titleName(body.name) : "";
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     const role = body.role as Role;
     if (!name || name.length > 120) return fail("invalid_name");

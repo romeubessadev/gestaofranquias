@@ -1,6 +1,6 @@
 import { getSupabase } from "@/lib/supabase";
 import { validarSenha } from "@/lib/password";
-import { upperText } from "@/lib/format";
+import { titleName } from "@/lib/format";
 import { tenant } from "@/data/wedash/tenant";
 import { stores } from "@/data/wedash/stores";
 import { userByEmail, type User } from "@/data/wedash/team";
@@ -325,7 +325,7 @@ async function hydrateSessionFromAuth(authUserId: string, email: string): Promis
 
   return {
     membershipId: memb.id,
-    name: upperText(ident.name),
+    name: titleName(ident.name),
     cpf: ident.cpf ?? "",
     email: ident.email,
     role: memb.role as Session["role"],
@@ -503,7 +503,7 @@ export async function saveTenantBrand(
 ): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
-  const name = upperText(brand.name);
+  const name = brand.name.trim();
   const slug = brand.slug.trim().toLowerCase();
   if (!name) return;
   const { error } = await sb

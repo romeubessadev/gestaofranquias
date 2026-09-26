@@ -7,6 +7,7 @@
  * Inativa = OR de DESATIVADO (GERADORES[0]) · INATIVO · AFASTADO · NAO_MOSTRAR_NO_EVENTO (ERP marca de formas diferentes).
  */
 import { millenniumBaseUrl } from "./millenniumAuth.ts";
+import { titleName } from "../../../src/lib/format.ts";
 
 export type ErpSellerFlags = {
   desativado: boolean;
@@ -76,7 +77,7 @@ export function parseFuncionariosLista(payload: unknown): ListaRow[] {
     if (!raw || typeof raw !== "object") continue;
     const o = raw as Record<string, unknown>;
     const employeeId = asNum(o.FUNCIONARIO);
-    const name = asStr(o.NOME).replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
+    const name = titleName(asStr(o.NOME));
     if (employeeId == null || !name) continue;
     out.push({
       employeeId,
