@@ -661,7 +661,16 @@ export default function ProductsPage() {
             view.produtos.length === 0 ? (
               <EmptyBlock />
             ) : (
-              <EmptyBlock icon="🔍" title="Nenhum produto encontrado" description="Tente buscar por outro nome ou código." />
+              <EmptyBlock
+                icon="🔍"
+                title="Nenhum produto encontrado"
+                description="Tente buscar por outro nome ou código."
+                action={
+                  <Button variant="outline" size="sm" onClick={() => setBusca("")}>
+                    Limpar busca
+                  </Button>
+                }
+              />
             )
           ) : (
             <table className="w-full min-w-[1000px] border-collapse text-[13px]">
@@ -733,7 +742,16 @@ export default function ProductsPage() {
             view.produtos.length === 0 ? (
               <EmptyBlock />
             ) : (
-              <EmptyBlock icon="🔍" title="Nenhum produto encontrado" description="Tente buscar por outro nome ou código." />
+              <EmptyBlock
+                icon="🔍"
+                title="Nenhum produto encontrado"
+                description="Tente buscar por outro nome ou código."
+                action={
+                  <Button variant="outline" size="sm" onClick={() => setBusca("")}>
+                    Limpar busca
+                  </Button>
+                }
+              />
             )
           ) : (
             pageRows.map((p) => (

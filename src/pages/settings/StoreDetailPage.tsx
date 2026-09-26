@@ -14,6 +14,7 @@ import {
   FormField,
   Input,
   Segmented,
+  EmptyState,
   Select,
   Switch,
   useToast,
@@ -608,7 +609,20 @@ function StoreDetailForm({
             }}
           >
             {shifts.length === 0 ? (
-              <span className="block py-2 text-center text-[12px] text-t2">Nenhum turno cadastrado</span>
+              <EmptyState
+                framed={false}
+                className="py-4!"
+                icon="🕒"
+                title="Nenhum turno cadastrado"
+                description="Crie os turnos da loja para definir o turno de cada pessoa da equipe."
+                action={
+                  canEdit ? (
+                    <Button type="button" size="sm" icon={<Icon d={icons.plus} size={14} />} onClick={addShift}>
+                      Adicionar turno
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <div className="flex flex-col gap-2.5">
                 {shifts.map((s) => (
@@ -638,7 +652,7 @@ function StoreDetailForm({
                 ))}
               </div>
             )}
-            {canEdit && (
+            {canEdit && shifts.length > 0 && (
               <button
                 type="button"
                 onClick={addShift}
@@ -690,9 +704,23 @@ function StoreDetailForm({
           {!equipeLoaded ? (
             <TeamTableSkeleton withShift={teamTab === "ativos"} />
           ) : teamRows.length === 0 ? (
-            <span className="block pt-2 pb-6 text-center text-[12px] text-t2">
-              {teamTab === "ativos" ? "Ninguém na equipe" : "Nenhum desligado"}
-            </span>
+            teamTab === "ativos" ? (
+              <EmptyState
+                framed={false}
+                className="pt-4!"
+                icon="👥"
+                title="Ninguém na equipe"
+                description="A equipe vem do Millennium. Use Atualizar para buscar as pessoas desta loja."
+              />
+            ) : (
+              <EmptyState
+                framed={false}
+                className="pt-4!"
+                icon="👥"
+                title="Nenhum desligado"
+                description="Pessoas desativadas no Millennium aparecem aqui."
+              />
+            )
           ) : (
             <DataTable
               className="rounded-none! border-x-0! border-b-0! bg-transparent!"

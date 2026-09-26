@@ -10,6 +10,7 @@ import {
   DataTable,
   type DataTableColumn,
   Dropdown,
+  EmptyState,
   FormField,
   Input,
   Modal,
@@ -212,6 +213,12 @@ export function SystemUsersPage() {
     },
   ];
 
+  const inviteButton = (
+    <Button size="sm" icon={<Icon d={icons.plus} size={14} />} onClick={() => setEditing({ mode: "invite" })}>
+      Convidar usuário
+    </Button>
+  );
+
   return (
     <Card>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -244,14 +251,30 @@ export function SystemUsersPage() {
               columns={peopleColumns}
               data={people}
               rowKey={(u) => u.membershipId}
-              emptyMessage="Nenhum usuário com acesso ainda."
+              empty={
+                <EmptyState
+                  framed={false}
+                  icon="👤"
+                  title="Nenhum usuário ainda"
+                  description="Convide gestores e gerentes para acessar a WeDash."
+                  action={inviteButton}
+                />
+              }
             />
           ) : (
             <DataTable
               columns={inviteColumns}
               data={invites}
               rowKey={(u) => u.membershipId}
-              emptyMessage="Nenhum convite aguardando aceite."
+              empty={
+                <EmptyState
+                  framed={false}
+                  icon="✉️"
+                  title="Nenhum convite pendente"
+                  description="Convites enviados aparecem aqui até a pessoa criar a senha."
+                  action={inviteButton}
+                />
+              }
             />
           )}
         </>

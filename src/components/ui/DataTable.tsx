@@ -23,6 +23,8 @@ export interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   selectable?: boolean;
   emptyMessage?: string;
+  /** Substitui o `emptyMessage` (ex.: `EmptyState` com ação). */
+  empty?: ReactNode;
   className?: string;
   /** Coluna inicial ativa (precisa ser `sortable`). */
   defaultSortKey?: string;
@@ -58,6 +60,7 @@ export function DataTable<T>({
   rowKey,
   onRowClick,
   emptyMessage = "No records found.",
+  empty,
   className,
   defaultSortKey,
   defaultSortDir = "desc",
@@ -92,6 +95,7 @@ export function DataTable<T>({
   }
 
   if (data.length === 0) {
+    if (empty) return <>{empty}</>;
     return <div className="rounded-[var(--radius-vela-lg)] border border-line bg-bg-2 p-10 text-center text-sm text-t1">{emptyMessage}</div>;
   }
 

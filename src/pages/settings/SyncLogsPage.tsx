@@ -3,6 +3,7 @@ import {
   Badge,
   Button,
   Card,
+  EmptyState,
   Input,
   Modal,
   Select,
@@ -160,9 +161,33 @@ export function SyncLogsPage() {
         ) : loading ? (
           <TimelineSkeleton rows={5} />
         ) : events.length === 0 ? (
-          <span className="block py-6 text-center text-[12px] text-t2">
-            {busca.trim() ? "Nada encontrado para essa busca." : "Nenhum erro ou aviso. Tudo certo com a sincronização."}
-          </span>
+          busca.trim() || nivel ? (
+            <EmptyState
+              framed={false}
+              icon="🔍"
+              title="Nenhum resultado"
+              description="Tente outra busca ou mude o tipo de evento."
+              action={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setBusca("");
+                    setNivel("");
+                  }}
+                >
+                  Limpar filtros
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              framed={false}
+              icon="✅"
+              title="Tudo certo"
+              description="Nenhum erro ou aviso na sincronização."
+            />
+          )
         ) : (
           <Timeline events={events} />
         )}
