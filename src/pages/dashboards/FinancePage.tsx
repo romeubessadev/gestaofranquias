@@ -581,7 +581,7 @@ export default function FinancePage() {
       </div>
 
       {/* Evolução Mensal — só com período por mês (>31 dias); DataTable (desktop) + cards (mobile) */}
-      {view.eixoSerie === "mes" && (
+      {view.mostrarEvolucaoMensal && (
       <Card className="mt-4" padding="none">
         <div className="flex items-center gap-1.5 px-5 py-4">
           <div>
