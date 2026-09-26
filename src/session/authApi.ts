@@ -1,5 +1,6 @@
 import { getSupabase } from "@/lib/supabase";
 import { validarSenha } from "@/lib/password";
+import { personName } from "@/lib/format";
 import { tenant } from "@/data/wedash/tenant";
 import { stores } from "@/data/wedash/stores";
 import { userByEmail, type User } from "@/data/wedash/team";
@@ -311,13 +312,20 @@ async function hydrateSessionFromAuth(authUserId: string, email: string): Promis
 
   const { data: storeRows } = await sb.from("membership_store").select("store_id").eq("membership_id", memb.id);
   let storeIds = (storeRows ?? []).map((r) => r.store_id as string);
-  if (storeIds.length === 0 && (memb.is_owner || memb.role === "OWNER" || memb.role === "ADMIN_GLOBAL")) {
-    storeIds = stores.map((f) => f.id);
+  // Sem lojas vinculadas = todas as lojas da empresa (Gestor/Gerente convidado com "Todas as lojas").
+  if (storeIds.length === 0 && memb.role !== "SELLER") {
+    const { data: tenantStores } = await sb
+      .from("store")
+      .select("id")
+      .eq("tenant_id", memb.tenant_id)
+      .eq("active", true);
+    storeIds = (tenantStores ?? []).map((r) => r.id as string);
+    if (storeIds.length === 0) storeIds = stores.map((f) => f.id);
   }
 
   return {
     membershipId: memb.id,
-    name: ident.name,
+    name: personName(ident.name),
     cpf: ident.cpf ?? "",
     email: ident.email,
     role: memb.role as Session["role"],
@@ -407,6 +415,8 @@ export type PersistErpInput = {
   dedicated: boolean;
   /** Sessão Millennium já aberta no Step2 — grava p/ o worker reusar. */
   millenniumSession?: string;
+  /** Troca de usuário mantendo dados: remove só as lojas que o usuário novo não enxerga. */
+  userChange?: { mode: "keep"; removeMillenniumStoreIds: number[] };
   /** Vazio no Step2 (só credencial); preenchido ao concluir lojas. */
   stores?: Array<{
     storeId: number;
@@ -415,6 +425,7 @@ export type PersistErpInput = {
     tradeName?: string;
     taxId?: string;
     openedAt?: string;
+    hasWpink?: boolean;
   }>;
 };
 
@@ -450,6 +461,7 @@ export async function persistErpCredentialAndStores(
       ...(input.millenniumSession
         ? { millenniumSession: input.millenniumSession }
         : {}),
+      ...(input.userChange ? { userChange: input.userChange } : {}),
     },
   });
 

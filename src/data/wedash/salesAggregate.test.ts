@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { aggregatePaymentDay, aggregateSales, normalizePaymentMethod } from "./salesAggregate";
+import {
+  aggregatePaymentDay,
+  aggregateSales,
+  aggregateSellerDay,
+  normalizePaymentMethod,
+  sellerDisplayName,
+  sellerKeyFromName,
+} from "./salesAggregate";
 import type { SaleRow } from "./salesTypes";
 
 /** America/Campo_Grande = UTC−4 year-round (MS). */
@@ -223,5 +230,63 @@ describe("aggregatePaymentDay", () => {
     expect(pix.salesCount).toBe(1);
     expect(cred.revenueCents).toBe(80_00);
     expect(cred.brand).toBe("ALL");
+  });
+});
+
+describe("sellerKeyFromName / sellerDisplayName", () => {
+  it("normalizes accents and case for stable keys", () => {
+    expect(sellerKeyFromName("Emilly Victória")).toBe("EMILLY VICTORIA");
+    expect(sellerKeyFromName("  emilly   victoria  ")).toBe("EMILLY VICTORIA");
+    expect(sellerKeyFromName("")).toBeNull();
+    expect(sellerKeyFromName(null)).toBeNull();
+    expect(sellerDisplayName("EMILLY VICTORIA CANEDO")).toBe("EMILLY VICTORIA CANEDO");
+    expect(sellerDisplayName("  emilly   victória ")).toBe("EMILLY VICTÓRIA");
+  });
+});
+
+describe("aggregateSellerDay", () => {
+  it("sums revenue by seller and skips empty names", () => {
+    const rows: SaleRow[] = [
+      row({
+        operationCode: "OP-1",
+        occurredAt: new Date("2026-09-18T15:30:00.000Z"),
+        revenueCents: 100_00,
+        sellerName: "VENDEDORA A",
+      }),
+      row({
+        operationCode: "OP-1",
+        occurredAt: new Date("2026-09-18T15:30:00.000Z"),
+        revenueCents: 50_00,
+        sellerName: "vendedora a",
+      }),
+      row({
+        operationCode: "OP-2",
+        occurredAt: new Date("2026-09-18T16:00:00.000Z"),
+        revenueCents: 80_00,
+        sellerName: "VENDEDORA B",
+      }),
+      row({
+        operationCode: "OP-3",
+        occurredAt: new Date("2026-09-18T17:00:00.000Z"),
+        revenueCents: 999_00,
+        sellerName: null,
+      }),
+    ];
+    const sellers = aggregateSellerDay(rows, {
+      tenantId: TENANT,
+      timeZone: TZ,
+      now: new Date("2026-09-19T12:00:00Z"),
+      dayFrom: "2026-09-18",
+      dayTo: "2026-09-18",
+    });
+    expect(sellers).toHaveLength(2);
+    const a = sellers.find((s) => s.sellerKey === "VENDEDORA A")!;
+    const b = sellers.find((s) => s.sellerKey === "VENDEDORA B")!;
+    expect(a.revenueCents).toBe(150_00);
+    expect(a.salesCount).toBe(1);
+    expect(a.itemCount).toBe(2);
+    expect(a.sellerName).toBe("VENDEDORA A");
+    expect(b.revenueCents).toBe(80_00);
+    expect(b.brand).toBe("ALL");
   });
 });

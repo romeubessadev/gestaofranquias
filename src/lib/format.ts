@@ -21,6 +21,16 @@ export function brlCent(v: number): string {
   return brlCentavos.format(v);
 }
 
+/** LOJA / CATEGORIA / PRODUTO — rótulos de catálogo em caixa alta (pt-BR). */
+export function labelUpper(s: string): string {
+  return s.trim().toLocaleUpperCase("pt-BR");
+}
+
+/** Nome de pessoa (usuário, equipe de vendas, perfil): sempre em caixa alta, espaços normalizados. */
+export function personName(s: string | null | undefined): string {
+  return (s ?? "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
+}
+
 /** 2,3 · 184,5 — número com casas decimais em pt-BR. */
 export function num(v: number, casas = 0): string {
   return v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
@@ -139,7 +149,15 @@ export function intervaloDias(inicio: string, fim: string): string[] {
 export function tipRelacao(vs: string): string {
   if (vs.startsWith("os ")) return `Em relação aos ${vs.slice(3)}.`;
   if (vs.startsWith("o ")) return `Em relação ao ${vs.slice(2)}.`;
+  if (vs.startsWith("a ")) return `Em relação à ${vs.slice(2)}.`;
   return `Em relação a ${vs}.`;
+}
+
+/** Tooltip do badge de delta com o valor comparado: "Em relação ao mês passado: R$ 12.345,67." */
+export function tipDelta(delta: { vs?: string; anterior?: string }): string {
+  if (!delta.vs) return delta.anterior ? `Período anterior: ${delta.anterior}.` : "";
+  const base = tipRelacao(delta.vs);
+  return delta.anterior ? `${base.slice(0, -1)}: ${delta.anterior}.` : base;
 }
 
 /** `1 dia` / `N dias` — prazos e badges. */

@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
+import { personName } from "@/lib/format";
 import type {
   SalesBrand,
   SalesCategoryDayAgg,
@@ -6,6 +7,10 @@ import type {
   SalesDayAgg,
   SalesHourAgg,
   SalesPaymentDayAgg,
+  SalesProductDayAgg,
+  SalesProductCostDayAgg,
+  SalesSellerDayAgg,
+  SellerShiftRef,
 } from "./salesTypes";
 
 export type SalesDayQuery = {
@@ -20,7 +25,8 @@ export type SalesDayQuery = {
 export type SalesHourQuery = {
   tenantId: string;
   storeIds: string[];
-  day: string;
+  /** Um dia ou lista de dias (ex.: mesmo dia da semana nas semanas anteriores). */
+  day: string | string[];
   brand?: SalesBrand | null;
 };
 
@@ -33,6 +39,20 @@ export type SalesCategoryDayQuery = {
 };
 
 export type SalesPaymentDayQuery = {
+  tenantId: string;
+  storeIds: string[];
+  from: string;
+  to: string;
+};
+
+export type SalesSellerDayQuery = {
+  tenantId: string;
+  storeIds: string[];
+  from: string;
+  to: string;
+};
+
+export type SalesProductDayQuery = {
   tenantId: string;
   storeIds: string[];
   from: string;
@@ -80,6 +100,32 @@ type PaymentDayRow = {
   sales_count: number;
 };
 
+type SellerDayRow = {
+  tenant_id: string;
+  store_id: string;
+  day: string;
+  seller_key: string;
+  seller_name: string;
+  seller_employee_id: number | null;
+  seller_gerador_id: number | null;
+  brand: SalesBrand;
+  revenue_cents: number;
+  sales_count: number;
+  item_count: number | null;
+};
+
+type ProductDayRow = {
+  tenant_id: string;
+  store_id: string;
+  day: string;
+  product_id: number;
+  product_code: string;
+  product_name: string;
+  brand: SalesBrand;
+  revenue_cents: number;
+  item_count: number;
+};
+
 function mapDay(r: DayRow): SalesDayAgg {
   return {
     tenantId: r.tenant_id,
@@ -125,6 +171,36 @@ function mapPaymentDay(r: PaymentDayRow): SalesPaymentDayAgg {
   };
 }
 
+function mapSellerDay(r: SellerDayRow): SalesSellerDayAgg {
+  return {
+    tenantId: r.tenant_id,
+    storeId: r.store_id,
+    day: r.day,
+    sellerKey: String(r.seller_key ?? ""),
+    sellerName: personName(String(r.seller_name ?? "") || String(r.seller_key ?? "")),
+    sellerEmployeeId: r.seller_employee_id == null ? null : Number(r.seller_employee_id),
+    sellerGeradorId: r.seller_gerador_id == null ? null : Number(r.seller_gerador_id),
+    brand: r.brand,
+    revenueCents: Number(r.revenue_cents) || 0,
+    salesCount: Number(r.sales_count) || 0,
+    itemCount: Number(r.item_count) || 0,
+  };
+}
+
+function mapProductDay(r: ProductDayRow): SalesProductDayAgg {
+  return {
+    tenantId: r.tenant_id,
+    storeId: r.store_id,
+    day: r.day,
+    productId: Number(r.product_id),
+    productCode: String(r.product_code ?? ""),
+    productName: String(r.product_name ?? ""),
+    brand: r.brand,
+    revenueCents: Number(r.revenue_cents) || 0,
+    itemCount: Number(r.item_count) || 0,
+  };
+}
+
 function clientOrNull(override?: SalesQueryClient): SalesQueryClient | null {
   if (override) return override;
   return getSupabase() as unknown as SalesQueryClient | null;
@@ -148,12 +224,38 @@ export async function fetchSalesDayAggs(
   if (query.storeIds.length > 0) q = q.in("store_id", query.storeIds);
   if (query.brand) q = q.eq("brand", query.brand);
 
-  const { data, error } = await q.order("day", { ascending: true });
-  if (error) {
-    console.warn("fetchSalesDayAggs:", error.message ?? error);
-    return [];
+  const ordered = q.order("day", { ascending: true }).order("store_id").order("brand");
+  return (await fetchAllPages<DayRow>(ordered, "fetchSalesDayAggs")).map(mapDay);
+}
+
+const PAGE_SIZE = 1000;
+
+/**
+ * PostgREST corta em 1000 linhas por request (`.limit` maior não adianta): pagina
+ * com `range` quando o client suporta (Supabase). A query precisa de ordem total
+ * (inclua a chave da linha no `order`) para as páginas não repetirem/pularem linhas.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchAllPages<Row>(ordered: any, label: string): Promise<Row[]> {
+  if (typeof ordered.range !== "function") {
+    const { data, error } = await ordered;
+    if (error) {
+      console.warn(`${label}:`, error.message ?? error);
+      return [];
+    }
+    return (data as Row[] | null) ?? [];
   }
-  return ((data as DayRow[] | null) ?? []).map(mapDay);
+  const out: Row[] = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await ordered.range(offset, offset + PAGE_SIZE - 1);
+    if (error) {
+      console.warn(`${label}:`, error.message ?? error);
+      return out;
+    }
+    const rows = (data as Row[] | null) ?? [];
+    out.push(...rows);
+    if (rows.length < PAGE_SIZE) return out;
+  }
 }
 
 /** Fetch hourly aggregates for one local day. */
@@ -167,21 +269,25 @@ export async function fetchSalesHourAggs(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let q: any = (client.from("sales_hour_agg") as any)
     .select("tenant_id, store_id, day, hour, brand, revenue_cents, sales_count, item_count")
-    .eq("tenant_id", query.tenantId)
-    .eq("day", query.day);
+    .eq("tenant_id", query.tenantId);
+  if (Array.isArray(query.day)) {
+    if (query.day.length === 0) return [];
+    q = q.in("day", query.day);
+  } else {
+    q = q.eq("day", query.day);
+  }
 
   if (query.storeIds.length > 0) q = q.in("store_id", query.storeIds);
   if (query.brand) q = q.eq("brand", query.brand);
 
-  const { data, error } = await q.order("hour", { ascending: true });
-  if (error) {
-    console.warn("fetchSalesHourAggs:", error.message ?? error);
-    return [];
-  }
-  return ((data as HourRow[] | null) ?? []).map(mapHour);
+  const ordered = q.order("hour", { ascending: true }).order("day").order("store_id").order("brand");
+  return (await fetchAllPages<HourRow>(ordered, "fetchSalesHourAggs")).map(mapHour);
 }
 
-/** Receita diária por categoria (PRODUTO_TIPO / C5BBF0E2). */
+/** Itens vendidos (top produtos) × catálogo de produtos da rede → receita por tipo de produto. */
+const CATEGORY_SOURCE = "sales_category_day_view";
+
+/** Receita diária por categoria (PRODUTO_TIPO do catálogo). */
 export async function fetchSalesCategoryDayAggs(
   query: SalesCategoryDayQuery,
   clientOverride?: SalesQueryClient,
@@ -190,7 +296,7 @@ export async function fetchSalesCategoryDayAggs(
   if (!client) return [];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q: any = (client.from("sales_category_day_agg") as any)
+  let q: any = (client.from(CATEGORY_SOURCE) as any)
     .select(
       "tenant_id, store_id, day, category_id, category_name, brand, revenue_cents, item_count",
     )
@@ -201,12 +307,12 @@ export async function fetchSalesCategoryDayAggs(
   if (query.storeIds.length > 0) q = q.in("store_id", query.storeIds);
   if (query.brand) q = q.eq("brand", query.brand);
 
-  const { data, error } = await q.order("day", { ascending: true }).limit(10_000);
-  if (error) {
-    console.error("fetchSalesCategoryDayAggs:", error.message ?? error);
-    return [];
-  }
-  return ((data as CategoryDayRow[] | null) ?? []).map(mapCategoryDay);
+  const ordered = q
+    .order("day", { ascending: true })
+    .order("store_id")
+    .order("category_id")
+    .order("brand");
+  return (await fetchAllPages<CategoryDayRow>(ordered, "fetchSalesCategoryDayAggs")).map(mapCategoryDay);
 }
 
 /**
@@ -221,22 +327,20 @@ export async function fetchSalesCategoryCatalog(
   if (!client) return [];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q: any = (client.from("sales_category_day_agg") as any)
+  let q: any = (client.from(CATEGORY_SOURCE) as any)
     .select("category_id, category_name, brand")
-    .eq("tenant_id", query.tenantId)
-    .limit(5_000);
+    .eq("tenant_id", query.tenantId);
 
   if (query.storeIds.length > 0) q = q.in("store_id", query.storeIds);
   if (query.brand) q = q.eq("brand", query.brand);
 
-  const { data, error } = await q;
-  if (error) {
-    console.error("fetchSalesCategoryCatalog:", error.message ?? error);
-    return [];
-  }
+  const data = await fetchAllPages<{ category_id: number; category_name: string; brand: SalesBrand }>(
+    q.order("store_id").order("day").order("category_id").order("brand"),
+    "fetchSalesCategoryCatalog",
+  );
 
   const byId = new Map<number, SalesCategoryRef>();
-  for (const r of (data as { category_id: number; category_name: string; brand: SalesBrand }[] | null) ?? []) {
+  for (const r of data) {
     const id = Number(r.category_id);
     if (!Number.isFinite(id) || byId.has(id)) continue;
     byId.set(id, {
@@ -267,12 +371,220 @@ export async function fetchSalesPaymentDayAggs(
 
   if (query.storeIds.length > 0) q = q.in("store_id", query.storeIds);
 
-  const { data, error } = await q.order("day", { ascending: true }).limit(10_000);
+  const ordered = q
+    .order("day", { ascending: true })
+    .order("store_id")
+    .order("payment_method")
+    .order("brand");
+  return (await fetchAllPages<PaymentDayRow>(ordered, "fetchSalesPaymentDayAggs")).map(mapPaymentDay);
+}
+
+/** Funcionários ativos com cargo ≠ VENDEDOR (gerência, conta de freelancer) — fora do ranking. */
+export type NonSalesPeople = {
+  employeeIds: Set<number>;
+  geradorIds: Set<number>;
+  /** `storeId|nome normalizado` — linhas sem código ligadas só pelo nome. */
+  storeNameKeys: Set<string>;
+};
+
+/** Tira do ranking as vendas de quem não é da equipe de vendas (a venda continua no total da loja, que vem de outra tabela). */
+export function excludeNonSalesPeople(rows: SalesSellerDayAgg[], people: NonSalesPeople): SalesSellerDayAgg[] {
+  if (people.employeeIds.size === 0 && people.geradorIds.size === 0 && people.storeNameKeys.size === 0) return rows;
+  return rows.filter((r) => {
+    if (r.sellerEmployeeId != null) return !people.employeeIds.has(r.sellerEmployeeId);
+    if (r.sellerGeradorId != null && people.geradorIds.has(r.sellerGeradorId)) return false;
+    return !people.storeNameKeys.has(`${r.storeId}|${r.sellerKey}`);
+  });
+}
+
+async function fetchNonSalesPeople(client: SalesQueryClient, tenantId: string): Promise<NonSalesPeople> {
+  const out: NonSalesPeople = { employeeIds: new Set(), geradorIds: new Set(), storeNameKeys: new Set() };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client.from("store_seller") as any)
+    .select("store_id, millennium_employee_id, millennium_gerador_id, name_keys")
+    .eq("tenant_id", tenantId)
+    .eq("active", true)
+    .not("erp_role", "is", null)
+    .neq("erp_role", "VENDEDOR");
   if (error) {
-    console.error("fetchSalesPaymentDayAggs:", error.message ?? error);
+    console.warn("fetchNonSalesPeople:", error.message);
+    return out;
+  }
+  for (const r of (data ?? []) as {
+    store_id: string;
+    millennium_employee_id: number | null;
+    millennium_gerador_id: number | null;
+    name_keys: string[] | null;
+  }[]) {
+    if (r.millennium_employee_id != null) out.employeeIds.add(Number(r.millennium_employee_id));
+    if (r.millennium_gerador_id != null) out.geradorIds.add(Number(r.millennium_gerador_id));
+    for (const k of r.name_keys ?? []) out.storeNameKeys.add(`${r.store_id}|${k}`);
+  }
+  return out;
+}
+
+/** Funcionárias com turno definido em Configurações > Lojas (vazio se a migration de turnos não existir). */
+export async function fetchSellerShifts(
+  tenantId: string,
+  clientOverride?: SalesQueryClient,
+): Promise<SellerShiftRef[]> {
+  const client = clientOrNull(clientOverride);
+  if (!client) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client.from("store_seller") as any)
+    .select("store_id, millennium_employee_id, millennium_gerador_id, name_keys, store_shift(name, start_time, end_time)")
+    .eq("tenant_id", tenantId)
+    .not("shift_id", "is", null);
+  if (error) {
+    console.warn("fetchSellerShifts:", error.message);
     return [];
   }
-  return ((data as PaymentDayRow[] | null) ?? []).map(mapPaymentDay);
+  const out: SellerShiftRef[] = [];
+  for (const r of (data ?? []) as {
+    store_id: string;
+    millennium_employee_id: number | null;
+    millennium_gerador_id: number | null;
+    name_keys: string[] | null;
+    store_shift: { name: string; start_time: string; end_time: string } | null;
+  }[]) {
+    if (!r.store_shift) continue;
+    out.push({
+      storeId: r.store_id,
+      employeeId: r.millennium_employee_id == null ? null : Number(r.millennium_employee_id),
+      geradorId: r.millennium_gerador_id == null ? null : Number(r.millennium_gerador_id),
+      nameKeys: r.name_keys ?? [],
+      name: r.store_shift.name,
+      start: String(r.store_shift.start_time).slice(0, 5),
+      end: String(r.store_shift.end_time).slice(0, 5),
+    });
+  }
+  return out;
+}
+
+/** Receita diária por vendedora (VENDEDOR_MILLENNIUM / VENDAS.Lista), sem gerência / conta de freelancer. */
+export async function fetchSalesSellerDayAggs(
+  query: SalesSellerDayQuery,
+  clientOverride?: SalesQueryClient,
+): Promise<SalesSellerDayAgg[]> {
+  const client = clientOrNull(clientOverride);
+  if (!client) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q: any = (client.from("sales_seller_day_agg") as any)
+    .select(
+      "tenant_id, store_id, day, seller_key, seller_name, seller_employee_id, seller_gerador_id, brand, revenue_cents, sales_count, item_count",
+    )
+    .eq("tenant_id", query.tenantId)
+    .gte("day", query.from)
+    .lte("day", query.to);
+
+  if (query.storeIds.length > 0) q = q.in("store_id", query.storeIds);
+
+  const ordered = q
+    .order("day", { ascending: true })
+    .order("store_id")
+    .order("seller_key")
+    .order("brand");
+  const [rows, nonSales] = await Promise.all([
+    fetchAllPages<SellerDayRow>(ordered, "fetchSalesSellerDayAggs"),
+    fetchNonSalesPeople(client, query.tenantId),
+  ]);
+  return excludeNonSalesPeople(rows.map(mapSellerDay), nonSales);
+}
+
+/** Receita diária por SKU ({E7A5C5C7} VENDAS DE PRODUTOS POR FILIAL). */
+export async function fetchSalesProductDayAggs(
+  query: SalesProductDayQuery,
+  clientOverride?: SalesQueryClient,
+): Promise<SalesProductDayAgg[]> {
+  const client = clientOrNull(clientOverride);
+  if (!client) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q: any = (client.from("sales_product_day_agg") as any)
+    .select(
+      "tenant_id, store_id, day, product_id, product_code, product_name, brand, revenue_cents, item_count",
+    )
+    .eq("tenant_id", query.tenantId)
+    .gte("day", query.from)
+    .lte("day", query.to);
+
+  if (query.storeIds.length > 0) q = q.in("store_id", query.storeIds);
+
+  const ordered = q
+    .order("day", { ascending: true })
+    .order("store_id")
+    .order("product_id")
+    .order("brand");
+  return (await fetchAllPages<ProductDayRow>(ordered, "fetchSalesProductDayAggs")).map(mapProductDay);
+}
+
+let catalogDescriptions: Promise<string[]> | null = null;
+
+/** Descrições do catálogo de produtos (global, ~600 linhas) — base das linhas de produto. 1× por sessão. */
+export function fetchProductCatalogDescriptions(clientOverride?: SalesQueryClient): Promise<string[]> {
+  if (catalogDescriptions && !clientOverride) return catalogDescriptions;
+  const client = clientOrNull(clientOverride);
+  if (!client) return Promise.resolve([]);
+  const run = (async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const q: any = (client.from("product_catalog") as any).select("description").order("product_code");
+    const rows = await fetchAllPages<{ description: string | null }>(q, "fetchProductCatalogDescriptions");
+    return rows.map((r) => r.description ?? "").filter(Boolean);
+  })();
+  if (!clientOverride) {
+    catalogDescriptions = run;
+    // Falha de leitura volta vazia → tenta de novo no próximo carregamento.
+    void run.then((rows) => {
+      if (rows.length === 0) catalogDescriptions = null;
+    });
+  }
+  return run;
+}
+
+type ProductCostDayRow = {
+  tenant_id: string;
+  store_id: string;
+  day: string;
+  product_code: string;
+  item_count: number;
+  revenue_cents: number;
+  cmv_cents: number;
+};
+
+/** CMV diário por COD_PRODUTO (RELATORIOMARGEM). Falha de leitura → [] (colunas de custo ficam "—"). */
+export async function fetchSalesProductCostDayAggs(
+  query: SalesProductDayQuery,
+  clientOverride?: SalesQueryClient,
+): Promise<SalesProductCostDayAgg[]> {
+  const client = clientOrNull(clientOverride);
+  if (!client) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q: any = (client.from("sales_product_cost_day_agg") as any)
+    .select("tenant_id, store_id, day, product_code, item_count, revenue_cents, cmv_cents")
+    .eq("tenant_id", query.tenantId)
+    .gte("day", query.from)
+    .lte("day", query.to);
+
+  if (query.storeIds.length > 0) q = q.in("store_id", query.storeIds);
+
+  const ordered = q.order("day", { ascending: true }).order("store_id").order("product_code");
+  try {
+    const rows = await fetchAllPages<ProductCostDayRow>(ordered, "fetchSalesProductCostDayAggs");
+    return rows.map((r) => ({
+      tenantId: r.tenant_id,
+      storeId: r.store_id,
+      day: r.day,
+      productCode: String(r.product_code ?? "").trim(),
+      itemCount: Number(r.item_count) || 0,
+      revenueCents: Number(r.revenue_cents) || 0,
+      cmvCents: Number(r.cmv_cents) || 0,
+    }));
+  } catch (e) {
+    console.warn("fetchSalesProductCostDayAggs:", e);
+    return [];
+  }
 }
 
 /** Tenant watermark of last successful light sync. */
@@ -377,6 +689,30 @@ export type SyncJobWaitResult =
   | { status: "TIMEOUT" }
   | { status: "CANCELLED" };
 
+/** Uma leitura do status — usado ao voltar da aba (não piscar "Atualizando…" se já terminou). */
+export async function peekSyncJob(jobId: string): Promise<SyncJobWaitResult | null> {
+  const sb = getSupabase();
+  if (!sb) return { status: "FAILED", error: "supabase_unavailable" };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (sb.from("sync_job") as any)
+    .select("status, error")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (error) {
+    console.warn("peekSyncJob:", error.message ?? error);
+    return null;
+  }
+  if (!data) return null;
+  const row = data as { status?: string; error?: string | null };
+  const st = String(row.status ?? "");
+  if (st === "SUCCEEDED") return { status: "SUCCEEDED" };
+  if (st === "FAILED" || st === "CANCELLED") {
+    return { status: "FAILED", error: row.error ?? null };
+  }
+  // QUEUED / RUNNING / desconhecido — ainda em andamento
+  return null;
+}
+
 /**
  * Espera o sync_job chegar em SUCCEEDED/FAILED (poll).
  * FORCE pode demorar (Lista + DetMov); default 12 min.
@@ -468,22 +804,6 @@ export async function waitForLatestForceJob(
   return { status: "TIMEOUT" };
 }
 
-/** Enfileira RANGE para preencher dias faltantes no período (sem forçar hoje). */
-export async function requestRangeSync(opts: {
-  from: string;
-  to: string;
-}): Promise<{ ok: true; deduped?: boolean } | { ok: false; error: string }> {
-  const sb = getSupabase();
-  if (!sb) return { ok: false, error: "supabase_unavailable" };
-  const { data, error } = await sb.functions.invoke("erp-sync-enqueue", {
-    body: { action: "range", from: opts.from, to: opts.to },
-  });
-  const body = data as { ok?: boolean; error?: string; deduped?: boolean } | null;
-  if (body?.ok) return { ok: true, deduped: body.deduped };
-  if (error) return { ok: false, error: error.message ?? "enqueue_failed" };
-  return { ok: false, error: body?.error ?? "enqueue_failed" };
-}
-
 /** Status do job SEED mais recente (para tela de sincronização). */
 export async function fetchLatestSeedJob(
   tenantId: string,
@@ -518,6 +838,47 @@ export async function fetchLatestSeedJob(
   };
 }
 
+export type SeedWaitResult =
+  | { ok: true }
+  | { ok: false; reason: "failed" | "cancelled" | "stuck" | "timeout"; error: string | null };
+
+function isInternalSeedCancel(msg: string | null): boolean {
+  const t = (msg ?? "").toLowerCase();
+  return ["onboarding", "pausado", "reset", "worker reiniciado", "abandonado"].some((k) => t.includes(k));
+}
+
+/**
+ * Espera o SEED (Atualizar de hoje) pedido depois de `sinceIso` terminar.
+ * `stuck` = ficou na fila sem worker pegar; `cancelled` = cancelado pelo próprio worker (reenfileirar).
+ */
+export async function waitForSeedJob(
+  tenantId: string,
+  sinceIso: string,
+  opts: { pollMs?: number; queuedTimeoutMs?: number; timeoutMs?: number } = {},
+): Promise<SeedWaitResult> {
+  const pollMs = opts.pollMs ?? 2_000;
+  const queuedTimeoutMs = opts.queuedTimeoutMs ?? 90_000;
+  const timeoutMs = opts.timeoutMs ?? 5 * 60_000;
+  const since = new Date(sinceIso).getTime();
+  const start = Date.now();
+  for (;;) {
+    const job = await fetchLatestSeedJob(tenantId);
+    const current = job?.createdAt != null && new Date(job.createdAt).getTime() >= since - 5_000;
+    if (current && job) {
+      if (job.status === "SUCCEEDED") return { ok: true };
+      if (job.status === "FAILED") {
+        return { ok: false, reason: isInternalSeedCancel(job.error) ? "cancelled" : "failed", error: job.error };
+      }
+    }
+    const elapsed = Date.now() - start;
+    if ((!current || job?.status === "QUEUED") && elapsed >= queuedTimeoutMs) {
+      return { ok: false, reason: "stuck", error: null };
+    }
+    if (elapsed >= timeoutMs) return { ok: false, reason: "timeout", error: null };
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
+}
+
 /**
  * Libera pós-onboarding só quando:
  * 1) SEED mais recente está SUCCEEDED
@@ -540,7 +901,7 @@ export async function fetchSyncReady(
   if (seedFrom && seedTo) {
     const days = await countSalesDays(tenantId, seedFrom, seedTo, clientOverride);
     const { expectedDays } = seedCoverageWindow(seedTo);
-    const minDays = Math.max(2, Math.ceil(expectedDays * 0.9));
+    const minDays = Math.min(expectedDays, Math.max(2, Math.ceil(expectedDays * 0.9)));
     if (days < minDays) return false;
 
     const cov = await fetchSalesCoverage(tenantId, [], clientOverride);
@@ -558,22 +919,66 @@ export async function fetchSyncReady(
   return true;
 }
 
-/** Janela do SEED (início do mês anterior → hoje) + nº de dias do calendário. */
+/** Janela do SEED = só hoje (o resto do mês carrega por trás — ver `fetchMonthFill`). */
 export function seedCoverageWindow(todayIso: string): {
   from: string;
   to: string;
   expectedDays: number;
 } {
-  const [y, m] = todayIso.split("-").map(Number);
-  const prevMonth = m === 1 ? 12 : m - 1;
-  const prevYear = m === 1 ? y - 1 : y;
-  const from = `${prevYear}-${String(prevMonth).padStart(2, "0")}-01`;
-  const to = todayIso;
-  const a = Date.UTC(prevYear, prevMonth - 1, 1);
-  const [ty, tm, td] = to.split("-").map(Number);
-  const b = Date.UTC(ty, tm - 1, td);
-  const expectedDays = Math.floor((b - a) / 86_400_000) + 1;
-  return { from, to, expectedDays };
+  return { from: todayIso, to: todayIso, expectedDays: 1 };
+}
+
+/** Carga do mês pós-onboarding (jobs CLOSE com `fillUntil`), do dia mais recente para o dia 1. */
+export type MonthFill = {
+  /** Dia sendo carregado agora (ou o próximo da fila). Dias ≤ este ainda faltam. */
+  currentDay: string;
+  /** Dia 1 do mês (fim da carga). */
+  fillUntil: string;
+};
+
+/** Carga do mês em andamento, ou null quando não há nada na fila. */
+export async function fetchMonthFill(
+  tenantId: string,
+  clientOverride?: SalesQueryClient,
+): Promise<MonthFill | null> {
+  const client = clientOrNull(clientOverride);
+  if (!client) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (client.from("sync_job") as any)
+    .select("payload")
+    .eq("tenant_id", tenantId)
+    .eq("kind", "CLOSE")
+    .in("status", ["QUEUED", "RUNNING"])
+    .not("payload->>fillUntil", "is", null)
+    .is("payload->>deep", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.warn("fetchMonthFill:", error.message ?? error);
+    return null;
+  }
+  const payload = (data as { payload?: { to?: unknown; fillUntil?: unknown; progressDay?: unknown } } | null)
+    ?.payload;
+  if (typeof payload?.to !== "string" || typeof payload.fillUntil !== "string") return null;
+  // Job em período (mês inteiro): o worker grava o último dia concluído; falta o dia anterior a ele.
+  const currentDay =
+    typeof payload.progressDay === "string" ? previousIsoDay(payload.progressDay.slice(0, 10)) : payload.to.slice(0, 10);
+  return { currentDay, fillUntil: payload.fillUntil.slice(0, 10) };
+}
+
+function previousIsoDay(iso: string): string {
+  const d = new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10) - 1));
+  return d.toISOString().slice(0, 10);
+}
+
+/** Dias já carregados / total do mês (hoje conta como carregado). */
+export function monthFillProgress(fill: MonthFill, todayIso: string): { done: number; total: number } {
+  const toMs = (iso: string) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+  const DAY = 86_400_000;
+  const total = Math.round((toMs(todayIso) - toMs(fill.fillUntil)) / DAY) + 1;
+  const done = Math.round((toMs(todayIso) - toMs(fill.currentDay)) / DAY);
+  return { done: Math.max(0, Math.min(total, done)), total: Math.max(1, total) };
 }
 
 /** Dias distintos com venda no período (UI de progresso). */

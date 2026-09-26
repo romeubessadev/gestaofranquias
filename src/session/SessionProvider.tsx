@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useNavigate } from "react-router-dom";
 import type { User } from "@/data/wedash/team";
 import { getSupabase } from "@/lib/supabase";
+import { personName } from "@/lib/format";
 import { paths } from "@/router/paths";
 import {
   emRecovery,
@@ -11,6 +12,7 @@ import {
   sessionFromPersistedAuth,
 } from "@/session/authApi";
 import { roleLabel, sessionFromUser, type Session } from "@/session/session";
+import { clearSavedPeriod } from "@/session/periodStorage";
 
 export type { Session };
 export { roleLabel, sessionFromUser };
@@ -32,7 +34,7 @@ const Contexto = createContext<SessionContextValue | null>(null);
 function migrateLegacySession(raw: Record<string, unknown>): Session {
   return {
     membershipId: (raw.membershipId ?? raw.vinculoId) as string,
-    name: (raw.name ?? raw.nome) as string,
+    name: personName((raw.name ?? raw.nome) as string),
     cpf: raw.cpf as string,
     email: raw.email as string,
     role: raw.role as Session["role"],
@@ -82,88 +84,170 @@ function gravar(s: Session | null) {
   }
 }
 
+/** JWT do Supabase ainda no localStorage? (race PWA: getSession null com token presente) */
+function hasStoredAuthToken(): boolean {
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (!k || !k.startsWith("sb-") || !k.endsWith("-auth-token")) continue;
+      const v = window.localStorage.getItem(k);
+      if (v && v !== "null" && v.includes("access_token")) return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function mergeWithCache(fromAuth: Session, cached: Session | null): Session {
+  if (!cached || cached.membershipId !== fromAuth.membershipId) return fromAuth;
+  return {
+    ...fromAuth,
+    onboardingStep:
+      cached.onboardingStep === null
+        ? null
+        : fromAuth.onboardingStep === null
+          ? null
+          : Math.max(cached.onboardingStep, fromAuth.onboardingStep),
+    temporaryPassword: cached.temporaryPassword ? fromAuth.temporaryPassword : false,
+    companyName:
+      cached.companyName && cached.onboardingStep === null ? cached.companyName : fromAuth.companyName,
+    companySlug:
+      cached.companySlug && cached.onboardingStep === null ? cached.companySlug : fromAuth.companySlug,
+    companyLogoUrl:
+      cached.onboardingStep === null && cached.companyLogoUrl !== undefined
+        ? cached.companyLogoUrl
+        : fromAuth.companyLogoUrl,
+    appInstalled: cached.appInstalled || fromAuth.appInstalled,
+  };
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
-  const [session, setSession] = useState<Session | null>(null);
+  // PWA: restaurar cache na 1ª paint — senão / e RequireSession bounce pro login.
+  const [session, setSession] = useState<Session | null>(() =>
+    typeof window !== "undefined" ? ler() : null,
+  );
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let cancel = false;
     let unsub: (() => void) | undefined;
+    let bootDone = false;
+
+    const finishBoot = () => {
+      if (bootDone || cancel) return;
+      bootDone = true;
+      setReady(true);
+    };
 
     (async () => {
       const sb = getSupabase();
-      if (sb) {
-        const fromAuth = await sessionFromPersistedAuth();
+      if (!sb) {
+        if (!cancel) {
+          setSession(ler());
+          setReady(true);
+        }
+        return;
+      }
+
+      const cached = ler();
+      if (cached) setSession(cached);
+
+      // Fonte de verdade no boot = onAuthStateChange (INITIAL_SESSION).
+      // NÃO chamar getSession antes do listener: no PWA costuma vir null e
+      // apagar wedash-session / mandar pro login.
+      const { data } = sb.auth.onAuthStateChange(async (event, authSession) => {
         if (cancel) return;
-        setSession(fromAuth);
-        gravar(fromAuth);
-        setReady(true);
-        const { data } = sb.auth.onAuthStateChange(async (event) => {
-          if (cancel) return;
-          if (event === "PASSWORD_RECOVERY") {
-            marcarRecovery();
+
+        if (event === "PASSWORD_RECOVERY") {
+          marcarRecovery();
+          setSession(null);
+          gravar(null);
+          finishBoot();
+          navigate(paths.access.reset, { replace: true });
+          return;
+        }
+
+        if (event === "SIGNED_OUT") {
+          limparRecovery();
+          setSession(null);
+          gravar(null);
+          finishBoot();
+          return;
+        }
+
+        if (event === "TOKEN_REFRESHED") {
+          // Só JWT — não reidrata (preserva onboarding local).
+          return;
+        }
+
+        if (
+          event === "INITIAL_SESSION" ||
+          event === "SIGNED_IN" ||
+          event === "USER_UPDATED"
+        ) {
+          if (emRecovery()) {
             setSession(null);
             gravar(null);
-            navigate(paths.access.reset, { replace: true });
+            finishBoot();
             return;
           }
-          if (event === "SIGNED_OUT") {
-            limparRecovery();
-            // Millennium permanece conectado até Configurações > Integração ERP.
-            setSession(null);
-            gravar(null);
-            return;
-          }
-          if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
-            if (emRecovery()) {
-              setSession(null);
-              gravar(null);
-              return;
-            }
-            // TOKEN_REFRESHED só renova JWT — não reidratar do banco (apaga progresso
-            // local do onboarding, ex.: etapa 2 → volta pra 1).
-            if (event === "TOKEN_REFRESHED") return;
-            const s = await sessionFromPersistedAuth();
-            if (cancel) return;
-            setSession((atual) => {
-              if (!s) return null;
-              if (!atual) {
-                gravar(s);
-                return s;
+
+          if (!authSession?.user) {
+            // INITIAL_SESSION null: race comum no PWA / tab resume.
+            // Se ainda há token ou cache, NÃO desloga.
+            if (event === "INITIAL_SESSION") {
+              if (hasStoredAuthToken() || cached) {
+                const retry = await sb.auth.getSession();
+                if (cancel) return;
+                if (retry.data.session?.user) {
+                  const s = await sessionFromPersistedAuth();
+                  if (cancel) return;
+                  if (s) {
+                    const merged = mergeWithCache(s, cached);
+                    setSession(merged);
+                    gravar(merged);
+                  } else {
+                    setSession(cached);
+                  }
+                } else if (cached && hasStoredAuthToken()) {
+                  setSession(cached);
+                } else if (!hasStoredAuthToken()) {
+                  setSession(null);
+                  gravar(null);
+                } else {
+                  setSession(cached);
+                }
+              } else {
+                setSession(null);
               }
-              // Preserva progresso local à frente do banco; null local = concluído (não reabrir).
-              const step =
-                atual.onboardingStep === null
-                  ? null
-                  : s.onboardingStep === null
-                    ? null
-                    : Math.max(atual.onboardingStep, s.onboardingStep);
-              const merged: Session = {
-                ...s,
-                onboardingStep: step,
-                // Se o usuário já trocou a senha nesta sessão, não reativar o gate.
-                temporaryPassword: atual.temporaryPassword ? s.temporaryPassword : false,
-                // Marca gravada no onboarding nesta sessão (antes do reload do banco).
-                companyName: atual.companyName && atual.onboardingStep === null ? atual.companyName : s.companyName,
-                companySlug: atual.companySlug && atual.onboardingStep === null ? atual.companySlug : s.companySlug,
-                companyLogoUrl:
-                  atual.onboardingStep === null && atual.companyLogoUrl !== undefined
-                    ? atual.companyLogoUrl
-                    : s.companyLogoUrl,
-              };
+              finishBoot();
+            }
+            return;
+          }
+
+          const s = await sessionFromPersistedAuth();
+          if (cancel) return;
+          if (s) {
+            setSession((atual) => {
+              const merged = mergeWithCache(s, atual ?? cached);
               gravar(merged);
               return merged;
             });
+          } else {
+            // JWT ok, hydrate falhou (rede) — manter cache.
+            setSession((atual) => atual ?? cached ?? ler());
           }
-        });
-        unsub = () => data.subscription.unsubscribe();
-        return;
-      }
-      if (!cancel) {
-        setSession(ler());
-        setReady(true);
-      }
+          finishBoot();
+        }
+      });
+      unsub = () => data.subscription.unsubscribe();
+
+      // Safety: se INITIAL_SESSION nunca vier, não trava a UI.
+      window.setTimeout(() => {
+        if (!cancel) finishBoot();
+      }, 2500);
     })();
 
     return () => {
@@ -186,6 +270,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(() => {
     // Não desconecta Millennium — só Configurações > Integração ERP.
+    clearSavedPeriod();
     setSession(null);
     gravar(null);
     void logoutAuth();

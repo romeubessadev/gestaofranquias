@@ -1,5 +1,9 @@
+import { defaultWeekHours, openHourFloor, closeHourCeil, parseWeekHours, type StoreWeekHours } from "./storeHours";
+import { personName } from "@/lib/format";
+
 export type PointType = "SHOPPING" | "RUA";
 export type Division = "WEPINK" | "WPINK";
+export type { StoreWeekHours };
 
 export interface Store {
   id: string;
@@ -14,16 +18,101 @@ export interface Store {
   pointType: PointType;
   temWpink: boolean;
   fuso: string;
-  /** Hora de abertura e fechamento (hora cheia). */
+  /** Horário por dia (0=dom..6=sáb). Fonte de verdade para eixos de hora. */
+  horas: StoreWeekHours;
+  /** Derivado do horário de hoje / primeira janela aberta — compat charts legados. */
   abertura: number;
   fechamento: number;
   /** Dias da semana fechados (0 = domingo). */
   diasFechados: number[];
   dataInauguracao: string;
+  /** Custos da operação (Configurações > Lojas). Ausente/null = não configurado. */
+  custos?: StoreCosts;
+}
+
+/** % sobre o faturamento da marca; aluguel fixo em R$/mês. null = não configurado. */
+export interface StoreCosts {
+  royaltiesWepinkPct: number | null;
+  royaltiesWpinkPct: number | null;
+  marketingWepinkPct: number | null;
+  marketingWpinkPct: number | null;
+  rentWepinkPct: number | null;
+  rentWpinkPct: number | null;
+  rentFixed: number | null;
+  /** ICMS % sobre o faturamento da loja (as duas marcas). */
+  icmsPct: number | null;
+  /** ICMS ST % sobre o custo dos produtos vendidos (CMV). */
+  icmsStPct: number | null;
+}
+
+export const EMPTY_STORE_COSTS: StoreCosts = {
+  royaltiesWepinkPct: null,
+  royaltiesWpinkPct: null,
+  marketingWepinkPct: null,
+  marketingWpinkPct: null,
+  rentWepinkPct: null,
+  rentWpinkPct: null,
+  rentFixed: null,
+  icmsPct: null,
+  icmsStPct: null,
+};
+
+/** Campos obrigatórios da loja (WPINK só se a loja vende WPINK). */
+export function storeCostsPending(s: Store): boolean {
+  const c = s.custos ?? EMPTY_STORE_COSTS;
+  const base = [c.royaltiesWepinkPct, c.marketingWepinkPct, c.rentWepinkPct, c.rentFixed];
+  const wpink = s.temWpink ? [c.royaltiesWpinkPct, c.marketingWpinkPct, c.rentWpinkPct] : [];
+  return [...base, ...wpink].some((v) => v == null);
+}
+
+function derivedOpenClose(horas: StoreWeekHours): {
+  abertura: number;
+  fechamento: number;
+  diasFechados: number[];
+} {
+  const diasFechados: number[] = [];
+  let abertura = 24;
+  let fechamento = 0;
+  for (let d = 0; d <= 6; d++) {
+    const day = horas[d as 0 | 1 | 2 | 3 | 4 | 5 | 6];
+    if (!day) {
+      diasFechados.push(d);
+      continue;
+    }
+    const a = openHourFloor(day);
+    const c = closeHourCeil(day);
+    if (a == null || c == null) continue;
+    abertura = Math.min(abertura, a);
+    fechamento = Math.max(fechamento, c);
+  }
+  if (abertura >= fechamento) {
+    abertura = 9;
+    fechamento = 21;
+  }
+  return { abertura, fechamento, diasFechados };
+}
+
+function withHours(
+  base: Omit<Store, "horas" | "abertura" | "fechamento" | "diasFechados"> & {
+    horas?: StoreWeekHours;
+    abertura?: number;
+    fechamento?: number;
+    diasFechados?: number[];
+  },
+): Store {
+  const horas = base.horas ?? defaultWeekHours();
+  const der = derivedOpenClose(horas);
+  return {
+    ...base,
+    horas,
+    abertura: base.abertura ?? der.abertura,
+    fechamento: base.fechamento ?? der.fechamento,
+    diasFechados: base.diasFechados ?? der.diasFechados,
+  };
 }
 
 export const stores: Store[] = [
-  {
+  withHours({
     id: "f1",
     millenniumFilial: 8,
     codFilial: "00008",
@@ -36,12 +125,18 @@ export const stores: Store[] = [
     pointType: "SHOPPING",
     temWpink: false,
     fuso: "America/Campo_Grande",
-    abertura: 10,
-    fechamento: 22,
-    diasFechados: [],
+    horas: {
+      0: { open: "12:00", close: "20:00" },
+      1: { open: "10:00", close: "22:00" },
+      2: { open: "10:00", close: "22:00" },
+      3: { open: "10:00", close: "22:00" },
+      4: { open: "10:00", close: "22:00" },
+      5: { open: "10:00", close: "22:00" },
+      6: { open: "10:00", close: "22:00" },
+    },
     dataInauguracao: "2024-03-14",
-  },
-  {
+  }),
+  withHours({
     id: "f2",
     millenniumFilial: 10,
     codFilial: "00010",
@@ -54,11 +149,17 @@ export const stores: Store[] = [
     pointType: "RUA",
     temWpink: true,
     fuso: "America/Campo_Grande",
-    abertura: 8,
-    fechamento: 18,
-    diasFechados: [0],
+    horas: {
+      0: null,
+      1: { open: "08:00", close: "18:00" },
+      2: { open: "08:00", close: "18:00" },
+      3: { open: "08:00", close: "18:00" },
+      4: { open: "08:00", close: "18:00" },
+      5: { open: "08:00", close: "18:00" },
+      6: { open: "08:00", close: "18:00" },
+    },
     dataInauguracao: "2025-06-02",
-  },
+  }),
 ];
 
 export function storeById(id: string): Store {
@@ -91,24 +192,23 @@ export function storeIdsFromErp(
     }
     const id = `erp-${e.storeId}`;
     if (!ids.includes(id)) ids.push(id);
-    registerExtraStore({
-      id,
-      millenniumFilial: e.storeId,
-      codFilial: e.code ?? String(e.storeId).padStart(5, "0"),
-      nome: e.name ?? e.tradeName ?? id,
-      fantasia: e.tradeName ?? e.name ?? id,
-      cnpj: e.taxId ?? "",
-      cidade: e.city ?? "",
-      uf: e.state ?? "",
-      tipo: e.type ?? "F",
-      pointType: "RUA",
-      temWpink: Boolean(e.hasWpink),
-      fuso: "America/Sao_Paulo",
-      abertura: 9,
-      fechamento: 21,
-      diasFechados: [0],
-      dataInauguracao: e.openedAt ?? "2024-01-01",
-    });
+    registerExtraStore(
+      withHours({
+        id,
+        millenniumFilial: e.storeId,
+        codFilial: e.code ?? String(e.storeId).padStart(5, "0"),
+        nome: e.name ?? e.tradeName ?? id,
+        fantasia: e.tradeName ?? e.name ?? id,
+        cnpj: formatCnpjDisplay(e.taxId ?? ""),
+        cidade: e.city ?? "",
+        uf: e.state ?? "",
+        tipo: e.type ?? "F",
+        pointType: "RUA",
+        temWpink: Boolean(e.hasWpink),
+        fuso: "America/Sao_Paulo",
+        dataInauguracao: e.openedAt ?? "2024-01-01",
+      }),
+    );
   }
   return ids;
 }
@@ -120,16 +220,23 @@ function lerExtras(): Store[] {
     const raw = window.localStorage.getItem(CHAVE_EXTRAS);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as Store[];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((s) =>
+      withHours({
+        ...s,
+        horas: s.horas ? parseWeekHours(s.horas) : defaultWeekHours(),
+      }),
+    );
   } catch {
     return [];
   }
 }
 
-function registerExtraStore(f: Store) {
+function registerExtraStore(f: Store, opts?: { silent?: boolean }) {
   try {
     const atuais = lerExtras().filter((x) => x.id !== f.id);
     window.localStorage.setItem(CHAVE_EXTRAS, JSON.stringify([...atuais, f]));
+    if (!opts?.silent) window.dispatchEvent(new Event("wedash:stores"));
   } catch {
     /* ignore */
   }
@@ -167,71 +274,376 @@ function rowToStore(r: {
   code: string | null;
   name: string | null;
   trade_name: string | null;
+  tax_id?: string | null;
   timezone: string | null;
   opened_at?: string | null;
+  has_wpink?: boolean | null;
+  hours?: unknown;
+  royalties_wepink_pct?: number | string | null;
+  royalties_wpink_pct?: number | string | null;
+  marketing_wepink_pct?: number | string | null;
+  marketing_wpink_pct?: number | string | null;
+  rent_wepink_pct?: number | string | null;
+  rent_wpink_pct?: number | string | null;
+  rent_fixed_cents?: number | string | null;
+  icms_pct?: number | string | null;
+  icms_st_pct?: number | string | null;
 }): Store {
-  return {
+  const horas = parseWeekHours(r.hours);
+  const num = (v: number | string | null | undefined) => (v == null || v === "" ? null : Number(v));
+  const rentCents = num(r.rent_fixed_cents);
+  return withHours({
     id: r.id,
     millenniumFilial: r.millennium_store_id,
     codFilial: r.code || String(r.millennium_store_id).padStart(5, "0"),
     nome: r.name || r.trade_name || r.code || r.id,
     fantasia: r.trade_name || r.name || r.code || r.id,
-    cnpj: "",
+    cnpj: formatCnpjDisplay(r.tax_id ?? ""),
     cidade: "",
     uf: "",
     tipo: "F",
     pointType: "RUA",
-    temWpink: false,
+    temWpink: Boolean(r.has_wpink),
     fuso: r.timezone || "America/Campo_Grande",
-    abertura: 9,
-    fechamento: 21,
-    diasFechados: [0],
+    horas,
     dataInauguracao: r.opened_at ? String(r.opened_at).slice(0, 10) : "2024-01-01",
-  };
+    custos: {
+      royaltiesWepinkPct: num(r.royalties_wepink_pct),
+      royaltiesWpinkPct: num(r.royalties_wpink_pct),
+      marketingWepinkPct: num(r.marketing_wepink_pct),
+      marketingWpinkPct: num(r.marketing_wpink_pct),
+      rentWepinkPct: num(r.rent_wepink_pct),
+      rentWpinkPct: num(r.rent_wpink_pct),
+      rentFixed: rentCents == null ? null : rentCents / 100,
+      icmsPct: num(r.icms_pct),
+      icmsStPct: num(r.icms_st_pct),
+    },
+  });
+}
+
+const STORE_COST_COLUMNS =
+  "royalties_wepink_pct, royalties_wpink_pct, marketing_wepink_pct, marketing_wpink_pct, rent_wepink_pct, rent_wpink_pct, rent_fixed_cents";
+const STORE_TAX_COLUMNS = "icms_pct, icms_st_pct";
+
+/**
+ * Filtro de marca só faz sentido se alguma loja do escopo tem WPINK.
+ * `filialIds` vazio = rede (usa sessionStoreIds).
+ */
+export function scopeShowsBrandPicker(filialIds: string[], sessionStoreIds: string[]): boolean {
+  const ids = filialIds.length > 0 ? filialIds : sessionStoreIds;
+  if (ids.length === 0) return false;
+  const byId = new Map(storesForSession(sessionStoreIds).map((s) => [s.id, s]));
+  return ids.some((id) => byId.get(id)?.temWpink === true);
+}
+
+/** Formata CNPJ 14 dígitos; se já vier mascarado, devolve como está. */
+export function formatCnpjDisplay(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length !== 14) return raw.trim();
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
 }
 
 /**
  * Carrega lojas do Postgres (UUIDs da membership) e registra no catálogo local.
  * Sem isso o StorePicker cai no mock f1/f2 e o useScope rejeita a seleção.
  */
-export async function hydrateSessionStores(
-  tenantId: string,
-  sessionStoreIds: string[],
-): Promise<Store[]> {
+export async function hydrateSessionStores(tenantId: string, sessionStoreIds: string[]): Promise<Store[]> {
   if (sessionStoreIds.length === 0) return [];
   const already = storesForSession(sessionStoreIds);
-  if (already.length === sessionStoreIds.length) return already;
 
   try {
     const { getSupabase } = await import("@/lib/supabase");
     const sb = getSupabase();
     if (!sb) return already;
 
-    let q = sb
-      .from("store")
-      .select("id, millennium_store_id, code, name, trade_name, timezone, opened_at")
-      .eq("tenant_id", tenantId)
-      .eq("active", true);
-    if (sessionStoreIds.length > 0) q = q.in("id", sessionStoreIds);
+    const baseCols = "id, millennium_store_id, code, name, trade_name, tax_id, timezone, opened_at, has_wpink, hours";
+    const query = (cols: string) =>
+      sb
+        .from("store")
+        .select(cols)
+        .eq("tenant_id", tenantId)
+        .eq("active", true)
+        .in("id", sessionStoreIds)
+        .order("code");
 
-    const { data, error } = await q.order("code");
+    let { data, error } = await query(`${baseCols}, ${STORE_COST_COLUMNS}, ${STORE_TAX_COLUMNS}`);
+    // Banco sem as migrations de impostos/custos: segue sem eles em vez de cair no mock.
+    if (error?.code === "42703") ({ data, error } = await query(`${baseCols}, ${STORE_COST_COLUMNS}`));
+    if (error?.code === "42703") ({ data, error } = await query(baseCols));
     if (error || !data?.length) {
       if (error) console.warn("hydrateSessionStores:", error.message);
       return already;
     }
 
-    const out: Store[] = [];
-    for (const raw of data) {
-      const s = rowToStore(raw as Parameters<typeof rowToStore>[0]);
-      registerExtraStore(s);
-      out.push(s);
+    const out: Store[] = (data as unknown as Parameters<typeof rowToStore>[0][]).map(rowToStore);
+    // Substitui o catálogo local: lojas de resets/reseeds antigos (com horário
+    // padrão 9–21) não podem continuar entrando em "Todas" e nos eixos de hora.
+    try {
+      window.localStorage.setItem(CHAVE_EXTRAS, JSON.stringify(out));
+    } catch {
+      /* ignore */
     }
+    if (out.length > 0) window.dispatchEvent(new Event("wedash:stores"));
     return out.length > 0 ? out : already;
   } catch (e) {
     console.warn("hydrateSessionStores:", e);
     return already;
   }
 }
+
+/** Persiste fuso + horário semanal (Configurações > Lojas). */
+export async function updateStoreSchedule(args: {
+  storeId: string;
+  timezone: string;
+  hours: StoreWeekHours;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const { getSupabase } = await import("@/lib/supabase");
+    const sb = getSupabase();
+    if (!sb) return { ok: false, error: "Supabase não configurado" };
+
+    const payloadHours: Record<string, DayHoursJson> = {};
+    for (let d = 0; d <= 6; d++) {
+      payloadHours[String(d)] = args.hours[d as 0 | 1 | 2 | 3 | 4 | 5 | 6];
+    }
+
+    const { error } = await sb
+      .from("store")
+      .update({ timezone: args.timezone, hours: payloadHours })
+      .eq("id", args.storeId);
+
+    if (error) return { ok: false, error: error.message };
+
+    const existing = allStores().find((s) => s.id === args.storeId);
+    if (existing) {
+      registerExtraStore(
+        withHours({
+          ...existing,
+          fuso: args.timezone,
+          horas: args.hours,
+        }),
+      );
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Persiste custos da operação da loja (Configurações > Lojas > Custos). */
+export async function updateStoreCosts(
+  storeId: string,
+  custos: StoreCosts,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const { getSupabase } = await import("@/lib/supabase");
+    const sb = getSupabase();
+    if (!sb) return { ok: false, error: "Supabase não configurado" };
+
+    const { error } = await sb
+      .from("store")
+      .update({
+        royalties_wepink_pct: custos.royaltiesWepinkPct,
+        royalties_wpink_pct: custos.royaltiesWpinkPct,
+        marketing_wepink_pct: custos.marketingWepinkPct,
+        marketing_wpink_pct: custos.marketingWpinkPct,
+        rent_wepink_pct: custos.rentWepinkPct,
+        rent_wpink_pct: custos.rentWpinkPct,
+        rent_fixed_cents: custos.rentFixed == null ? null : Math.round(custos.rentFixed * 100),
+        icms_pct: custos.icmsPct,
+        icms_st_pct: custos.icmsStPct,
+      })
+      .eq("id", storeId);
+    if (error) return { ok: false, error: error.message };
+
+    const existing = allStores().find((s) => s.id === storeId);
+    if (existing) registerExtraStore({ ...existing, custos });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export interface StoreSeller {
+  id: string;
+  name: string;
+  /** COD_FUNCIONARIO no Millennium. */
+  code: string | null;
+  /** false = desativada / afastada / oculta no caixa no ERP. */
+  active: boolean;
+  /** CARGO no Millennium (upper); "" = sem cargo no ERP; null = ainda não sincronizado com cargo. */
+  role: string | null;
+  syncedAt: string;
+  /** Turno (store_shift.id) definido na WeDash; null = sem turno. */
+  shiftId: string | null;
+}
+
+export const SELLER_ROLE = "VENDEDOR";
+
+/** Na equipe de vendas agora: ativo com cargo VENDEDOR (gerência / conta de freelancer fica fora). */
+export function isActiveSalesPerson(s: Pick<StoreSeller, "active" | "role">): boolean {
+  return s.active && (s.role == null || s.role === SELLER_ROLE);
+}
+
+/**
+ * Funcionários por loja sincronizados do Millennium (`store_seller`); equipe de vendas = `isActiveSalesPerson`.
+ * Só quem ainda está na lista do ERP; ativas primeiro, depois por nome.
+ */
+export async function fetchStoreSellers(tenantId: string, storeIds: string[]): Promise<Map<string, StoreSeller[]>> {
+  const out = new Map<string, StoreSeller[]>();
+  if (storeIds.length === 0) return out;
+  const { getSupabase } = await import("@/lib/supabase");
+  const sb = getSupabase();
+  if (!sb) return out;
+
+  const query = (cols: string) =>
+    sb
+      .from("store_seller")
+      .select(cols)
+      .eq("tenant_id", tenantId)
+      .in("store_id", storeIds)
+      .eq("in_erp", true)
+      .order("active", { ascending: false })
+      .order("name")
+      .limit(2000);
+  const base = "id, store_id, name, code, active, erp_role, synced_at";
+  let { data, error } = await query(`${base}, shift_id`);
+  // Migration de turnos ainda não aplicada → lista sem turno.
+  if (error?.code === "42703") ({ data, error } = await query(base));
+  if (error) {
+    console.warn("fetchStoreSellers:", error.message);
+    return out;
+  }
+  type Row = {
+    id: string;
+    store_id: string;
+    name: string;
+    code: string | null;
+    active: boolean;
+    erp_role: string | null;
+    synced_at: string;
+    shift_id?: string | null;
+  };
+  for (const r of (data ?? []) as unknown as Row[]) {
+    const list = out.get(r.store_id) ?? [];
+    list.push({
+      id: r.id,
+      name: personName(r.name),
+      code: r.code,
+      active: r.active,
+      role: r.erp_role ?? null,
+      syncedAt: r.synced_at,
+      shiftId: r.shift_id ?? null,
+    });
+    out.set(r.store_id, list);
+  }
+  return out;
+}
+
+/** Turno da loja (Configurações > Lojas > Turnos). Horas em HH:MM local da loja. */
+export interface StoreShift {
+  id: string;
+  name: string;
+  start: string;
+  end: string;
+}
+
+type WriteResult = { ok: true } | { ok: false; error: string };
+
+export async function fetchStoreShifts(tenantId: string, storeId: string): Promise<StoreShift[]> {
+  const { getSupabase } = await import("@/lib/supabase");
+  const sb = getSupabase();
+  if (!sb) return [];
+  const { data, error } = await sb
+    .from("store_shift")
+    .select("id, name, start_time, end_time")
+    .eq("tenant_id", tenantId)
+    .eq("store_id", storeId)
+    .order("start_time");
+  if (error) {
+    console.warn("fetchStoreShifts:", error.message);
+    return [];
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    start: String(r.start_time).slice(0, 5),
+    end: String(r.end_time).slice(0, 5),
+  }));
+}
+
+export async function saveStoreShift(args: {
+  tenantId: string;
+  storeId: string;
+  shift: Omit<StoreShift, "id"> & { id?: string };
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const { getSupabase } = await import("@/lib/supabase");
+  const sb = getSupabase();
+  if (!sb) return { ok: false, error: "Supabase não configurado" };
+  const row = { name: args.shift.name.trim(), start_time: args.shift.start, end_time: args.shift.end };
+  const { data, error } = args.shift.id
+    ? await sb.from("store_shift").update(row).eq("id", args.shift.id).select("id").single()
+    : await sb
+        .from("store_shift")
+        .insert({ ...row, tenant_id: args.tenantId, store_id: args.storeId })
+        .select("id")
+        .single();
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, id: data.id };
+}
+
+/** Excluir o turno deixa as vendedoras dele sem turno (FK on delete set null). */
+export async function deleteStoreShift(id: string): Promise<WriteResult> {
+  const { getSupabase } = await import("@/lib/supabase");
+  const sb = getSupabase();
+  if (!sb) return { ok: false, error: "Supabase não configurado" };
+  const { error } = await sb.from("store_shift").delete().eq("id", id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+export async function setSellerShift(sellerId: string, shiftId: string | null): Promise<WriteResult> {
+  const { getSupabase } = await import("@/lib/supabase");
+  const sb = getSupabase();
+  if (!sb) return { ok: false, error: "Supabase não configurado" };
+  const { error } = await sb.from("store_seller").update({ shift_id: shiftId }).eq("id", sellerId);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+const SYNC_SELLERS_ERRORS: Record<string, string> = {
+  credential_missing: "Conecte o Millennium em Configurações > Integrações.",
+  credential_invalid: "Senha do Millennium inválida. Reconecte em Configurações > Integrações.",
+  integration_paused: "Integração desconectada. Conecte o Millennium em Configurações > Integrações.",
+  erp_busy: "Millennium ocupado (limite de sessões). Tente de novo em instantes.",
+  forbidden: "Seu perfil não pode atualizar a equipe de vendas.",
+};
+
+/** Busca as vendedoras da loja no Millennium agora (Edge `erp-sellers-sync`) e grava em `store_seller`. */
+export async function syncStoreSellersNow(storeId: string): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { getSupabase } = await import("@/lib/supabase");
+  const sb = getSupabase();
+  if (!sb) return { ok: false, message: "Sem conexão com o servidor." };
+
+  const { data, error } = await sb.functions.invoke("erp-sellers-sync", { body: { storeId } });
+  let body = data as { ok?: boolean; error?: string } | null;
+  if ((!body || typeof body !== "object") && error && typeof error === "object") {
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === "function") {
+      try {
+        body = (await ctx.json()) as typeof body;
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  if (body?.ok === true) return { ok: true };
+  const code = body?.error ?? "";
+  return {
+    ok: false,
+    message: SYNC_SELLERS_ERRORS[code] ?? "Não foi possível buscar a equipe de vendas no Millennium. Tente de novo.",
+  };
+}
+
+type DayHoursJson = { open: string; close: string } | null;
 
 export interface Grupo {
   id: string;

@@ -385,7 +385,12 @@ function UserModal({
         {!user && (
           <>
             <FormField label="Nome" required>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome e sobrenome" autoFocus />
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value.toLocaleUpperCase("pt-BR"))}
+                placeholder="NOME E SOBRENOME"
+                autoFocus
+              />
             </FormField>
             <FormField label="E-mail" required hint="O convite chega neste e-mail, com o link para criar a senha.">
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@empresa.com" />

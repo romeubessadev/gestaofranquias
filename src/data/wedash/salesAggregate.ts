@@ -5,7 +5,9 @@ import type {
   SalesDayAgg,
   SalesHourAgg,
   SalesPaymentDayAgg,
+  SalesSellerDayAgg,
 } from "./salesTypes";
+import { personName } from "../../lib/format";
 
 export type AggregateSalesOptions = {
   tenantId: string;
@@ -25,6 +27,7 @@ export type AggregateSalesOptions = {
 type DayKey = string;
 type HourKey = string;
 type PayKey = string;
+type SellerKey = string;
 
 type DayBucket = {
   storeId: string;
@@ -42,6 +45,17 @@ type PayBucket = {
   day: string;
   paymentMethod: string;
   revenueCents: number;
+  ops: Set<string>;
+};
+
+type SellerBucket = {
+  storeId: string;
+  day: string;
+  sellerKey: string;
+  sellerName: string;
+  sellerGeradorId: number | null;
+  revenueCents: number;
+  itemCount: number;
   ops: Set<string>;
 };
 
@@ -77,6 +91,31 @@ function hourKey(storeId: string, day: string, hour: number, brand: SalesBrand):
 
 function payKey(storeId: string, day: string, method: string): PayKey {
   return `${storeId}|${day}|${method}`;
+}
+
+function sellerBucketKey(storeId: string, day: string, key: string): SellerKey {
+  return `${storeId}|${day}|${key}`;
+}
+
+/**
+ * Chave estável do nome da vendedora (trim, sem acento, upper, espaços colapsados).
+ * Vazio → null (fora do ranking; permanece no faturamento da loja).
+ */
+export function sellerKeyFromName(raw: string | null | undefined): string | null {
+  const s = (raw ?? "").trim();
+  if (!s) return null;
+  const key = s
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  return key || null;
+}
+
+/** Rótulo de UI a partir do nome bruto do ERP (geralmente ALL CAPS). */
+export function sellerDisplayName(raw: string): string {
+  return personName(raw);
 }
 
 /**
@@ -258,5 +297,65 @@ export function aggregatePaymentDay(
         a.day.localeCompare(b.day) ||
         a.storeId.localeCompare(b.storeId) ||
         a.paymentMethod.localeCompare(b.paymentMethod, "pt-BR"),
+    );
+}
+
+/**
+ * Agrega receita por vendedora (dia × loja). brand sempre ALL.
+ * Sem nome (sellerKey null) → ignora — fica no fat. da loja, fora do ranking.
+ */
+export function aggregateSellerDay(
+  rows: SaleRow[],
+  opts: AggregateSalesOptions,
+): SalesSellerDayAgg[] {
+  const map = new Map<SellerKey, SellerBucket>();
+
+  for (const row of rows) {
+    let { day } = localDayHour(row.occurredAt, opts.timeZone);
+    if (opts.dayTo && day > opts.dayTo) continue;
+    if (opts.dayFrom && day < opts.dayFrom) day = opts.dayFrom;
+
+    const key = sellerKeyFromName(row.sellerName);
+    if (!key) continue;
+    const display = sellerDisplayName(row.sellerName ?? key);
+    const sk = sellerBucketKey(row.storeId, day, key);
+    let bucket = map.get(sk);
+    if (!bucket) {
+      bucket = {
+        storeId: row.storeId,
+        day,
+        sellerKey: key,
+        sellerName: display,
+        sellerGeradorId: null,
+        revenueCents: 0,
+        itemCount: 0,
+        ops: new Set(),
+      };
+      map.set(sk, bucket);
+    }
+    if (bucket.sellerGeradorId == null && row.sellerGeradorId != null) bucket.sellerGeradorId = row.sellerGeradorId;
+    bucket.revenueCents += row.revenueCents;
+    bucket.itemCount += row.itemQty;
+    bucket.ops.add(row.operationCode);
+  }
+
+  return [...map.values()]
+    .map((b) => ({
+      tenantId: opts.tenantId,
+      storeId: b.storeId,
+      day: b.day,
+      sellerKey: b.sellerKey,
+      sellerName: b.sellerName,
+      ...(b.sellerGeradorId != null ? { sellerGeradorId: b.sellerGeradorId } : {}),
+      brand: "ALL" as const,
+      revenueCents: b.revenueCents,
+      salesCount: b.ops.size,
+      itemCount: b.itemCount,
+    }))
+    .sort(
+      (a, b) =>
+        a.day.localeCompare(b.day) ||
+        a.storeId.localeCompare(b.storeId) ||
+        a.sellerKey.localeCompare(b.sellerKey),
     );
 }
