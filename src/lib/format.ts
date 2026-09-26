@@ -26,8 +26,8 @@ export function labelUpper(s: string): string {
   return s.trim().toLocaleUpperCase("pt-BR");
 }
 
-/** Exibição de nome de pessoa (usuário, equipe de vendas, perfil): sempre em caixa alta. Gravar só com trim. */
-export function personName(s: string | null | undefined): string {
+/** Exibição de texto livre digitado (nome de pessoa, turno, empresa): sempre em caixa alta. Gravar só com trim. */
+export function upperText(s: string | null | undefined): string {
   return (s ?? "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
 }
 

@@ -1,5 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
-import { personName } from "@/lib/format";
+import { upperText } from "@/lib/format";
 import type {
   SalesBrand,
   SalesCategoryDayAgg,
@@ -177,7 +177,7 @@ function mapSellerDay(r: SellerDayRow): SalesSellerDayAgg {
     storeId: r.store_id,
     day: r.day,
     sellerKey: String(r.seller_key ?? ""),
-    sellerName: personName(String(r.seller_name ?? "") || String(r.seller_key ?? "")),
+    sellerName: upperText(String(r.seller_name ?? "") || String(r.seller_key ?? "")),
     sellerEmployeeId: r.seller_employee_id == null ? null : Number(r.seller_employee_id),
     sellerGeradorId: r.seller_gerador_id == null ? null : Number(r.seller_gerador_id),
     brand: r.brand,
@@ -453,7 +453,7 @@ export async function fetchSellerShifts(
       employeeId: r.millennium_employee_id == null ? null : Number(r.millennium_employee_id),
       geradorId: r.millennium_gerador_id == null ? null : Number(r.millennium_gerador_id),
       nameKeys: r.name_keys ?? [],
-      name: r.store_shift.name,
+      name: upperText(r.store_shift.name),
       start: String(r.store_shift.start_time).slice(0, 5),
       end: String(r.store_shift.end_time).slice(0, 5),
     });

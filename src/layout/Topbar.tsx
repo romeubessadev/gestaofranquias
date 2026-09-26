@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { padTopo } from "@/lib/safeArea";
+import { upperText } from "@/lib/format";
 import { useTheme } from "@/theme/ThemeProvider";
 import { Avatar, Dropdown } from "@/components/ui";
 import { paths } from "@/router/paths";
@@ -13,17 +14,15 @@ import {
 } from "@/data/wedash/stores";
 import { StorePicker } from "@/pages/dashboard/StorePicker";
 import { useScope } from "@/pages/dashboard/useScope";
+import { TopbarRefresh } from "./TopbarRefresh";
+import { useSyncHistory } from "./useSyncHistory";
 
-const notificacoesGestor = [
-  { id: 1, titulo: "Três Lagoas fora do ritmo: projeta 86% da meta", tempo: "há 2 h" },
-  { id: 2, titulo: "3 mensagens esperando envio", tempo: "hoje, 09:00" },
-  { id: 3, titulo: "Sync leve concluído às 14:30", tempo: "há 2 min" },
-];
-
-const notificacoesVendedora = [
-  { id: 1, titulo: "Você cruzou a Meta! Próximo degrau: Super Meta", tempo: "ontem, 19:40" },
-  { id: 2, titulo: "Desafio Body Splash termina em 5 dias", tempo: "hoje, 08:00" },
-];
+/** "19:32" hoje; "24/09 19:32" em outro dia. */
+function quando(d: Date): string {
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  if (d.toDateString() === new Date().toDateString()) return hora;
+  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${hora}`;
+}
 
 export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { onOpenMobileNav: () => void; onToggleCollapse: () => void; onOpenPalette: () => void }) {
   const { theme, toggleTheme } = useTheme();
@@ -32,7 +31,15 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
   const navigate = useNavigate();
   const location = useLocation();
   const { escopo, mudar } = useScope();
-  const notificacoes = session.role === "SELLER" ? notificacoesVendedora : notificacoesGestor;
+  const historico = useSyncHistory(session.tenantId);
+  const notificacoes =
+    historico.items.length > 0
+      ? historico.items.map((n) => ({
+          label: n.text,
+          danger: !n.ok,
+          trailing: <span className="shrink-0 text-[11.5px] font-normal tabular-nums text-t2">{quando(n.at)}</span>,
+        }))
+      : [{ label: "Nenhuma notificação nova", disabled: true }];
 
   const [listaLojas, setListaLojas] = useState<Store[]>(() => {
     const hit = storesForSession(session.stores);
@@ -42,11 +49,11 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const hit = storesForSession(session.stores);
-      if (hit.length === session.stores.length && session.stores.length > 0) {
-        if (!cancelled) setListaLojas(hit);
+      if (session.stores.length === 0) {
+        if (!cancelled) setListaLojas([]);
         return;
       }
+      const hit = storesForSession(session.stores);
       const loaded = await hydrateSessionStores(session.tenantId, session.stores);
       if (cancelled) return;
       if (loaded.length > 0) setListaLojas(loaded);
@@ -97,31 +104,25 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
       )}
 
       <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
-        <button onClick={toggleTheme} aria-label="Alternar tema" className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-line text-t1 hover:bg-bg-3">
-          {theme === "dark" ? (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-            </svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="4" />
-              <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-            </svg>
-          )}
-        </button>
+        <TopbarRefresh storeIds={escopo.filialIds} />
 
         <Dropdown
           align="right"
           trigger={
-            <button className="relative flex h-9 w-9 items-center justify-center rounded-[10px] border border-line text-t1 hover:bg-bg-3" aria-label="Notificações">
+            <button
+              onClick={historico.markSeen}
+              className="relative flex h-9 w-9 items-center justify-center rounded-[10px] border border-line text-t1 hover:bg-bg-3"
+              aria-label="Notificações"
+            >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-bad" />
+              {historico.unread && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-bad" />}
             </button>
           }
-          items={notificacoes.map((n) => ({ label: `${n.titulo} · ${n.tempo}` }))}
+          items={notificacoes}
+          menuClassName="max-h-[min(60vh,340px)] overflow-y-auto"
         />
 
         <Dropdown
@@ -130,7 +131,7 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
             <button className="flex items-center gap-2 rounded-[10px] pl-0.5 pr-1 hover:bg-bg-3">
               <Avatar name={session.companyName} size="sm" />
               <span className="hidden text-left leading-tight md:block">
-                <span className="block max-w-[160px] truncate text-[12.5px] font-bold text-t0">{session.companyName}</span>
+                <span className="block max-w-[160px] truncate text-[12.5px] font-bold text-t0">{upperText(session.companyName)}</span>
                 <span className="block text-[10.5px] text-t2">{roleLabel[session.role]}{session.isOwner ? " · proprietária" : ""}</span>
               </span>
             </button>
@@ -138,6 +139,16 @@ export function Topbar({ onOpenMobileNav, onToggleCollapse, onOpenPalette }: { o
           items={[
             { label: "Meu perfil", onClick: () => navigate(paths.profile) },
             { label: "Instalar o app", onClick: () => navigate(paths.access.install) },
+            {
+              label: "Tema escuro",
+              keepOpen: true,
+              onClick: toggleTheme,
+              trailing: (
+                <span className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${theme === "dark" ? "bg-acc" : "bg-bg-3"}`}>
+                  <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${theme === "dark" ? "translate-x-[18px]" : "translate-x-0.5"}`} />
+                </span>
+              ),
+            },
             { divider: true, label: "" },
             {
               label: "Sair",

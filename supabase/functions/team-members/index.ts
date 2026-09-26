@@ -42,7 +42,8 @@ const ROLE_LABEL: Record<Role, string> = { OWNER: "Gestor", MANAGER: "Gerente" }
 /** Variáveis do template "Invite user" ({{ .Data.name }}, {{ .Data.company }}, {{ .Data.role }}). */
 async function inviteData(admin: SupabaseClient, tenantId: string, name: string, role: Role) {
   const { data: ten } = await admin.from("tenant").select("name, display_name").eq("id", tenantId).maybeSingle();
-  return { name: name.toLocaleUpperCase("pt-BR"), company: ten?.display_name ?? ten?.name ?? "WeDash", role: ROLE_LABEL[role] };
+  const company: string = ten?.display_name ?? ten?.name ?? "WeDash";
+  return { name: name.toLocaleUpperCase("pt-BR"), company: company.toLocaleUpperCase("pt-BR"), role: ROLE_LABEL[role] };
 }
 
 function authErrorCode(e: { message?: string; status?: number; code?: string } | null): string {

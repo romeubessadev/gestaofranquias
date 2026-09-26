@@ -1,6 +1,6 @@
 import { getSupabase } from "@/lib/supabase";
 import { stores as demoStores } from "@/data/wedash/stores";
-import { personName } from "@/lib/format";
+import { upperText } from "@/lib/format";
 
 /** Papéis de quem acessa o sistema (fora a equipe de vendas). */
 export type SystemRole = "OWNER" | "MANAGER";
@@ -115,14 +115,14 @@ export async function fetchSystemUsers(): Promise<{ ok: true; data: SystemUsersD
     return {
       ok: true,
       data: {
-        members: demoMembers().map((m) => ({ ...m, name: personName(m.name) })),
+        members: demoMembers().map((m) => ({ ...m, name: upperText(m.name) })),
         stores: demoStores.map((s) => ({ id: s.id, code: String(s.codFilial), name: s.fantasia })),
       },
     };
   }
   const r = await invoke<SystemUsersData>({ action: "list" });
   if (!r.ok) return r;
-  const members = (r.data.members ?? []).map((m) => ({ ...m, name: personName(m.name) }));
+  const members = (r.data.members ?? []).map((m) => ({ ...m, name: upperText(m.name) }));
   return { ok: true, data: { members, stores: r.data.stores ?? [] } };
 }
 
@@ -182,7 +182,7 @@ export async function fetchInviteInfo(): Promise<{ ok: true; info: InviteInfo } 
   const { data, error } = await sb.functions.invoke("team-members", { body: { action: "invite_info" } });
   const res = data as ({ ok?: boolean; error?: string } & InviteInfo) | null;
   if (error || !res?.ok) return { ok: false, code: res?.error ?? "not_found" };
-  return { ok: true, info: { name: personName(res.name), email: res.email, role: res.role, companyName: res.companyName } };
+  return { ok: true, info: { name: upperText(res.name), email: res.email, role: res.role, companyName: upperText(res.companyName) } };
 }
 
 export async function acceptInvite(): Promise<boolean> {

@@ -1,6 +1,6 @@
 import { getSupabase } from "@/lib/supabase";
 import { validarSenha } from "@/lib/password";
-import { personName } from "@/lib/format";
+import { upperText } from "@/lib/format";
 import { tenant } from "@/data/wedash/tenant";
 import { stores } from "@/data/wedash/stores";
 import { userByEmail, type User } from "@/data/wedash/team";
@@ -325,7 +325,7 @@ async function hydrateSessionFromAuth(authUserId: string, email: string): Promis
 
   return {
     membershipId: memb.id,
-    name: personName(ident.name),
+    name: upperText(ident.name),
     cpf: ident.cpf ?? "",
     email: ident.email,
     role: memb.role as Session["role"],

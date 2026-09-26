@@ -1,5 +1,5 @@
 import { defaultWeekHours, openHourFloor, closeHourCeil, parseWeekHours, type StoreWeekHours } from "./storeHours";
-import { personName } from "@/lib/format";
+import { upperText } from "@/lib/format";
 
 export type PointType = "SHOPPING" | "RUA";
 export type Division = "WEPINK" | "WPINK";
@@ -528,7 +528,7 @@ export async function fetchStoreSellers(tenantId: string, storeIds: string[]): P
     const list = out.get(r.store_id) ?? [];
     list.push({
       id: r.id,
-      name: personName(r.name),
+      name: upperText(r.name),
       code: r.code,
       active: r.active,
       role: r.erp_role ?? null,

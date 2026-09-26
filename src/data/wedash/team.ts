@@ -1,5 +1,5 @@
 import { cpfDeBase } from "@/lib/cpf";
-import { personName } from "@/lib/format";
+import { upperText } from "@/lib/format";
 
 export type Role = "ADMIN_GLOBAL" | "OWNER" | "MANAGER" | "SELLER";
 export type CollaboratorType = "SELLER" | "CENTRAL";
@@ -49,7 +49,7 @@ export const collaborators: Collaborator[] = ([
   { id: "c17", filialId: "f2", millenniumFuncionario: 1042, codFuncionario: "1042", nome: "Patrícia Moraes", cargo: "SELLER", dataAdmissao: "2026-05-18", tipo: "SELLER", grupoId: "t-f2-manha", emailApp: "paty.moraes@gmail.com", celular: "67992340007", dataAniversario: "1996-02-03", excluirDeRanking: false, inativoNoErp: false, motivoInatividade: null, dataInatividade: null, pesoVenda: 0.75, usaApp: true },
   { id: "c18", filialId: "f2", millenniumFuncionario: 1055, codFuncionario: "1055", nome: "Rafaela Cardoso", cargo: "SELLER", dataAdmissao: "2026-09-08", tipo: "SELLER", grupoId: "t-f2-tarde", emailApp: "rafa.cardoso@gmail.com", celular: "67992340008", dataAniversario: "2003-05-21", excluirDeRanking: false, inativoNoErp: false, motivoInatividade: null, dataInatividade: null, pesoVenda: 0.6, usaApp: true },
   { id: "c19", filialId: "f2", millenniumFuncionario: 1000, codFuncionario: "1000", nome: "CAIXA CENTRAL TL", cargo: "SELLER", dataAdmissao: "2025-06-02", tipo: "CENTRAL", grupoId: null, emailApp: null, celular: null, dataAniversario: null, excluirDeRanking: true, inativoNoErp: false, motivoInatividade: null, dataInatividade: null, pesoVenda: 0.4, usaApp: false },
-] as Collaborator[]).map((c) => ({ ...c, nome: personName(c.nome) }));
+] as Collaborator[]).map((c) => ({ ...c, nome: upperText(c.nome) }));
 
 export function collaboratorsOfStore(filialId: string): Collaborator[] {
   return collaborators.filter((c) => c.filialId === filialId);

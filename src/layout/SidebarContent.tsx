@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { padTopo } from "@/lib/areaSegura";
+import { padTopo } from "@/lib/safeArea";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/cn";
+import { upperText } from "@/lib/format";
 import { paths } from "@/router/paths";
 import { isNavGroup, type NavEntry } from "./nav-config";
-import { navDoPapel } from "./nav-gestao";
+import { navDoPapel } from "./nav-wedash";
 import { Button } from "@/components/ui";
-import { MarcaComNome } from "@/components/gestao/Marca";
-import { useSessaoAtiva } from "@/session/SessionProvider";
+import { MarcaComNome } from "@/components/wedash/TenantBrand";
+import { useActiveSession } from "@/session/SessionProvider";
 
 /** True se `path` é (ou está aninhado sob) o destino `to`. */
 function leafMatches(to: string, path: string) {
@@ -47,8 +48,8 @@ function comBusca(to: string, search: string) {
 
 export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const location = useLocation();
-  const sessao = useSessaoAtiva();
-  const entries = navDoPapel(sessao.papel);
+  const session = useActiveSession();
+  const entries = navDoPapel(session.role);
   const [openGroup, setOpenGroup] = useState<string | null>(() => owningGroupLabel(entries, location.pathname));
 
   useEffect(() => {
@@ -60,13 +61,13 @@ export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: 
     setOpenGroup((prev) => (prev === label ? null : label));
   }
 
-  const vendedoraSemApp = sessao.papel === "VENDEDOR" && !sessao.appInstalado;
+  const vendedoraSemApp = session.role === "SELLER" && !session.appInstalled;
   const busca = location.search;
 
   return (
     <div className="flex h-full flex-col">
       <div className="pad-topo flex items-center gap-2.5 px-5 pb-[18px]" style={{ minHeight: 74, ...padTopo("18px") }}>
-        <MarcaComNome size={34} nome={collapsed ? "" : undefined} />
+        <MarcaComNome size={34} nome={collapsed ? "" : upperText(session.companyName)} logoUrl={session.companyLogoUrl} />
       </div>
 
       <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3.5 pb-3.5">
@@ -118,7 +119,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: 
           <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(120% 90% at 100% 0%, var(--acc-soft), transparent 60%)" }} />
           <p className="relative mb-0.5 text-[13.5px] font-bold text-t0">Instale o app</p>
           <p className="relative mb-3 text-xs leading-snug text-t1">Sem o app instalado você não recebe o aviso quando cruzar um degrau.</p>
-          <Link to={paths.acesso.instalar} onClick={onNavigate}>
+          <Link to={paths.access.install} onClick={onNavigate}>
             <Button size="sm" fullWidth className="relative">
               Ver como instalar
             </Button>
@@ -126,7 +127,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: 
         </div>
       )}
 
-      {!collapsed && sessao.papel !== "VENDEDOR" && (
+      {!collapsed && session.role !== "SELLER" && (
         <div className="px-5 pb-4">
           <Link to={paths.dashboards.analytics} className="text-[11px] font-semibold text-t2 hover:text-t1">
             Referência do template →
