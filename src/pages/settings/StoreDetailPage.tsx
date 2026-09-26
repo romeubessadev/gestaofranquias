@@ -279,10 +279,28 @@ function StoreDetailForm({
     };
   }, [tenantId, store.id]);
 
+  const [destacarCustos, setDestacarCustos] = useState(false);
   useEffect(() => {
     if (window.location.hash !== "#custos") return;
-    const t = window.setTimeout(() => document.getElementById("custos")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
-    return () => window.clearTimeout(t);
+    // Cards acima/abaixo carregam depois (turnos, equipe) e mudam a altura: realinha até estabilizar.
+    const alinhar = () => document.getElementById("custos")?.scrollIntoView({ block: "start" });
+    const ro = new ResizeObserver(alinhar);
+    const coluna = document.getElementById("custos")?.parentElement;
+    if (coluna) ro.observe(coluna);
+    const parar = () => {
+      ro.disconnect();
+      window.clearTimeout(fim);
+      for (const ev of ["wheel", "touchstart", "keydown"] as const) window.removeEventListener(ev, parar);
+    };
+    for (const ev of ["wheel", "touchstart", "keydown"] as const) window.addEventListener(ev, parar, { passive: true });
+    const fim = window.setTimeout(parar, 2000);
+    alinhar();
+    setDestacarCustos(true);
+    const t = window.setTimeout(() => setDestacarCustos(false), 1800);
+    return () => {
+      parar();
+      window.clearTimeout(t);
+    };
   }, []);
 
   function addShift() {
@@ -570,7 +588,10 @@ function StoreDetailForm({
         </Card>
 
         {showCosts && (
-        <Card id="custos" className="scroll-mt-20">
+        <Card
+          id="custos"
+          className={cn("scroll-mt-20 transition-shadow duration-500", destacarCustos && "ring-2 ring-acc")}
+        >
           <CardHeader>
             <div>
               <CardTitle>Custos da operação</CardTitle>
