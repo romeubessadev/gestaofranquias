@@ -658,9 +658,11 @@ export default function ProductsPage() {
         {/* Desktop */}
         <div className="hidden overflow-x-auto p-4 md:block">
           {linhasTabela.length === 0 ? (
-            <EmptyBlock>
-              {view.produtos.length === 0 ? "Sem dados no período selecionado." : "Nenhum produto encontrado."}
-            </EmptyBlock>
+            view.produtos.length === 0 ? (
+              <EmptyBlock />
+            ) : (
+              <EmptyBlock icon="🔍" title="Nenhum produto encontrado" description="Tente buscar por outro nome ou código." />
+            )
           ) : (
             <table className="w-full min-w-[1000px] border-collapse text-[13px]">
               <thead>
@@ -728,9 +730,11 @@ export default function ProductsPage() {
         {/* Mobile — card por produto */}
         <div className="flex flex-col gap-2.5 p-3.5 md:hidden">
           {pageRows.length === 0 ? (
-            <EmptyBlock>
-              {view.produtos.length === 0 ? "Sem dados no período selecionado." : "Nenhum produto encontrado."}
-            </EmptyBlock>
+            view.produtos.length === 0 ? (
+              <EmptyBlock />
+            ) : (
+              <EmptyBlock icon="🔍" title="Nenhum produto encontrado" description="Tente buscar por outro nome ou código." />
+            )
           ) : (
             pageRows.map((p) => (
               <div key={p.codigo || p.nome} className="rounded-xl border border-line bg-bg-inset p-3.5">
