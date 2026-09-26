@@ -24,7 +24,7 @@ Select.displayName = "Select";
 export function Checkbox({ label, className, ...props }: InputHTMLAttributes<HTMLInputElement> & { label?: ReactNode }) {
   return (
     <label className={cn("inline-flex items-center gap-2 text-[13px] text-t0", className)}>
-      <input type="checkbox" style={{ accentColor: "var(--acc)" }} className="h-4 w-4 rounded" {...props} />
+      <input type="checkbox" style={{ accentColor: "var(--acc)" }} className="h-4 w-4 shrink-0 rounded" {...props} />
       {label}
     </label>
   );

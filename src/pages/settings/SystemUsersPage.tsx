@@ -396,16 +396,36 @@ function UserModal({
           <Segmented options={ROLE_OPTIONS} value={role} onChange={(v) => v && setRole(v)} />
         </FormField>
         <FormField label="Lojas" error={!allStores && picked.size === 0 ? "Escolha ao menos uma loja." : undefined}>
-          <div className="flex flex-col gap-2.5 rounded-[var(--radius-vela-md)] border border-line p-3">
+          <div className="overflow-hidden rounded-[var(--radius-vela-md)] border border-line">
             <Checkbox
-              label={<span className="font-semibold">Todas as lojas (inclusive as que abrirem depois)</span>}
+              className="flex w-full cursor-pointer px-3.5 py-3"
+              label={
+                <span className="min-w-0">
+                  <span className="block font-semibold">Todas as lojas</span>
+                  <span className="block text-[11.5px] text-t2">Inclusive as que abrirem depois</span>
+                </span>
+              }
               checked={allStores}
               onChange={(e) => setAllStores(e.target.checked)}
             />
             {!allStores && (
-              <div className="grid grid-cols-1 gap-2 border-t border-line pt-2.5 sm:grid-cols-2">
+              <div className="max-h-[240px] divide-y divide-line overflow-y-auto border-t border-line">
+                {stores.length === 0 && <p className="px-3.5 py-3 text-[12.5px] text-t2">Nenhuma loja cadastrada.</p>}
                 {stores.map((s) => (
-                  <Checkbox key={s.id} label={s.name} checked={picked.has(s.id)} onChange={() => toggle(s.id)} />
+                  <Checkbox
+                    key={s.id}
+                    className="flex w-full cursor-pointer px-3.5 py-2.5 hover:bg-bg-3"
+                    label={
+                      <span className="flex min-w-0 flex-1 items-center gap-2">
+                        <span className="min-w-0 flex-1 truncate" title={s.name}>
+                          {s.name}
+                        </span>
+                        {s.code && <span className="shrink-0 text-[11.5px] text-t2">Filial {s.code}</span>}
+                      </span>
+                    }
+                    checked={picked.has(s.id)}
+                    onChange={() => toggle(s.id)}
+                  />
                 ))}
               </div>
             )}
