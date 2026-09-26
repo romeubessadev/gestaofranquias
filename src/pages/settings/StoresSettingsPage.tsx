@@ -94,8 +94,12 @@ export function StoresSettingsPage() {
               </Badge>
             </div>
             <div className="flex min-h-8 items-center justify-between gap-3">
-              {equipe.length > 0 && <AvatarGroup names={equipe.map((v) => v.name)} max={4} />}
-              <span className="ml-auto shrink-0 text-xs font-semibold text-t2">{equipe.length} na equipe</span>
+              {equipe.length > 0 ? (
+                <AvatarGroup names={equipe.map((v) => v.name)} max={4} />
+              ) : (
+                <span className="text-xs text-t2">Ninguém ativo na equipe</span>
+              )}
+              <span className="shrink-0 text-xs font-semibold text-t2">{equipe.length} na equipe</span>
             </div>
           </Card>
         );
