@@ -286,6 +286,7 @@ export default function FinancePage() {
       />
 
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
+      {!loading && <ProductsWithoutCostNotice produtos={view.produtosSemCusto} />}
 
       {loading ? (
         <FinanceSkeleton />
@@ -335,8 +336,6 @@ export default function FinancePage() {
           })}
         </div>
       )}
-
-      <ProductsWithoutCostNotice produtos={view.produtosSemCusto} />
 
       {/* Par: CMV/Lucro + Resultado operacional */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">

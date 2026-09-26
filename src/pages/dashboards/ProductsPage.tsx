@@ -388,6 +388,7 @@ export default function ProductsPage() {
       />
 
       <MonthFillNotice fill={monthFill} inicio={periodoAtual.inicio} fim={periodoAtual.fim} />
+      {!loading && <ProductsWithoutCostNotice produtos={view.produtosSemCusto} />}
 
       {loading ? (
         <ProductsSkeleton />
@@ -399,8 +400,6 @@ export default function ProductsPage() {
           <KpiCard key={kpi.label} kpi={kpi} Icon={KPI_ICONS[i] ?? IconFat} colorIdx={i} />
         ))}
       </div>
-
-      <ProductsWithoutCostNotice produtos={view.produtosSemCusto} />
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card padding="lg" className="flex flex-col">
